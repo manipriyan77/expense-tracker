@@ -39,6 +39,8 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
+import { formSchema, FormSchema } from "./formSchema";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 interface Transaction {
   id: string;
@@ -62,7 +64,10 @@ export default function Dashboard() {
     type: "expense" as "income" | "expense",
   });
 
-  const { register } = useForm<>({ mode: "all" });
+  const { register } = useForm<FormSchema>({
+    mode: "all",
+    resolver: zodResolver(formSchema),
+  });
 
   const checkAuth = useCallback(async () => {
     try {
