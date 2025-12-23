@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
@@ -12,35 +13,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Plus,
   DollarSign,
   TrendingUp,
   TrendingDown,
   Calendar,
   LogOut,
   User as UserIcon,
+  Target,
+  Wallet,
+  BarChart3,
+  ArrowRight,
 } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { formSchema, FormSchema } from "./formSchema";
-import { zodResolver } from "@hookform/resolvers/zod";
 
 interface Transaction {
   id: string;
@@ -56,18 +40,6 @@ export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    amount: "",
-    description: "",
-    category: "",
-    type: "expense" as "income" | "expense",
-  });
-
-  const { register } = useForm<FormSchema>({
-    mode: "all",
-    resolver: zodResolver(formSchema),
-  });
 
   const checkAuth = useCallback(async () => {
     try {
@@ -145,28 +117,6 @@ export default function Dashboard() {
     router.push("/sign-in");
   };
 
-  const handleAddTransaction = async () => {
-    if (!formData.amount || !formData.description || !formData.category) return;
-
-    const newTransaction: Transaction = {
-      id: Date.now().toString(),
-      amount: parseFloat(formData.amount),
-      description: formData.description,
-      category: formData.category,
-      date: new Date().toISOString().split("T")[0],
-      type: formData.type,
-    };
-    await supabase().from("expenses").insert({
-      title: "Lunch",
-      amount: 250,
-      category: "Food",
-      user_id: user.id,
-    });
-    setTransactions([newTransaction, ...transactions]);
-    setFormData({ amount: "", description: "", category: "", type: "expense" });
-    setIsAddDialogOpen(false);
-  };
-
   const totalExpenses = transactions
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
@@ -223,7 +173,17 @@ export default function Dashboard() {
       </header>
 
       <main className="px-4 sm:px-6 lg:px-8 py-8">
-        {/* Summary Cards */}
+        {/* Welcome Section */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900">
+            Welcome back, {user?.user_metadata?.user_name || "User"}!
+          </h2>
+          <p className="text-gray-600 mt-2">
+            Here's an overview of your financial activity
+          </p>
+        </div>
+
+        {/* Financial Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -238,147 +198,111 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Income
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                ${totalIncome.toFixed(2)}
-              </div>
-              <p className="text-xs text-muted-foreground">This month</p>
-            </CardContent>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+            <Link href="/transactions">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Income
+                </CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  ${totalIncome.toFixed(2)}
+                </div>
+                <p className="text-xs text-muted-foreground flex items-center">
+                  This month
+                  <ArrowRight className="h-3 w-3 ml-1" />
+                </p>
+              </CardContent>
+            </Link>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Expenses
-              </CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                ${totalExpenses.toFixed(2)}
-              </div>
-              <p className="text-xs text-muted-foreground">This month</p>
-            </CardContent>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+            <Link href="/transactions">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Expenses
+                </CardTitle>
+                <TrendingDown className="h-4 w-4 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  ${totalExpenses.toFixed(2)}
+                </div>
+                <p className="text-xs text-muted-foreground flex items-center">
+                  This month
+                  <ArrowRight className="h-3 w-3 ml-1" />
+                </p>
+              </CardContent>
+            </Link>
           </Card>
         </div>
 
-        {/* Quick Add Transaction */}
-        <form className="mb-8">
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="w-full md:w-auto">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Transaction
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Transaction</DialogTitle>
-                <DialogDescription>
-                  Enter the details of your transaction below.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="type">Type</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value: "income" | "expense") =>
-                      setFormData({ ...formData, type: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="income">Income</SelectItem>
-                      <SelectItem value="expense">Expense</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        {/* Quick Access Section */}
+        <div className="mb-8">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">
+            Quick Access
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Link href="/goals">
+              <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardContent className="flex items-center space-x-4 p-6">
+                  <div className="p-3 rounded-full bg-blue-100">
+                    <Target className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">Goals</h4>
+                    <p className="text-sm text-gray-500">Track your financial goals</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Amount</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={formData.amount}
-                    onChange={(e) =>
-                      setFormData({ ...formData, amount: e.target.value })
-                    }
-                  />
-                </div>
+            <Link href="/mutual-funds">
+              <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardContent className="flex items-center space-x-4 p-6">
+                  <div className="p-3 rounded-full bg-purple-100">
+                    <Wallet className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">Mutual Funds</h4>
+                    <p className="text-sm text-gray-500">Manage your investments</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Input
-                    id="description"
-                    placeholder="What was this for?"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                  />
-                </div>
+            <Link href="/stocks">
+              <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardContent className="flex items-center space-x-4 p-6">
+                  <div className="p-3 rounded-full bg-orange-100">
+                    <BarChart3 className="h-6 w-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">Stocks</h4>
+                    <p className="text-sm text-gray-500">Monitor your portfolio</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, category: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Food">Food</SelectItem>
-                      <SelectItem value="Transportation">
-                        Transportation
-                      </SelectItem>
-                      <SelectItem value="Entertainment">
-                        Entertainment
-                      </SelectItem>
-                      <SelectItem value="Bills">Bills</SelectItem>
-                      <SelectItem value="Shopping">Shopping</SelectItem>
-                      <SelectItem value="Income">Income</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button onClick={handleAddTransaction} className="w-full">
-                  Add Transaction
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </form>
-
-        {/* Recent Transactions */}
+        {/* Recent Activity */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Transactions</CardTitle>
-            <CardDescription>Your latest financial activity</CardDescription>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>Your latest transactions across all accounts</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {transactions.length === 0 ? (
                 <p className="text-center text-gray-500 py-8">
-                  No transactions yet. Add your first transaction above!
+                  No recent activity. Start by adding incomes or expenses!
                 </p>
               ) : (
-                transactions.map((transaction) => (
+                transactions.slice(0, 5).map((transaction) => (
                   <div
                     key={transaction.id}
                     className="flex items-center justify-between p-4 border rounded-lg"

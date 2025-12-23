@@ -9,9 +9,15 @@ import {
   ChevronRight,
   Home,
   Target,
-  TrendingUp,
   BarChart3,
+  Wallet,
   Menu,
+  PieChart,
+  CreditCard,
+  Bell,
+  FileText,
+  Settings,
+  ArrowLeftRight,
 } from "lucide-react";
 import { Button } from "./button";
 
@@ -28,6 +34,26 @@ const sidebarItems: SidebarItem[] = [
     icon: Home,
   },
   {
+    title: "Transactions",
+    href: "/transactions",
+    icon: ArrowLeftRight,
+  },
+  {
+    title: "Analytics",
+    href: "/analytics",
+    icon: PieChart,
+  },
+  {
+    title: "Budgets",
+    href: "/budgets",
+    icon: CreditCard,
+  },
+  {
+    title: "Reminders",
+    href: "/reminders",
+    icon: Bell,
+  },
+  {
     title: "Goals",
     href: "/goals",
     icon: Target,
@@ -35,12 +61,22 @@ const sidebarItems: SidebarItem[] = [
   {
     title: "Mutual Funds",
     href: "/mutual-funds",
-    icon: TrendingUp,
+    icon: Wallet,
   },
   {
     title: "Stocks",
     href: "/stocks",
     icon: BarChart3,
+  },
+  {
+    title: "Reports",
+    href: "/reports",
+    icon: FileText,
+  },
+  {
+    title: "Settings",
+    href: "/settings",
+    icon: Settings,
   },
 ];
 
