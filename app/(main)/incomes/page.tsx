@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -45,9 +42,6 @@ interface Income {
 }
 
 export default function IncomesPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -56,34 +50,9 @@ export default function IncomesPage() {
     category: "",
   });
 
-  const checkAuth = useCallback(async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase().auth.getSession();
-      if (!session) {
-        router.push("/sign-in");
-        return;
-      }
-
-      const { data: userData } = await supabase().auth.getUser();
-      if (userData.user) {
-        setUser(userData.user);
-      } else {
-        setUser(session.user);
-      }
-    } catch (error) {
-      console.error("Auth check error:", error);
-      router.push("/sign-in");
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
-
   useEffect(() => {
-    checkAuth();
     loadIncomes();
-  }, [checkAuth]);
+  }, []);
 
   const loadIncomes = async () => {
     // Mock data - will be replaced with actual Supabase query
@@ -106,7 +75,7 @@ export default function IncomesPage() {
     setIncomes(mockIncomes);
   };
 
-  const handleAddIncome = async () => {
+  const handleAddIncome = () => {
     if (!formData.amount || !formData.description || !formData.category) return;
 
     const newIncome: Income = {
@@ -117,7 +86,6 @@ export default function IncomesPage() {
       date: new Date().toISOString().split("T")[0],
     };
 
-    // TODO: Save to Supabase
     setIncomes([newIncome, ...incomes]);
     setFormData({ amount: "", description: "", category: "" });
     setIsAddDialogOpen(false);
@@ -125,14 +93,6 @@ export default function IncomesPage() {
 
   const totalIncome = incomes.reduce((sum, income) => sum + income.amount, 0);
   const monthlyAverage = incomes.length > 0 ? totalIncome / incomes.length : 0;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">

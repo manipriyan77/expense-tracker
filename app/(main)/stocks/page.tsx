@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -45,9 +42,6 @@ interface Stock {
 }
 
 export default function StocksPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -60,26 +54,7 @@ export default function StocksPage() {
     sector: "",
   });
 
-  const checkAuth = async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase().auth.getSession();
-      if (!session) {
-        router.push("/sign-in");
-        return;
-      }
-      setUser(session.user);
-    } catch (error) {
-      console.error("Auth check error:", error);
-      router.push("/sign-in");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    checkAuth();
     loadStocks();
   }, []);
 
@@ -184,14 +159,6 @@ export default function StocksPage() {
   const totalCurrentValue = stocks.reduce((sum, stock) => sum + stock.currentValue, 0);
   const totalGainLoss = totalCurrentValue - totalInvested;
   const totalGainLossPercentage = totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">

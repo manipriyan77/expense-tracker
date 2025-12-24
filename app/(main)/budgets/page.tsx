@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -49,9 +46,6 @@ interface Budget {
 }
 
 export default function BudgetsPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -60,34 +54,9 @@ export default function BudgetsPage() {
     period: "monthly" as "monthly" | "weekly" | "yearly",
   });
 
-  const checkAuth = useCallback(async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase().auth.getSession();
-      if (!session) {
-        router.push("/sign-in");
-        return;
-      }
-
-      const { data: userData } = await supabase().auth.getUser();
-      if (userData.user) {
-        setUser(userData.user);
-      } else {
-        setUser(session.user);
-      }
-    } catch (error) {
-      console.error("Auth check error:", error);
-      router.push("/sign-in");
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
-
   useEffect(() => {
-    checkAuth();
     loadBudgets();
-  }, [checkAuth]);
+  }, []);
 
   const loadBudgets = async () => {
     // Mock data
@@ -136,7 +105,7 @@ export default function BudgetsPage() {
     setBudgets(mockBudgets);
   };
 
-  const handleAddBudget = async () => {
+  const handleAddBudget = () => {
     if (!formData.category || !formData.limit) return;
 
     const newBudget: Budget = {
@@ -171,14 +140,6 @@ export default function BudgetsPage() {
   const totalBudget = budgets.reduce((sum, b) => sum + b.limit, 0);
   const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0);
   const overallPercentage = (totalSpent / totalBudget) * 100 || 0;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">

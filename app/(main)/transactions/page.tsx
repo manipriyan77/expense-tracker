@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -56,9 +53,6 @@ interface Transaction {
 }
 
 export default function TransactionsPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -71,34 +65,9 @@ export default function TransactionsPage() {
     frequency: "monthly" as "daily" | "weekly" | "monthly" | "yearly",
   });
 
-  const checkAuth = useCallback(async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase().auth.getSession();
-      if (!session) {
-        router.push("/sign-in");
-        return;
-      }
-
-      const { data: userData } = await supabase().auth.getUser();
-      if (userData.user) {
-        setUser(userData.user);
-      } else {
-        setUser(session.user);
-      }
-    } catch (error) {
-      console.error("Auth check error:", error);
-      router.push("/sign-in");
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
-
   useEffect(() => {
-    checkAuth();
     loadTransactions();
-  }, [checkAuth]);
+  }, []);
 
   const loadTransactions = async () => {
     // Mock data combining income, expense, and recurring
@@ -176,7 +145,7 @@ export default function TransactionsPage() {
     setTransactions(mockTransactions);
   };
 
-  const handleAddTransaction = async () => {
+  const handleAddTransaction = () => {
     if (!formData.amount || !formData.description || !formData.category) return;
 
     const newTransaction: Transaction = {
@@ -227,14 +196,6 @@ export default function TransactionsPage() {
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
   const balance = totalIncome - totalExpenses;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">

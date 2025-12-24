@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -43,9 +40,6 @@ interface Goal {
 }
 
 export default function GoalsPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -56,26 +50,7 @@ export default function GoalsPage() {
     category: "",
   });
 
-  const checkAuth = async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase().auth.getSession();
-      if (!session) {
-        router.push("/sign-in");
-        return;
-      }
-      setUser(session.user);
-    } catch (error) {
-      console.error("Auth check error:", error);
-      router.push("/sign-in");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    checkAuth();
     loadGoals();
   }, []);
 
@@ -142,14 +117,6 @@ export default function GoalsPage() {
   const activeGoals = goals.filter((goal) => goal.status === "active").length;
   const totalTargetAmount = goals.reduce((sum, goal) => sum + goal.targetAmount, 0);
   const totalCurrentAmount = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">

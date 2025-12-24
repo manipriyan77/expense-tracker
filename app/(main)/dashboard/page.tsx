@@ -1,10 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,7 +15,6 @@ import {
   TrendingUp,
   TrendingDown,
   Calendar,
-  LogOut,
   User as UserIcon,
   Target,
   Wallet,
@@ -36,45 +32,14 @@ interface Transaction {
 }
 
 export default function Dashboard() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  const checkAuth = useCallback(async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase().auth.getSession();
-      if (!session) {
-        router.push("/sign-in");
-        return;
-      }
-
-      const { data: userData } = await supabase().auth.getUser();
-      console.log("User data from getUser():", userData);
-
-      if (userData.user) {
-        setUser(userData.user);
-      } else {
-        // Fallback to session user if getUser fails
-        setUser(session.user);
-      }
-    } catch (error) {
-      console.error("Auth check error:", error);
-      router.push("/sign-in");
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
-
   useEffect(() => {
-    checkAuth();
     loadTransactions();
-  }, [checkAuth]);
+  }, []);
 
-  const loadTransactions = async () => {
-    // For now, using mock data. In a real app, this would fetch from Supabase
+  const loadTransactions = () => {
+    // Mock data for UI display
     const mockTransactions: Transaction[] = [
       {
         id: "1",
@@ -112,11 +77,6 @@ export default function Dashboard() {
     setTransactions(mockTransactions);
   };
 
-  const handleSignOut = async () => {
-    await supabase().auth.signOut();
-    router.push("/sign-in");
-  };
-
   const totalExpenses = transactions
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
@@ -126,14 +86,6 @@ export default function Dashboard() {
     .reduce((sum, t) => sum + t.amount, 0);
 
   const balance = totalIncome - totalExpenses;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -148,25 +100,10 @@ export default function Dashboard() {
               <div className="flex items-center space-x-2">
                 <UserIcon className="h-5 w-5 text-gray-500" />
                 <div className="text-sm text-gray-700">
-                  <div>Welcome, {user?.user_metadata?.user_name || "User"}</div>
-                  <div className="text-xs text-gray-500">{user?.email}</div>
-                  {/* Debug: Show user data structure */}
-                  {process.env.NODE_ENV === "development" && (
-                    <details className="mt-1">
-                      <summary className="cursor-pointer text-xs">
-                        Debug User Data
-                      </summary>
-                      <pre className="text-xs bg-gray-100 p-2 mt-1 rounded max-w-md overflow-auto">
-                        {JSON.stringify(user, null, 2)}
-                      </pre>
-                    </details>
-                  )}
+                  <div>Welcome, User</div>
+                  <div className="text-xs text-gray-500">user@example.com</div>
                 </div>
               </div>
-              <Button onClick={handleSignOut} variant="outline" size="sm">
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
             </div>
           </div>
         </div>
@@ -176,7 +113,7 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900">
-            Welcome back, {user?.user_metadata?.user_name || "User"}!
+            Welcome back, User!
           </h2>
           <p className="text-gray-600 mt-2">
             Here's an overview of your financial activity

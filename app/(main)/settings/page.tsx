@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -35,48 +32,9 @@ import {
 } from "lucide-react";
 
 export default function SettingsPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [baseCurrency, setBaseCurrency] = useState("USD");
-
-  const checkAuth = useCallback(async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase().auth.getSession();
-      if (!session) {
-        router.push("/sign-in");
-        return;
-      }
-
-      const { data: userData } = await supabase().auth.getUser();
-      if (userData.user) {
-        setUser(userData.user);
-      } else {
-        setUser(session.user);
-      }
-    } catch (error) {
-      console.error("Auth check error:", error);
-      router.push("/sign-in");
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
-
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -114,7 +72,7 @@ export default function SettingsPage() {
                   <Input
                     id="name"
                     placeholder="Your name"
-                    defaultValue={user?.user_metadata?.user_name || ""}
+                    defaultValue="User"
                   />
                 </div>
                 <div className="space-y-2">
@@ -123,7 +81,7 @@ export default function SettingsPage() {
                     id="email"
                     type="email"
                     placeholder="your@email.com"
-                    defaultValue={user?.email || ""}
+                    defaultValue="user@example.com"
                     disabled
                   />
                 </div>

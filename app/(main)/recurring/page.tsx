@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -54,9 +51,6 @@ interface RecurringTransaction {
 }
 
 export default function RecurringPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<RecurringTransaction[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -67,34 +61,9 @@ export default function RecurringPage() {
     frequency: "monthly" as "daily" | "weekly" | "monthly" | "yearly",
   });
 
-  const checkAuth = useCallback(async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase().auth.getSession();
-      if (!session) {
-        router.push("/sign-in");
-        return;
-      }
-
-      const { data: userData } = await supabase().auth.getUser();
-      if (userData.user) {
-        setUser(userData.user);
-      } else {
-        setUser(session.user);
-      }
-    } catch (error) {
-      console.error("Auth check error:", error);
-      router.push("/sign-in");
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
-
   useEffect(() => {
-    checkAuth();
     loadRecurringTransactions();
-  }, [checkAuth]);
+  }, []);
 
   const loadRecurringTransactions = async () => {
     const mockTransactions: RecurringTransaction[] = [
@@ -142,7 +111,7 @@ export default function RecurringPage() {
     setTransactions(mockTransactions);
   };
 
-  const handleAddTransaction = async () => {
+  const handleAddTransaction = () => {
     if (!formData.amount || !formData.description || !formData.category) return;
 
     const newTransaction: RecurringTransaction = {
@@ -182,14 +151,6 @@ export default function RecurringPage() {
   const totalMonthlyExpenses = activeTransactions
     .filter((t) => t.type === "expense" && t.frequency === "monthly")
     .reduce((sum, t) => sum + t.amount, 0);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
