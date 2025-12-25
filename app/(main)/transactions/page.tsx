@@ -42,7 +42,6 @@ import {
   Filter,
   Search,
 } from "lucide-react";
-import { addTransaction, getAllTransactions } from "./actions";
 
 interface Transaction {
   id: string;
@@ -104,94 +103,66 @@ export default function TransactionsPage() {
   }, []);
 
   const loadTransactions = async () => {
-    // Mock data combining income, expense, and recurring
-    const data = await getAllTransactions();
-    console.log("data", data);
-    const mockTransactions: Transaction[] = [
-      {
-        id: "1",
-        type: "income",
-        amount: 3000,
-        description: "Monthly Salary",
-        category: "Salary",
-        date: "2024-12-20",
-        isRecurring: true,
-        frequency: "monthly",
-        nextDate: "2025-01-20",
-      },
-      {
-        id: "2",
-        type: "expense",
-        amount: 1200,
-        description: "Rent Payment",
-        category: "Bills",
-        date: "2024-12-01",
-        isRecurring: true,
-        frequency: "monthly",
-        nextDate: "2025-01-01",
-      },
-      {
-        id: "3",
-        type: "expense",
-        amount: 50,
-        description: "Groceries",
-        category: "Food",
-        date: "2024-12-23",
-        isRecurring: false,
-      },
-      {
-        id: "4",
-        type: "income",
-        amount: 500,
-        description: "Freelance Project",
-        category: "Freelance",
-        date: "2024-12-15",
-        isRecurring: false,
-      },
-      {
-        id: "5",
-        type: "expense",
-        amount: 15,
-        description: "Netflix Subscription",
-        category: "Entertainment",
-        date: "2024-12-15",
-        isRecurring: true,
-        frequency: "monthly",
-        nextDate: "2025-01-15",
-      },
-      {
-        id: "6",
-        type: "expense",
-        amount: 25,
-        description: "Coffee",
-        category: "Food",
-        date: "2024-12-22",
-        isRecurring: false,
-      },
-      {
-        id: "7",
-        type: "expense",
-        amount: 80,
-        description: "Gas",
-        category: "Transportation",
-        date: "2024-12-21",
-        isRecurring: false,
-      },
-    ];
-    setTransactions(mockTransactions);
+    try {
+      const response = await fetch("/api/transactions");
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch transactions");
+      }
+
+      const data = await response.json();
+
+      // Transform the data to match the Transaction interface
+      const transformedTransactions: Transaction[] = data.transactions.map((t: any) => ({
+        id: t.id,
+        type: t.type,
+        amount: t.amount,
+        description: t.description,
+        category: t.category || "",
+        date: t.date,
+        isRecurring: t.is_recurring || false,
+        frequency: t.frequency,
+        nextDate: t.next_date,
+      }));
+
+      setTransactions(transformedTransactions);
+    } catch (error) {
+      console.error("Error loading transactions:", error);
+      setTransactions([]);
+    }
   };
 
   const onSubmit = async (data: TransactionFormData) => {
-    const formData = new FormData();
+    try {
+      const response = await fetch("/api/transactions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: data.amount,
+          type: data.type,
+          description: data.description,
+          category: data.category,
+          isRecurring: data.isRecurring,
+          frequency: data.frequency,
+        }),
+      });
 
-    formData.append("amount", data.amount);
-    formData.append("type", data.type);
-    formData.append("description", data.description);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to add transaction");
+      }
 
-    await addTransaction(formData);
+      // Reload transactions after successful addition
+      await loadTransactions();
 
-    reset();
-    setIsAddDialogOpen(false);
+      reset();
+      setIsAddDialogOpen(false);
+    } catch (error) {
+      console.error("Error adding transaction:", error);
+      alert("Failed to add transaction. Please try again.");
+    }
   };
 
   // Filter transactions
