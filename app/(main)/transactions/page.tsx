@@ -42,6 +42,7 @@ import {
   Filter,
   Search,
 } from "lucide-react";
+import { addTransaction, getAllTransactions } from "./actions";
 
 interface Transaction {
   id: string;
@@ -57,10 +58,13 @@ interface Transaction {
 
 const transactionFormSchema = z.object({
   type: z.enum(["income", "expense"]),
-  amount: z.string().min(1, "Amount is required").refine(
-    (val) => !isNaN(Number(val)) && Number(val) > 0,
-    "Amount must be a positive number"
-  ),
+  amount: z
+    .string()
+    .min(1, "Amount is required")
+    .refine(
+      (val) => !isNaN(Number(val)) && Number(val) > 0,
+      "Amount must be a positive number"
+    ),
   description: z.string().min(1, "Description is required"),
   category: z.string().min(1, "Category is required"),
   isRecurring: z.boolean(),
@@ -101,6 +105,8 @@ export default function TransactionsPage() {
 
   const loadTransactions = async () => {
     // Mock data combining income, expense, and recurring
+    const data = await getAllTransactions();
+    console.log("data", data);
     const mockTransactions: Transaction[] = [
       {
         id: "1",
@@ -175,24 +181,15 @@ export default function TransactionsPage() {
     setTransactions(mockTransactions);
   };
 
-  const onSubmit = (data: TransactionFormData) => {
-    const newTransaction: Transaction = {
-      id: Date.now().toString(),
-      type: data.type,
-      amount: parseFloat(data.amount),
-      description: data.description,
-      category: data.category,
-      date: new Date().toISOString().split("T")[0],
-      isRecurring: data.isRecurring,
-      frequency: data.isRecurring ? data.frequency : undefined,
-      nextDate: data.isRecurring
-        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-            .toISOString()
-            .split("T")[0]
-        : undefined,
-    };
+  const onSubmit = async (data: TransactionFormData) => {
+    const formData = new FormData();
 
-    setTransactions([newTransaction, ...transactions]);
+    formData.append("amount", data.amount);
+    formData.append("type", data.type);
+    formData.append("description", data.description);
+
+    await addTransaction(formData);
+
     reset();
     setIsAddDialogOpen(false);
   };
@@ -341,7 +338,9 @@ export default function TransactionsPage() {
                     )}
                   />
                   {errors.type && (
-                    <p className="text-sm text-red-600">{errors.type.message}</p>
+                    <p className="text-sm text-red-600">
+                      {errors.type.message}
+                    </p>
                   )}
                 </div>
 
@@ -362,7 +361,9 @@ export default function TransactionsPage() {
                     )}
                   />
                   {errors.amount && (
-                    <p className="text-sm text-red-600">{errors.amount.message}</p>
+                    <p className="text-sm text-red-600">
+                      {errors.amount.message}
+                    </p>
                   )}
                 </div>
 
@@ -405,8 +406,12 @@ export default function TransactionsPage() {
                           {transactionType === "income" ? (
                             <>
                               <SelectItem value="Salary">Salary</SelectItem>
-                              <SelectItem value="Freelance">Freelance</SelectItem>
-                              <SelectItem value="Investment">Investment</SelectItem>
+                              <SelectItem value="Freelance">
+                                Freelance
+                              </SelectItem>
+                              <SelectItem value="Investment">
+                                Investment
+                              </SelectItem>
                               <SelectItem value="Business">Business</SelectItem>
                               <SelectItem value="Other">Other</SelectItem>
                             </>
@@ -421,7 +426,9 @@ export default function TransactionsPage() {
                               </SelectItem>
                               <SelectItem value="Bills">Bills</SelectItem>
                               <SelectItem value="Shopping">Shopping</SelectItem>
-                              <SelectItem value="Healthcare">Healthcare</SelectItem>
+                              <SelectItem value="Healthcare">
+                                Healthcare
+                              </SelectItem>
                               <SelectItem value="Other">Other</SelectItem>
                             </>
                           )}
