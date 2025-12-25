@@ -28,7 +28,7 @@ export async function addTransaction(formData: FormData) {
 }
 
 export async function getAllTransactions() {
-  const supabase = await createSupabaseBrowserClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -38,7 +38,9 @@ export async function getAllTransactions() {
   }
   const { data: transactions, error } = await supabase
     .from("transactions")
-    .select("*");
+    .select("*")
+    .eq("user_id", user.id)
+    .order("date", { ascending: false });
 
   if (error) {
     throw new Error(error.message);
