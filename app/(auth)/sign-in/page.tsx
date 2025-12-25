@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Card,
   CardContent,
@@ -13,18 +15,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogIn } from "lucide-react";
+import { login } from "../actions";
+import { SignInFormSchemaTypes, singInFormSchema } from "./signInFormSchema";
 
 export default function SignInPage() {
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
+  const {
+    handleSubmit,
+    register,
+    formState: { errors },
+  } = useForm<SignInFormSchemaTypes>({
+    resolver: zodResolver(singInFormSchema),
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // No functionality - UI only
-    console.log("Sign in form submitted (UI only)");
-  };
+  async function loginFormHandler(data: SignInFormSchemaTypes) {
+    await login(data);
+  }
 
   return (
     <div className="w-full max-w-md px-4">
@@ -41,18 +46,14 @@ export default function SignInPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSubmit(loginFormHandler)}>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="you@example.com"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                required
+                {...register("email")}
               />
             </div>
 
@@ -62,11 +63,7 @@ export default function SignInPage() {
                 id="password"
                 type="password"
                 placeholder="••••••••"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
-                required
+                {...register("password")}
               />
             </div>
 
@@ -99,7 +96,7 @@ export default function SignInPage() {
           </form>
 
           <div className="mt-4 text-center text-sm">
-            <span className="text-gray-600">Don't have an account? </span>
+            <span className="text-gray-600">Don&apos;t have an account? </span>
             <Link
               href="/sign-up"
               className="text-blue-600 hover:text-blue-700 font-medium"

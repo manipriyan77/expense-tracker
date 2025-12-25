@@ -182,11 +182,15 @@ export default function TransactionsPage() {
   );
 
   const allTransactions = filteredTransactions;
-  const incomeTransactions = filteredTransactions.filter((t) => t.type === "income");
+  const incomeTransactions = filteredTransactions.filter(
+    (t) => t.type === "income"
+  );
   const expenseTransactions = filteredTransactions.filter(
     (t) => t.type === "expense"
   );
-  const recurringTransactions = filteredTransactions.filter((t) => t.isRecurring);
+  const recurringTransactions = filteredTransactions.filter(
+    (t) => t.isRecurring
+  );
 
   // Calculations
   const totalIncome = transactions
@@ -212,7 +216,9 @@ export default function TransactionsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Balance
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -223,7 +229,9 @@ export default function TransactionsPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Income</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Income
+              </CardTitle>
               <TrendingUp className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
@@ -236,7 +244,9 @@ export default function TransactionsPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Expenses
+              </CardTitle>
               <TrendingDown className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
@@ -277,7 +287,7 @@ export default function TransactionsPage() {
                   Create a one-time or recurring transaction
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
+              <form className="space-y-4">
                 {/* Transaction Type */}
                 <div className="space-y-2">
                   <Label htmlFor="type">Transaction Type</Label>
@@ -415,7 +425,8 @@ export default function TransactionsPage() {
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-gray-600 mt-2">
-                      This transaction will automatically repeat {formData.frequency}
+                      This transaction will automatically repeat{" "}
+                      {formData.frequency}
                     </p>
                   </div>
                 )}
@@ -425,7 +436,7 @@ export default function TransactionsPage() {
                     ? "Create Recurring Transaction"
                     : "Add Transaction"}
                 </Button>
-              </div>
+              </form>
             </DialogContent>
           </Dialog>
         </div>
@@ -433,7 +444,9 @@ export default function TransactionsPage() {
         {/* Transactions Tabs */}
         <Tabs defaultValue="all" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="all">All ({allTransactions.length})</TabsTrigger>
+            <TabsTrigger value="all">
+              All ({allTransactions.length})
+            </TabsTrigger>
             <TabsTrigger value="income">
               Income ({incomeTransactions.length})
             </TabsTrigger>
@@ -497,16 +510,22 @@ export default function TransactionsPage() {
                             <div className="flex items-center space-x-1 text-xs text-gray-500">
                               <Calendar className="h-3 w-3" />
                               <span>
-                                {new Date(transaction.date).toLocaleDateString()}
+                                {new Date(
+                                  transaction.date
+                                ).toLocaleDateString()}
                               </span>
                             </div>
-                            {transaction.isRecurring && transaction.nextDate && (
-                              <div className="flex items-center space-x-1 text-xs text-blue-600">
-                                <span>
-                                  Next: {new Date(transaction.nextDate).toLocaleDateString()}
-                                </span>
-                              </div>
-                            )}
+                            {transaction.isRecurring &&
+                              transaction.nextDate && (
+                                <div className="flex items-center space-x-1 text-xs text-blue-600">
+                                  <span>
+                                    Next:{" "}
+                                    {new Date(
+                                      transaction.nextDate
+                                    ).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              )}
                           </div>
                         </div>
                       </div>
@@ -674,7 +693,10 @@ export default function TransactionsPage() {
                             <div className="flex items-center space-x-1 text-xs text-blue-600 mt-1">
                               <Calendar className="h-3 w-3" />
                               <span>
-                                Next: {new Date(transaction.nextDate).toLocaleDateString()}
+                                Next:{" "}
+                                {new Date(
+                                  transaction.nextDate
+                                ).toLocaleDateString()}
                               </span>
                             </div>
                           )}

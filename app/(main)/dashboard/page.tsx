@@ -93,9 +93,7 @@ export default function Dashboard() {
       <header className="bg-white shadow-sm border-b">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Dashboard
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <UserIcon className="h-5 w-5 text-gray-500" />
@@ -116,7 +114,7 @@ export default function Dashboard() {
             Welcome back, User!
           </h2>
           <p className="text-gray-600 mt-2">
-            Here's an overview of your financial activity
+            Here&apos;s an overview of your financial activity
           </p>
         </div>
 
@@ -190,7 +188,9 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h4 className="font-semibold">Goals</h4>
-                    <p className="text-sm text-gray-500">Track your financial goals</p>
+                    <p className="text-sm text-gray-500">
+                      Track your financial goals
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -204,7 +204,9 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h4 className="font-semibold">Mutual Funds</h4>
-                    <p className="text-sm text-gray-500">Manage your investments</p>
+                    <p className="text-sm text-gray-500">
+                      Manage your investments
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -218,7 +220,9 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h4 className="font-semibold">Stocks</h4>
-                    <p className="text-sm text-gray-500">Monitor your portfolio</p>
+                    <p className="text-sm text-gray-500">
+                      Monitor your portfolio
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -230,7 +234,9 @@ export default function Dashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Your latest transactions across all accounts</CardDescription>
+            <CardDescription>
+              Your latest transactions across all accounts
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

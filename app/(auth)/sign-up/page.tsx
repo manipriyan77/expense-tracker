@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,21 +13,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus } from "lucide-react";
+import { signUpFormSchema, SignUpFormSchemaTypes } from "./signUpFormSchema";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { signUp } from "../actions";
 
 export default function SignUpPage() {
-  const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<SignUpFormSchemaTypes>({
+    resolver: zodResolver(signUpFormSchema),
   });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // No functionality - UI only
-    console.log("Sign up form submitted (UI only)");
-  };
-
+  async function signUpFormHandler(formData: SignUpFormSchemaTypes) {
+    await signUp({ email: formData.email, password: formData.password });
+  }
   return (
     <div className="w-full max-w-md px-4">
       <Card>
@@ -43,18 +43,17 @@ export default function SignUpPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form
+            className="space-y-4"
+            onSubmit={handleSubmit(signUpFormHandler)}
+          >
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="userName">Full Name</Label>
               <Input
-                id="fullName"
+                id="userName"
                 type="text"
                 placeholder="John Doe"
-                value={formData.fullName}
-                onChange={(e) =>
-                  setFormData({ ...formData, fullName: e.target.value })
-                }
-                required
+                {...register("userName")}
               />
             </div>
 
@@ -64,11 +63,7 @@ export default function SignUpPage() {
                 id="email"
                 type="email"
                 placeholder="you@example.com"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                required
+                {...register("email")}
               />
             </div>
 
@@ -78,11 +73,7 @@ export default function SignUpPage() {
                 id="password"
                 type="password"
                 placeholder="••••••••"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
-                required
+                {...register("password")}
               />
               <p className="text-xs text-gray-500">
                 Must be at least 8 characters long
@@ -95,11 +86,7 @@ export default function SignUpPage() {
                 id="confirmPassword"
                 type="password"
                 placeholder="••••••••"
-                value={formData.confirmPassword}
-                onChange={(e) =>
-                  setFormData({ ...formData, confirmPassword: e.target.value })
-                }
-                required
+                {...register("confirmPassword")}
               />
             </div>
 
@@ -108,7 +95,7 @@ export default function SignUpPage() {
                 type="checkbox"
                 id="terms"
                 className="h-4 w-4 mt-1 rounded border-gray-300"
-                required
+                {...register}
               />
               <Label
                 htmlFor="terms"
