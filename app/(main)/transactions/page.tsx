@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -52,18 +55,45 @@ interface Transaction {
   nextDate?: string;
 }
 
+const transactionFormSchema = z.object({
+  type: z.enum(["income", "expense"]),
+  amount: z.string().min(1, "Amount is required").refine(
+    (val) => !isNaN(Number(val)) && Number(val) > 0,
+    "Amount must be a positive number"
+  ),
+  description: z.string().min(1, "Description is required"),
+  category: z.string().min(1, "Category is required"),
+  isRecurring: z.boolean(),
+  frequency: z.enum(["daily", "weekly", "monthly", "yearly"]).optional(),
+});
+
+type TransactionFormData = z.infer<typeof transactionFormSchema>;
+
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [formData, setFormData] = useState({
-    type: "expense" as "income" | "expense",
-    amount: "",
-    description: "",
-    category: "",
-    isRecurring: false,
-    frequency: "monthly" as "daily" | "weekly" | "monthly" | "yearly",
+
+  const {
+    control,
+    handleSubmit,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<TransactionFormData>({
+    resolver: zodResolver(transactionFormSchema),
+    defaultValues: {
+      type: "expense",
+      amount: "",
+      description: "",
+      category: "",
+      isRecurring: false,
+      frequency: "monthly",
+    },
   });
+
+  const isRecurring = watch("isRecurring");
+  const transactionType = watch("type");
 
   useEffect(() => {
     loadTransactions();
@@ -145,19 +175,17 @@ export default function TransactionsPage() {
     setTransactions(mockTransactions);
   };
 
-  const handleAddTransaction = () => {
-    if (!formData.amount || !formData.description || !formData.category) return;
-
+  const onSubmit = (data: TransactionFormData) => {
     const newTransaction: Transaction = {
       id: Date.now().toString(),
-      type: formData.type,
-      amount: parseFloat(formData.amount),
-      description: formData.description,
-      category: formData.category,
+      type: data.type,
+      amount: parseFloat(data.amount),
+      description: data.description,
+      category: data.category,
       date: new Date().toISOString().split("T")[0],
-      isRecurring: formData.isRecurring,
-      frequency: formData.isRecurring ? formData.frequency : undefined,
-      nextDate: formData.isRecurring
+      isRecurring: data.isRecurring,
+      frequency: data.isRecurring ? data.frequency : undefined,
+      nextDate: data.isRecurring
         ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
             .toISOString()
             .split("T")[0]
@@ -165,14 +193,7 @@ export default function TransactionsPage() {
     };
 
     setTransactions([newTransaction, ...transactions]);
-    setFormData({
-      type: "expense",
-      amount: "",
-      description: "",
-      category: "",
-      isRecurring: false,
-      frequency: "monthly",
-    });
+    reset();
     setIsAddDialogOpen(false);
   };
 
@@ -287,102 +308,132 @@ export default function TransactionsPage() {
                   Create a one-time or recurring transaction
                 </DialogDescription>
               </DialogHeader>
-              <form className="space-y-4">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 {/* Transaction Type */}
                 <div className="space-y-2">
                   <Label htmlFor="type">Transaction Type</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value: "income" | "expense") =>
-                      setFormData({ ...formData, type: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="income">
-                        <div className="flex items-center space-x-2">
-                          <TrendingUp className="h-4 w-4 text-green-600" />
-                          <span>Income</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="expense">
-                        <div className="flex items-center space-x-2">
-                          <TrendingDown className="h-4 w-4 text-red-600" />
-                          <span>Expense</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="type"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="income">
+                            <div className="flex items-center space-x-2">
+                              <TrendingUp className="h-4 w-4 text-green-600" />
+                              <span>Income</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="expense">
+                            <div className="flex items-center space-x-2">
+                              <TrendingDown className="h-4 w-4 text-red-600" />
+                              <span>Expense</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.type && (
+                    <p className="text-sm text-red-600">{errors.type.message}</p>
+                  )}
                 </div>
 
                 {/* Amount */}
                 <div className="space-y-2">
                   <Label htmlFor="amount">Amount</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={formData.amount}
-                    onChange={(e) =>
-                      setFormData({ ...formData, amount: e.target.value })
-                    }
+                  <Controller
+                    name="amount"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        id="amount"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                      />
+                    )}
                   />
+                  {errors.amount && (
+                    <p className="text-sm text-red-600">{errors.amount.message}</p>
+                  )}
                 </div>
 
                 {/* Description */}
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
-                  <Input
-                    id="description"
-                    placeholder="What is this for?"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
+                  <Controller
+                    name="description"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        id="description"
+                        placeholder="What is this for?"
+                      />
+                    )}
                   />
+                  {errors.description && (
+                    <p className="text-sm text-red-600">
+                      {errors.description.message}
+                    </p>
+                  )}
                 </div>
 
                 {/* Category */}
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, category: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {formData.type === "income" ? (
-                        <>
-                          <SelectItem value="Salary">Salary</SelectItem>
-                          <SelectItem value="Freelance">Freelance</SelectItem>
-                          <SelectItem value="Investment">Investment</SelectItem>
-                          <SelectItem value="Business">Business</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </>
-                      ) : (
-                        <>
-                          <SelectItem value="Food">Food</SelectItem>
-                          <SelectItem value="Transportation">
-                            Transportation
-                          </SelectItem>
-                          <SelectItem value="Entertainment">
-                            Entertainment
-                          </SelectItem>
-                          <SelectItem value="Bills">Bills</SelectItem>
-                          <SelectItem value="Shopping">Shopping</SelectItem>
-                          <SelectItem value="Healthcare">Healthcare</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="category"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {transactionType === "income" ? (
+                            <>
+                              <SelectItem value="Salary">Salary</SelectItem>
+                              <SelectItem value="Freelance">Freelance</SelectItem>
+                              <SelectItem value="Investment">Investment</SelectItem>
+                              <SelectItem value="Business">Business</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </>
+                          ) : (
+                            <>
+                              <SelectItem value="Food">Food</SelectItem>
+                              <SelectItem value="Transportation">
+                                Transportation
+                              </SelectItem>
+                              <SelectItem value="Entertainment">
+                                Entertainment
+                              </SelectItem>
+                              <SelectItem value="Bills">Bills</SelectItem>
+                              <SelectItem value="Shopping">Shopping</SelectItem>
+                              <SelectItem value="Healthcare">Healthcare</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.category && (
+                    <p className="text-sm text-red-600">
+                      {errors.category.message}
+                    </p>
+                  )}
                 </div>
 
                 {/* Recurring Toggle */}
@@ -396,43 +447,51 @@ export default function TransactionsPage() {
                       </p>
                     </div>
                   </div>
-                  <Switch
-                    checked={formData.isRecurring}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, isRecurring: checked })
-                    }
+                  <Controller
+                    name="isRecurring"
+                    control={control}
+                    render={({ field }) => (
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    )}
                   />
                 </div>
 
                 {/* Frequency (only if recurring) */}
-                {formData.isRecurring && (
+                {isRecurring && (
                   <div className="space-y-2 p-4 border rounded-lg bg-blue-50">
                     <Label htmlFor="frequency">Frequency</Label>
-                    <Select
-                      value={formData.frequency}
-                      onValueChange={(
-                        value: "daily" | "weekly" | "monthly" | "yearly"
-                      ) => setFormData({ ...formData, frequency: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select frequency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="yearly">Yearly</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Controller
+                      name="frequency"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select frequency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                            <SelectItem value="yearly">Yearly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
                     <p className="text-xs text-gray-600 mt-2">
                       This transaction will automatically repeat{" "}
-                      {formData.frequency}
+                      {watch("frequency")}
                     </p>
                   </div>
                 )}
 
-                <Button onClick={handleAddTransaction} className="w-full">
-                  {formData.isRecurring
+                <Button type="submit" className="w-full">
+                  {isRecurring
                     ? "Create Recurring Transaction"
                     : "Add Transaction"}
                 </Button>
