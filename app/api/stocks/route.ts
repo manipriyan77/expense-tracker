@@ -11,7 +11,7 @@ export async function GET() {
     }
 
     const { data, error } = await supabase
-      .from("transactions")
+      .from("stocks")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
@@ -36,20 +36,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { amount, description, category, date, type } = body;
+    const { name, symbol, shares, avgPurchasePrice, currentPrice, investedAmount, currentValue, purchaseDate, sector } = body;
 
-    if (!amount || !description || !category || !type) {
+    if (!name || !symbol || !shares || !avgPurchasePrice || !currentPrice) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const { data, error } = await supabase
-      .from("transactions")
+      .from("stocks")
       .insert({
-        amount,
-        description,
-        category,
-        date: date || new Date().toISOString().split("T")[0],
-        type,
+        name,
+        symbol,
+        shares,
+        avg_purchase_price: avgPurchasePrice,
+        current_price: currentPrice,
+        invested_amount: investedAmount,
+        current_value: currentValue,
+        purchase_date: purchaseDate || new Date().toISOString().split("T")[0],
+        sector: sector || "General",
         user_id: user.id,
       })
       .select()

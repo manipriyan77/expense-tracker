@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,117 +27,81 @@ import {
   Plus,
   DollarSign,
   BarChart3,
-  Calendar,
+  Loader2,
 } from "lucide-react";
-
-interface MutualFund {
-  id: string;
-  name: string;
-  symbol: string;
-  investedAmount: number;
-  currentValue: number;
-  units: number;
-  nav: number;
-  purchaseDate: string;
-  category: string;
-}
+import { useMutualFundsStore } from "@/store/mutual-funds-store";
+import { mutualFundFormSchema, MutualFundFormData } from "@/lib/schemas/mutual-fund-form-schema";
 
 export default function MutualFundsPage() {
-  const [mutualFunds, setMutualFunds] = useState<MutualFund[]>([]);
+  const { mutualFunds, loading, error, fetchMutualFunds, addMutualFund } = useMutualFundsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    symbol: "",
-    investedAmount: "",
-    units: "",
-    nav: "",
-    purchaseDate: "",
-    category: "",
-  });
 
-  useEffect(() => {
-    loadMutualFunds();
-  }, []);
-
-  const loadMutualFunds = async () => {
-    // Mock data for mutual funds
-    const mockFunds: MutualFund[] = [
-      {
-        id: "1",
-        name: "SBI Bluechip Fund",
-        symbol: "SBIBLU",
-        investedAmount: 50000,
-        currentValue: 58750,
-        units: 125.5,
-        nav: 468.50,
-        purchaseDate: "2024-06-15",
-        category: "Large Cap",
-      },
-      {
-        id: "2",
-        name: "HDFC Mid-Cap Opportunities",
-        symbol: "HDFMID",
-        investedAmount: 30000,
-        currentValue: 31200,
-        units: 85.2,
-        nav: 366.20,
-        purchaseDate: "2024-08-01",
-        category: "Mid Cap",
-      },
-      {
-        id: "3",
-        name: "ICICI Prudential Technology",
-        symbol: "ICICTECH",
-        investedAmount: 25000,
-        currentValue: 26800,
-        units: 45.8,
-        nav: 585.20,
-        purchaseDate: "2024-09-10",
-        category: "Sectoral",
-      },
-    ];
-    setMutualFunds(mockFunds);
-  };
-
-  const handleAddMutualFund = () => {
-    if (
-      !formData.name ||
-      !formData.symbol ||
-      !formData.investedAmount ||
-      !formData.units ||
-      !formData.nav
-    )
-      return;
-
-    const investedAmount = parseFloat(formData.investedAmount);
-    const units = parseFloat(formData.units);
-    const nav = parseFloat(formData.nav);
-    const currentValue = units * nav;
-
-    const newFund: MutualFund = {
-      id: Date.now().toString(),
-      name: formData.name,
-      symbol: formData.symbol,
-      investedAmount,
-      currentValue,
-      units,
-      nav,
-      purchaseDate: formData.purchaseDate || new Date().toISOString().split("T")[0],
-      category: formData.category || "General",
-    };
-
-    setMutualFunds([newFund, ...mutualFunds]);
-    setFormData({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<MutualFundFormData>({
+    resolver: zodResolver(mutualFundFormSchema),
+    defaultValues: {
       name: "",
       symbol: "",
-      investedAmount: "",
-      units: "",
-      nav: "",
+      investedAmount: 0,
+      units: 0,
+      nav: 0,
+      currentValue: 0,
       purchaseDate: "",
       category: "",
-    });
+    },
+  });
+
+  const units = watch("units");
+  const nav = watch("nav");
+
+  useEffect(() => {
+    fetchMutualFunds();
+  }, [fetchMutualFunds]);
+
+  const handleAddMutualFund = async (data: MutualFundFormData) => {
+    const currentValue = data.units * data.nav;
+
+    const newFund = {
+      name: data.name,
+      symbol: data.symbol,
+      investedAmount: data.investedAmount,
+      currentValue,
+      units: data.units,
+      nav: data.nav,
+      purchaseDate: data.purchaseDate || new Date().toISOString().split("T")[0],
+      category: data.category || "General",
+    };
+
+    await addMutualFund(newFund);
+    reset();
     setIsAddDialogOpen(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={fetchMutualFunds} variant="outline">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const totalInvested = mutualFunds.reduce((sum, fund) => sum + fund.investedAmount, 0);
   const totalCurrentValue = mutualFunds.reduce((sum, fund) => sum + fund.currentValue, 0);
@@ -163,17 +129,17 @@ export default function MutualFundsPage() {
                     Add a mutual fund to track its performance.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
+                <form onSubmit={handleSubmit(handleAddMutualFund)} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Fund Name</Label>
                     <Input
                       id="name"
                       placeholder="e.g., SBI Bluechip Fund"
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
+                      {...register("name")}
                     />
+                    {errors.name && (
+                      <p className="text-sm text-red-600">{errors.name.message}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -181,11 +147,11 @@ export default function MutualFundsPage() {
                     <Input
                       id="symbol"
                       placeholder="e.g., SBIBLU"
-                      value={formData.symbol}
-                      onChange={(e) =>
-                        setFormData({ ...formData, symbol: e.target.value })
-                      }
+                      {...register("symbol")}
                     />
+                    {errors.symbol && (
+                      <p className="text-sm text-red-600">{errors.symbol.message}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -195,11 +161,11 @@ export default function MutualFundsPage() {
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      value={formData.investedAmount}
-                      onChange={(e) =>
-                        setFormData({ ...formData, investedAmount: e.target.value })
-                      }
+                      {...register("investedAmount", { valueAsNumber: true })}
                     />
+                    {errors.investedAmount && (
+                      <p className="text-sm text-red-600">{errors.investedAmount.message}</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -210,11 +176,11 @@ export default function MutualFundsPage() {
                         type="number"
                         step="0.01"
                         placeholder="0.00"
-                        value={formData.units}
-                        onChange={(e) =>
-                          setFormData({ ...formData, units: e.target.value })
-                        }
+                        {...register("units", { valueAsNumber: true })}
                       />
+                      {errors.units && (
+                        <p className="text-sm text-red-600">{errors.units.message}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -224,24 +190,30 @@ export default function MutualFundsPage() {
                         type="number"
                         step="0.01"
                         placeholder="0.00"
-                        value={formData.nav}
-                        onChange={(e) =>
-                          setFormData({ ...formData, nav: e.target.value })
-                        }
+                        {...register("nav", { valueAsNumber: true })}
                       />
+                      {errors.nav && (
+                        <p className="text-sm text-red-600">{errors.nav.message}</p>
+                      )}
                     </div>
                   </div>
+
+                  {units && nav && (
+                    <div className="text-sm text-gray-600">
+                      Current Value: ${(units * nav).toFixed(2)}
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="purchaseDate">Purchase Date</Label>
                     <Input
                       id="purchaseDate"
                       type="date"
-                      value={formData.purchaseDate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, purchaseDate: e.target.value })
-                      }
+                      {...register("purchaseDate")}
                     />
+                    {errors.purchaseDate && (
+                      <p className="text-sm text-red-600">{errors.purchaseDate.message}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -249,17 +221,24 @@ export default function MutualFundsPage() {
                     <Input
                       id="category"
                       placeholder="e.g., Large Cap, Mid Cap, Sectoral"
-                      value={formData.category}
-                      onChange={(e) =>
-                        setFormData({ ...formData, category: e.target.value })
-                      }
+                      {...register("category")}
                     />
+                    {errors.category && (
+                      <p className="text-sm text-red-600">{errors.category.message}</p>
+                    )}
                   </div>
 
-                  <Button onClick={handleAddMutualFund} className="w-full">
-                    Add Mutual Fund
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Adding Fund...
+                      </>
+                    ) : (
+                      "Add Mutual Fund"
+                    )}
                   </Button>
-                </div>
+                </form>
               </DialogContent>
             </Dialog>
           </div>
@@ -420,3 +399,4 @@ export default function MutualFundsPage() {
     </div>
   );
 }
+

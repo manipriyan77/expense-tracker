@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +12,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   DollarSign,
   TrendingUp,
@@ -20,62 +39,68 @@ import {
   Wallet,
   BarChart3,
   ArrowRight,
+  Loader2,
+  Plus,
 } from "lucide-react";
+import { useTransactionsStore } from "@/store/transactions-store";
+import { transactionFormSchema, TransactionFormData } from "@/lib/schemas/transaction-form-schema";
 
-interface Transaction {
-  id: string;
-  amount: number;
-  description: string;
-  category: string;
-  date: string;
-  type: "income" | "expense";
-}
 
 export default function Dashboard() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const { transactions, loading, error, fetchTransactions, addTransaction } = useTransactionsStore();
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<TransactionFormData>({
+    resolver: zodResolver(transactionFormSchema),
+    defaultValues: {
+      amount: 0,
+      description: "",
+      category: "",
+      date: new Date().toISOString().split("T")[0],
+      type: "expense",
+    },
+  });
 
   useEffect(() => {
-    loadTransactions();
-  }, []);
+    fetchTransactions();
+  }, [fetchTransactions]);
 
-  const loadTransactions = () => {
-    // Mock data for UI display
-    const mockTransactions: Transaction[] = [
-      {
-        id: "1",
-        amount: 50,
-        description: "Groceries",
-        category: "Food",
-        date: "2024-12-23",
-        type: "expense",
-      },
-      {
-        id: "2",
-        amount: 1200,
-        description: "Salary",
-        category: "Income",
-        date: "2024-12-20",
-        type: "income",
-      },
-      {
-        id: "3",
-        amount: 25,
-        description: "Coffee",
-        category: "Food",
-        date: "2024-12-22",
-        type: "expense",
-      },
-      {
-        id: "4",
-        amount: 80,
-        description: "Gas",
-        category: "Transportation",
-        date: "2024-12-21",
-        type: "expense",
-      },
-    ];
-    setTransactions(mockTransactions);
+  const handleAddTransaction = async (data: TransactionFormData) => {
+    const transactionData = {
+      ...data,
+      date: data.date || new Date().toISOString().split("T")[0],
+    };
+    await addTransaction(transactionData);
+    reset();
+    setIsAddDialogOpen(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={fetchTransactions} variant="outline">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const totalExpenses = transactions
     .filter((t) => t.type === "expense")
@@ -228,6 +253,120 @@ export default function Dashboard() {
               </Card>
             </Link>
           </div>
+        </div>
+
+        {/* Quick Add Transaction */}
+        <div className="mb-8">
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="w-full md:w-auto">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Transaction
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Transaction</DialogTitle>
+                <DialogDescription>
+                  Record your income or expense transaction.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit(handleAddTransaction)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="type">Type</Label>
+                  <Select
+                    onValueChange={(value: "income" | "expense") =>
+                      setValue("type", value)
+                    }
+                    defaultValue="expense"
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="income">Income</SelectItem>
+                      <SelectItem value="expense">Expense</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.type && (
+                    <p className="text-sm text-red-600">{errors.type.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Amount</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    {...register("amount", { valueAsNumber: true })}
+                  />
+                  {errors.amount && (
+                    <p className="text-sm text-red-600">{errors.amount.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Input
+                    id="description"
+                    placeholder="What was this for?"
+                    {...register("description")}
+                  />
+                  {errors.description && (
+                    <p className="text-sm text-red-600">{errors.description.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select
+                    onValueChange={(value) => setValue("category", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Food">Food</SelectItem>
+                      <SelectItem value="Transportation">Transportation</SelectItem>
+                      <SelectItem value="Entertainment">Entertainment</SelectItem>
+                      <SelectItem value="Bills">Bills</SelectItem>
+                      <SelectItem value="Shopping">Shopping</SelectItem>
+                      <SelectItem value="Salary">Salary</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.category && (
+                    <p className="text-sm text-red-600">{errors.category.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    {...register("date")}
+                  />
+                  {errors.date && (
+                    <p className="text-sm text-red-600">{errors.date.message}</p>
+                  )}
+                </div>
+
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Adding Transaction...
+                    </>
+                  ) : (
+                    "Add Transaction"
+                  )}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Recent Activity */}

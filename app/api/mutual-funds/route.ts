@@ -11,7 +11,7 @@ export async function GET() {
     }
 
     const { data, error } = await supabase
-      .from("transactions")
+      .from("mutual_funds")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
@@ -36,20 +36,23 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { amount, description, category, date, type } = body;
+    const { name, symbol, investedAmount, currentValue, units, nav, purchaseDate, category } = body;
 
-    if (!amount || !description || !category || !type) {
+    if (!name || !symbol || !investedAmount || !units || !nav) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const { data, error } = await supabase
-      .from("transactions")
+      .from("mutual_funds")
       .insert({
-        amount,
-        description,
-        category,
-        date: date || new Date().toISOString().split("T")[0],
-        type,
+        name,
+        symbol,
+        invested_amount: investedAmount,
+        current_value: currentValue,
+        units,
+        nav,
+        purchase_date: purchaseDate || new Date().toISOString().split("T")[0],
+        category: category || "General",
         user_id: user.id,
       })
       .select()

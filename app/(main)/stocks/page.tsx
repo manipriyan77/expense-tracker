@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,135 +27,85 @@ import {
   Plus,
   DollarSign,
   BarChart3,
-  Calendar,
+  Loader2,
 } from "lucide-react";
-
-interface Stock {
-  id: string;
-  name: string;
-  symbol: string;
-  shares: number;
-  avgPurchasePrice: number;
-  currentPrice: number;
-  investedAmount: number;
-  currentValue: number;
-  purchaseDate: string;
-  sector: string;
-}
+import { useStocksStore } from "@/store/stocks-store";
+import { stockFormSchema, StockFormData } from "@/lib/schemas/stock-form-schema";
 
 export default function StocksPage() {
-  const [stocks, setStocks] = useState<Stock[]>([]);
+  const { stocks, loading, error, fetchStocks, addStock } = useStocksStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    symbol: "",
-    shares: "",
-    avgPurchasePrice: "",
-    currentPrice: "",
-    purchaseDate: "",
-    sector: "",
-  });
 
-  useEffect(() => {
-    loadStocks();
-  }, []);
-
-  const loadStocks = async () => {
-    // Mock data for stocks
-    const mockStocks: Stock[] = [
-      {
-        id: "1",
-        name: "Apple Inc.",
-        symbol: "AAPL",
-        shares: 50,
-        avgPurchasePrice: 150.00,
-        currentPrice: 185.50,
-        investedAmount: 7500,
-        currentValue: 9275,
-        purchaseDate: "2024-01-15",
-        sector: "Technology",
-      },
-      {
-        id: "2",
-        name: "Microsoft Corporation",
-        symbol: "MSFT",
-        shares: 30,
-        avgPurchasePrice: 280.00,
-        currentPrice: 335.20,
-        investedAmount: 8400,
-        currentValue: 10056,
-        purchaseDate: "2024-03-10",
-        sector: "Technology",
-      },
-      {
-        id: "3",
-        name: "Tesla Inc.",
-        symbol: "TSLA",
-        shares: 25,
-        avgPurchasePrice: 220.00,
-        currentPrice: 195.80,
-        investedAmount: 5500,
-        currentValue: 4895,
-        purchaseDate: "2024-05-20",
-        sector: "Automotive",
-      },
-      {
-        id: "4",
-        name: "Johnson & Johnson",
-        symbol: "JNJ",
-        shares: 40,
-        avgPurchasePrice: 165.00,
-        currentPrice: 172.30,
-        investedAmount: 6600,
-        currentValue: 6892,
-        purchaseDate: "2024-07-05",
-        sector: "Healthcare",
-      },
-    ];
-    setStocks(mockStocks);
-  };
-
-  const handleAddStock = () => {
-    if (
-      !formData.name ||
-      !formData.symbol ||
-      !formData.shares ||
-      !formData.avgPurchasePrice ||
-      !formData.currentPrice
-    )
-      return;
-
-    const shares = parseFloat(formData.shares);
-    const avgPurchasePrice = parseFloat(formData.avgPurchasePrice);
-    const currentPrice = parseFloat(formData.currentPrice);
-    const investedAmount = shares * avgPurchasePrice;
-    const currentValue = shares * currentPrice;
-
-    const newStock: Stock = {
-      id: Date.now().toString(),
-      name: formData.name,
-      symbol: formData.symbol,
-      shares,
-      avgPurchasePrice,
-      currentPrice,
-      investedAmount,
-      currentValue,
-      purchaseDate: formData.purchaseDate || new Date().toISOString().split("T")[0],
-      sector: formData.sector || "General",
-    };
-
-    setStocks([newStock, ...stocks]);
-    setFormData({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<StockFormData>({
+    resolver: zodResolver(stockFormSchema),
+    defaultValues: {
       name: "",
       symbol: "",
-      shares: "",
-      avgPurchasePrice: "",
-      currentPrice: "",
+      shares: 0,
+      avgPurchasePrice: 0,
+      currentPrice: 0,
+      investedAmount: 0,
+      currentValue: 0,
       purchaseDate: "",
       sector: "",
-    });
+    },
+  });
+
+  const shares = watch("shares");
+  const avgPurchasePrice = watch("avgPurchasePrice");
+  const currentPrice = watch("currentPrice");
+
+  useEffect(() => {
+    fetchStocks();
+  }, [fetchStocks]);
+
+  const handleAddStock = async (data: StockFormData) => {
+    const investedAmount = data.shares * data.avgPurchasePrice;
+    const currentValue = data.shares * data.currentPrice;
+
+    const newStock = {
+      name: data.name,
+      symbol: data.symbol,
+      shares: data.shares,
+      avgPurchasePrice: data.avgPurchasePrice,
+      currentPrice: data.currentPrice,
+      investedAmount,
+      currentValue,
+      purchaseDate: data.purchaseDate || new Date().toISOString().split("T")[0],
+      sector: data.sector || "General",
+    };
+
+    await addStock(newStock);
+    reset();
     setIsAddDialogOpen(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={fetchStocks} variant="outline">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const totalInvested = stocks.reduce((sum, stock) => sum + stock.investedAmount, 0);
   const totalCurrentValue = stocks.reduce((sum, stock) => sum + stock.currentValue, 0);
@@ -181,17 +133,17 @@ export default function StocksPage() {
                     Add a stock to track its performance.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
+                <form onSubmit={handleSubmit(handleAddStock)} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Company Name</Label>
                     <Input
                       id="name"
                       placeholder="e.g., Apple Inc."
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
+                      {...register("name")}
                     />
+                    {errors.name && (
+                      <p className="text-sm text-red-600">{errors.name.message}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -199,11 +151,11 @@ export default function StocksPage() {
                     <Input
                       id="symbol"
                       placeholder="e.g., AAPL"
-                      value={formData.symbol}
-                      onChange={(e) =>
-                        setFormData({ ...formData, symbol: e.target.value })
-                      }
+                      {...register("symbol")}
                     />
+                    {errors.symbol && (
+                      <p className="text-sm text-red-600">{errors.symbol.message}</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -214,11 +166,11 @@ export default function StocksPage() {
                         type="number"
                         step="0.01"
                         placeholder="0"
-                        value={formData.shares}
-                        onChange={(e) =>
-                          setFormData({ ...formData, shares: e.target.value })
-                        }
+                        {...register("shares", { valueAsNumber: true })}
                       />
+                      {errors.shares && (
+                        <p className="text-sm text-red-600">{errors.shares.message}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -228,11 +180,11 @@ export default function StocksPage() {
                         type="number"
                         step="0.01"
                         placeholder="0.00"
-                        value={formData.avgPurchasePrice}
-                        onChange={(e) =>
-                          setFormData({ ...formData, avgPurchasePrice: e.target.value })
-                        }
+                        {...register("avgPurchasePrice", { valueAsNumber: true })}
                       />
+                      {errors.avgPurchasePrice && (
+                        <p className="text-sm text-red-600">{errors.avgPurchasePrice.message}</p>
+                      )}
                     </div>
                   </div>
 
@@ -243,12 +195,22 @@ export default function StocksPage() {
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      value={formData.currentPrice}
-                      onChange={(e) =>
-                        setFormData({ ...formData, currentPrice: e.target.value })
-                      }
+                      {...register("currentPrice", { valueAsNumber: true })}
                     />
+                    {errors.currentPrice && (
+                      <p className="text-sm text-red-600">{errors.currentPrice.message}</p>
+                    )}
                   </div>
+
+                  {shares && avgPurchasePrice && currentPrice && (
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <div>Invested: ${(shares * avgPurchasePrice).toFixed(2)}</div>
+                      <div>Current Value: ${(shares * currentPrice).toFixed(2)}</div>
+                      <div className={shares * currentPrice - shares * avgPurchasePrice >= 0 ? "text-green-600" : "text-red-600"}>
+                        P&L: ${(shares * currentPrice - shares * avgPurchasePrice).toFixed(2)}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -256,11 +218,11 @@ export default function StocksPage() {
                       <Input
                         id="purchaseDate"
                         type="date"
-                        value={formData.purchaseDate}
-                        onChange={(e) =>
-                          setFormData({ ...formData, purchaseDate: e.target.value })
-                        }
+                        {...register("purchaseDate")}
                       />
+                      {errors.purchaseDate && (
+                        <p className="text-sm text-red-600">{errors.purchaseDate.message}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -268,18 +230,25 @@ export default function StocksPage() {
                       <Input
                         id="sector"
                         placeholder="e.g., Technology"
-                        value={formData.sector}
-                        onChange={(e) =>
-                          setFormData({ ...formData, sector: e.target.value })
-                        }
+                        {...register("sector")}
                       />
+                      {errors.sector && (
+                        <p className="text-sm text-red-600">{errors.sector.message}</p>
+                      )}
                     </div>
                   </div>
 
-                  <Button onClick={handleAddStock} className="w-full">
-                    Add Stock
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Adding Stock...
+                      </>
+                    ) : (
+                      "Add Stock"
+                    )}
                   </Button>
-                </div>
+                </form>
               </DialogContent>
             </Dialog>
           </div>

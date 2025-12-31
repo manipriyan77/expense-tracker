@@ -11,7 +11,7 @@ export async function GET() {
     }
 
     const { data, error } = await supabase
-      .from("transactions")
+      .from("goals")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
@@ -36,20 +36,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { amount, description, category, date, type } = body;
+    const { title, targetAmount, currentAmount, targetDate, category, status } = body;
 
-    if (!amount || !description || !category || !type) {
+    if (!title || !targetAmount || !targetDate) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from("transactions")
+    const { data } = await supabase
+      .from("goals")
       .insert({
-        amount,
-        description,
-        category,
-        date: date || new Date().toISOString().split("T")[0],
-        type,
+        title,
+        target_amount: targetAmount,
+        current_amount: currentAmount || 0,
+        target_date: targetDate,
+        category: category || "General",
+        status: status || "active",
         user_id: user.id,
       })
       .select()

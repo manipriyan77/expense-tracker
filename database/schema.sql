@@ -1,0 +1,147 @@
+-- Supabase Database Schema for Expense Tracker
+
+-- Enable Row Level Security
+ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret';
+
+-- Create custom types
+CREATE TYPE transaction_type AS ENUM ('income', 'expense');
+CREATE TYPE goal_status AS ENUM ('active', 'completed', 'overdue');
+
+-- Goals table
+CREATE TABLE goals (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL,
+  target_amount DECIMAL(12,2) NOT NULL,
+  current_amount DECIMAL(12,2) DEFAULT 0,
+  target_date DATE NOT NULL,
+  category TEXT DEFAULT 'General',
+  status goal_status DEFAULT 'active',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Transactions table
+CREATE TABLE transactions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  description TEXT NOT NULL,
+  category TEXT NOT NULL,
+  date DATE NOT NULL,
+  type transaction_type NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Mutual Funds table
+CREATE TABLE mutual_funds (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  invested_amount DECIMAL(12,2) NOT NULL,
+  current_value DECIMAL(12,2) NOT NULL,
+  units DECIMAL(10,2) NOT NULL,
+  nav DECIMAL(8,2) NOT NULL,
+  purchase_date DATE NOT NULL,
+  category TEXT DEFAULT 'General',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Stocks table
+CREATE TABLE stocks (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  shares DECIMAL(10,2) NOT NULL,
+  avg_purchase_price DECIMAL(8,2) NOT NULL,
+  current_price DECIMAL(8,2) NOT NULL,
+  invested_amount DECIMAL(12,2) NOT NULL,
+  current_value DECIMAL(12,2) NOT NULL,
+  purchase_date DATE NOT NULL,
+  sector TEXT DEFAULT 'General',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes for better performance
+CREATE INDEX idx_goals_user_id ON goals(user_id);
+CREATE INDEX idx_goals_status ON goals(status);
+CREATE INDEX idx_transactions_user_id ON transactions(user_id);
+CREATE INDEX idx_transactions_date ON transactions(date);
+CREATE INDEX idx_transactions_type ON transactions(type);
+CREATE INDEX idx_mutual_funds_user_id ON mutual_funds(user_id);
+CREATE INDEX idx_stocks_user_id ON stocks(user_id);
+
+-- Enable Row Level Security on all tables
+ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mutual_funds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stocks ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies (users can only access their own data)
+CREATE POLICY "Users can view their own goals" ON goals
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own goals" ON goals
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own goals" ON goals
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own goals" ON goals
+  FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view their own transactions" ON transactions
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own transactions" ON transactions
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own transactions" ON transactions
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own transactions" ON transactions
+  FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view their own mutual funds" ON mutual_funds
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own mutual funds" ON mutual_funds
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own mutual funds" ON mutual_funds
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own mutual funds" ON mutual_funds
+  FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view their own stocks" ON stocks
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own stocks" ON stocks
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own stocks" ON stocks
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own stocks" ON stocks
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Create updated_at trigger function
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create triggers for updated_at
+CREATE TRIGGER update_goals_updated_at BEFORE UPDATE ON goals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON transactions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_mutual_funds_updated_at BEFORE UPDATE ON mutual_funds FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_stocks_updated_at BEFORE UPDATE ON stocks FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

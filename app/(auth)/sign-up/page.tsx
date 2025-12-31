@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,12 +14,16 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Loader2 } from "lucide-react";
 import { signUpFormSchema, SignUpFormSchemaTypes } from "./signUpFormSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signUp } from "../actions";
+import { useAuthStore } from "@/store/auth-store";
 
 export default function SignUpPage() {
+  const router = useRouter();
+  const { signUp, loading } = useAuthStore();
+  const [authError, setAuthError] = useState<string | null>(null);
+
   const {
     register,
     handleSubmit,
@@ -25,8 +31,18 @@ export default function SignUpPage() {
   } = useForm<SignUpFormSchemaTypes>({
     resolver: zodResolver(signUpFormSchema),
   });
+
   async function signUpFormHandler(formData: SignUpFormSchemaTypes) {
-    await signUp({ email: formData.email, password: formData.password });
+    setAuthError(null);
+    const result = await signUp(formData.email, formData.password, {
+      name: formData.userName,
+    });
+
+    if (result.error) {
+      setAuthError(result.error);
+    } else {
+      router.push("/dashboard");
+    }
   }
   return (
     <div className="w-full max-w-md px-4">
@@ -112,9 +128,19 @@ export default function SignUpPage() {
               </Label>
             </div>
 
-            <Button type="submit" className="w-full">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Create Account
+            {authError && (
+              <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
+                {authError}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4 mr-2" />
+              )}
+              {loading ? "Creating Account..." : "Create Account"}
             </Button>
           </form>
 

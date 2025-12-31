@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,21 +15,31 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn } from "lucide-react";
-import { login } from "../actions";
+import { LogIn, Loader2 } from "lucide-react";
+import { useAuthStore } from "@/store/auth-store";
 import { SignInFormSchemaTypes, singInFormSchema } from "./signInFormSchema";
 
 export default function SignInPage() {
+  const router = useRouter();
+  const { signIn, loading } = useAuthStore();
+  const [authError, setAuthError] = useState<string | null>(null);
+
   const {
     handleSubmit,
     register,
-    formState: { errors },
   } = useForm<SignInFormSchemaTypes>({
     resolver: zodResolver(singInFormSchema),
   });
 
   async function loginFormHandler(data: SignInFormSchemaTypes) {
-    await login(data);
+    setAuthError(null);
+    const result = await signIn(data.email, data.password);
+
+    if (result.error) {
+      setAuthError(result.error);
+    } else {
+      router.push("/dashboard");
+    }
   }
 
   return (
@@ -89,9 +100,19 @@ export default function SignInPage() {
               </Link>
             </div>
 
-            <Button type="submit" className="w-full">
-              <LogIn className="h-4 w-4 mr-2" />
-              Sign In
+            {authError && (
+              <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
+                {authError}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <LogIn className="h-4 w-4 mr-2" />
+              )}
+              {loading ? "Signing In..." : "Sign In"}
             </Button>
           </form>
 

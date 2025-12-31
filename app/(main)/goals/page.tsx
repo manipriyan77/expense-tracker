@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,93 +26,72 @@ import {
   Plus,
   TrendingUp,
   Calendar,
-  DollarSign,
   CheckCircle,
   Circle,
+  Loader2,
 } from "lucide-react";
-
-interface Goal {
-  id: string;
-  title: string;
-  targetAmount: number;
-  currentAmount: number;
-  targetDate: string;
-  category: string;
-  status: "active" | "completed" | "overdue";
-}
+import { useGoalsStore } from "@/store/goals-store";
+import { goalFormSchema, GoalFormData } from "@/lib/schemas/goal-form-schema";
 
 export default function GoalsPage() {
-  const [goals, setGoals] = useState<Goal[]>([]);
+  const { goals, loading, error, fetchGoals, addGoal } = useGoalsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
-    targetAmount: "",
-    currentAmount: "",
-    targetDate: "",
-    category: "",
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<GoalFormData>({
+    resolver: zodResolver(goalFormSchema),
+    defaultValues: {
+      title: "",
+      targetAmount: 0,
+      currentAmount: 0,
+      targetDate: "",
+      category: "",
+    },
   });
 
   useEffect(() => {
-    loadGoals();
-  }, []);
+    fetchGoals();
+  }, [fetchGoals]);
 
-  const loadGoals = async () => {
-    // Mock data for goals
-    const mockGoals: Goal[] = [
-      {
-        id: "1",
-        title: "Emergency Fund",
-        targetAmount: 10000,
-        currentAmount: 6500,
-        targetDate: "2025-06-01",
-        category: "Savings",
-        status: "active",
-      },
-      {
-        id: "2",
-        title: "Vacation to Europe",
-        targetAmount: 5000,
-        currentAmount: 5000,
-        targetDate: "2025-08-01",
-        category: "Travel",
-        status: "completed",
-      },
-      {
-        id: "3",
-        title: "New Laptop",
-        targetAmount: 2000,
-        currentAmount: 800,
-        targetDate: "2024-12-31",
-        category: "Electronics",
-        status: "active",
-      },
-    ];
-    setGoals(mockGoals);
-  };
-
-  const handleAddGoal = () => {
-    if (!formData.title || !formData.targetAmount || !formData.targetDate) return;
-
-    const newGoal: Goal = {
-      id: Date.now().toString(),
-      title: formData.title,
-      targetAmount: parseFloat(formData.targetAmount),
-      currentAmount: parseFloat(formData.currentAmount) || 0,
-      targetDate: formData.targetDate,
-      category: formData.category || "General",
-      status: "active",
+  const handleAddGoal = async (data: GoalFormData) => {
+    const newGoal = {
+      title: data.title,
+      targetAmount: data.targetAmount,
+      currentAmount: data.currentAmount || 0,
+      targetDate: data.targetDate,
+      category: data.category || "General",
+      status: "active" as const,
     };
 
-    setGoals([newGoal, ...goals]);
-    setFormData({
-      title: "",
-      targetAmount: "",
-      currentAmount: "",
-      targetDate: "",
-      category: "",
-    });
+    await addGoal(newGoal);
+    reset();
     setIsAddDialogOpen(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={fetchGoals} variant="outline">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const totalGoals = goals.length;
   const completedGoals = goals.filter((goal) => goal.status === "completed").length;
@@ -139,17 +120,17 @@ export default function GoalsPage() {
                     Set a new financial goal to track your progress.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
+                <form onSubmit={handleSubmit(handleAddGoal)} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="title">Goal Title</Label>
                     <Input
                       id="title"
                       placeholder="e.g., Emergency Fund, Vacation"
-                      value={formData.title}
-                      onChange={(e) =>
-                        setFormData({ ...formData, title: e.target.value })
-                      }
+                      {...register("title")}
                     />
+                    {errors.title && (
+                      <p className="text-sm text-red-600">{errors.title.message}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -159,11 +140,11 @@ export default function GoalsPage() {
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      value={formData.targetAmount}
-                      onChange={(e) =>
-                        setFormData({ ...formData, targetAmount: e.target.value })
-                      }
+                      {...register("targetAmount", { valueAsNumber: true })}
                     />
+                    {errors.targetAmount && (
+                      <p className="text-sm text-red-600">{errors.targetAmount.message}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -173,11 +154,11 @@ export default function GoalsPage() {
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      value={formData.currentAmount}
-                      onChange={(e) =>
-                        setFormData({ ...formData, currentAmount: e.target.value })
-                      }
+                      {...register("currentAmount", { valueAsNumber: true })}
                     />
+                    {errors.currentAmount && (
+                      <p className="text-sm text-red-600">{errors.currentAmount.message}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -185,11 +166,11 @@ export default function GoalsPage() {
                     <Input
                       id="targetDate"
                       type="date"
-                      value={formData.targetDate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, targetDate: e.target.value })
-                      }
+                      {...register("targetDate")}
                     />
+                    {errors.targetDate && (
+                      <p className="text-sm text-red-600">{errors.targetDate.message}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -197,17 +178,24 @@ export default function GoalsPage() {
                     <Input
                       id="category"
                       placeholder="e.g., Savings, Travel, Education"
-                      value={formData.category}
-                      onChange={(e) =>
-                        setFormData({ ...formData, category: e.target.value })
-                      }
+                      {...register("category")}
                     />
+                    {errors.category && (
+                      <p className="text-sm text-red-600">{errors.category.message}</p>
+                    )}
                   </div>
 
-                  <Button onClick={handleAddGoal} className="w-full">
-                    Add Goal
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Adding Goal...
+                      </>
+                    ) : (
+                      "Add Goal"
+                    )}
                   </Button>
-                </div>
+                </form>
               </DialogContent>
             </Dialog>
           </div>
