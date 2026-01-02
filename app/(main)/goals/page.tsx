@@ -34,12 +34,15 @@ import {
 } from "lucide-react";
 import { useGoalsStore, Goal } from "@/store/goals-store";
 import { goalFormSchema, GoalFormData } from "@/lib/schemas/goal-form-schema";
+import GoalDetailsModal from "@/components/goals/GoalDetailsModal";
 
 export default function GoalsPage() {
   const { goals, loading, error, fetchGoals, addGoal, updateGoal, deleteGoal } = useGoalsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   const addForm = useForm<GoalFormData>({
     resolver: zodResolver(goalFormSchema),
@@ -127,6 +130,21 @@ export default function GoalsPage() {
       category: goal.category,
     });
     setIsEditDialogOpen(true);
+  };
+
+  const openDetailsModal = (goal: Goal) => {
+    setSelectedGoal(goal);
+    setIsDetailsModalOpen(true);
+  };
+
+  const handleDetailsModalClose = () => {
+    setIsDetailsModalOpen(false);
+    setSelectedGoal(null);
+  };
+
+  const handleTransactionDeleted = () => {
+    // Refresh goals to update amounts
+    fetchGoals();
   };
 
   if (loading && goals.length === 0) {
@@ -421,7 +439,8 @@ export default function GoalsPage() {
                   return (
                     <div
                       key={goal.id}
-                      className="border rounded-lg p-6 space-y-4"
+                      className="border rounded-lg p-6 space-y-4 hover:shadow-lg transition-shadow cursor-pointer"
+                      onClick={() => openDetailsModal(goal)}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
@@ -449,14 +468,20 @@ export default function GoalsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => openEditDialog(goal)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditDialog(goal);
+                            }}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDeleteGoal(goal.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteGoal(goal.id);
+                            }}
                           >
                             <Trash2 className="h-4 w-4 text-red-600" />
                           </Button>
@@ -496,6 +521,14 @@ export default function GoalsPage() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Goal Details Modal */}
+      <GoalDetailsModal
+        goal={selectedGoal}
+        isOpen={isDetailsModalOpen}
+        onClose={handleDetailsModalClose}
+        onTransactionDeleted={handleTransactionDeleted}
+      />
     </div>
   );
 }

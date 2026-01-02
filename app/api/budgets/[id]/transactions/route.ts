@@ -13,12 +13,22 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch all transactions linked to this goal
+    // Get current month's start and end dates
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    const startDate = firstDayOfMonth.toISOString().split('T')[0];
+    const endDate = lastDayOfMonth.toISOString().split('T')[0];
+
+    // Fetch transactions for this budget in the current month
     const { data, error } = await supabase
       .from("transactions")
       .select("*")
       .eq("user_id", user.id)
-      .eq("goal_id", params.id)
+      .eq("budget_id", params.id)
+      .gte("date", startDate)
+      .lte("date", endDate)
       .order("date", { ascending: false });
 
     if (error) {
@@ -30,3 +40,4 @@ export async function GET(
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+

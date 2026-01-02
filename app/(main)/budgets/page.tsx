@@ -39,7 +39,8 @@ import {
   Trash2,
   Loader2,
 } from "lucide-react";
-import { useBudgetsStore } from "@/store/budgets-store";
+import { useBudgetsStore, Budget } from "@/store/budgets-store";
+import BudgetDetailsModal from "@/components/budgets/BudgetDetailsModal";
 
 const budgetFormSchema = z.object({
   category: z.string().min(1, "Category is required"),
@@ -58,6 +59,8 @@ export default function BudgetsPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
+  const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   const {
     control: addControl,
@@ -127,6 +130,21 @@ export default function BudgetsPage() {
       period: budget.period,
     });
     setIsEditDialogOpen(true);
+  };
+
+  const openDetailsModal = (budget: Budget) => {
+    setSelectedBudget(budget);
+    setIsDetailsModalOpen(true);
+  };
+
+  const handleDetailsModalClose = () => {
+    setIsDetailsModalOpen(false);
+    setSelectedBudget(null);
+  };
+
+  const handleTransactionDeleted = () => {
+    // Refresh budgets to update amounts
+    fetchBudgets();
   };
 
   const getProgressColor = (percentage: number) => {
@@ -459,7 +477,11 @@ export default function BudgetsPage() {
             const remaining = budget.limit_amount - spent;
 
             return (
-              <Card key={budget.id} className="relative">
+              <Card 
+                key={budget.id} 
+                className="relative hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => openDetailsModal(budget)}
+              >
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div className="flex items-center space-x-2">
@@ -523,14 +545,20 @@ export default function BudgetsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => openEditDialog(budget)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditDialog(budget);
+                          }}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDeleteBudget(budget.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteBudget(budget.id);
+                          }}
                         >
                           <Trash2 className="h-4 w-4 text-red-600" />
                         </Button>
@@ -574,6 +602,14 @@ export default function BudgetsPage() {
           </Card>
         )}
       </main>
+
+      {/* Budget Details Modal */}
+      <BudgetDetailsModal
+        budget={selectedBudget}
+        isOpen={isDetailsModalOpen}
+        onClose={handleDetailsModalClose}
+        onTransactionDeleted={handleTransactionDeleted}
+      />
     </div>
   );
 }

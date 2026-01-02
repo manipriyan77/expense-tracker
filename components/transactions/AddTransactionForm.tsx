@@ -29,7 +29,7 @@ const transactionFormSchema = z.object({
   description: z.string().min(1, "Description is required"),
   category: z.string().min(1, "Category is required"),
   subtype: z.string().min(1, "Subtype is required"),
-  budgetId: z.string().min(1, "Budget selection is required"),
+  budgetId: z.string().optional(), // Optional - will auto-map based on category/subtype
   goalId: z.string().optional(),
   date: z.string().optional(),
 }).refine(
@@ -415,60 +415,58 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
             )}
           </div>
 
-          {/* Budget Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="budgetId" className="flex items-center space-x-1">
-              <span>Budget *</span>
-              <span className="text-xs text-gray-500">(Required for tracking)</span>
-            </Label>
-            <Controller
-              name="budgetId"
-              control={control}
-              render={({ field }) => (
-                <Select 
-                  value={field.value} 
-                  onValueChange={field.onChange}
-                  disabled={!selectedCategory || !selectedSubtype}
-                >
-                  <SelectTrigger className={errors.budgetId ? "border-red-500" : ""}>
-                    <SelectValue placeholder={
-                      !selectedCategory || !selectedSubtype 
-                        ? "Select category & subtype first" 
-                        : getMatchingBudgets().length === 0
-                        ? "No budget found - create one first"
-                        : "Select budget"
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getMatchingBudgets().map((budget) => (
-                      <SelectItem key={budget.id} value={budget.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">
-                            {budget.category}
-                            {budget.subtype && ` → ${budget.subtype}`}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            ${budget.limit_amount.toLocaleString()} / {budget.period}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.budgetId && (
-              <p className="text-sm text-red-600">{errors.budgetId.message}</p>
-            )}
-            {selectedCategory && selectedSubtype && getMatchingBudgets().length === 0 && (
-              <div className="text-sm text-orange-600 bg-orange-50 p-2 rounded border border-orange-200">
-                ⚠️ No budget exists for {selectedCategory} → {selectedSubtype}. 
-                <a href="/budgets" target="_blank" className="underline ml-1">
-                  Create one
-                </a>
-              </div>
-            )}
-          </div>
+          {/* Budget Selection - Optional, shows available budgets */}
+          {selectedCategory && selectedSubtype && getMatchingBudgets().length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="budgetId" className="flex items-center space-x-1">
+                <span>Budget (Optional)</span>
+                <span className="text-xs text-gray-500">Auto-mapped if not selected</span>
+              </Label>
+              <Controller
+                name="budgetId"
+                control={control}
+                render={({ field }) => (
+                  <Select 
+                    value={field.value} 
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Auto-select matching budget" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Auto-select</SelectItem>
+                      {getMatchingBudgets().map((budget) => (
+                        <SelectItem key={budget.id} value={budget.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {budget.category}
+                              {budget.subtype && ` → ${budget.subtype}`}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              ${budget.limit_amount.toLocaleString()} / {budget.period}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <p className="text-xs text-gray-600">
+                ℹ️ Transaction will be automatically linked to matching budget
+              </p>
+            </div>
+          )}
+          
+          {selectedCategory && selectedSubtype && getMatchingBudgets().length === 0 && (
+            <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded border border-blue-200">
+              ℹ️ No budget exists for {selectedCategory} → {selectedSubtype}. 
+              Transaction will be tracked without a budget.
+              <a href="/budgets" target="_blank" className="underline ml-1">
+                Create budget
+              </a>
+            </div>
+          )}
         </CardContent>
       </Card>
 
