@@ -116,7 +116,15 @@ export default function GoalsPage() {
 
   const handleDeleteGoal = async (id: string) => {
     if (confirm("Are you sure you want to delete this goal? This action cannot be undone.")) {
-      await deleteGoal(id);
+      try {
+        await deleteGoal(id);
+      } catch (error) {
+        // Error is already set in the store and logged
+        // Show alert to user
+        if (error instanceof Error) {
+          alert(error.message);
+        }
+      }
     }
   };
 

@@ -120,7 +120,10 @@ export const useBudgetsStore = create<BudgetsState>((set) => ({
       }));
     } catch (error) {
       console.error("Error deleting budget:", error);
-      set({ error: error instanceof Error ? error.message : "Failed to delete budget", loading: false });
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete budget";
+      set({ error: errorMessage, loading: false });
+      // Re-throw to let the UI handle it
+      throw error;
     }
   },
 }));

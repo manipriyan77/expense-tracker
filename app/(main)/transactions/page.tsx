@@ -38,6 +38,8 @@ import {
   Repeat,
   DollarSign,
   Search,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { transactionFormSchema, TransactionFormData } from "@/lib/schemas/transaction-form-schema";
 
@@ -89,6 +91,7 @@ export default function TransactionsPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const {
     control,
@@ -207,12 +210,43 @@ export default function TransactionsPage() {
 
       await loadTransactions();
       await loadGoals();
+      await loadBudgets();
 
       reset();
       setIsAddDialogOpen(false);
     } catch (error) {
       console.error("Error adding transaction:", error);
       toast.error("Failed to add transaction. Please try again.");
+    }
+  };
+
+  const handleDeleteTransaction = async (transactionId: string) => {
+    if (!confirm("Are you sure you want to delete this transaction? This will update any linked budgets and goals.")) {
+      return;
+    }
+
+    setDeleting(transactionId);
+    try {
+      const response = await fetch(`/api/transactions/${transactionId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete transaction");
+      }
+
+      toast.success("Transaction deleted successfully!");
+      
+      // Reload all data to reflect changes
+      await loadTransactions();
+      await loadGoals();
+      await loadBudgets();
+    } catch (error) {
+      console.error("Error deleting transaction:", error);
+      toast.error("Failed to delete transaction. Please try again.");
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -745,17 +779,33 @@ export default function TransactionsPage() {
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <p
-                          className={`text-xl font-bold ${
-                            transaction.type === "income"
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          {transaction.type === "income" ? "+" : "-"}$
-                          {transaction.amount.toFixed(2)}
-                        </p>
+                      <div className="flex items-center space-x-4">
+                        <div className="text-right">
+                          <p
+                            className={`text-xl font-bold ${
+                              transaction.type === "income"
+                                ? "text-green-600"
+                                : "text-red-600"
+                            }`}
+                          >
+                            {transaction.type === "income" ? "+" : "-"}$
+                            {transaction.amount.toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteTransaction(transaction.id)}
+                            disabled={deleting === transaction.id}
+                          >
+                            {deleting === transaction.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -809,9 +859,23 @@ export default function TransactionsPage() {
                           </div>
                         </div>
                       </div>
-                      <p className="text-xl font-bold text-green-600">
-                        +${transaction.amount.toFixed(2)}
-                      </p>
+                      <div className="flex items-center space-x-4">
+                        <p className="text-xl font-bold text-green-600">
+                          +${transaction.amount.toFixed(2)}
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteTransaction(transaction.id)}
+                          disabled={deleting === transaction.id}
+                        >
+                          {deleting === transaction.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -864,9 +928,23 @@ export default function TransactionsPage() {
                           </div>
                         </div>
                       </div>
-                      <p className="text-xl font-bold text-red-600">
-                        -${transaction.amount.toFixed(2)}
-                      </p>
+                      <div className="flex items-center space-x-4">
+                        <p className="text-xl font-bold text-red-600">
+                          -${transaction.amount.toFixed(2)}
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteTransaction(transaction.id)}
+                          disabled={deleting === transaction.id}
+                        >
+                          {deleting === transaction.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -932,16 +1010,30 @@ export default function TransactionsPage() {
                           )}
                         </div>
                       </div>
-                      <p
-                        className={`text-xl font-bold ${
-                          transaction.type === "income"
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {transaction.type === "income" ? "+" : "-"}$
-                        {transaction.amount.toFixed(2)}
-                      </p>
+                      <div className="flex items-center space-x-4">
+                        <p
+                          className={`text-xl font-bold ${
+                            transaction.type === "income"
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {transaction.type === "income" ? "+" : "-"}$
+                          {transaction.amount.toFixed(2)}
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteTransaction(transaction.id)}
+                          disabled={deleting === transaction.id}
+                        >
+                          {deleting === transaction.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

@@ -117,7 +117,15 @@ export default function BudgetsPage() {
 
   const handleDeleteBudget = async (id: string) => {
     if (confirm("Are you sure you want to delete this budget?")) {
-      await deleteBudget(id);
+      try {
+        await deleteBudget(id);
+      } catch (error) {
+        // Error is already set in the store and logged
+        // Show alert to user
+        if (error instanceof Error) {
+          alert(error.message);
+        }
+      }
     }
   };
 

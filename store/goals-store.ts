@@ -40,17 +40,17 @@ export const useGoalsStore = create<GoalsState>((set) => ({
       const data = await response.json();
       
       // Transform snake_case to camelCase
-      const transformedGoals = data.map((goal: any) => ({
-        id: goal.id,
-        title: goal.title,
-        targetAmount: parseFloat(goal.target_amount || 0),
-        currentAmount: parseFloat(goal.current_amount || 0),
-        targetDate: goal.target_date,
-        category: goal.category,
-        status: goal.status,
-        user_id: goal.user_id,
-        created_at: goal.created_at,
-        updated_at: goal.updated_at,
+      const transformedGoals = data.map((goal: Record<string, unknown>) => ({
+        id: goal.id as string,
+        title: goal.title as string,
+        targetAmount: parseFloat((goal.target_amount as string) || "0"),
+        currentAmount: parseFloat((goal.current_amount as string) || "0"),
+        targetDate: goal.target_date as string,
+        category: goal.category as string,
+        status: goal.status as "active" | "completed" | "overdue",
+        user_id: goal.user_id as string,
+        created_at: goal.created_at as string,
+        updated_at: goal.updated_at as string,
       }));
       
       set({ goals: transformedGoals, loading: false });
@@ -164,7 +164,10 @@ export const useGoalsStore = create<GoalsState>((set) => ({
       }));
     } catch (error) {
       console.error("Error deleting goal:", error);
-      set({ error: error instanceof Error ? error.message : "Failed to delete goal", loading: false });
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete goal";
+      set({ error: errorMessage, loading: false });
+      // Re-throw to let the UI handle it
+      throw error;
     }
   },
 }));

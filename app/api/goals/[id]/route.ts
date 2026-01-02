@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -13,6 +13,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const params = await context.params;
     const body = await request.json();
     const { title, targetAmount, currentAmount, targetDate, category, status } = body;
 
@@ -47,7 +48,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -57,6 +58,29 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const params = await context.params;
+
+    // Check if there are any transactions linked to this goal
+    const { data: linkedTransactions, error: checkError } = await supabase
+      .from("transactions")
+      .select("id")
+      .eq("goal_id", params.id)
+      .eq("user_id", user.id)
+      .limit(1);
+
+    if (checkError) {
+      return NextResponse.json({ error: checkError.message }, { status: 500 });
+    }
+
+    // If there are linked transactions, prevent deletion
+    if (linkedTransactions && linkedTransactions.length > 0) {
+      return NextResponse.json({ 
+        error: "Cannot delete goal with linked transactions. Please delete the transactions first or they will be unlinked.",
+        hasTransactions: true 
+      }, { status: 400 });
+    }
+
+    // No linked transactions, safe to delete
     const { error } = await supabase
       .from("goals")
       .delete()
