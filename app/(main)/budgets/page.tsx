@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,92 +37,96 @@ import {
   CheckCircle2,
   Edit,
   Trash2,
+  Loader2,
 } from "lucide-react";
+import { useBudgetsStore } from "@/store/budgets-store";
 
-interface Budget {
-  id: string;
-  category: string;
-  limit: number;
-  spent: number;
-  period: "monthly" | "weekly" | "yearly";
-  color: string;
-}
+const budgetFormSchema = z.object({
+  category: z.string().min(1, "Category is required"),
+  subtype: z.string().optional(),
+  limit_amount: z
+    .string()
+    .min(1, "Limit is required")
+    .refine((val) => !isNaN(Number(val)) && Number(val) > 0, "Must be a positive number"),
+  period: z.enum(["weekly", "monthly", "yearly"]),
+});
+
+type BudgetFormData = z.infer<typeof budgetFormSchema>;
 
 export default function BudgetsPage() {
-  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const { budgets, loading, error, fetchBudgets, addBudget, updateBudget, deleteBudget } = useBudgetsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    category: "",
-    limit: "",
-    period: "monthly" as "monthly" | "weekly" | "yearly",
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
+
+  const {
+    control: addControl,
+    handleSubmit: handleAddSubmit,
+    reset: resetAdd,
+    formState: { errors: addErrors, isSubmitting: isAddSubmitting },
+  } = useForm<BudgetFormData>({
+    resolver: zodResolver(budgetFormSchema),
+    defaultValues: {
+      category: "",
+      subtype: "",
+      limit_amount: "",
+      period: "monthly",
+    },
+  });
+
+  const {
+    control: editControl,
+    handleSubmit: handleEditSubmit,
+    reset: resetEdit,
+    formState: { errors: editErrors, isSubmitting: isEditSubmitting },
+  } = useForm<BudgetFormData>({
+    resolver: zodResolver(budgetFormSchema),
   });
 
   useEffect(() => {
-    loadBudgets();
-  }, []);
+    fetchBudgets();
+  }, [fetchBudgets]);
 
-  const loadBudgets = async () => {
-    // Mock data
-    const mockBudgets: Budget[] = [
-      {
-        id: "1",
-        category: "Food",
-        limit: 500,
-        spent: 350,
-        period: "monthly",
-        color: "#ef4444",
-      },
-      {
-        id: "2",
-        category: "Transportation",
-        limit: 200,
-        spent: 180,
-        period: "monthly",
-        color: "#f97316",
-      },
-      {
-        id: "3",
-        category: "Entertainment",
-        limit: 150,
-        spent: 165,
-        period: "monthly",
-        color: "#f59e0b",
-      },
-      {
-        id: "4",
-        category: "Bills",
-        limit: 400,
-        spent: 400,
-        period: "monthly",
-        color: "#eab308",
-      },
-      {
-        id: "5",
-        category: "Shopping",
-        limit: 300,
-        spent: 120,
-        period: "monthly",
-        color: "#84cc16",
-      },
-    ];
-    setBudgets(mockBudgets);
+  const handleAddBudget = async (data: BudgetFormData) => {
+    await addBudget({
+      category: data.category,
+      subtype: data.subtype || null,
+      limit_amount: parseFloat(data.limit_amount),
+      period: data.period,
+    });
+    resetAdd();
+    setIsAddDialogOpen(false);
   };
 
-  const handleAddBudget = () => {
-    if (!formData.category || !formData.limit) return;
+  const handleEditBudget = async (data: BudgetFormData) => {
+    if (!editingBudgetId) return;
+    
+    await updateBudget(editingBudgetId, {
+      category: data.category,
+      subtype: data.subtype || null,
+      limit_amount: parseFloat(data.limit_amount),
+      period: data.period,
+    });
+    resetEdit();
+    setIsEditDialogOpen(false);
+    setEditingBudgetId(null);
+  };
 
-    const newBudget: Budget = {
-      id: Date.now().toString(),
-      category: formData.category,
-      limit: parseFloat(formData.limit),
-      spent: 0,
-      period: formData.period,
-      color: "#8b5cf6",
-    };
+  const handleDeleteBudget = async (id: string) => {
+    if (confirm("Are you sure you want to delete this budget?")) {
+      await deleteBudget(id);
+    }
+  };
 
-    setBudgets([...budgets, newBudget]);
-    setFormData({ category: "", limit: "", period: "monthly" });
-    setIsAddDialogOpen(false);
+  const openEditDialog = (budget: any) => {
+    setEditingBudgetId(budget.id);
+    resetEdit({
+      category: budget.category,
+      subtype: budget.subtype || "",
+      limit_amount: budget.limit_amount.toString(),
+      period: budget.period,
+    });
+    setIsEditDialogOpen(true);
   };
 
   const getProgressColor = (percentage: number) => {
@@ -137,9 +144,44 @@ export default function BudgetsPage() {
     return <CheckCircle2 className="h-5 w-5 text-green-600" />;
   };
 
-  const totalBudget = budgets.reduce((sum, b) => sum + b.limit, 0);
-  const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0);
-  const overallPercentage = (totalSpent / totalBudget) * 100 || 0;
+  const totalBudget = budgets.reduce((sum, b) => sum + b.limit_amount, 0);
+  const totalSpent = budgets.reduce((sum, b) => sum + (b.spent_amount || 0), 0);
+  const overallPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+
+  const categories = [
+    "Food",
+    "Transportation",
+    "Entertainment",
+    "Bills",
+    "Shopping",
+    "Healthcare",
+    "Savings",
+    "Investment",
+    "Education",
+    "Travel",
+    "Other",
+  ];
+
+  if (loading && budgets.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={fetchBudgets} variant="outline">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -205,87 +247,230 @@ export default function BudgetsPage() {
                   Set a spending limit for a category
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
+              <form onSubmit={handleAddSubmit(handleAddBudget)} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, category: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Food">Food</SelectItem>
-                      <SelectItem value="Transportation">Transportation</SelectItem>
-                      <SelectItem value="Entertainment">Entertainment</SelectItem>
-                      <SelectItem value="Bills">Bills</SelectItem>
-                      <SelectItem value="Shopping">Shopping</SelectItem>
-                      <SelectItem value="Healthcare">Healthcare</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="add-category">Category *</Label>
+                  <Controller
+                    name="category"
+                    control={addControl}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {addErrors.category && (
+                    <p className="text-sm text-red-600">{addErrors.category.message}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="limit">Budget Limit</Label>
-                  <Input
-                    id="limit"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={formData.limit}
-                    onChange={(e) =>
-                      setFormData({ ...formData, limit: e.target.value })
-                    }
+                  <Label htmlFor="add-subtype">Subtype (Optional)</Label>
+                  <Controller
+                    name="subtype"
+                    control={addControl}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        id="add-subtype"
+                        placeholder="e.g., Groceries, Rent"
+                      />
+                    )}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="period">Period</Label>
-                  <Select
-                    value={formData.period}
-                    onValueChange={(value: "monthly" | "weekly" | "yearly") =>
-                      setFormData({ ...formData, period: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select period" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="yearly">Yearly</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="add-limit">Budget Limit *</Label>
+                  <Controller
+                    name="limit_amount"
+                    control={addControl}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        id="add-limit"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                      />
+                    )}
+                  />
+                  {addErrors.limit_amount && (
+                    <p className="text-sm text-red-600">{addErrors.limit_amount.message}</p>
+                  )}
                 </div>
 
-                <Button onClick={handleAddBudget} className="w-full">
-                  Create Budget
+                <div className="space-y-2">
+                  <Label htmlFor="add-period">Period *</Label>
+                  <Controller
+                    name="period"
+                    control={addControl}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select period" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="yearly">Yearly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {addErrors.period && (
+                    <p className="text-sm text-red-600">{addErrors.period.message}</p>
+                  )}
+                </div>
+
+                <Button type="submit" className="w-full" disabled={isAddSubmitting}>
+                  {isAddSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Budget"
+                  )}
                 </Button>
-              </div>
+              </form>
             </DialogContent>
           </Dialog>
         </div>
 
+        {/* Edit Budget Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Budget</DialogTitle>
+              <DialogDescription>Update budget details</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditSubmit(handleEditBudget)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-category">Category *</Label>
+                <Controller
+                  name="category"
+                  control={editControl}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {editErrors.category && (
+                  <p className="text-sm text-red-600">{editErrors.category.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-subtype">Subtype (Optional)</Label>
+                <Controller
+                  name="subtype"
+                  control={editControl}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      id="edit-subtype"
+                      placeholder="e.g., Groceries, Rent"
+                    />
+                  )}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-limit">Budget Limit *</Label>
+                <Controller
+                  name="limit_amount"
+                  control={editControl}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      id="edit-limit"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                    />
+                  )}
+                />
+                {editErrors.limit_amount && (
+                  <p className="text-sm text-red-600">{editErrors.limit_amount.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-period">Period *</Label>
+                <Controller
+                  name="period"
+                  control={editControl}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select period" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="yearly">Yearly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {editErrors.period && (
+                  <p className="text-sm text-red-600">{editErrors.period.message}</p>
+                )}
+              </div>
+
+              <Button type="submit" className="w-full" disabled={isEditSubmitting}>
+                {isEditSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Budget"
+                )}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         {/* Budget Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {budgets.map((budget) => {
-            const percentage = (budget.spent / budget.limit) * 100;
-            const remaining = budget.limit - budget.spent;
+            const spent = budget.spent_amount || 0;
+            const percentage = (spent / budget.limit_amount) * 100;
+            const remaining = budget.limit_amount - spent;
 
             return (
               <Card key={budget.id} className="relative">
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div className="flex items-center space-x-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: budget.color }}
-                      />
-                      <CardTitle className="text-lg">{budget.category}</CardTitle>
+                      <CardTitle className="text-lg">
+                        {budget.category}
+                        {budget.subtype && (
+                          <span className="text-sm font-normal text-gray-500 ml-2">
+                            → {budget.subtype}
+                          </span>
+                        )}
+                      </CardTitle>
                     </div>
                     {getStatusIcon(percentage)}
                   </div>
@@ -297,11 +482,11 @@ export default function BudgetsPage() {
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="text-sm text-gray-600">Spent</p>
-                      <p className="text-xl font-bold">${budget.spent.toFixed(2)}</p>
+                      <p className="text-xl font-bold">${spent.toFixed(2)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-600">Limit</p>
-                      <p className="text-xl font-bold">${budget.limit.toFixed(2)}</p>
+                      <p className="text-xl font-bold">${budget.limit_amount.toFixed(2)}</p>
                     </div>
                   </div>
 
@@ -335,10 +520,18 @@ export default function BudgetsPage() {
                         </p>
                       </div>
                       <div className="flex space-x-2">
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditDialog(budget)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteBudget(budget.id)}
+                        >
                           <Trash2 className="h-4 w-4 text-red-600" />
                         </Button>
                       </div>

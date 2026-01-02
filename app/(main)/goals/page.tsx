@@ -29,29 +29,53 @@ import {
   CheckCircle,
   Circle,
   Loader2,
+  Edit,
+  Trash2,
 } from "lucide-react";
-import { useGoalsStore } from "@/store/goals-store";
+import { useGoalsStore, Goal } from "@/store/goals-store";
 import { goalFormSchema, GoalFormData } from "@/lib/schemas/goal-form-schema";
 
 export default function GoalsPage() {
-  const { goals, loading, error, fetchGoals, addGoal } = useGoalsStore();
+  const { goals, loading, error, fetchGoals, addGoal, updateGoal, deleteGoal } = useGoalsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<GoalFormData>({
+  const addForm = useForm<GoalFormData>({
     resolver: zodResolver(goalFormSchema),
     defaultValues: {
       title: "",
       targetAmount: 0,
       currentAmount: 0,
       targetDate: "",
-      category: "",
+      category: "General",
     },
   });
+
+  const editForm = useForm<GoalFormData>({
+    resolver: zodResolver(goalFormSchema),
+    defaultValues: {
+      title: "",
+      targetAmount: 0,
+      currentAmount: 0,
+      targetDate: "",
+      category: "General",
+    },
+  });
+
+  const {
+    register: addRegister,
+    handleSubmit: handleAddSubmit,
+    reset: resetAdd,
+    formState: { errors: addErrors, isSubmitting: isAddSubmitting },
+  } = addForm;
+
+  const {
+    register: editRegister,
+    handleSubmit: handleEditSubmit,
+    reset: resetEdit,
+    formState: { errors: editErrors, isSubmitting: isEditSubmitting },
+  } = editForm;
 
   useEffect(() => {
     fetchGoals();
@@ -68,11 +92,44 @@ export default function GoalsPage() {
     };
 
     await addGoal(newGoal);
-    reset();
+    resetAdd();
     setIsAddDialogOpen(false);
   };
 
-  if (loading) {
+  const handleEditGoal = async (data: GoalFormData) => {
+    if (!editingGoalId) return;
+
+    await updateGoal(editingGoalId, {
+      title: data.title,
+      targetAmount: data.targetAmount,
+      currentAmount: data.currentAmount || 0,
+      targetDate: data.targetDate,
+      category: data.category || "General",
+    });
+    resetEdit();
+    setIsEditDialogOpen(false);
+    setEditingGoalId(null);
+  };
+
+  const handleDeleteGoal = async (id: string) => {
+    if (confirm("Are you sure you want to delete this goal? This action cannot be undone.")) {
+      await deleteGoal(id);
+    }
+  };
+
+  const openEditDialog = (goal: Goal) => {
+    setEditingGoalId(goal.id);
+    resetEdit({
+      title: goal.title,
+      targetAmount: goal.targetAmount,
+      currentAmount: goal.currentAmount,
+      targetDate: goal.targetDate,
+      category: goal.category,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  if (loading && goals.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -120,73 +177,73 @@ export default function GoalsPage() {
                     Set a new financial goal to track your progress.
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleSubmit(handleAddGoal)} className="space-y-4">
+                <form onSubmit={handleAddSubmit(handleAddGoal)} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="title">Goal Title</Label>
+                    <Label htmlFor="add-title">Goal Title</Label>
                     <Input
-                      id="title"
+                      id="add-title"
                       placeholder="e.g., Emergency Fund, Vacation"
-                      {...register("title")}
+                      {...addRegister("title")}
                     />
-                    {errors.title && (
-                      <p className="text-sm text-red-600">{errors.title.message}</p>
+                    {addErrors.title && (
+                      <p className="text-sm text-red-600">{addErrors.title.message}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="targetAmount">Target Amount</Label>
+                    <Label htmlFor="add-targetAmount">Target Amount</Label>
                     <Input
-                      id="targetAmount"
+                      id="add-targetAmount"
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      {...register("targetAmount", { valueAsNumber: true })}
+                      {...addRegister("targetAmount", { valueAsNumber: true })}
                     />
-                    {errors.targetAmount && (
-                      <p className="text-sm text-red-600">{errors.targetAmount.message}</p>
+                    {addErrors.targetAmount && (
+                      <p className="text-sm text-red-600">{addErrors.targetAmount.message}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="currentAmount">Current Amount (Optional)</Label>
+                    <Label htmlFor="add-currentAmount">Current Amount (Optional)</Label>
                     <Input
-                      id="currentAmount"
+                      id="add-currentAmount"
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      {...register("currentAmount", { valueAsNumber: true })}
+                      {...addRegister("currentAmount", { valueAsNumber: true })}
                     />
-                    {errors.currentAmount && (
-                      <p className="text-sm text-red-600">{errors.currentAmount.message}</p>
+                    {addErrors.currentAmount && (
+                      <p className="text-sm text-red-600">{addErrors.currentAmount.message}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="targetDate">Target Date</Label>
+                    <Label htmlFor="add-targetDate">Target Date</Label>
                     <Input
-                      id="targetDate"
+                      id="add-targetDate"
                       type="date"
-                      {...register("targetDate")}
+                      {...addRegister("targetDate")}
                     />
-                    {errors.targetDate && (
-                      <p className="text-sm text-red-600">{errors.targetDate.message}</p>
+                    {addErrors.targetDate && (
+                      <p className="text-sm text-red-600">{addErrors.targetDate.message}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
+                    <Label htmlFor="add-category">Category</Label>
                     <Input
-                      id="category"
+                      id="add-category"
                       placeholder="e.g., Savings, Travel, Education"
-                      {...register("category")}
+                      {...addRegister("category")}
                     />
-                    {errors.category && (
-                      <p className="text-sm text-red-600">{errors.category.message}</p>
+                    {addErrors.category && (
+                      <p className="text-sm text-red-600">{addErrors.category.message}</p>
                     )}
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? (
+                  <Button type="submit" className="w-full" disabled={isAddSubmitting}>
+                    {isAddSubmitting ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Adding Goal...
@@ -201,6 +258,94 @@ export default function GoalsPage() {
           </div>
         </div>
       </header>
+
+      {/* Edit Goal Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Goal</DialogTitle>
+            <DialogDescription>
+              Update your financial goal details.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit(handleEditGoal)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Goal Title</Label>
+              <Input
+                id="edit-title"
+                placeholder="e.g., Emergency Fund, Vacation"
+                {...editRegister("title")}
+              />
+              {editErrors.title && (
+                <p className="text-sm text-red-600">{editErrors.title.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-targetAmount">Target Amount</Label>
+              <Input
+                id="edit-targetAmount"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                {...editRegister("targetAmount", { valueAsNumber: true })}
+              />
+              {editErrors.targetAmount && (
+                <p className="text-sm text-red-600">{editErrors.targetAmount.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-currentAmount">Current Amount</Label>
+              <Input
+                id="edit-currentAmount"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                {...editRegister("currentAmount", { valueAsNumber: true })}
+              />
+              {editErrors.currentAmount && (
+                <p className="text-sm text-red-600">{editErrors.currentAmount.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-targetDate">Target Date</Label>
+              <Input
+                id="edit-targetDate"
+                type="date"
+                {...editRegister("targetDate")}
+              />
+              {editErrors.targetDate && (
+                <p className="text-sm text-red-600">{editErrors.targetDate.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-category">Category</Label>
+              <Input
+                id="edit-category"
+                placeholder="e.g., Savings, Travel, Education"
+                {...editRegister("category")}
+              />
+              {editErrors.category && (
+                <p className="text-sm text-red-600">{editErrors.category.message}</p>
+              )}
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isEditSubmitting}>
+              {isEditSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating Goal...
+                </>
+              ) : (
+                "Update Goal"
+              )}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <main className="px-4 sm:px-6 lg:px-8 py-8">
         {/* Summary Cards */}
@@ -290,15 +435,31 @@ export default function GoalsPage() {
                             <p className="text-sm text-gray-500">{goal.category}</p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold">
-                            ${goal.currentAmount.toLocaleString()} / $
-                            {goal.targetAmount.toLocaleString()}
-                          </p>
-                          <p className="text-sm text-gray-500 flex items-center">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            Target: {new Date(goal.targetDate).toLocaleDateString()}
-                          </p>
+                        <div className="flex items-center space-x-2">
+                          <div className="text-right mr-4">
+                            <p className="text-lg font-bold">
+                              ${goal.currentAmount.toLocaleString()} / $
+                              {goal.targetAmount.toLocaleString()}
+                            </p>
+                            <p className="text-sm text-gray-500 flex items-center justify-end">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              Target: {new Date(goal.targetDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditDialog(goal)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteGoal(goal.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
                         </div>
                       </div>
 
