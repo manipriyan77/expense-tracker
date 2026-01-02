@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -31,7 +30,6 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Plus,
   TrendingUp,
@@ -39,9 +37,9 @@ import {
   Calendar,
   Repeat,
   DollarSign,
-  Filter,
   Search,
 } from "lucide-react";
+import { transactionFormSchema, TransactionFormData } from "@/lib/schemas/transaction-form-schema";
 
 interface Transaction {
   id: string;
@@ -49,31 +47,46 @@ interface Transaction {
   amount: number;
   description: string;
   category: string;
+  subtype?: string;
   date: string;
   isRecurring: boolean;
   frequency?: "daily" | "weekly" | "monthly" | "yearly";
   nextDate?: string;
 }
 
-const transactionFormSchema = z.object({
-  type: z.enum(["income", "expense"]),
-  amount: z
-    .string()
-    .min(1, "Amount is required")
-    .refine(
-      (val) => !isNaN(Number(val)) && Number(val) > 0,
-      "Amount must be a positive number"
-    ),
-  description: z.string().min(1, "Description is required"),
-  category: z.string().min(1, "Category is required"),
-  isRecurring: z.boolean(),
-  frequency: z.enum(["daily", "weekly", "monthly", "yearly"]).optional(),
-});
+interface TransactionFromDB {
+  id: string;
+  type: "income" | "expense";
+  amount: number;
+  description: string;
+  category: string;
+  subtype?: string;
+  date: string;
+  is_recurring?: boolean;
+  frequency?: "daily" | "weekly" | "monthly" | "yearly";
+  next_date?: string;
+}
 
-type TransactionFormData = z.infer<typeof transactionFormSchema>;
+interface Goal {
+  id: string;
+  title: string;
+  target_amount: number;
+  current_amount: number;
+  category: string;
+}
+
+interface Budget {
+  id: string;
+  category: string;
+  subtype?: string;
+  limit_amount: number;
+  period: string;
+}
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -90,6 +103,9 @@ export default function TransactionsPage() {
       amount: "",
       description: "",
       category: "",
+      subtype: "",
+      budgetId: "",
+      goalId: "",
       isRecurring: false,
       frequency: "monthly",
     },
@@ -100,6 +116,8 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     loadTransactions();
+    loadGoals();
+    loadBudgets();
   }, []);
 
   const loadTransactions = async () => {
@@ -113,12 +131,13 @@ export default function TransactionsPage() {
       const data = await response.json();
 
       // Transform the data to match the Transaction interface
-      const transformedTransactions: Transaction[] = data.transactions.map((t: any) => ({
+      const transformedTransactions: Transaction[] = data.map((t: TransactionFromDB) => ({
         id: t.id,
         type: t.type,
         amount: t.amount,
         description: t.description,
         category: t.category || "",
+        subtype: t.subtype,
         date: t.date,
         isRecurring: t.is_recurring || false,
         frequency: t.frequency,
@@ -132,6 +151,34 @@ export default function TransactionsPage() {
     }
   };
 
+  const loadGoals = async () => {
+    try {
+      const response = await fetch("/api/goals");
+      if (!response.ok) {
+        throw new Error("Failed to fetch goals");
+      }
+      const data = await response.json();
+      setGoals(data);
+    } catch (error) {
+      console.error("Error loading goals:", error);
+      setGoals([]);
+    }
+  };
+
+  const loadBudgets = async () => {
+    try {
+      const response = await fetch("/api/budgets");
+      if (!response.ok) {
+        throw new Error("Failed to fetch budgets");
+      }
+      const data = await response.json();
+      setBudgets(data);
+    } catch (error) {
+      console.error("Error loading budgets:", error);
+      setBudgets([]);
+    }
+  };
+
   const onSubmit = async (data: TransactionFormData) => {
     try {
       const response = await fetch("/api/transactions", {
@@ -140,12 +187,14 @@ export default function TransactionsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          amount: data.amount,
+          amount: parseFloat(data.amount),
           type: data.type,
           description: data.description,
           category: data.category,
-          isRecurring: data.isRecurring,
-          frequency: data.frequency,
+          subtype: data.subtype || "",
+          budgetId: data.budgetId || null,
+          goalId: data.goalId || null,
+          date: data.date || new Date().toISOString().split("T")[0],
         }),
       });
 
@@ -154,14 +203,16 @@ export default function TransactionsPage() {
         throw new Error(error.error || "Failed to add transaction");
       }
 
-      // Reload transactions after successful addition
+      toast.success("Transaction added successfully!");
+
       await loadTransactions();
+      await loadGoals();
 
       reset();
       setIsAddDialogOpen(false);
     } catch (error) {
       console.error("Error adding transaction:", error);
-      alert("Failed to add transaction. Please try again.");
+      toast.error("Failed to add transaction. Please try again.");
     }
   };
 
@@ -191,14 +242,16 @@ export default function TransactionsPage() {
   const balance = totalIncome - totalExpenses;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
+    <>
+      <Toaster position="top-right" richColors />
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-white shadow-sm border-b">
+          <div className="px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       <main className="px-4 sm:px-6 lg:px-8 py-8">
         {/* Summary Cards */}
@@ -400,6 +453,7 @@ export default function TransactionsPage() {
                               <SelectItem value="Healthcare">
                                 Healthcare
                               </SelectItem>
+                              <SelectItem value="Savings">Savings</SelectItem>
                               <SelectItem value="Other">Other</SelectItem>
                             </>
                           )}
@@ -412,6 +466,125 @@ export default function TransactionsPage() {
                       {errors.category.message}
                     </p>
                   )}
+                </div>
+
+                {/* Subtype */}
+                <div className="space-y-2">
+                  <Label htmlFor="subtype">Subtype (Optional)</Label>
+                  <Controller
+                    name="subtype"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select subtype" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {transactionType === "income" ? (
+                            <>
+                              <SelectItem value="Salary">Salary</SelectItem>
+                              <SelectItem value="Freelance">Freelance</SelectItem>
+                              <SelectItem value="Business">Business</SelectItem>
+                              <SelectItem value="Investment">Investment</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </>
+                          ) : (
+                            <>
+                              <SelectItem value="Bills">Bills</SelectItem>
+                              <SelectItem value="EMI">EMI</SelectItem>
+                              <SelectItem value="Savings">Savings</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+
+                {/* Budget - Mandatory for expenses */}
+                {transactionType === "expense" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="budgetId">
+                      Budget <span className="text-red-500">*</span>
+                    </Label>
+                    <Controller
+                      name="budgetId"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select budget" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {budgets.length === 0 ? (
+                              <SelectItem value="no-budgets" disabled>
+                                No budgets available
+                              </SelectItem>
+                            ) : (
+                              budgets.map((budget) => (
+                                <SelectItem key={budget.id} value={budget.id}>
+                                  {budget.category}
+                                  {budget.subtype && ` - ${budget.subtype}`}
+                                  {" ($"}
+                                  {budget.limit_amount.toFixed(2)}
+                                  {" / "}
+                                  {budget.period})
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.budgetId && (
+                      <p className="text-sm text-red-600">
+                        {errors.budgetId.message}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Goal - Optional */}
+                <div className="space-y-2">
+                  <Label htmlFor="goalId">Goal (Optional)</Label>
+                  <Controller
+                    name="goalId"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || undefined}
+                        onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select goal (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {goals.length === 0 ? (
+                            <SelectItem value="no-goals" disabled>
+                              No goals available
+                            </SelectItem>
+                          ) : (
+                            <>
+                              <SelectItem value="none">None</SelectItem>
+                              {goals.map((goal) => (
+                                <SelectItem key={goal.id} value={goal.id}>
+                                  {goal.title} (${goal.current_amount.toFixed(2)} / $
+                                  {goal.target_amount.toFixed(2)})
+                                </SelectItem>
+                              ))}
+                            </>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                 </div>
 
                 {/* Recurring Toggle */}
@@ -542,6 +715,11 @@ export default function TransactionsPage() {
                           </div>
                           <p className="text-sm text-gray-500">
                             {transaction.category}
+                            {transaction.subtype && (
+                              <span className="ml-2 px-2 py-1 text-xs bg-gray-100 rounded-full">
+                                {transaction.subtype}
+                              </span>
+                            )}
                           </p>
                           <div className="flex items-center space-x-4 mt-1">
                             <div className="flex items-center space-x-1 text-xs text-gray-500">
@@ -617,6 +795,11 @@ export default function TransactionsPage() {
                           </div>
                           <p className="text-sm text-gray-500">
                             {transaction.category}
+                            {transaction.subtype && (
+                              <span className="ml-2 px-2 py-1 text-xs bg-gray-100 rounded-full">
+                                {transaction.subtype}
+                              </span>
+                            )}
                           </p>
                           <div className="flex items-center space-x-1 text-xs text-gray-500 mt-1">
                             <Calendar className="h-3 w-3" />
@@ -667,6 +850,11 @@ export default function TransactionsPage() {
                           </div>
                           <p className="text-sm text-gray-500">
                             {transaction.category}
+                            {transaction.subtype && (
+                              <span className="ml-2 px-2 py-1 text-xs bg-gray-100 rounded-full">
+                                {transaction.subtype}
+                              </span>
+                            )}
                           </p>
                           <div className="flex items-center space-x-1 text-xs text-gray-500 mt-1">
                             <Calendar className="h-3 w-3" />
@@ -725,6 +913,11 @@ export default function TransactionsPage() {
                           </div>
                           <p className="text-sm text-gray-500">
                             {transaction.category}
+                            {transaction.subtype && (
+                              <span className="ml-2 px-2 py-1 text-xs bg-gray-100 rounded-full">
+                                {transaction.subtype}
+                              </span>
+                            )}
                           </p>
                           {transaction.nextDate && (
                             <div className="flex items-center space-x-1 text-xs text-blue-600 mt-1">
@@ -757,6 +950,7 @@ export default function TransactionsPage() {
           </TabsContent>
         </Tabs>
       </main>
-    </div>
+      </div>
+    </>
   );
 }

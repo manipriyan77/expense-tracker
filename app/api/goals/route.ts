@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("goals")
       .insert({
         title,

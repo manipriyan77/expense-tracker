@@ -14,19 +14,15 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { amount, description, category, subtype, date, type, goalId, budgetId } = body;
+    const { category, subtype, limit_amount, period } = body;
 
     const { data, error } = await supabase
-      .from("transactions")
+      .from("budgets")
       .update({
-        amount,
-        description,
         category,
-        subtype,
-        budget_id: budgetId !== undefined ? budgetId : undefined,
-        goal_id: goalId !== undefined ? goalId : undefined,
-        date,
-        type,
+        subtype: subtype || null,
+        limit_amount,
+        period,
       })
       .eq("id", params.id)
       .eq("user_id", user.id)
@@ -38,7 +34,7 @@ export async function PUT(
     }
 
     if (!data) {
-      return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
+      return NextResponse.json({ error: "Budget not found" }, { status: 404 });
     }
 
     return NextResponse.json(data);
@@ -60,7 +56,7 @@ export async function DELETE(
     }
 
     const { error } = await supabase
-      .from("transactions")
+      .from("budgets")
       .delete()
       .eq("id", params.id)
       .eq("user_id", user.id);
@@ -74,3 +70,4 @@ export async function DELETE(
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+

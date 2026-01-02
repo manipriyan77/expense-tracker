@@ -38,7 +38,22 @@ export const useGoalsStore = create<GoalsState>((set) => ({
       }
 
       const data = await response.json();
-      set({ goals: data, loading: false });
+      
+      // Transform snake_case to camelCase
+      const transformedGoals = data.map((goal: any) => ({
+        id: goal.id,
+        title: goal.title,
+        targetAmount: parseFloat(goal.target_amount || 0),
+        currentAmount: parseFloat(goal.current_amount || 0),
+        targetDate: goal.target_date,
+        category: goal.category,
+        status: goal.status,
+        user_id: goal.user_id,
+        created_at: goal.created_at,
+        updated_at: goal.updated_at,
+      }));
+      
+      set({ goals: transformedGoals, loading: false });
     } catch (error) {
       console.error("Error fetching goals:", error);
       set({ error: error instanceof Error ? error.message : "Failed to fetch goals", loading: false });
@@ -62,8 +77,23 @@ export const useGoalsStore = create<GoalsState>((set) => ({
       }
 
       const data = await response.json();
+      
+      // Transform snake_case to camelCase
+      const transformedGoal = {
+        id: data.id,
+        title: data.title,
+        targetAmount: parseFloat(data.target_amount || 0),
+        currentAmount: parseFloat(data.current_amount || 0),
+        targetDate: data.target_date,
+        category: data.category,
+        status: data.status,
+        user_id: data.user_id,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+      
       set((state) => ({
-        goals: [data, ...state.goals],
+        goals: [transformedGoal, ...state.goals],
         loading: false,
       }));
     } catch (error) {
@@ -89,9 +119,24 @@ export const useGoalsStore = create<GoalsState>((set) => ({
       }
 
       const data = await response.json();
+      
+      // Transform snake_case to camelCase
+      const transformedGoal = {
+        id: data.id,
+        title: data.title,
+        targetAmount: parseFloat(data.target_amount || 0),
+        currentAmount: parseFloat(data.current_amount || 0),
+        targetDate: data.target_date,
+        category: data.category,
+        status: data.status,
+        user_id: data.user_id,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+      
       set((state) => ({
         goals: state.goals.map((goal) =>
-          goal.id === id ? data : goal
+          goal.id === id ? transformedGoal : goal
         ),
         loading: false,
       }));

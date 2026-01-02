@@ -11,7 +11,7 @@ export async function GET() {
     }
 
     const { data, error } = await supabase
-      .from("transactions")
+      .from("budgets")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
@@ -36,29 +36,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { amount, description, category, subtype, date, type, goalId, budgetId } = body;
+    const { category, subtype, limit_amount, period } = body;
 
-    if (!amount || !description || !category || !type) {
-      return NextResponse.json({ error: "Missing required fields (amount, description, category, type)" }, { status: 400 });
+    if (!category || !limit_amount) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Budget is mandatory for expense transactions
-    if (type === "expense" && !budgetId) {
-      return NextResponse.json({ error: "Budget selection is required for expense transactions" }, { status: 400 });
-    }
-
-    // Insert transaction
     const { data, error } = await supabase
-      .from("transactions")
+      .from("budgets")
       .insert({
-        amount,
-        description,
         category,
-        subtype: subtype || "",
-        budget_id: budgetId || null,
-        goal_id: goalId || null,
-        date: date || new Date().toISOString().split("T")[0],
-        type,
+        subtype: subtype || null,
+        limit_amount,
+        period: period || 'monthly',
         user_id: user.id,
       })
       .select()
@@ -68,28 +58,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // If linked to a goal, update the goal's current_amount
-    if (goalId) {
-      const { data: goal, error: goalFetchError } = await supabase
-        .from("goals")
-        .select("current_amount")
-        .eq("id", goalId)
-        .eq("user_id", user.id)
-        .single();
-
-      if (!goalFetchError && goal) {
-        const newAmount = parseFloat(goal.current_amount) + parseFloat(amount);
-        
-        await supabase
-          .from("goals")
-          .update({ current_amount: newAmount })
-          .eq("id", goalId)
-          .eq("user_id", user.id);
-      }
-    }
-
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+

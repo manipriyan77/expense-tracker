@@ -28,6 +28,9 @@ CREATE TABLE transactions (
   amount DECIMAL(12,2) NOT NULL,
   description TEXT NOT NULL,
   category TEXT NOT NULL,
+  subtype TEXT NOT NULL,
+  goal_id UUID REFERENCES goals(id) ON DELETE SET NULL,
+  budget_id UUID REFERENCES budgets(id) ON DELETE SET NULL,
   date DATE NOT NULL,
   type transaction_type NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -67,6 +70,19 @@ CREATE TABLE stocks (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Budgets table
+CREATE TABLE budgets (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  category TEXT NOT NULL,
+  subtype TEXT,
+  limit_amount DECIMAL(12,2) NOT NULL,
+  period TEXT DEFAULT 'monthly',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, category, subtype, period)
+);
+
 -- Create indexes for better performance
 CREATE INDEX idx_goals_user_id ON goals(user_id);
 CREATE INDEX idx_goals_status ON goals(status);
@@ -75,12 +91,15 @@ CREATE INDEX idx_transactions_date ON transactions(date);
 CREATE INDEX idx_transactions_type ON transactions(type);
 CREATE INDEX idx_mutual_funds_user_id ON mutual_funds(user_id);
 CREATE INDEX idx_stocks_user_id ON stocks(user_id);
+CREATE INDEX idx_budgets_user_id ON budgets(user_id);
+CREATE INDEX idx_budgets_category ON budgets(category);
 
 -- Enable Row Level Security on all tables
 ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mutual_funds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stocks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies (users can only access their own data)
 CREATE POLICY "Users can view their own goals" ON goals
@@ -131,6 +150,18 @@ CREATE POLICY "Users can update their own stocks" ON stocks
 CREATE POLICY "Users can delete their own stocks" ON stocks
   FOR DELETE USING (auth.uid() = user_id);
 
+CREATE POLICY "Users can view their own budgets" ON budgets
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own budgets" ON budgets
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own budgets" ON budgets
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own budgets" ON budgets
+  FOR DELETE USING (auth.uid() = user_id);
+
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -145,3 +176,8 @@ CREATE TRIGGER update_goals_updated_at BEFORE UPDATE ON goals FOR EACH ROW EXECU
 CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON transactions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_mutual_funds_updated_at BEFORE UPDATE ON mutual_funds FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_stocks_updated_at BEFORE UPDATE ON stocks FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_budgets_updated_at BEFORE UPDATE ON budgets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Add constraint to ensure budget_id is mandatory for expense transactions
+ALTER TABLE transactions ADD CONSTRAINT transactions_expense_budget_check
+  CHECK (type = 'income' OR (type = 'expense' AND budget_id IS NOT NULL));

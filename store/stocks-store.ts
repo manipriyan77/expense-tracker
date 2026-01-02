@@ -41,7 +41,25 @@ export const useStocksStore = create<StocksState>((set) => ({
       }
 
       const data = await response.json();
-      set({ stocks: data, loading: false });
+      
+      // Transform snake_case to camelCase
+      const transformedStocks = data.map((stock: any) => ({
+        id: stock.id,
+        name: stock.name,
+        symbol: stock.symbol,
+        shares: parseFloat(stock.shares || 0),
+        avgPurchasePrice: parseFloat(stock.avg_purchase_price || 0),
+        currentPrice: parseFloat(stock.current_price || 0),
+        investedAmount: parseFloat(stock.invested_amount || 0),
+        currentValue: parseFloat(stock.current_value || 0),
+        purchaseDate: stock.purchase_date,
+        sector: stock.sector,
+        user_id: stock.user_id,
+        created_at: stock.created_at,
+        updated_at: stock.updated_at,
+      }));
+      
+      set({ stocks: transformedStocks, loading: false });
     } catch (error) {
       console.error("Error fetching stocks:", error);
       set({ error: error instanceof Error ? error.message : "Failed to fetch stocks", loading: false });
@@ -65,8 +83,26 @@ export const useStocksStore = create<StocksState>((set) => ({
       }
 
       const data = await response.json();
+      
+      // Transform snake_case to camelCase
+      const transformedStock = {
+        id: data.id,
+        name: data.name,
+        symbol: data.symbol,
+        shares: parseFloat(data.shares || 0),
+        avgPurchasePrice: parseFloat(data.avg_purchase_price || 0),
+        currentPrice: parseFloat(data.current_price || 0),
+        investedAmount: parseFloat(data.invested_amount || 0),
+        currentValue: parseFloat(data.current_value || 0),
+        purchaseDate: data.purchase_date,
+        sector: data.sector,
+        user_id: data.user_id,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+      
       set((state) => ({
-        stocks: [data, ...state.stocks],
+        stocks: [transformedStock, ...state.stocks],
         loading: false,
       }));
     } catch (error) {
@@ -92,9 +128,27 @@ export const useStocksStore = create<StocksState>((set) => ({
       }
 
       const data = await response.json();
+      
+      // Transform snake_case to camelCase
+      const transformedStock = {
+        id: data.id,
+        name: data.name,
+        symbol: data.symbol,
+        shares: parseFloat(data.shares || 0),
+        avgPurchasePrice: parseFloat(data.avg_purchase_price || 0),
+        currentPrice: parseFloat(data.current_price || 0),
+        investedAmount: parseFloat(data.invested_amount || 0),
+        currentValue: parseFloat(data.current_value || 0),
+        purchaseDate: data.purchase_date,
+        sector: data.sector,
+        user_id: data.user_id,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+      
       set((state) => ({
         stocks: state.stocks.map((stock) =>
-          stock.id === id ? data : stock
+          stock.id === id ? transformedStock : stock
         ),
         loading: false,
       }));

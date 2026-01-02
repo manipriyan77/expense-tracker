@@ -5,6 +5,9 @@ export interface Transaction {
   amount: number;
   description: string;
   category: string;
+  subtype: string;
+  budget_id: string;
+  goal_id?: string | null;
   date: string;
   type: "income" | "expense";
   user_id: string;
@@ -37,7 +40,24 @@ export const useTransactionsStore = create<TransactionsState>((set) => ({
       }
 
       const data = await response.json();
-      set({ transactions: data, loading: false });
+      
+      // Transform data if needed (Supabase returns lowercase)
+      const transformedTransactions = data.map((transaction: any) => ({
+        id: transaction.id,
+        amount: parseFloat(transaction.amount || 0),
+        description: transaction.description,
+        category: transaction.category,
+        subtype: transaction.subtype || 'Other',
+        budget_id: transaction.budget_id,
+        goal_id: transaction.goal_id,
+        date: transaction.date,
+        type: transaction.type,
+        user_id: transaction.user_id,
+        created_at: transaction.created_at,
+        updated_at: transaction.updated_at,
+      }));
+      
+      set({ transactions: transformedTransactions, loading: false });
     } catch (error) {
       console.error("Error fetching transactions:", error);
       set({ error: error instanceof Error ? error.message : "Failed to fetch transactions", loading: false });
@@ -61,8 +81,25 @@ export const useTransactionsStore = create<TransactionsState>((set) => ({
       }
 
       const data = await response.json();
+      
+      // Transform data
+      const transformedTransaction = {
+        id: data.id,
+        amount: parseFloat(data.amount || 0),
+        description: data.description,
+        category: data.category,
+        subtype: data.subtype || 'Other',
+        budget_id: data.budget_id,
+        goal_id: data.goal_id,
+        date: data.date,
+        type: data.type,
+        user_id: data.user_id,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+      
       set((state) => ({
-        transactions: [data, ...state.transactions],
+        transactions: [transformedTransaction, ...state.transactions],
         loading: false,
       }));
     } catch (error) {
@@ -88,9 +125,26 @@ export const useTransactionsStore = create<TransactionsState>((set) => ({
       }
 
       const data = await response.json();
+      
+      // Transform data
+      const transformedTransaction = {
+        id: data.id,
+        amount: parseFloat(data.amount || 0),
+        description: data.description,
+        category: data.category,
+        subtype: data.subtype || 'Other',
+        budget_id: data.budget_id,
+        goal_id: data.goal_id,
+        date: data.date,
+        type: data.type,
+        user_id: data.user_id,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+      
       set((state) => ({
         transactions: state.transactions.map((transaction) =>
-          transaction.id === id ? data : transaction
+          transaction.id === id ? transformedTransaction : transaction
         ),
         loading: false,
       }));

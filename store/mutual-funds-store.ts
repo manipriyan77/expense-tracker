@@ -40,7 +40,24 @@ export const useMutualFundsStore = create<MutualFundsState>((set) => ({
       }
 
       const data = await response.json();
-      set({ mutualFunds: data, loading: false });
+      
+      // Transform snake_case to camelCase
+      const transformedFunds = data.map((fund: any) => ({
+        id: fund.id,
+        name: fund.name,
+        symbol: fund.symbol,
+        investedAmount: parseFloat(fund.invested_amount || 0),
+        currentValue: parseFloat(fund.current_value || 0),
+        units: parseFloat(fund.units || 0),
+        nav: parseFloat(fund.nav || 0),
+        purchaseDate: fund.purchase_date,
+        category: fund.category,
+        user_id: fund.user_id,
+        created_at: fund.created_at,
+        updated_at: fund.updated_at,
+      }));
+      
+      set({ mutualFunds: transformedFunds, loading: false });
     } catch (error) {
       console.error("Error fetching mutual funds:", error);
       set({ error: error instanceof Error ? error.message : "Failed to fetch mutual funds", loading: false });
@@ -64,8 +81,25 @@ export const useMutualFundsStore = create<MutualFundsState>((set) => ({
       }
 
       const data = await response.json();
+      
+      // Transform snake_case to camelCase
+      const transformedFund = {
+        id: data.id,
+        name: data.name,
+        symbol: data.symbol,
+        investedAmount: parseFloat(data.invested_amount || 0),
+        currentValue: parseFloat(data.current_value || 0),
+        units: parseFloat(data.units || 0),
+        nav: parseFloat(data.nav || 0),
+        purchaseDate: data.purchase_date,
+        category: data.category,
+        user_id: data.user_id,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+      
       set((state) => ({
-        mutualFunds: [data, ...state.mutualFunds],
+        mutualFunds: [transformedFund, ...state.mutualFunds],
         loading: false,
       }));
     } catch (error) {
@@ -91,9 +125,26 @@ export const useMutualFundsStore = create<MutualFundsState>((set) => ({
       }
 
       const data = await response.json();
+      
+      // Transform snake_case to camelCase
+      const transformedFund = {
+        id: data.id,
+        name: data.name,
+        symbol: data.symbol,
+        investedAmount: parseFloat(data.invested_amount || 0),
+        currentValue: parseFloat(data.current_value || 0),
+        units: parseFloat(data.units || 0),
+        nav: parseFloat(data.nav || 0),
+        purchaseDate: data.purchase_date,
+        category: data.category,
+        user_id: data.user_id,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+      
       set((state) => ({
         mutualFunds: state.mutualFunds.map((fund) =>
-          fund.id === id ? data : fund
+          fund.id === id ? transformedFund : fund
         ),
         loading: false,
       }));
