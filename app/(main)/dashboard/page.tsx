@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,15 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -43,43 +32,16 @@ import {
   Plus,
 } from "lucide-react";
 import { useTransactionsStore } from "@/store/transactions-store";
-import { transactionFormSchema, TransactionFormData } from "@/lib/schemas/transaction-form-schema";
+import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 
 
 export default function Dashboard() {
-  const { transactions, loading, error, fetchTransactions, addTransaction } = useTransactionsStore();
+  const { transactions, loading, error, fetchTransactions } = useTransactionsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<TransactionFormData>({
-    resolver: zodResolver(transactionFormSchema),
-    defaultValues: {
-      amount: 0,
-      description: "",
-      category: "",
-      date: new Date().toISOString().split("T")[0],
-      type: "expense",
-    },
-  });
 
   useEffect(() => {
     fetchTransactions();
   }, [fetchTransactions]);
-
-  const handleAddTransaction = async (data: TransactionFormData) => {
-    const transactionData = {
-      ...data,
-      date: data.date || new Date().toISOString().split("T")[0],
-    };
-    await addTransaction(transactionData);
-    reset();
-    setIsAddDialogOpen(false);
-  };
 
   if (loading) {
     return (
@@ -264,107 +226,20 @@ export default function Dashboard() {
                 Add Transaction
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Transaction</DialogTitle>
                 <DialogDescription>
-                  Record your income or expense transaction.
+                  Record your income or expense transaction with detailed categorization.
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit(handleAddTransaction)} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="type">Type</Label>
-                  <Select
-                    onValueChange={(value: "income" | "expense") =>
-                      setValue("type", value)
-                    }
-                    defaultValue="expense"
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="income">Income</SelectItem>
-                      <SelectItem value="expense">Expense</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.type && (
-                    <p className="text-sm text-red-600">{errors.type.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Amount</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    {...register("amount", { valueAsNumber: true })}
-                  />
-                  {errors.amount && (
-                    <p className="text-sm text-red-600">{errors.amount.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Input
-                    id="description"
-                    placeholder="What was this for?"
-                    {...register("description")}
-                  />
-                  {errors.description && (
-                    <p className="text-sm text-red-600">{errors.description.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select
-                    onValueChange={(value) => setValue("category", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Food">Food</SelectItem>
-                      <SelectItem value="Transportation">Transportation</SelectItem>
-                      <SelectItem value="Entertainment">Entertainment</SelectItem>
-                      <SelectItem value="Bills">Bills</SelectItem>
-                      <SelectItem value="Shopping">Shopping</SelectItem>
-                      <SelectItem value="Salary">Salary</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.category && (
-                    <p className="text-sm text-red-600">{errors.category.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="date">Date</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    {...register("date")}
-                  />
-                  {errors.date && (
-                    <p className="text-sm text-red-600">{errors.date.message}</p>
-                  )}
-                </div>
-
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Adding Transaction...
-                    </>
-                  ) : (
-                    "Add Transaction"
-                  )}
-                </Button>
-              </form>
+              <AddTransactionForm
+                onSuccess={() => {
+                  setIsAddDialogOpen(false);
+                  fetchTransactions();
+                }}
+                onCancel={() => setIsAddDialogOpen(false)}
+              />
             </DialogContent>
           </Dialog>
         </div>
