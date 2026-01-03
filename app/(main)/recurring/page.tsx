@@ -176,7 +176,7 @@ export default function RecurringPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                ${totalMonthlyIncome.toFixed(2)}
+                ₹{totalMonthlyIncome.toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">
                 From recurring sources
@@ -193,7 +193,7 @@ export default function RecurringPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                ${totalMonthlyExpenses.toFixed(2)}
+                ₹{totalMonthlyExpenses.toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">
                 From recurring bills
@@ -210,7 +210,7 @@ export default function RecurringPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
-                ${(totalMonthlyIncome - totalMonthlyExpenses).toFixed(2)}
+                ₹{(totalMonthlyIncome - totalMonthlyExpenses).toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Expected balance change
@@ -347,7 +347,7 @@ export default function RecurringPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div
-                      className={`p-3 rounded-full ${
+                      className={`p-3 rounded-full ₹{
                         transaction.type === "income"
                           ? "bg-green-100 text-green-600"
                           : "bg-red-100 text-red-600"
@@ -383,13 +383,13 @@ export default function RecurringPage() {
                   <div className="flex items-center space-x-4">
                     <div className="text-right">
                       <p
-                        className={`text-xl font-bold ${
+                        className={`text-xl font-bold ₹{
                           transaction.type === "income"
                             ? "text-green-600"
                             : "text-red-600"
                         }`}
                       >
-                        {transaction.type === "income" ? "+" : "-"}$
+                        {transaction.type === "income" ? "+" : "-"}₹
                         {transaction.amount.toFixed(2)}
                       </p>
                     </div>

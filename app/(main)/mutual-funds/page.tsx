@@ -200,7 +200,7 @@ export default function MutualFundsPage() {
 
                   {units && nav && (
                     <div className="text-sm text-gray-600">
-                      Current Value: ${(units * nav).toFixed(2)}
+                      Current Value: ₹{(units * nav).toFixed(2)}
                     </div>
                   )}
 
@@ -255,7 +255,7 @@ export default function MutualFundsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${totalInvested.toLocaleString()}
+                ₹{totalInvested.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">Across all funds</p>
             </CardContent>
@@ -268,7 +268,7 @@ export default function MutualFundsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${totalCurrentValue.toLocaleString()}
+                ₹{totalCurrentValue.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">Portfolio value</p>
             </CardContent>
@@ -285,11 +285,11 @@ export default function MutualFundsPage() {
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${
+                className={`text-2xl font-bold ₹{
                   totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
                 }`}
               >
-                {totalGainLoss >= 0 ? "+" : ""}${totalGainLoss.toLocaleString()}
+                {totalGainLoss >= 0 ? "+" : ""}₹{totalGainLoss.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
                 {totalGainLossPercentage >= 0 ? "+" : ""}
@@ -341,7 +341,7 @@ export default function MutualFundsPage() {
                         </div>
                         <div className="text-right">
                           <div
-                            className={`text-lg font-bold flex items-center ${
+                            className={`text-lg font-bold flex items-center ₹{
                               gainLoss >= 0 ? "text-green-600" : "text-red-600"
                             }`}
                           >
@@ -350,7 +350,7 @@ export default function MutualFundsPage() {
                             ) : (
                               <TrendingDown className="h-4 w-4 mr-1" />
                             )}
-                            {gainLoss >= 0 ? "+" : ""}${gainLoss.toLocaleString()}
+                            {gainLoss >= 0 ? "+" : ""}₹{gainLoss.toLocaleString()}
                           </div>
                           <p className="text-sm text-gray-500">
                             ({gainLossPercentage >= 0 ? "+" : ""}
@@ -363,13 +363,13 @@ export default function MutualFundsPage() {
                         <div>
                           <p className="text-gray-500">Invested</p>
                           <p className="font-semibold">
-                            ${fund.investedAmount.toLocaleString()}
+                            ₹{fund.investedAmount.toLocaleString()}
                           </p>
                         </div>
                         <div>
                           <p className="text-gray-500">Current Value</p>
                           <p className="font-semibold">
-                            ${fund.currentValue.toLocaleString()}
+                            ₹{fund.currentValue.toLocaleString()}
                           </p>
                         </div>
                         <div>
@@ -378,14 +378,14 @@ export default function MutualFundsPage() {
                         </div>
                         <div>
                           <p className="text-gray-500">Current NAV</p>
-                          <p className="font-semibold">${fund.nav.toFixed(2)}</p>
+                          <p className="font-semibold">₹{fund.nav.toFixed(2)}</p>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between text-sm text-gray-500">
                         <span>Purchased on {new Date(fund.purchaseDate).toLocaleDateString()}</span>
                         <span>
-                          Current Value: ${fund.currentValue.toLocaleString()}
+                          Current Value: ₹{fund.currentValue.toLocaleString()}
                         </span>
                       </div>
                     </div>

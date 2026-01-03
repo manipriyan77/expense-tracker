@@ -416,10 +416,10 @@ export default function GoalsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${totalCurrentAmount.toLocaleString()}
+                ₹{totalCurrentAmount.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
-                of ${totalTargetAmount.toLocaleString()} saved
+                of ₹{totalTargetAmount.toLocaleString()} saved
               </p>
             </CardContent>
           </Card>
@@ -465,7 +465,7 @@ export default function GoalsPage() {
                         <div className="flex items-center space-x-2">
                           <div className="text-right mr-4">
                             <p className="text-lg font-bold">
-                              ${goal.currentAmount.toLocaleString()} / $
+                              ₹{goal.currentAmount.toLocaleString()} / ₹
                               {goal.targetAmount.toLocaleString()}
                             </p>
                             <p className="text-sm text-gray-500 flex items-center justify-end">

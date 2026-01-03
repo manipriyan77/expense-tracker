@@ -302,7 +302,7 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
               control={control}
               render={({ field }) => (
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
                   <Input
                     {...field}
                     id="amount"
@@ -443,7 +443,7 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
                               {budget.subtype && ` → ${budget.subtype}`}
                             </span>
                             <span className="text-xs text-gray-500">
-                              ${budget.limit_amount.toLocaleString()} / {budget.period}
+                              ₹{budget.limit_amount.toLocaleString()} / {budget.period}
                             </span>
                           </div>
                         </SelectItem>
@@ -483,16 +483,16 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Budget Limit:</span>
-                <span className="font-semibold">${budgetInfo.budgetLimit.toFixed(2)}</span>
+                <span className="font-semibold">₹{budgetInfo.budgetLimit.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Current Spending:</span>
-                <span className="font-semibold">${budgetInfo.totalSpent.toFixed(2)}</span>
+                <span className="font-semibold">₹{budgetInfo.totalSpent.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>After this transaction:</span>
                 <span className={`font-semibold ${budgetInfo.isOverLimit ? "text-red-600" : ""}`}>
-                  ${budgetInfo.newTotal.toFixed(2)}
+                  ₹{budgetInfo.newTotal.toFixed(2)}
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
@@ -508,12 +508,12 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
               </p>
               {budgetInfo.isOverLimit && (
                 <p className="text-sm text-red-600 font-medium text-center">
-                  ⚠️ This will exceed your budget by ${Math.abs(budgetInfo.remainingAmount).toFixed(2)}
+                  ⚠️ This will exceed your budget by ₹{Math.abs(budgetInfo.remainingAmount).toFixed(2)}
                 </p>
               )}
               {budgetInfo.isNearLimit && !budgetInfo.isOverLimit && (
                 <p className="text-sm text-orange-600 font-medium text-center">
-                  ⚠️ Remaining: ${budgetInfo.remainingAmount.toFixed(2)}
+                  ⚠️ Remaining: ₹{budgetInfo.remainingAmount.toFixed(2)}
                 </p>
               )}
             </div>
@@ -563,7 +563,7 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
                             <div className="flex flex-col">
                               <span className="font-medium">{goal.title}</span>
                               <span className="text-xs text-gray-500">
-                                ${goal.currentAmount.toLocaleString()} / ${goal.targetAmount.toLocaleString()}
+                                ₹{goal.currentAmount.toLocaleString()} / ₹{goal.targetAmount.toLocaleString()}
                               </span>
                             </div>
                           </SelectItem>

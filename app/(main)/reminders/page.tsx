@@ -280,7 +280,7 @@ export default function RemindersPage() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
-                      <p className="text-xl font-bold">${reminder.amount.toFixed(2)}</p>
+                      <p className="text-xl font-bold">₹{reminder.amount.toFixed(2)}</p>
                       <Button
                         onClick={() => markAsPaid(reminder.id)}
                         variant="outline"
@@ -323,7 +323,7 @@ export default function RemindersPage() {
                     </div>
                     <div className="flex items-center space-x-4">
                       <p className="text-xl font-bold text-red-600">
-                        ${reminder.amount.toFixed(2)}
+                        ₹{reminder.amount.toFixed(2)}
                       </p>
                       <Button
                         onClick={() => markAsPaid(reminder.id)}
@@ -365,7 +365,7 @@ export default function RemindersPage() {
                     </div>
                     <div className="flex items-center space-x-4">
                       <p className="text-xl font-bold text-green-600">
-                        ${reminder.amount.toFixed(2)}
+                        ₹{reminder.amount.toFixed(2)}
                       </p>
                     </div>
                   </div>

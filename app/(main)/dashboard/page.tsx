@@ -153,7 +153,7 @@ export default function Dashboard() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${balance.toFixed(2)}</div>
+              <div className="text-2xl font-bold">₹{balance.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">Income - Expenses</p>
             </CardContent>
           </Card>
@@ -168,7 +168,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">
-                  ${totalIncome.toFixed(2)}
+                  ₹{totalIncome.toFixed(2)}
                 </div>
                 <p className="text-xs text-muted-foreground flex items-center">
                   This month
@@ -188,7 +188,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-red-600">
-                  ${totalExpenses.toFixed(2)}
+                  ₹{totalExpenses.toFixed(2)}
                 </div>
                 <p className="text-xs text-muted-foreground flex items-center">
                   This month
@@ -418,7 +418,7 @@ export default function Dashboard() {
                             : "text-red-600"
                         }`}
                       >
-                        {transaction.type === "income" ? "+" : "-"}$
+                        {transaction.type === "income" ? "+" : "-"}₹
                         {transaction.amount.toFixed(2)}
                       </p>
                       <p className="text-sm text-gray-500 flex items-center">

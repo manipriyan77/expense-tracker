@@ -204,19 +204,19 @@ export default function GoalDetailsModal({
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
                     <p className="text-sm text-gray-600">Current Amount</p>
                     <p className="text-2xl font-bold text-blue-600">
-                      ${goal.currentAmount.toLocaleString()}
+                      ₹{goal.currentAmount.toLocaleString()}
                     </p>
                   </div>
                   <div className="text-center p-4 bg-green-50 rounded-lg">
                     <p className="text-sm text-gray-600">Target Amount</p>
                     <p className="text-2xl font-bold text-green-600">
-                      ${goal.targetAmount.toLocaleString()}
+                      ₹{goal.targetAmount.toLocaleString()}
                     </p>
                   </div>
                   <div className="text-center p-4 bg-orange-50 rounded-lg">
                     <p className="text-sm text-gray-600">Remaining</p>
                     <p className="text-2xl font-bold text-orange-600">
-                      ${remaining.toLocaleString()}
+                      ₹{remaining.toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -294,7 +294,7 @@ export default function GoalDetailsModal({
                               <p className={`text-lg font-bold ${
                                 transaction.type === "income" ? "text-green-600" : "text-blue-600"
                               }`}>
-                                ${parseFloat(transaction.amount.toString()).toLocaleString()}
+                                ₹{parseFloat(transaction.amount.toString()).toLocaleString()}
                               </p>
                               <p className="text-xs text-gray-500">
                                 {new Date(transaction.date).toLocaleDateString()}

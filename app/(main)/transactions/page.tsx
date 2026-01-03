@@ -42,6 +42,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { transactionFormSchema, TransactionFormData } from "@/lib/schemas/transaction-form-schema";
+import { MonthSelector } from "@/components/ui/month-selector";
 
 interface Transaction {
   id: string;
@@ -92,6 +93,7 @@ export default function TransactionsPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
 
   const {
     control,
@@ -250,10 +252,17 @@ export default function TransactionsPage() {
     }
   };
 
-  // Filter transactions
-  const filteredTransactions = transactions.filter((t) =>
-    t.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter transactions by selected month and search query
+  const filteredTransactions = transactions.filter((t) => {
+    const transactionDate = new Date(t.date);
+    const matchesMonth =
+      transactionDate.getMonth() === selectedMonth.getMonth() &&
+      transactionDate.getFullYear() === selectedMonth.getFullYear();
+    const matchesSearch = t.description
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    return matchesMonth && matchesSearch;
+  });
 
   const allTransactions = filteredTransactions;
   const incomeTransactions = filteredTransactions.filter(
@@ -266,11 +275,11 @@ export default function TransactionsPage() {
     (t) => t.isRecurring
   );
 
-  // Calculations
-  const totalIncome = transactions
+  // Calculations based on filtered transactions
+  const totalIncome = filteredTransactions
     .filter((t) => t.type === "income")
     .reduce((sum, t) => sum + t.amount, 0);
-  const totalExpenses = transactions
+  const totalExpenses = filteredTransactions
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
   const balance = totalIncome - totalExpenses;
@@ -288,6 +297,18 @@ export default function TransactionsPage() {
         </header>
 
       <main className="px-4 sm:px-6 lg:px-8 py-8">
+        {/* Month Selector */}
+        <div className="mb-6 flex items-center justify-between">
+          <MonthSelector
+            selectedMonth={selectedMonth}
+            onMonthChange={setSelectedMonth}
+            monthsToShow={7}
+          />
+          <div className="text-sm text-gray-600">
+            {filteredTransactions.length} transaction(s)
+          </div>
+        </div>
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
@@ -298,7 +319,7 @@ export default function TransactionsPage() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${balance.toFixed(2)}</div>
+              <div className="text-2xl font-bold">₹{balance.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">Income - Expenses</p>
             </CardContent>
           </Card>
@@ -312,9 +333,14 @@ export default function TransactionsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                ${totalIncome.toFixed(2)}
+                ₹{totalIncome.toFixed(2)}
               </div>
-              <p className="text-xs text-muted-foreground">This month</p>
+              <p className="text-xs text-muted-foreground">
+                {selectedMonth.toLocaleDateString("en-US", {
+                  month: "short",
+                  year: "numeric",
+                })}
+              </p>
             </CardContent>
           </Card>
 
@@ -327,9 +353,14 @@ export default function TransactionsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                ${totalExpenses.toFixed(2)}
+                ₹{totalExpenses.toFixed(2)}
               </div>
-              <p className="text-xs text-muted-foreground">This month</p>
+              <p className="text-xs text-muted-foreground">
+                {selectedMonth.toLocaleDateString("en-US", {
+                  month: "short",
+                  year: "numeric",
+                })}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -566,7 +597,7 @@ export default function TransactionsPage() {
                                 <SelectItem key={budget.id} value={budget.id}>
                                   {budget.category}
                                   {budget.subtype && ` - ${budget.subtype}`}
-                                  {" ($"}
+                                  {" (₹"}
                                   {budget.limit_amount.toFixed(2)}
                                   {" / "}
                                   {budget.period})
@@ -609,7 +640,7 @@ export default function TransactionsPage() {
                               <SelectItem value="none">None</SelectItem>
                               {goals.map((goal) => (
                                 <SelectItem key={goal.id} value={goal.id}>
-                                  {goal.title} (${goal.current_amount.toFixed(2)} / $
+                                  {goal.title} (₹{goal.current_amount.toFixed(2)} / ₹
                                   {goal.target_amount.toFixed(2)})
                                 </SelectItem>
                               ))}
@@ -788,7 +819,7 @@ export default function TransactionsPage() {
                                 : "text-red-600"
                             }`}
                           >
-                            {transaction.type === "income" ? "+" : "-"}$
+                            {transaction.type === "income" ? "+" : "-"}₹
                             {transaction.amount.toFixed(2)}
                           </p>
                         </div>
@@ -861,7 +892,7 @@ export default function TransactionsPage() {
                       </div>
                       <div className="flex items-center space-x-4">
                         <p className="text-xl font-bold text-green-600">
-                          +${transaction.amount.toFixed(2)}
+                          +₹{transaction.amount.toFixed(2)}
                         </p>
                         <Button
                           variant="outline"
@@ -930,7 +961,7 @@ export default function TransactionsPage() {
                       </div>
                       <div className="flex items-center space-x-4">
                         <p className="text-xl font-bold text-red-600">
-                          -${transaction.amount.toFixed(2)}
+                          -₹{transaction.amount.toFixed(2)}
                         </p>
                         <Button
                           variant="outline"
@@ -1018,7 +1049,7 @@ export default function TransactionsPage() {
                               : "text-red-600"
                           }`}
                         >
-                          {transaction.type === "income" ? "+" : "-"}$
+                          {transaction.type === "income" ? "+" : "-"}₹
                           {transaction.amount.toFixed(2)}
                         </p>
                         <Button

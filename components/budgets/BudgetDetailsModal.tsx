@@ -201,8 +201,8 @@ export default function BudgetDetailsModal({
                       <AlertTriangle className="h-4 w-4" />
                       <span>
                         {percentage >= 100
-                          ? `Budget exceeded by $${Math.abs(remaining).toFixed(2)}`
-                          : `Approaching limit - $${remaining.toFixed(2)} remaining`}
+                          ? `Budget exceeded by ₹${Math.abs(remaining).toFixed(2)}`
+                          : `Approaching limit - ₹${remaining.toFixed(2)} remaining`}
                       </span>
                     </p>
                   </div>
@@ -222,13 +222,13 @@ export default function BudgetDetailsModal({
                   <div className="text-center p-4 bg-red-50 rounded-lg">
                     <p className="text-sm text-gray-600">Spent</p>
                     <p className="text-2xl font-bold text-red-600">
-                      ${spent.toLocaleString()}
+                      ₹{spent.toLocaleString()}
                     </p>
                   </div>
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
                     <p className="text-sm text-gray-600">Limit</p>
                     <p className="text-2xl font-bold text-blue-600">
-                      ${budget.limit_amount.toLocaleString()}
+                      ₹{budget.limit_amount.toLocaleString()}
                     </p>
                   </div>
                   <div className="text-center p-4 bg-green-50 rounded-lg">
@@ -236,7 +236,7 @@ export default function BudgetDetailsModal({
                     <p className={`text-2xl font-bold ${
                       remaining < 0 ? "text-red-600" : "text-green-600"
                     }`}>
-                      ${Math.abs(remaining).toLocaleString()}
+                      ₹{Math.abs(remaining).toLocaleString()}
                       {remaining < 0 && " over"}
                     </p>
                   </div>
@@ -329,7 +329,7 @@ export default function BudgetDetailsModal({
                         <div className="flex items-center space-x-4">
                           <div className="text-right">
                             <p className="text-lg font-bold text-red-600">
-                              ${parseFloat(transaction.amount.toString()).toLocaleString()}
+                              ₹{parseFloat(transaction.amount.toString()).toLocaleString()}
                             </p>
                             <p className="text-xs text-gray-500">
                               {new Date(transaction.date).toLocaleDateString()}
@@ -357,7 +357,7 @@ export default function BudgetDetailsModal({
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Total Spent This Month</span>
                     <span className="text-xl font-bold text-red-600">
-                      ${transactions
+                      ₹{transactions
                         .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0)
                         .toLocaleString()}
                     </span>

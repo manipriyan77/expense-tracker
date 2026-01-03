@@ -134,14 +134,14 @@ export default function AnalyticsPage() {
                         cy="50%"
                         labelLine={false}
                         label={({ name, percent }) =>
-                          `${name} ${((percent || 0) * 100).toFixed(0)}%`
+                          `₹{name} ₹{((percent || 0) * 100).toFixed(0)}%`
                         }
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
                       >
                         {categoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-₹{index}`} fill={entry.color} />
                         ))}
                       </Pie>
                       <Tooltip />
@@ -193,7 +193,7 @@ export default function AnalyticsPage() {
                             <span className="font-medium">{category.name}</span>
                           </div>
                           <span className="text-gray-600">
-                            ${category.value.toFixed(2)}
+                            ₹{category.value.toFixed(2)}
                           </span>
                         </div>
                       ))}
@@ -249,7 +249,7 @@ export default function AnalyticsPage() {
                   <TrendingUp className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600">$1,425</div>
+                  <div className="text-2xl font-bold text-green-600">₹1,425</div>
                   <p className="text-xs text-muted-foreground">
                     +12% from last period
                   </p>
@@ -264,7 +264,7 @@ export default function AnalyticsPage() {
                   <TrendingDown className="h-4 w-4 text-red-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-red-600">$1,000</div>
+                  <div className="text-2xl font-bold text-red-600">₹1,000</div>
                   <p className="text-xs text-muted-foreground">
                     +8% from last period
                   </p>
@@ -303,13 +303,13 @@ export default function AnalyticsPage() {
                         cx="50%"
                         cy="50%"
                         labelLine={true}
-                        label={({ name, value }) => `${name}: $${value}`}
+                        label={({ name, value }) => `₹{name}: ₹₹{value}`}
                         outerRadius={100}
                         fill="#8884d8"
                         dataKey="value"
                       >
                         {categoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-₹{index}`} fill={entry.color} />
                         ))}
                       </Pie>
                       <Tooltip />
@@ -372,7 +372,7 @@ export default function AnalyticsPage() {
                     <div>
                       <div className="text-2xl font-bold">June 2024</div>
                       <div className="text-xl text-green-600 font-semibold">
-                        +$500
+                        +₹500
                       </div>
                     </div>
                   </div>
@@ -388,7 +388,7 @@ export default function AnalyticsPage() {
                   <div className="flex items-center space-x-4">
                     <DollarSign className="h-8 w-8 text-blue-600" />
                     <div>
-                      <div className="text-2xl font-bold">$425/month</div>
+                      <div className="text-2xl font-bold">₹425/month</div>
                       <div className="text-sm text-gray-600">
                         Consistent savings pattern
                       </div>

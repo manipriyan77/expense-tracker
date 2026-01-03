@@ -204,10 +204,10 @@ export default function StocksPage() {
 
                   {shares && avgPurchasePrice && currentPrice && (
                     <div className="text-sm text-gray-600 space-y-1">
-                      <div>Invested: ${(shares * avgPurchasePrice).toFixed(2)}</div>
-                      <div>Current Value: ${(shares * currentPrice).toFixed(2)}</div>
+                      <div>Invested: ₹{(shares * avgPurchasePrice).toFixed(2)}</div>
+                      <div>Current Value: ₹{(shares * currentPrice).toFixed(2)}</div>
                       <div className={shares * currentPrice - shares * avgPurchasePrice >= 0 ? "text-green-600" : "text-red-600"}>
-                        P&L: ${(shares * currentPrice - shares * avgPurchasePrice).toFixed(2)}
+                        P&L: ₹{(shares * currentPrice - shares * avgPurchasePrice).toFixed(2)}
                       </div>
                     </div>
                   )}
@@ -265,7 +265,7 @@ export default function StocksPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${totalInvested.toLocaleString()}
+                ₹{totalInvested.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">Across all stocks</p>
             </CardContent>
@@ -278,7 +278,7 @@ export default function StocksPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${totalCurrentValue.toLocaleString()}
+                ₹{totalCurrentValue.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">Portfolio value</p>
             </CardContent>
@@ -295,11 +295,11 @@ export default function StocksPage() {
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${
+                className={`text-2xl font-bold ₹{
                   totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
                 }`}
               >
-                {totalGainLoss >= 0 ? "+" : ""}${totalGainLoss.toLocaleString()}
+                {totalGainLoss >= 0 ? "+" : ""}₹{totalGainLoss.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
                 {totalGainLossPercentage >= 0 ? "+" : ""}
@@ -353,7 +353,7 @@ export default function StocksPage() {
                         </div>
                         <div className="text-right">
                           <div
-                            className={`text-lg font-bold flex items-center ${
+                            className={`text-lg font-bold flex items-center ₹{
                               gainLoss >= 0 ? "text-green-600" : "text-red-600"
                             }`}
                           >
@@ -362,7 +362,7 @@ export default function StocksPage() {
                             ) : (
                               <TrendingDown className="h-4 w-4 mr-1" />
                             )}
-                            {gainLoss >= 0 ? "+" : ""}${gainLoss.toLocaleString()}
+                            {gainLoss >= 0 ? "+" : ""}₹{gainLoss.toLocaleString()}
                           </div>
                           <p className="text-sm text-gray-500">
                             ({gainLossPercentage >= 0 ? "+" : ""}
@@ -378,22 +378,22 @@ export default function StocksPage() {
                         </div>
                         <div>
                           <p className="text-gray-500">Avg Price</p>
-                          <p className="font-semibold">${stock.avgPurchasePrice.toFixed(2)}</p>
+                          <p className="font-semibold">₹{stock.avgPurchasePrice.toFixed(2)}</p>
                         </div>
                         <div>
                           <p className="text-gray-500">Current Price</p>
                           <p
-                            className={`font-semibold ${
+                            className={`font-semibold ₹{
                               priceChange >= 0 ? "text-green-600" : "text-red-600"
                             }`}
                           >
-                            ${stock.currentPrice.toFixed(2)}
+                            ₹{stock.currentPrice.toFixed(2)}
                           </p>
                         </div>
                         <div>
                           <p className="text-gray-500">Invested</p>
                           <p className="font-semibold">
-                            ${stock.investedAmount.toLocaleString()}
+                            ₹{stock.investedAmount.toLocaleString()}
                           </p>
                         </div>
                       </div>
@@ -404,14 +404,14 @@ export default function StocksPage() {
                         </span>
                         <div className="text-right">
                           <span className="font-semibold">
-                            Current Value: ${stock.currentValue.toLocaleString()}
+                            Current Value: ₹{stock.currentValue.toLocaleString()}
                           </span>
                           <span
-                            className={`ml-2 ${
+                            className={`ml-2 ₹{
                               priceChange >= 0 ? "text-green-600" : "text-red-600"
                             }`}
                           >
-                            ({priceChange >= 0 ? "+" : ""}${priceChange.toFixed(2)} /{" "}
+                            ({priceChange >= 0 ? "+" : ""}₹{priceChange.toFixed(2)} /{" "}
                             {priceChangePercentage >= 0 ? "+" : ""}
                             {priceChangePercentage.toFixed(2)}%)
                           </span>

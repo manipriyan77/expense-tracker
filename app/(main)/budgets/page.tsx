@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { useBudgetsStore, Budget } from "@/store/budgets-store";
 import BudgetDetailsModal from "@/components/budgets/BudgetDetailsModal";
+import { MonthSelector } from "@/components/ui/month-selector";
 
 const budgetFormSchema = z.object({
   category: z.string().min(1, "Category is required"),
@@ -61,6 +62,7 @@ export default function BudgetsPage() {
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
 
   const {
     control: addControl,
@@ -129,7 +131,7 @@ export default function BudgetsPage() {
     }
   };
 
-  const openEditDialog = (budget: any) => {
+  const openEditDialog = (budget: Budget) => {
     setEditingBudgetId(budget.id);
     resetEdit({
       category: budget.category,
@@ -220,29 +222,47 @@ export default function BudgetsPage() {
       </header>
 
       <main className="px-4 sm:px-6 lg:px-8 py-8">
+        {/* Month Selector */}
+        <div className="mb-6 flex items-center justify-between">
+          <MonthSelector
+            selectedMonth={selectedMonth}
+            onMonthChange={setSelectedMonth}
+            monthsToShow={7}
+          />
+          <div className="text-sm text-gray-600">
+            {budgets.length} budget(s)
+          </div>
+        </div>
+
         {/* Overall Budget Summary */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Overall Budget Status</CardTitle>
-            <CardDescription>Your total budget across all categories</CardDescription>
+            <CardDescription>
+              Your total budget across all categories for{" "}
+              {selectedMonth.toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm text-gray-600">Total Budget</p>
-                  <p className="text-2xl font-bold">${totalBudget.toFixed(2)}</p>
+                  <p className="text-2xl font-bold">₹{totalBudget.toFixed(2)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Total Spent</p>
                   <p className="text-2xl font-bold text-red-600">
-                    ${totalSpent.toFixed(2)}
+                    ₹{totalSpent.toFixed(2)}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Remaining</p>
                   <p className="text-2xl font-bold text-green-600">
-                    ${(totalBudget - totalSpent).toFixed(2)}
+                    ₹{(totalBudget - totalSpent).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -512,11 +532,11 @@ export default function BudgetsPage() {
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="text-sm text-gray-600">Spent</p>
-                      <p className="text-xl font-bold">${spent.toFixed(2)}</p>
+                      <p className="text-xl font-bold">₹{spent.toFixed(2)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-600">Limit</p>
-                      <p className="text-xl font-bold">${budget.limit_amount.toFixed(2)}</p>
+                      <p className="text-xl font-bold">₹{budget.limit_amount.toFixed(2)}</p>
                     </div>
                   </div>
 
@@ -545,7 +565,7 @@ export default function BudgetsPage() {
                             remaining < 0 ? "text-red-600" : "text-green-600"
                           }`}
                         >
-                          ${Math.abs(remaining).toFixed(2)}
+                          ₹{Math.abs(remaining).toFixed(2)}
                           {remaining < 0 && " over"}
                         </p>
                       </div>

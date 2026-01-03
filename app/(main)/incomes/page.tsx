@@ -117,7 +117,7 @@ export default function IncomesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                ${totalIncome.toFixed(2)}
+                ₹{totalIncome.toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">This month</p>
             </CardContent>
@@ -132,7 +132,7 @@ export default function IncomesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                ${monthlyAverage.toFixed(2)}
+                ₹{monthlyAverage.toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Based on {incomes.length} transactions
@@ -242,7 +242,7 @@ export default function IncomesPage() {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-green-600">
-                        +${income.amount.toFixed(2)}
+                        +₹{income.amount.toFixed(2)}
                       </p>
                       <p className="text-sm text-gray-500 flex items-center">
                         <Calendar className="h-3 w-3 mr-1" />
