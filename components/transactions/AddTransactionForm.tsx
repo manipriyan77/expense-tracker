@@ -14,8 +14,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TrendingUp, TrendingDown, Loader2, Target, AlertCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, Target, AlertCircle, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const transactionFormSchema = z.object({
   type: z.enum(["income", "expense"]),
@@ -72,14 +80,26 @@ interface AddTransactionFormProps {
 export default function AddTransactionForm({ onSuccess, onCancel }: AddTransactionFormProps) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [budgetInfo, setBudgetInfo] = useState<any>(null);
+  const [budgetInfo, setBudgetInfo] = useState<{
+    budgetLimit: number;
+    totalSpent: number;
+    newTotal: number;
+    remainingAmount: number;
+    percentage: number;
+    isOverLimit: boolean;
+    isNearLimit: boolean;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
 
   const {
     control,
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionFormSchema),
@@ -116,7 +136,10 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
   useEffect(() => {
     if (transactionType === "expense" && selectedCategory && selectedSubtype && amount) {
       checkBudget();
+    } else {
+      setBudgetInfo(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactionType, selectedCategory, selectedSubtype, amount]);
 
   const fetchBudgets = async () => {
@@ -137,8 +160,8 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
       if (response.ok) {
         const data = await response.json();
         const activeGoals = data
-          .filter((g: any) => g.status === "active")
-          .map((g: any) => ({
+          .filter((g: { status: string }) => g.status === "active")
+          .map((g: { id: string; title: string; target_amount: string; current_amount: string; category: string }) => ({
             id: g.id,
             title: g.title,
             targetAmount: parseFloat(g.target_amount),
@@ -222,8 +245,8 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
     });
   };
 
-  const incomeCategories = ["Salary", "Freelance", "Investment", "Business", "Gift", "Other"];
-  const expenseCategories = ["Food", "Transportation", "Entertainment", "Bills", "Shopping", "Healthcare", "Savings", "Other"];
+  const incomeCategories = ["Salary", "Freelance", "Investment", "Business", "Gift", "Other", ...customCategories.filter(cat => !["Salary", "Freelance", "Investment", "Business", "Gift", "Other"].includes(cat))];
+  const expenseCategories = ["Food", "Transportation", "Entertainment", "Bills", "Shopping", "Healthcare", "Savings", "Other", ...customCategories.filter(cat => !["Food", "Transportation", "Entertainment", "Bills", "Shopping", "Healthcare", "Savings", "Other"].includes(cat))];
   
   const getSubtypes = (category: string, type: string) => {
     if (type === "income") {
@@ -241,6 +264,18 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
 
   const showGoalMapping = transactionType === "income" || selectedCategory === "Savings";
   const isGoalRequired = selectedCategory === "Savings";
+
+  const handleAddCustomCategory = () => {
+    if (newCategoryName.trim()) {
+      const trimmedName = newCategoryName.trim();
+      if (!customCategories.includes(trimmedName)) {
+        setCustomCategories([...customCategories, trimmedName]);
+        setValue("category", trimmedName);
+        setNewCategoryName("");
+        setIsAddCategoryDialogOpen(false);
+      }
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -366,7 +401,16 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
               name="category"
               control={control}
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select 
+                  value={field.value} 
+                  onValueChange={(value) => {
+                    if (value === "add_custom") {
+                      setIsAddCategoryDialogOpen(true);
+                    } else {
+                      field.onChange(value);
+                    }
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
@@ -376,6 +420,12 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
                         {cat}
                       </SelectItem>
                     ))}
+                    <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
+                      <div className="flex items-center space-x-2">
+                        <Plus className="h-4 w-4" />
+                        <span>Add Custom Category</span>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -386,34 +436,35 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
           </div>
 
           {/* Subtype */}
-          <div className="space-y-2">
-            <Label htmlFor="subtype">Subtype *</Label>
-            <Controller
-              name="subtype"
-              control={control}
-              render={({ field }) => (
-                <Select 
-                  value={field.value} 
-                  onValueChange={field.onChange}
-                  disabled={!selectedCategory}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={selectedCategory ? "Select subtype" : "Select category first"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getSubtypes(selectedCategory, transactionType).map((subtype) => (
-                      <SelectItem key={subtype} value={subtype}>
-                        {subtype}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          {selectedCategory && (
+            <div className="space-y-2">
+              <Label htmlFor="subtype">Subtype *</Label>
+              <Controller
+                name="subtype"
+                control={control}
+                render={({ field }) => (
+                  <Select 
+                    value={field.value} 
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select subtype" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getSubtypes(selectedCategory, transactionType).map((subtype) => (
+                        <SelectItem key={subtype} value={subtype}>
+                          {subtype}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.subtype && (
+                <p className="text-sm text-red-600">{errors.subtype.message}</p>
               )}
-            />
-            {errors.subtype && (
-              <p className="text-sm text-red-600">{errors.subtype.message}</p>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Budget Selection - Optional, shows available budgets */}
           {selectedCategory && selectedSubtype && getMatchingBudgets().length > 0 && (
@@ -471,7 +522,7 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
       </Card>
 
       {/* Budget Warning (for expenses) */}
-      {transactionType === "expense" && budgetInfo?.hasBudget && (
+      {transactionType === "expense" && budgetInfo && (
         <Card className={`border-2 ${budgetInfo.isOverLimit ? "border-red-500 bg-red-50" : budgetInfo.isNearLimit ? "border-orange-500 bg-orange-50" : "border-blue-500 bg-blue-50"}`}>
           <CardHeader className="pb-3">
             <div className="flex items-center space-x-2">
@@ -607,6 +658,53 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
           )}
         </Button>
       </div>
+
+      {/* Add Custom Category Dialog */}
+      <Dialog open={isAddCategoryDialogOpen} onOpenChange={setIsAddCategoryDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Custom Category</DialogTitle>
+            <DialogDescription>
+              Create a new category for your {transactionType === "income" ? "income" : "expense"} transactions
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-category">Category Name</Label>
+              <Input
+                id="new-category"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="Enter category name"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleAddCustomCategory();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setNewCategoryName("");
+                setIsAddCategoryDialogOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAddCustomCategory}
+              disabled={!newCategoryName.trim()}
+            >
+              Add Category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }
