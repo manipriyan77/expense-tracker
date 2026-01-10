@@ -77,7 +77,7 @@ export default function DebtTrackerPage() {
     original_amount: "",
     interest_rate: "",
     minimum_payment: "",
-    due_date: "",
+    due_date: "", // Will store full date in YYYY-MM-DD format
     currency: "USD",
     notes: "",
   });
@@ -115,7 +115,7 @@ export default function DebtTrackerPage() {
         original_amount: parseFloat(debtForm.original_amount),
         interest_rate: parseFloat(debtForm.interest_rate),
         minimum_payment: parseFloat(debtForm.minimum_payment),
-        due_date: parseInt(debtForm.due_date),
+        due_date: debtForm.due_date || null,
         currency: debtForm.currency,
         notes: debtForm.notes,
       });
@@ -148,7 +148,7 @@ export default function DebtTrackerPage() {
         original_amount: parseFloat(debtForm.original_amount),
         interest_rate: parseFloat(debtForm.interest_rate),
         minimum_payment: parseFloat(debtForm.minimum_payment),
-        due_date: parseInt(debtForm.due_date),
+        due_date: debtForm.due_date || null,
         notes: debtForm.notes,
       });
       toast.success("Debt updated successfully!");
@@ -179,7 +179,7 @@ export default function DebtTrackerPage() {
       original_amount: debt.original_amount.toString(),
       interest_rate: debt.interest_rate.toString(),
       minimum_payment: debt.minimum_payment.toString(),
-      due_date: debt.due_date.toString(),
+      due_date: debt.due_date || "",
       currency: debt.currency,
       notes: debt.notes || "",
     });
@@ -219,25 +219,11 @@ export default function DebtTrackerPage() {
     { month: "Jan", paid: 875, balance: 52500 },
   ];
 
-  const getNextDueDate = (dueDate: number) => {
+  const getDaysUntilDue = (dueDate: string | null) => {
+    if (!dueDate) return 999; // Return large number if no due date
     const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-    const currentDay = today.getDate();
-    
-    let nextDue = new Date(currentYear, currentMonth, dueDate);
-    
-    if (currentDay >= dueDate) {
-      nextDue = new Date(currentYear, currentMonth + 1, dueDate);
-    }
-    
-    return nextDue.toISOString().split('T')[0];
-  };
-
-  const getDaysUntilDue = (dueDate: number) => {
-    const today = new Date();
-    const nextDue = new Date(getNextDueDate(dueDate));
-    const diff = nextDue.getTime() - today.getTime();
+    const due = new Date(dueDate);
+    const diff = due.getTime() - today.getTime();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
@@ -361,16 +347,12 @@ export default function DebtTrackerPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="dueDate">Due Date (Day of Month)</Label>
+                    <Label htmlFor="dueDate">Next Due Date</Label>
                     <Input 
                       id="dueDate" 
-                      type="number" 
-                      min="1" 
-                      max="31" 
-                      placeholder="15" 
+                      type="date" 
                       value={debtForm.due_date}
                       onChange={(e) => setDebtForm({ ...debtForm, due_date: e.target.value })}
-                      required
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
@@ -493,7 +475,6 @@ export default function DebtTrackerPage() {
                   const progress = ((debt.original_amount - debt.balance) / debt.original_amount) * 100;
                   const daysUntilDue = getDaysUntilDue(debt.due_date);
                   const monthsToPayoff = calculateMonthsToPayoff(debt);
-                  const nextDueDate = getNextDueDate(debt.due_date);
 
                   return (
                     <Card key={debt.id} className="hover:shadow-md transition-shadow">
@@ -581,7 +562,9 @@ export default function DebtTrackerPage() {
                           <div>
                             <p className="text-xs text-gray-500">Next Due</p>
                             <p className="font-semibold">
-                              {new Date(nextDueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                              {debt.due_date 
+                                ? new Date(debt.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                                : "Not set"}
                             </p>
                           </div>
                         </div>
@@ -855,16 +838,12 @@ export default function DebtTrackerPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="editDueDate">Due Date (Day of Month)</Label>
+              <Label htmlFor="editDueDate">Next Due Date</Label>
               <Input 
                 id="editDueDate" 
-                type="number" 
-                min="1" 
-                max="31" 
-                placeholder="15" 
+                type="date" 
                 value={debtForm.due_date}
                 onChange={(e) => setDebtForm({ ...debtForm, due_date: e.target.value })}
-                required
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>

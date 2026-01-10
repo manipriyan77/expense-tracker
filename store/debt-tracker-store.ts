@@ -11,7 +11,7 @@ export interface Debt {
   original_amount: number;
   interest_rate: number;
   minimum_payment: number;
-  due_date: number; // Day of month
+  due_date: string | null; // Date field from database
   currency: string;
   notes?: string;
   created_at: string;
