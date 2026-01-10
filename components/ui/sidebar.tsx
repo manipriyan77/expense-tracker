@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -119,16 +120,50 @@ export function Sidebar({ className }: SidebarProps) {
         className
       )}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        {!isCollapsed && (
-          <h2 className="text-lg font-semibold text-gray-900">Navigation</h2>
-        )}
+      {/* Logo Header - Acts as Home Button */}
+      <Link 
+        href="/dashboard" 
+        className="flex items-center justify-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors group"
+        title="Go to Dashboard"
+      >
+        <div className={cn(
+          "flex items-center gap-3 transition-all duration-300",
+          isCollapsed ? "justify-center" : "justify-start w-full"
+        )}>
+          {/* Logo */}
+          <div className="relative flex-shrink-0">
+            <Image
+              src="/logo-simple.svg"
+              alt="Expense Tracker"
+              width={isCollapsed ? 32 : 40}
+              height={isCollapsed ? 32 : 40}
+              className="transition-all duration-300 group-hover:scale-110"
+              priority
+            />
+          </div>
+          
+          {/* App Name */}
+          {!isCollapsed && (
+            <div className="flex flex-col">
+              <span className="text-base font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                Expense Tracker
+              </span>
+              <span className="text-xs text-gray-500">
+                Manage Your Finances
+              </span>
+            </div>
+          )}
+        </div>
+      </Link>
+
+      {/* Collapse Toggle Button */}
+      <div className="flex items-center justify-end px-4 py-2 border-b border-gray-200">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1 h-8 w-8"
+          className="p-1 h-8 w-8 hover:bg-gray-100"
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {isCollapsed ? (
             <ChevronRight className="h-4 w-4" />
