@@ -17,12 +17,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Find matching budget
+    // Get current month and year
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    // Find matching budget for current month
     const { data: budgets, error: budgetError } = await supabase
       .from("budgets")
       .select("*")
       .eq("user_id", user.id)
       .eq("category", category)
+      .eq("month", currentMonth)
+      .eq("year", currentYear)
       .eq("period", "monthly"); // Currently only supporting monthly
 
     if (budgetError) {
@@ -42,26 +49,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Calculate current spending for the current month
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-
-    const { data: transactions, error: transError } = await supabase
-      .from("transactions")
-      .select("amount")
-      .eq("user_id", user.id)
-      .eq("type", "expense")
-      .eq("category", category)
-      .gte("date", startOfMonth)
-      .lte("date", endOfMonth);
-
-    if (transError) {
-      return NextResponse.json({ error: transError.message }, { status: 500 });
-    }
-
-    // Calculate total spent
-    const totalSpent = transactions?.reduce((sum, t) => sum + parseFloat(t.amount), 0) || 0;
+    // Use the spent_amount from the budget record
+    const totalSpent = parseFloat(matchingBudget.spent_amount) || 0;
     const newTotal = totalSpent + parseFloat(amount);
     const budgetLimit = parseFloat(matchingBudget.limit_amount);
     const percentage = (newTotal / budgetLimit) * 100;

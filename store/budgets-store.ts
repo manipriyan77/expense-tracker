@@ -7,6 +7,8 @@ export interface Budget {
   limit_amount: number;
   spent_amount: number;
   period: "monthly" | "weekly" | "yearly";
+  month: number;
+  year: number;
   user_id: string;
   created_at: string;
   updated_at: string;
@@ -14,30 +16,44 @@ export interface Budget {
 
 interface BudgetsState {
   budgets: Budget[];
+  currentMonth: number;
+  currentYear: number;
   loading: boolean;
   error: string | null;
-  fetchBudgets: () => Promise<void>;
-  addBudget: (budget: Omit<Budget, "id" | "user_id" | "created_at" | "updated_at" | "spent_amount">) => Promise<void>;
+  fetchBudgets: (month?: number, year?: number) => Promise<void>;
+  setMonth: (month: number, year: number) => void;
+  addBudget: (budget: Omit<Budget, "id" | "user_id" | "created_at" | "updated_at" | "spent_amount" | "month" | "year">) => Promise<void>;
   updateBudget: (id: string, updates: Partial<Budget>) => Promise<void>;
   deleteBudget: (id: string) => Promise<void>;
 }
 
-export const useBudgetsStore = create<BudgetsState>((set) => ({
+export const useBudgetsStore = create<BudgetsState>((set, get) => ({
   budgets: [],
+  currentMonth: new Date().getMonth() + 1,
+  currentYear: new Date().getFullYear(),
   loading: false,
   error: null,
 
-  fetchBudgets: async () => {
+  setMonth: (month: number, year: number) => {
+    set({ currentMonth: month, currentYear: year });
+    get().fetchBudgets(month, year);
+  },
+
+  fetchBudgets: async (month?: number, year?: number) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch("/api/budgets");
+      const state = get();
+      const targetMonth = month ?? state.currentMonth;
+      const targetYear = year ?? state.currentYear;
+
+      const response = await fetch(`/api/budgets?month=${targetMonth}&year=${targetYear}`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch budgets");
       }
 
       const data = await response.json();
-      set({ budgets: data, loading: false });
+      set({ budgets: data, loading: false, currentMonth: targetMonth, currentYear: targetYear });
     } catch (error) {
       console.error("Error fetching budgets:", error);
       set({ error: error instanceof Error ? error.message : "Failed to fetch budgets", loading: false });
@@ -47,12 +63,17 @@ export const useBudgetsStore = create<BudgetsState>((set) => ({
   addBudget: async (budgetData) => {
     set({ loading: true, error: null });
     try {
+      const state = get();
       const response = await fetch("/api/budgets", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(budgetData),
+        body: JSON.stringify({
+          ...budgetData,
+          month: state.currentMonth,
+          year: state.currentYear,
+        }),
       });
 
       if (!response.ok) {
@@ -69,6 +90,7 @@ export const useBudgetsStore = create<BudgetsState>((set) => ({
     } catch (error) {
       console.error("Error adding budget:", error);
       set({ error: error instanceof Error ? error.message : "Failed to add budget", loading: false });
+      throw error;
     }
   },
 

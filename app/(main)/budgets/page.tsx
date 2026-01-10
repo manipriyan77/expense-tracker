@@ -56,7 +56,7 @@ const budgetFormSchema = z.object({
 type BudgetFormData = z.infer<typeof budgetFormSchema>;
 
 export default function BudgetsPage() {
-  const { budgets, loading, error, fetchBudgets, addBudget, updateBudget, deleteBudget } = useBudgetsStore();
+  const { budgets, loading, error, fetchBudgets, addBudget, updateBudget, deleteBudget, currentMonth, currentYear, setMonth } = useBudgetsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
@@ -93,8 +93,10 @@ export default function BudgetsPage() {
   });
 
   useEffect(() => {
-    fetchBudgets();
-  }, [fetchBudgets]);
+    const month = selectedMonth.getMonth() + 1;
+    const year = selectedMonth.getFullYear();
+    fetchBudgets(month, year);
+  }, [selectedMonth, fetchBudgets]);
 
   const handleAddCustomCategory = (isEditMode = false) => {
     if (newCategoryName.trim()) {
