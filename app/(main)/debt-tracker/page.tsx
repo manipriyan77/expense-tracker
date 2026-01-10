@@ -91,12 +91,16 @@ export default function DebtTrackerPage() {
   });
 
   useEffect(() => {
-    const loadData = async () => {
-      await fetchDebts();
-      await fetchAllPayments();
-    };
-    loadData();
-  }, [fetchDebts, fetchAllPayments]);
+    fetchDebts();
+  }, [fetchDebts]);
+
+  // Fetch payments after debts are loaded
+  useEffect(() => {
+    if (debts.length > 0) {
+      console.log('Debts loaded, fetching payments...');
+      fetchAllPayments();
+    }
+  }, [debts, fetchAllPayments]);
 
   const totalDebt = debts.reduce((sum, debt) => sum + debt.balance, 0);
   const totalMinPayment = debts.reduce((sum, debt) => sum + debt.minimum_payment, 0);
@@ -197,7 +201,7 @@ export default function DebtTrackerPage() {
     if (!selectedDebt) return;
     try {
       await addPayment({
-        debt_id: selectedDebt.id,
+        liability_id: selectedDebt.id,
         amount: parseFloat(paymentForm.amount),
         payment_date: paymentForm.payment_date,
         notes: paymentForm.notes,
@@ -219,6 +223,24 @@ export default function DebtTrackerPage() {
 
   // Calculate payment history from actual data
   const paymentHistory = React.useMemo(() => {
+    console.log('Calculating payment history. Total payments:', payments.length);
+    
+    // If no debts yet, return empty data
+    if (debts.length === 0) {
+      const result = [];
+      const now = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+        result.push({
+          month: monthName,
+          paid: 0,
+          balance: 0,
+        });
+      }
+      return result;
+    }
+    
     // Group payments by month
     const monthlyData: { [key: string]: { paid: number } } = {};
     
@@ -236,7 +258,6 @@ export default function DebtTrackerPage() {
     // Get last 6 months and calculate cumulative balance
     const result = [];
     const now = new Date();
-    let cumulativeBalance = totalDebt;
     
     // Calculate total payments made to adjust starting balance
     const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -262,8 +283,9 @@ export default function DebtTrackerPage() {
       });
     }
     
+    console.log('Payment history calculated:', result);
     return result;
-  }, [payments, totalDebt]);
+  }, [payments, totalDebt, debts.length]);
 
   const getDaysUntilDue = (dueDate: string | null) => {
     if (!dueDate) return 999; // Return large number if no due date

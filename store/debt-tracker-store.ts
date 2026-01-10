@@ -21,7 +21,7 @@ export interface Debt {
 export interface DebtPayment {
   id: string;
   user_id: string;
-  debt_id: string;
+  liability_id: string;
   amount: number;
   payment_date: string;
   principal_amount?: number;
@@ -78,6 +78,7 @@ export const useDebtTrackerStore = create<DebtTrackerState>((set, get) => ({
   fetchAllPayments: async () => {
     try {
       const debts = get().debts;
+      console.log('Fetching payments for', debts.length, 'debts');
       const allPayments: DebtPayment[] = [];
       
       // Fetch payments for each debt
@@ -85,15 +86,20 @@ export const useDebtTrackerStore = create<DebtTrackerState>((set, get) => ({
         const response = await fetch(`/api/debt-tracker/${debt.id}/payments`);
         if (response.ok) {
           const payments = await response.json();
+          console.log(`Fetched ${payments.length} payments for debt ${debt.name}`);
           allPayments.push(...payments);
+        } else {
+          console.error(`Failed to fetch payments for debt ${debt.id}:`, response.statusText);
         }
       }
       
       // Sort by payment date (most recent first)
       allPayments.sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime());
       
+      console.log('Total payments fetched:', allPayments.length);
       set({ payments: allPayments });
     } catch (error) {
+      console.error('Error fetching all payments:', error);
       set({ error: (error as Error).message });
     }
   },
@@ -115,7 +121,7 @@ export const useDebtTrackerStore = create<DebtTrackerState>((set, get) => ({
 
   addPayment: async (payment) => {
     try {
-      const response = await fetch(`/api/debt-tracker/${payment.debt_id}/payments`, {
+      const response = await fetch(`/api/debt-tracker/${payment.liability_id}/payments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payment),
@@ -127,13 +133,14 @@ export const useDebtTrackerStore = create<DebtTrackerState>((set, get) => ({
       set({
         payments: [...get().payments, newPayment],
         debts: get().debts.map((d) =>
-          d.id === payment.debt_id
+          d.id === payment.liability_id
             ? { ...d, balance: Math.max(0, d.balance - payment.amount) }
             : d
         ),
       });
     } catch (error) {
       set({ error: (error as Error).message });
+      throw error;
     }
   },
 
