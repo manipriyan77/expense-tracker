@@ -44,6 +44,9 @@ interface Income {
 export default function IncomesPage() {
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [showCategoryInput, setShowCategoryInput] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     amount: "",
     description: "",
@@ -73,6 +76,19 @@ export default function IncomesPage() {
       },
     ];
     setIncomes(mockIncomes);
+  };
+
+  const handleAddCustomCategory = () => {
+    if (newCategoryName.trim()) {
+      const trimmedName = newCategoryName.trim();
+      const allCategories = ["Salary", "Freelance", "Investment", "Business", "Other", ...customCategories];
+      if (!allCategories.includes(trimmedName)) {
+        setCustomCategories([...customCategories, trimmedName]);
+        setFormData({ ...formData, category: trimmedName });
+      }
+      setNewCategoryName("");
+      setShowCategoryInput(false);
+    }
   };
 
   const handleAddIncome = () => {
@@ -186,23 +202,77 @@ export default function IncomesPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, category: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Salary">Salary</SelectItem>
-                      <SelectItem value="Freelance">Freelance</SelectItem>
-                      <SelectItem value="Investment">Investment</SelectItem>
-                      <SelectItem value="Business">Business</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {showCategoryInput ? (
+                    <div className="flex space-x-2">
+                      <Input
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="Enter category name"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddCustomCategory();
+                          } else if (e.key === "Escape") {
+                            setShowCategoryInput(false);
+                            setNewCategoryName("");
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleAddCustomCategory}
+                        disabled={!newCategoryName.trim()}
+                      >
+                        Add
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setShowCategoryInput(false);
+                          setNewCategoryName("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) => {
+                        if (value === "add_custom") {
+                          setShowCategoryInput(true);
+                        } else {
+                          setFormData({ ...formData, category: value });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Salary">Salary</SelectItem>
+                        <SelectItem value="Freelance">Freelance</SelectItem>
+                        <SelectItem value="Investment">Investment</SelectItem>
+                        <SelectItem value="Business">Business</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                        {customCategories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
+                          <div className="flex items-center space-x-2">
+                            <Plus className="h-4 w-4" />
+                            <span>Add Category</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <Button onClick={handleAddIncome} className="w-full">

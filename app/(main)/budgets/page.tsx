@@ -63,6 +63,12 @@ export default function BudgetsPage() {
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [showCategoryInput, setShowCategoryInput] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [showEditCategoryInput, setShowEditCategoryInput] = useState(false);
+  const [newEditCategoryName, setNewEditCategoryName] = useState("");
+  const [customEditCategories, setCustomEditCategories] = useState<string[]>([]);
 
   const {
     control: addControl,
@@ -91,6 +97,32 @@ export default function BudgetsPage() {
   useEffect(() => {
     fetchBudgets();
   }, [fetchBudgets]);
+
+  const handleAddCustomCategory = () => {
+    if (newCategoryName.trim()) {
+      const trimmedName = newCategoryName.trim();
+      const allCategories = [...categories, ...customCategories];
+      if (!allCategories.includes(trimmedName)) {
+        setCustomCategories([...customCategories, trimmedName]);
+        addControl._formValues.category = trimmedName;
+      }
+      setNewCategoryName("");
+      setShowCategoryInput(false);
+    }
+  };
+
+  const handleAddEditCustomCategory = () => {
+    if (newEditCategoryName.trim()) {
+      const trimmedName = newEditCategoryName.trim();
+      const allCategories = [...categories, ...customEditCategories];
+      if (!allCategories.includes(trimmedName)) {
+        setCustomEditCategories([...customEditCategories, trimmedName]);
+        editControl._formValues.category = trimmedName;
+      }
+      setNewEditCategoryName("");
+      setShowEditCategoryInput(false);
+    }
+  };
 
   const handleAddBudget = async (data: BudgetFormData) => {
     await addBudget({
@@ -296,24 +328,83 @@ export default function BudgetsPage() {
               <form onSubmit={handleAddSubmit(handleAddBudget)} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="add-category">Category *</Label>
-                  <Controller
-                    name="category"
-                    control={addControl}
-                    render={({ field }) => (
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((cat) => (
-                            <SelectItem key={cat} value={cat}>
-                              {cat}
+                  {showCategoryInput ? (
+                    <div className="flex space-x-2">
+                      <Input
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="Enter category name"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddCustomCategory();
+                          } else if (e.key === "Escape") {
+                            setShowCategoryInput(false);
+                            setNewCategoryName("");
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleAddCustomCategory}
+                        disabled={!newCategoryName.trim()}
+                      >
+                        Add
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setShowCategoryInput(false);
+                          setNewCategoryName("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Controller
+                      name="category"
+                      control={addControl}
+                      render={({ field }) => (
+                        <Select 
+                          value={field.value} 
+                          onValueChange={(value) => {
+                            if (value === "add_custom") {
+                              setShowCategoryInput(true);
+                            } else {
+                              field.onChange(value);
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((cat) => (
+                              <SelectItem key={cat} value={cat}>
+                                {cat}
+                              </SelectItem>
+                            ))}
+                            {customCategories.map((cat) => (
+                              <SelectItem key={cat} value={cat}>
+                                {cat}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
+                              <div className="flex items-center space-x-2">
+                                <Plus className="h-4 w-4" />
+                                <span>Add Category</span>
+                              </div>
                             </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  )}
                   {addErrors.category && (
                     <p className="text-sm text-red-600">{addErrors.category.message}</p>
                   )}
@@ -402,24 +493,83 @@ export default function BudgetsPage() {
             <form onSubmit={handleEditSubmit(handleEditBudget)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-category">Category *</Label>
-                <Controller
-                  name="category"
-                  control={editControl}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
+                {showEditCategoryInput ? (
+                  <div className="flex space-x-2">
+                    <Input
+                      value={newEditCategoryName}
+                      onChange={(e) => setNewEditCategoryName(e.target.value)}
+                      placeholder="Enter category name"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddEditCustomCategory();
+                        } else if (e.key === "Escape") {
+                          setShowEditCategoryInput(false);
+                          setNewEditCategoryName("");
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleAddEditCustomCategory}
+                      disabled={!newEditCategoryName.trim()}
+                    >
+                      Add
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setShowEditCategoryInput(false);
+                        setNewEditCategoryName("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <Controller
+                    name="category"
+                    control={editControl}
+                    render={({ field }) => (
+                      <Select 
+                        value={field.value} 
+                        onValueChange={(value) => {
+                          if (value === "add_custom") {
+                            setShowEditCategoryInput(true);
+                          } else {
+                            field.onChange(value);
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat}
+                            </SelectItem>
+                          ))}
+                          {customEditCategories.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
+                            <div className="flex items-center space-x-2">
+                              <Plus className="h-4 w-4" />
+                              <span>Add Category</span>
+                            </div>
                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                )}
                 {editErrors.category && (
                   <p className="text-sm text-red-600">{editErrors.category.message}</p>
                 )}

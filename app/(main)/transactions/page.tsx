@@ -94,6 +94,12 @@ export default function TransactionsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [showCategoryInput, setShowCategoryInput] = useState(false);
+  const [showSubtypeInput, setShowSubtypeInput] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newSubtypeName, setNewSubtypeName] = useState("");
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [customSubtypes, setCustomSubtypes] = useState<Record<string, string[]>>({});
 
   const {
     control,
@@ -118,6 +124,41 @@ export default function TransactionsPage() {
 
   const isRecurring = watch("isRecurring");
   const transactionType = watch("type");
+  const selectedCategory = watch("category");
+
+  const handleAddCustomCategory = () => {
+    if (newCategoryName.trim()) {
+      const trimmedName = newCategoryName.trim();
+      const incomeCategories = ["Salary", "Freelance", "Investment", "Business", "Other"];
+      const expenseCategories = ["Food", "Transportation", "Entertainment", "Bills", "Shopping", "Healthcare", "Savings", "Other"];
+      const allCategories = transactionType === "income" ? [...incomeCategories, ...customCategories] : [...expenseCategories, ...customCategories];
+      if (!allCategories.includes(trimmedName)) {
+        setCustomCategories([...customCategories, trimmedName]);
+        control._formValues.category = trimmedName;
+      }
+      setNewCategoryName("");
+      setShowCategoryInput(false);
+    }
+  };
+
+  const handleAddCustomSubtype = () => {
+    if (newSubtypeName.trim() && selectedCategory) {
+      const trimmedName = newSubtypeName.trim();
+      const currentSubtypes = customSubtypes[selectedCategory] || [];
+      const incomeSubtypes = ["Salary", "Freelance", "Business", "Investment", "Other"];
+      const expenseSubtypes = ["Bills", "EMI", "Savings", "Other"];
+      const baseSubtypes = transactionType === "income" ? incomeSubtypes : expenseSubtypes;
+      if (!baseSubtypes.includes(trimmedName) && !currentSubtypes.includes(trimmedName)) {
+        setCustomSubtypes({
+          ...customSubtypes,
+          [selectedCategory]: [...currentSubtypes, trimmedName],
+        });
+        control._formValues.subtype = trimmedName;
+      }
+      setNewSubtypeName("");
+      setShowSubtypeInput(false);
+    }
+  };
 
   useEffect(() => {
     loadTransactions();
@@ -480,52 +521,108 @@ export default function TransactionsPage() {
                 {/* Category */}
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
-                  <Controller
-                    name="category"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
+                  {showCategoryInput ? (
+                    <div className="flex space-x-2">
+                      <Input
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="Enter category name"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddCustomCategory();
+                          } else if (e.key === "Escape") {
+                            setShowCategoryInput(false);
+                            setNewCategoryName("");
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleAddCustomCategory}
+                        disabled={!newCategoryName.trim()}
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {transactionType === "income" ? (
-                            <>
-                              <SelectItem value="Salary">Salary</SelectItem>
-                              <SelectItem value="Freelance">
-                                Freelance
+                        Add
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setShowCategoryInput(false);
+                          setNewCategoryName("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Controller
+                      name="category"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value}
+                          onValueChange={(value) => {
+                            if (value === "add_custom") {
+                              setShowCategoryInput(true);
+                            } else {
+                              field.onChange(value);
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {transactionType === "income" ? (
+                              <>
+                                <SelectItem value="Salary">Salary</SelectItem>
+                                <SelectItem value="Freelance">
+                                  Freelance
+                                </SelectItem>
+                                <SelectItem value="Investment">
+                                  Investment
+                                </SelectItem>
+                                <SelectItem value="Business">Business</SelectItem>
+                                <SelectItem value="Other">Other</SelectItem>
+                              </>
+                            ) : (
+                              <>
+                                <SelectItem value="Food">Food</SelectItem>
+                                <SelectItem value="Transportation">
+                                  Transportation
+                                </SelectItem>
+                                <SelectItem value="Entertainment">
+                                  Entertainment
+                                </SelectItem>
+                                <SelectItem value="Bills">Bills</SelectItem>
+                                <SelectItem value="Shopping">Shopping</SelectItem>
+                                <SelectItem value="Healthcare">
+                                  Healthcare
+                                </SelectItem>
+                                <SelectItem value="Savings">Savings</SelectItem>
+                                <SelectItem value="Other">Other</SelectItem>
+                              </>
+                            )}
+                            {customCategories.map((cat) => (
+                              <SelectItem key={cat} value={cat}>
+                                {cat}
                               </SelectItem>
-                              <SelectItem value="Investment">
-                                Investment
-                              </SelectItem>
-                              <SelectItem value="Business">Business</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
-                            </>
-                          ) : (
-                            <>
-                              <SelectItem value="Food">Food</SelectItem>
-                              <SelectItem value="Transportation">
-                                Transportation
-                              </SelectItem>
-                              <SelectItem value="Entertainment">
-                                Entertainment
-                              </SelectItem>
-                              <SelectItem value="Bills">Bills</SelectItem>
-                              <SelectItem value="Shopping">Shopping</SelectItem>
-                              <SelectItem value="Healthcare">
-                                Healthcare
-                              </SelectItem>
-                              <SelectItem value="Savings">Savings</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
+                            ))}
+                            <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
+                              <div className="flex items-center space-x-2">
+                                <Plus className="h-4 w-4" />
+                                <span>Add Category</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  )}
                   {errors.category && (
                     <p className="text-sm text-red-600">
                       {errors.category.message}
@@ -536,38 +633,94 @@ export default function TransactionsPage() {
                 {/* Subtype */}
                 <div className="space-y-2">
                   <Label htmlFor="subtype">Subtype (Optional)</Label>
-                  <Controller
-                    name="subtype"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
+                  {showSubtypeInput ? (
+                    <div className="flex space-x-2">
+                      <Input
+                        value={newSubtypeName}
+                        onChange={(e) => setNewSubtypeName(e.target.value)}
+                        placeholder="Enter subtype name"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddCustomSubtype();
+                          } else if (e.key === "Escape") {
+                            setShowSubtypeInput(false);
+                            setNewSubtypeName("");
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleAddCustomSubtype}
+                        disabled={!newSubtypeName.trim()}
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select subtype" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {transactionType === "income" ? (
-                            <>
-                              <SelectItem value="Salary">Salary</SelectItem>
-                              <SelectItem value="Freelance">Freelance</SelectItem>
-                              <SelectItem value="Business">Business</SelectItem>
-                              <SelectItem value="Investment">Investment</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
-                            </>
-                          ) : (
-                            <>
-                              <SelectItem value="Bills">Bills</SelectItem>
-                              <SelectItem value="EMI">EMI</SelectItem>
-                              <SelectItem value="Savings">Savings</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
+                        Add
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setShowSubtypeInput(false);
+                          setNewSubtypeName("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Controller
+                      name="subtype"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value}
+                          onValueChange={(value) => {
+                            if (value === "add_custom") {
+                              setShowSubtypeInput(true);
+                            } else {
+                              field.onChange(value);
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select subtype" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {transactionType === "income" ? (
+                              <>
+                                <SelectItem value="Salary">Salary</SelectItem>
+                                <SelectItem value="Freelance">Freelance</SelectItem>
+                                <SelectItem value="Business">Business</SelectItem>
+                                <SelectItem value="Investment">Investment</SelectItem>
+                                <SelectItem value="Other">Other</SelectItem>
+                              </>
+                            ) : (
+                              <>
+                                <SelectItem value="Bills">Bills</SelectItem>
+                                <SelectItem value="EMI">EMI</SelectItem>
+                                <SelectItem value="Savings">Savings</SelectItem>
+                                <SelectItem value="Other">Other</SelectItem>
+                              </>
+                            )}
+                            {selectedCategory && customSubtypes[selectedCategory] && customSubtypes[selectedCategory].map((subtype) => (
+                              <SelectItem key={subtype} value={subtype}>
+                                {subtype}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
+                              <div className="flex items-center space-x-2">
+                                <Plus className="h-4 w-4" />
+                                <span>Add Sub-category</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  )}
                 </div>
 
                 {/* Budget - Mandatory for expenses */}
