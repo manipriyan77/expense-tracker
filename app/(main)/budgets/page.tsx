@@ -64,11 +64,9 @@ export default function BudgetsPage() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [showCategoryInput, setShowCategoryInput] = useState(false);
+  const [showEditCategoryInput, setShowEditCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [customCategories, setCustomCategories] = useState<string[]>([]);
-  const [showEditCategoryInput, setShowEditCategoryInput] = useState(false);
-  const [newEditCategoryName, setNewEditCategoryName] = useState("");
-  const [customEditCategories, setCustomEditCategories] = useState<string[]>([]);
 
   const {
     control: addControl,
@@ -98,28 +96,20 @@ export default function BudgetsPage() {
     fetchBudgets();
   }, [fetchBudgets]);
 
-  const handleAddCustomCategory = () => {
+  const handleAddCustomCategory = (isEditMode = false) => {
     if (newCategoryName.trim()) {
       const trimmedName = newCategoryName.trim();
       const allCategories = [...categories, ...customCategories];
       if (!allCategories.includes(trimmedName)) {
         setCustomCategories([...customCategories, trimmedName]);
-        addControl._formValues.category = trimmedName;
+        if (isEditMode) {
+          editControl._formValues.category = trimmedName;
+        } else {
+          addControl._formValues.category = trimmedName;
+        }
       }
       setNewCategoryName("");
       setShowCategoryInput(false);
-    }
-  };
-
-  const handleAddEditCustomCategory = () => {
-    if (newEditCategoryName.trim()) {
-      const trimmedName = newEditCategoryName.trim();
-      const allCategories = [...categories, ...customEditCategories];
-      if (!allCategories.includes(trimmedName)) {
-        setCustomEditCategories([...customEditCategories, trimmedName]);
-        editControl._formValues.category = trimmedName;
-      }
-      setNewEditCategoryName("");
       setShowEditCategoryInput(false);
     }
   };
@@ -334,36 +324,36 @@ export default function BudgetsPage() {
                         value={newCategoryName}
                         onChange={(e) => setNewCategoryName(e.target.value)}
                         placeholder="Enter category name"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleAddCustomCategory();
-                          } else if (e.key === "Escape") {
-                            setShowCategoryInput(false);
-                            setNewCategoryName("");
-                          }
-                        }}
-                        autoFocus
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleAddCustomCategory}
-                        disabled={!newCategoryName.trim()}
-                      >
-                        Add
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddCustomCategory(false);
+                        } else if (e.key === "Escape") {
                           setShowCategoryInput(false);
                           setNewCategoryName("");
-                        }}
-                      >
-                        Cancel
-                      </Button>
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleAddCustomCategory(false)}
+                      disabled={!newCategoryName.trim()}
+                    >
+                      Add
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setShowCategoryInput(false);
+                        setNewCategoryName("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
                     </div>
                   ) : (
                     <Controller
@@ -496,16 +486,16 @@ export default function BudgetsPage() {
                 {showEditCategoryInput ? (
                   <div className="flex space-x-2">
                     <Input
-                      value={newEditCategoryName}
-                      onChange={(e) => setNewEditCategoryName(e.target.value)}
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
                       placeholder="Enter category name"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          handleAddEditCustomCategory();
+                          handleAddCustomCategory(true);
                         } else if (e.key === "Escape") {
                           setShowEditCategoryInput(false);
-                          setNewEditCategoryName("");
+                          setNewCategoryName("");
                         }
                       }}
                       autoFocus
@@ -513,8 +503,8 @@ export default function BudgetsPage() {
                     <Button
                       type="button"
                       size="sm"
-                      onClick={handleAddEditCustomCategory}
-                      disabled={!newEditCategoryName.trim()}
+                      onClick={() => handleAddCustomCategory(true)}
+                      disabled={!newCategoryName.trim()}
                     >
                       Add
                     </Button>
@@ -524,7 +514,7 @@ export default function BudgetsPage() {
                       variant="outline"
                       onClick={() => {
                         setShowEditCategoryInput(false);
-                        setNewEditCategoryName("");
+                        setNewCategoryName("");
                       }}
                     >
                       Cancel
@@ -554,7 +544,7 @@ export default function BudgetsPage() {
                               {cat}
                             </SelectItem>
                           ))}
-                          {customEditCategories.map((cat) => (
+                          {customCategories.map((cat) => (
                             <SelectItem key={cat} value={cat}>
                               {cat}
                             </SelectItem>

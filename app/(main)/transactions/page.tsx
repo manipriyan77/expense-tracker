@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,14 +10,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +19,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
 import {
   Plus,
   TrendingUp,
@@ -41,8 +30,8 @@ import {
   Trash2,
   Loader2,
 } from "lucide-react";
-import { transactionFormSchema, TransactionFormData } from "@/lib/schemas/transaction-form-schema";
 import { MonthSelector } from "@/components/ui/month-selector";
+import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 
 interface Transaction {
   id: string;
@@ -70,100 +59,15 @@ interface TransactionFromDB {
   next_date?: string;
 }
 
-interface Goal {
-  id: string;
-  title: string;
-  target_amount: number;
-  current_amount: number;
-  category: string;
-}
-
-interface Budget {
-  id: string;
-  category: string;
-  subtype?: string;
-  limit_amount: number;
-  period: string;
-}
-
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
-  const [showCategoryInput, setShowCategoryInput] = useState(false);
-  const [showSubtypeInput, setShowSubtypeInput] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [newSubtypeName, setNewSubtypeName] = useState("");
-  const [customCategories, setCustomCategories] = useState<string[]>([]);
-  const [customSubtypes, setCustomSubtypes] = useState<Record<string, string[]>>({});
-
-  const {
-    control,
-    handleSubmit,
-    watch,
-    reset,
-    formState: { errors },
-  } = useForm<TransactionFormData>({
-    resolver: zodResolver(transactionFormSchema),
-    defaultValues: {
-      type: "expense",
-      amount: "",
-      description: "",
-      category: "",
-      subtype: "",
-      budgetId: "",
-      goalId: "",
-      isRecurring: false,
-      frequency: "monthly",
-    },
-  });
-
-  const isRecurring = watch("isRecurring");
-  const transactionType = watch("type");
-  const selectedCategory = watch("category");
-
-  const handleAddCustomCategory = () => {
-    if (newCategoryName.trim()) {
-      const trimmedName = newCategoryName.trim();
-      const incomeCategories = ["Salary", "Freelance", "Investment", "Business", "Other"];
-      const expenseCategories = ["Food", "Transportation", "Entertainment", "Bills", "Shopping", "Healthcare", "Savings", "Other"];
-      const allCategories = transactionType === "income" ? [...incomeCategories, ...customCategories] : [...expenseCategories, ...customCategories];
-      if (!allCategories.includes(trimmedName)) {
-        setCustomCategories([...customCategories, trimmedName]);
-        control._formValues.category = trimmedName;
-      }
-      setNewCategoryName("");
-      setShowCategoryInput(false);
-    }
-  };
-
-  const handleAddCustomSubtype = () => {
-    if (newSubtypeName.trim() && selectedCategory) {
-      const trimmedName = newSubtypeName.trim();
-      const currentSubtypes = customSubtypes[selectedCategory] || [];
-      const incomeSubtypes = ["Salary", "Freelance", "Business", "Investment", "Other"];
-      const expenseSubtypes = ["Bills", "EMI", "Savings", "Other"];
-      const baseSubtypes = transactionType === "income" ? incomeSubtypes : expenseSubtypes;
-      if (!baseSubtypes.includes(trimmedName) && !currentSubtypes.includes(trimmedName)) {
-        setCustomSubtypes({
-          ...customSubtypes,
-          [selectedCategory]: [...currentSubtypes, trimmedName],
-        });
-        control._formValues.subtype = trimmedName;
-      }
-      setNewSubtypeName("");
-      setShowSubtypeInput(false);
-    }
-  };
 
   useEffect(() => {
     loadTransactions();
-    loadGoals();
-    loadBudgets();
   }, []);
 
   const loadTransactions = async () => {
@@ -197,70 +101,9 @@ export default function TransactionsPage() {
     }
   };
 
-  const loadGoals = async () => {
-    try {
-      const response = await fetch("/api/goals");
-      if (!response.ok) {
-        throw new Error("Failed to fetch goals");
-      }
-      const data = await response.json();
-      setGoals(data);
-    } catch (error) {
-      console.error("Error loading goals:", error);
-      setGoals([]);
-    }
-  };
-
-  const loadBudgets = async () => {
-    try {
-      const response = await fetch("/api/budgets");
-      if (!response.ok) {
-        throw new Error("Failed to fetch budgets");
-      }
-      const data = await response.json();
-      setBudgets(data);
-    } catch (error) {
-      console.error("Error loading budgets:", error);
-      setBudgets([]);
-    }
-  };
-
-  const onSubmit = async (data: TransactionFormData) => {
-    try {
-      const response = await fetch("/api/transactions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: parseFloat(data.amount),
-          type: data.type,
-          description: data.description,
-          category: data.category,
-          subtype: data.subtype || "",
-          budgetId: data.budgetId || null,
-          goalId: data.goalId || null,
-          date: data.date || new Date().toISOString().split("T")[0],
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to add transaction");
-      }
-
-      toast.success("Transaction added successfully!");
-
-      await loadTransactions();
-      await loadGoals();
-      await loadBudgets();
-
-      reset();
-      setIsAddDialogOpen(false);
-    } catch (error) {
-      console.error("Error adding transaction:", error);
-      toast.error("Failed to add transaction. Please try again.");
-    }
+  const handleTransactionSuccess = () => {
+    loadTransactions();
+    setIsAddDialogOpen(false);
   };
 
   const handleDeleteTransaction = async (transactionId: string) => {
@@ -280,11 +123,7 @@ export default function TransactionsPage() {
       }
 
       toast.success("Transaction deleted successfully!");
-      
-      // Reload all data to reflect changes
       await loadTransactions();
-      await loadGoals();
-      await loadBudgets();
     } catch (error) {
       console.error("Error deleting transaction:", error);
       toast.error("Failed to delete transaction. Please try again.");
@@ -428,443 +267,11 @@ export default function TransactionsPage() {
                 Add Transaction
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Add New Transaction</DialogTitle>
-                <DialogDescription>
-                  Create a one-time or recurring transaction
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                {/* Transaction Type */}
-                <div className="space-y-2">
-                  <Label htmlFor="type">Transaction Type</Label>
-                  <Controller
-                    name="type"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="income">
-                            <div className="flex items-center space-x-2">
-                              <TrendingUp className="h-4 w-4 text-green-600" />
-                              <span>Income</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="expense">
-                            <div className="flex items-center space-x-2">
-                              <TrendingDown className="h-4 w-4 text-red-600" />
-                              <span>Expense</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {errors.type && (
-                    <p className="text-sm text-red-600">
-                      {errors.type.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Amount */}
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Amount</Label>
-                  <Controller
-                    name="amount"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        {...field}
-                        id="amount"
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                      />
-                    )}
-                  />
-                  {errors.amount && (
-                    <p className="text-sm text-red-600">
-                      {errors.amount.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Description */}
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Controller
-                    name="description"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        {...field}
-                        id="description"
-                        placeholder="What is this for?"
-                      />
-                    )}
-                  />
-                  {errors.description && (
-                    <p className="text-sm text-red-600">
-                      {errors.description.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Category */}
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  {showCategoryInput ? (
-                    <div className="flex space-x-2">
-                      <Input
-                        value={newCategoryName}
-                        onChange={(e) => setNewCategoryName(e.target.value)}
-                        placeholder="Enter category name"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleAddCustomCategory();
-                          } else if (e.key === "Escape") {
-                            setShowCategoryInput(false);
-                            setNewCategoryName("");
-                          }
-                        }}
-                        autoFocus
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleAddCustomCategory}
-                        disabled={!newCategoryName.trim()}
-                      >
-                        Add
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setShowCategoryInput(false);
-                          setNewCategoryName("");
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : (
-                    <Controller
-                      name="category"
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          value={field.value}
-                          onValueChange={(value) => {
-                            if (value === "add_custom") {
-                              setShowCategoryInput(true);
-                            } else {
-                              field.onChange(value);
-                            }
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {transactionType === "income" ? (
-                              <>
-                                <SelectItem value="Salary">Salary</SelectItem>
-                                <SelectItem value="Freelance">
-                                  Freelance
-                                </SelectItem>
-                                <SelectItem value="Investment">
-                                  Investment
-                                </SelectItem>
-                                <SelectItem value="Business">Business</SelectItem>
-                                <SelectItem value="Other">Other</SelectItem>
-                              </>
-                            ) : (
-                              <>
-                                <SelectItem value="Food">Food</SelectItem>
-                                <SelectItem value="Transportation">
-                                  Transportation
-                                </SelectItem>
-                                <SelectItem value="Entertainment">
-                                  Entertainment
-                                </SelectItem>
-                                <SelectItem value="Bills">Bills</SelectItem>
-                                <SelectItem value="Shopping">Shopping</SelectItem>
-                                <SelectItem value="Healthcare">
-                                  Healthcare
-                                </SelectItem>
-                                <SelectItem value="Savings">Savings</SelectItem>
-                                <SelectItem value="Other">Other</SelectItem>
-                              </>
-                            )}
-                            {customCategories.map((cat) => (
-                              <SelectItem key={cat} value={cat}>
-                                {cat}
-                              </SelectItem>
-                            ))}
-                            <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
-                              <div className="flex items-center space-x-2">
-                                <Plus className="h-4 w-4" />
-                                <span>Add Category</span>
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                  )}
-                  {errors.category && (
-                    <p className="text-sm text-red-600">
-                      {errors.category.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Subtype */}
-                <div className="space-y-2">
-                  <Label htmlFor="subtype">Subtype (Optional)</Label>
-                  {showSubtypeInput ? (
-                    <div className="flex space-x-2">
-                      <Input
-                        value={newSubtypeName}
-                        onChange={(e) => setNewSubtypeName(e.target.value)}
-                        placeholder="Enter subtype name"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleAddCustomSubtype();
-                          } else if (e.key === "Escape") {
-                            setShowSubtypeInput(false);
-                            setNewSubtypeName("");
-                          }
-                        }}
-                        autoFocus
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleAddCustomSubtype}
-                        disabled={!newSubtypeName.trim()}
-                      >
-                        Add
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setShowSubtypeInput(false);
-                          setNewSubtypeName("");
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : (
-                    <Controller
-                      name="subtype"
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          value={field.value}
-                          onValueChange={(value) => {
-                            if (value === "add_custom") {
-                              setShowSubtypeInput(true);
-                            } else {
-                              field.onChange(value);
-                            }
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select subtype" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {transactionType === "income" ? (
-                              <>
-                                <SelectItem value="Salary">Salary</SelectItem>
-                                <SelectItem value="Freelance">Freelance</SelectItem>
-                                <SelectItem value="Business">Business</SelectItem>
-                                <SelectItem value="Investment">Investment</SelectItem>
-                                <SelectItem value="Other">Other</SelectItem>
-                              </>
-                            ) : (
-                              <>
-                                <SelectItem value="Bills">Bills</SelectItem>
-                                <SelectItem value="EMI">EMI</SelectItem>
-                                <SelectItem value="Savings">Savings</SelectItem>
-                                <SelectItem value="Other">Other</SelectItem>
-                              </>
-                            )}
-                            {selectedCategory && customSubtypes[selectedCategory] && customSubtypes[selectedCategory].map((subtype) => (
-                              <SelectItem key={subtype} value={subtype}>
-                                {subtype}
-                              </SelectItem>
-                            ))}
-                            <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
-                              <div className="flex items-center space-x-2">
-                                <Plus className="h-4 w-4" />
-                                <span>Add Sub-category</span>
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                  )}
-                </div>
-
-                {/* Budget - Mandatory for expenses */}
-                {transactionType === "expense" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="budgetId">
-                      Budget <span className="text-red-500">*</span>
-                    </Label>
-                    <Controller
-                      name="budgetId"
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select budget" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {budgets.length === 0 ? (
-                              <SelectItem value="no-budgets" disabled>
-                                No budgets available
-                              </SelectItem>
-                            ) : (
-                              budgets.map((budget) => (
-                                <SelectItem key={budget.id} value={budget.id}>
-                                  {budget.category}
-                                  {budget.subtype && ` - ${budget.subtype}`}
-                                  {" (₹"}
-                                  {budget.limit_amount.toFixed(2)}
-                                  {" / "}
-                                  {budget.period})
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {errors.budgetId && (
-                      <p className="text-sm text-red-600">
-                        {errors.budgetId.message}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Goal - Optional */}
-                <div className="space-y-2">
-                  <Label htmlFor="goalId">Goal (Optional)</Label>
-                  <Controller
-                    name="goalId"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value || undefined}
-                        onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select goal (optional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {goals.length === 0 ? (
-                            <SelectItem value="no-goals" disabled>
-                              No goals available
-                            </SelectItem>
-                          ) : (
-                            <>
-                              <SelectItem value="none">None</SelectItem>
-                              {goals.map((goal) => (
-                                <SelectItem key={goal.id} value={goal.id}>
-                                  {goal.title} (₹{goal.current_amount.toFixed(2)} / ₹
-                                  {goal.target_amount.toFixed(2)})
-                                </SelectItem>
-                              ))}
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </div>
-
-                {/* Recurring Toggle */}
-                <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
-                  <div className="flex items-center space-x-3">
-                    <Repeat className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <p className="font-medium">Recurring Transaction</p>
-                      <p className="text-sm text-gray-500">
-                        Automatically repeat this transaction
-                      </p>
-                    </div>
-                  </div>
-                  <Controller
-                    name="isRecurring"
-                    control={control}
-                    render={({ field }) => (
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    )}
-                  />
-                </div>
-
-                {/* Frequency (only if recurring) */}
-                {isRecurring && (
-                  <div className="space-y-2 p-4 border rounded-lg bg-blue-50">
-                    <Label htmlFor="frequency">Frequency</Label>
-                    <Controller
-                      name="frequency"
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select frequency" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="daily">Daily</SelectItem>
-                            <SelectItem value="weekly">Weekly</SelectItem>
-                            <SelectItem value="monthly">Monthly</SelectItem>
-                            <SelectItem value="yearly">Yearly</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    <p className="text-xs text-gray-600 mt-2">
-                      This transaction will automatically repeat{" "}
-                      {watch("frequency")}
-                    </p>
-                  </div>
-                )}
-
-                <Button type="submit" className="w-full">
-                  {isRecurring
-                    ? "Create Recurring Transaction"
-                    : "Add Transaction"}
-                </Button>
-              </form>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <AddTransactionForm
+                onSuccess={handleTransactionSuccess}
+                onCancel={() => setIsAddDialogOpen(false)}
+              />
             </DialogContent>
           </Dialog>
         </div>
