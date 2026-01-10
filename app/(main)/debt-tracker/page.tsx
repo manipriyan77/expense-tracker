@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,8 +55,10 @@ import { useDebtTrackerStore, type Debt } from "@/store/debt-tracker-store";
 export default function DebtTrackerPage() {
   const { 
     debts, 
+    payments,
     loading, 
-    fetchDebts, 
+    fetchDebts,
+    fetchAllPayments, 
     addDebt, 
     updateDebt, 
     deleteDebt,
@@ -89,8 +91,12 @@ export default function DebtTrackerPage() {
   });
 
   useEffect(() => {
-    fetchDebts();
-  }, [fetchDebts]);
+    const loadData = async () => {
+      await fetchDebts();
+      await fetchAllPayments();
+    };
+    loadData();
+  }, [fetchDebts, fetchAllPayments]);
 
   const totalDebt = debts.reduce((sum, debt) => sum + debt.balance, 0);
   const totalMinPayment = debts.reduce((sum, debt) => sum + debt.minimum_payment, 0);
@@ -196,6 +202,8 @@ export default function DebtTrackerPage() {
         payment_date: paymentForm.payment_date,
         notes: paymentForm.notes,
       });
+      // Refresh payments to update chart
+      await fetchAllPayments();
       toast.success("Payment recorded successfully!");
       setIsAddPaymentOpen(false);
       setSelectedDebt(null);
@@ -209,15 +217,53 @@ export default function DebtTrackerPage() {
     }
   };
 
-  // Mock payment history
-  const paymentHistory = [
-    { month: "Aug", paid: 875, balance: 54500 },
-    { month: "Sep", paid: 875, balance: 53625 },
-    { month: "Oct", paid: 875, balance: 52750 },
-    { month: "Nov", paid: 875, balance: 51875 },
-    { month: "Dec", paid: 875, balance: 51000 },
-    { month: "Jan", paid: 875, balance: 52500 },
-  ];
+  // Calculate payment history from actual data
+  const paymentHistory = React.useMemo(() => {
+    // Group payments by month
+    const monthlyData: { [key: string]: { paid: number } } = {};
+    
+    payments.forEach((payment) => {
+      const date = new Date(payment.payment_date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = { paid: 0 };
+      }
+      
+      monthlyData[monthKey].paid += payment.amount;
+    });
+
+    // Get last 6 months and calculate cumulative balance
+    const result = [];
+    const now = new Date();
+    let cumulativeBalance = totalDebt;
+    
+    // Calculate total payments made to adjust starting balance
+    const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0);
+    const startingBalance = totalDebt + totalPayments;
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+      
+      const monthData = monthlyData[monthKey];
+      const paid = monthData?.paid || 0;
+      
+      // Calculate balance for this month (for visualization purposes)
+      // This is a simplified calculation - ideally would track historical balances
+      const monthProgress = (5 - i) / 6;
+      const balanceForMonth = Math.max(0, startingBalance - (totalPayments * monthProgress));
+      
+      result.push({
+        month: monthName,
+        paid: Math.round(paid),
+        balance: Math.round(balanceForMonth),
+      });
+    }
+    
+    return result;
+  }, [payments, totalDebt]);
 
   const getDaysUntilDue = (dueDate: string | null) => {
     if (!dueDate) return 999; // Return large number if no due date

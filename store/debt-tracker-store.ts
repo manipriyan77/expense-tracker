@@ -39,6 +39,7 @@ interface DebtTrackerState {
   // Actions
   fetchDebts: () => Promise<void>;
   fetchPayments: (debtId: string) => Promise<void>;
+  fetchAllPayments: () => Promise<void>;
   addDebt: (debt: Omit<Debt, "id" | "user_id" | "created_at" | "updated_at">) => Promise<void>;
   addPayment: (payment: Omit<DebtPayment, "id" | "user_id" | "created_at">) => Promise<void>;
   updateDebt: (id: string, updates: Partial<Debt>) => Promise<void>;
@@ -69,6 +70,29 @@ export const useDebtTrackerStore = create<DebtTrackerState>((set, get) => ({
       if (!response.ok) throw new Error("Failed to fetch payments");
       const data = await response.json();
       set({ payments: data });
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
+  fetchAllPayments: async () => {
+    try {
+      const debts = get().debts;
+      const allPayments: DebtPayment[] = [];
+      
+      // Fetch payments for each debt
+      for (const debt of debts) {
+        const response = await fetch(`/api/debt-tracker/${debt.id}/payments`);
+        if (response.ok) {
+          const payments = await response.json();
+          allPayments.push(...payments);
+        }
+      }
+      
+      // Sort by payment date (most recent first)
+      allPayments.sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime());
+      
+      set({ payments: allPayments });
     } catch (error) {
       set({ error: (error as Error).message });
     }
