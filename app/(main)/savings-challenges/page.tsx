@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -36,68 +37,169 @@ import {
   TrendingUp,
   Sparkles,
   Check,
+  Trash2,
+  Edit,
+  Loader2,
+  MoreVertical,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatCurrency } from "@/lib/utils/currency";
 import { EmptyState } from "@/components/ui/empty-state";
-
-interface Challenge {
-  id: string;
-  name: string;
-  type: "52_week" | "daily_dollar" | "custom" | "percentage";
-  targetAmount: number;
-  currentAmount: number;
-  startDate: string;
-  endDate: string;
-  frequency: "daily" | "weekly" | "monthly";
-  status: "active" | "completed" | "paused";
-}
+import { useSavingsChallengesStore, type SavingsChallenge } from "@/store/savings-challenges-store";
 
 export default function SavingsChallengesPage() {
-  const [challenges, setChallenges] = useState<Challenge[]>([
-    {
-      id: "1",
-      name: "52-Week Challenge",
-      type: "52_week",
-      targetAmount: 1378,
-      currentAmount: 780,
-      startDate: "2026-01-01",
-      endDate: "2026-12-31",
-      frequency: "weekly",
-      status: "active",
-    },
-    {
-      id: "2",
-      name: "Emergency Fund Builder",
-      type: "custom",
-      targetAmount: 10000,
-      currentAmount: 4500,
-      startDate: "2025-06-01",
-      endDate: "2026-06-01",
-      frequency: "monthly",
-      status: "active",
-    },
-    {
-      id: "3",
-      name: "Vacation Fund",
-      type: "custom",
-      targetAmount: 3000,
-      currentAmount: 3000,
-      startDate: "2025-01-01",
-      endDate: "2025-12-31",
-      frequency: "monthly",
-      status: "completed",
-    },
-  ]);
+  const { 
+    challenges, 
+    loading, 
+    fetchChallenges, 
+    addChallenge, 
+    updateChallenge, 
+    deleteChallenge,
+    completeChallenge,
+    addContribution 
+  } = useSavingsChallengesStore();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAddContributionOpen, setIsAddContributionOpen] = useState(false);
-  const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
+  const [selectedChallenge, setSelectedChallenge] = useState<SavingsChallenge | null>(null);
+
+  // Form states
+  const [challengeForm, setChallengeForm] = useState({
+    name: "",
+    type: "custom" as const,
+    target_amount: "",
+    start_date: "",
+    end_date: "",
+    frequency: "monthly" as const,
+    status: "active" as const,
+  });
+
+  const [contributionForm, setContributionForm] = useState({
+    amount: "",
+    contribution_date: new Date().toISOString().split('T')[0],
+    notes: "",
+  });
+
+  useEffect(() => {
+    fetchChallenges();
+  }, [fetchChallenges]);
 
   const activeTotal = challenges
     .filter((c) => c.status === "active")
-    .reduce((sum, c) => sum + c.currentAmount, 0);
+    .reduce((sum, c) => sum + c.current_amount, 0);
   
   const completedChallenges = challenges.filter((c) => c.status === "completed").length;
+
+  const handleAddChallenge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await addChallenge({
+        name: challengeForm.name,
+        type: challengeForm.type,
+        target_amount: parseFloat(challengeForm.target_amount),
+        start_date: challengeForm.start_date,
+        end_date: challengeForm.end_date,
+        frequency: challengeForm.frequency,
+        status: challengeForm.status,
+      });
+      toast.success("Challenge created successfully!");
+      setIsCreateOpen(false);
+      setChallengeForm({
+        name: "",
+        type: "custom",
+        target_amount: "",
+        start_date: "",
+        end_date: "",
+        frequency: "monthly",
+        status: "active",
+      });
+    } catch (error) {
+      toast.error("Failed to create challenge");
+    }
+  };
+
+  const handleEditChallenge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedChallenge) return;
+    try {
+      await updateChallenge(selectedChallenge.id, {
+        name: challengeForm.name,
+        type: challengeForm.type,
+        target_amount: parseFloat(challengeForm.target_amount),
+        start_date: challengeForm.start_date,
+        end_date: challengeForm.end_date,
+        frequency: challengeForm.frequency,
+      });
+      toast.success("Challenge updated successfully!");
+      setIsEditOpen(false);
+      setSelectedChallenge(null);
+    } catch (error) {
+      toast.error("Failed to update challenge");
+    }
+  };
+
+  const handleDeleteChallenge = async (challenge: SavingsChallenge) => {
+    if (confirm(`Are you sure you want to delete ${challenge.name}?`)) {
+      try {
+        await deleteChallenge(challenge.id);
+        toast.success("Challenge deleted successfully!");
+      } catch (error) {
+        toast.error("Failed to delete challenge");
+      }
+    }
+  };
+
+  const openEditDialog = (challenge: SavingsChallenge) => {
+    setSelectedChallenge(challenge);
+    setChallengeForm({
+      name: challenge.name,
+      type: challenge.type,
+      target_amount: challenge.target_amount.toString(),
+      start_date: challenge.start_date,
+      end_date: challenge.end_date,
+      frequency: challenge.frequency,
+      status: challenge.status,
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleAddContribution = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedChallenge) return;
+    try {
+      await addContribution({
+        challenge_id: selectedChallenge.id,
+        amount: parseFloat(contributionForm.amount),
+        contribution_date: contributionForm.contribution_date,
+        notes: contributionForm.notes,
+      });
+      toast.success("Contribution added successfully!");
+      setIsAddContributionOpen(false);
+      setSelectedChallenge(null);
+      setContributionForm({
+        amount: "",
+        contribution_date: new Date().toISOString().split('T')[0],
+        notes: "",
+      });
+    } catch (error) {
+      toast.error("Failed to add contribution");
+    }
+  };
+
+  const handleCompleteChallenge = async (id: string) => {
+    try {
+      await completeChallenge(id);
+      toast.success("Challenge marked as complete!");
+    } catch (error) {
+      toast.error("Failed to complete challenge");
+    }
+  };
 
   const challengeTemplates = [
     {
@@ -130,8 +232,8 @@ export default function SavingsChallengesPage() {
     },
   ];
 
-  const getProgressPercentage = (challenge: Challenge) => {
-    return (challenge.currentAmount / challenge.targetAmount) * 100;
+  const getProgressPercentage = (challenge: SavingsChallenge) => {
+    return (challenge.current_amount / challenge.target_amount) * 100;
   };
 
   const getDaysRemaining = (endDate: string) => {
@@ -141,7 +243,7 @@ export default function SavingsChallengesPage() {
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
-  const getStatusBadge = (status: Challenge["status"]) => {
+  const getStatusBadge = (status: SavingsChallenge["status"]) => {
     const variants = {
       active: "default",
       completed: "secondary",
@@ -161,7 +263,7 @@ export default function SavingsChallengesPage() {
     );
   };
 
-  const getChallengeIcon = (type: Challenge["type"]) => {
+  const getChallengeIcon = (type: SavingsChallenge["type"]) => {
     switch (type) {
       case "52_week":
         return <Calendar className="h-5 w-5" />;
@@ -221,19 +323,34 @@ export default function SavingsChallengesPage() {
 
                   <div className="border-t pt-4">
                     <h4 className="font-semibold mb-4">Or Create Custom Challenge</h4>
-                    <div className="space-y-4">
+                    <form onSubmit={handleAddChallenge} className="space-y-4">
                       <div className="space-y-2">
                         <Label>Challenge Name</Label>
-                        <Input placeholder="e.g., Vacation Fund" />
+                        <Input 
+                          placeholder="e.g., Vacation Fund" 
+                          value={challengeForm.name}
+                          onChange={(e) => setChallengeForm({ ...challengeForm, name: e.target.value })}
+                          required
+                        />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Target Amount</Label>
-                          <Input type="number" placeholder="0.00" />
+                          <Input 
+                            type="number" 
+                            placeholder="0.00" 
+                            step="0.01"
+                            value={challengeForm.target_amount}
+                            onChange={(e) => setChallengeForm({ ...challengeForm, target_amount: e.target.value })}
+                            required
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label>Frequency</Label>
-                          <Select>
+                          <Select
+                            value={challengeForm.frequency}
+                            onValueChange={(value: any) => setChallengeForm({ ...challengeForm, frequency: value })}
+                          >
                             <SelectTrigger>
                               <SelectValue placeholder="Select" />
                             </SelectTrigger>
@@ -248,15 +365,28 @@ export default function SavingsChallengesPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Start Date</Label>
-                          <Input type="date" />
+                          <Input 
+                            type="date" 
+                            value={challengeForm.start_date}
+                            onChange={(e) => setChallengeForm({ ...challengeForm, start_date: e.target.value })}
+                            required
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label>End Date</Label>
-                          <Input type="date" />
+                          <Input 
+                            type="date" 
+                            value={challengeForm.end_date}
+                            onChange={(e) => setChallengeForm({ ...challengeForm, end_date: e.target.value })}
+                            required
+                          />
                         </div>
                       </div>
-                      <Button className="w-full">Create Challenge</Button>
-                    </div>
+                      <Button type="submit" className="w-full" disabled={loading}>
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Create Challenge
+                      </Button>
+                    </form>
                   </div>
                 </div>
               </DialogContent>
@@ -332,8 +462,8 @@ export default function SavingsChallengesPage() {
                   .filter((c) => c.status === "active")
                   .map((challenge) => {
                     const progress = getProgressPercentage(challenge);
-                    const daysRemaining = getDaysRemaining(challenge.endDate);
-                    const remaining = challenge.targetAmount - challenge.currentAmount;
+                    const daysRemaining = getDaysRemaining(challenge.end_date);
+                    const remaining = challenge.target_amount - challenge.current_amount;
 
                     return (
                       <Card key={challenge.id} className="hover:shadow-lg transition-shadow">
@@ -350,7 +480,29 @@ export default function SavingsChallengesPage() {
                                 </p>
                               </div>
                             </div>
-                            {getStatusBadge(challenge.status)}
+                            <div className="flex items-center gap-2">
+                              {getStatusBadge(challenge.status)}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => openEditDialog(challenge)}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteChallenge(challenge)}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -358,13 +510,13 @@ export default function SavingsChallengesPage() {
                             <div>
                               <p className="text-sm text-gray-500">Current Progress</p>
                               <p className="text-2xl font-bold text-blue-600">
-                                {formatCurrency(challenge.currentAmount)}
+                                {formatCurrency(challenge.current_amount)}
                               </p>
                             </div>
                             <div className="text-right">
                               <p className="text-sm text-gray-500">Target</p>
                               <p className="text-lg font-semibold">
-                                {formatCurrency(challenge.targetAmount)}
+                                {formatCurrency(challenge.target_amount)}
                               </p>
                             </div>
                           </div>
@@ -389,7 +541,11 @@ export default function SavingsChallengesPage() {
                           </div>
 
                           {progress >= 100 ? (
-                            <Button className="w-full" variant="outline">
+                            <Button 
+                              className="w-full" 
+                              variant="outline"
+                              onClick={() => handleCompleteChallenge(challenge.id)}
+                            >
                               <Check className="h-4 w-4 mr-2" />
                               Mark as Complete
                             </Button>
@@ -398,6 +554,11 @@ export default function SavingsChallengesPage() {
                               className="w-full"
                               onClick={() => {
                                 setSelectedChallenge(challenge);
+                                setContributionForm({
+                                  amount: "",
+                                  contribution_date: new Date().toISOString().split('T')[0],
+                                  notes: "",
+                                });
                                 setIsAddContributionOpen(true);
                               }}
                             >
@@ -426,14 +587,32 @@ export default function SavingsChallengesPage() {
                         <CardContent className="p-6">
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="font-semibold">{challenge.name}</h4>
-                            <Check className="h-5 w-5 text-green-600" />
+                            <div className="flex items-center gap-2">
+                              <Check className="h-5 w-5 text-green-600" />
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteChallenge(challenge)}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </div>
                           <p className="text-2xl font-bold text-green-600">
-                            {formatCurrency(challenge.currentAmount)}
+                            {formatCurrency(challenge.current_amount)}
                           </p>
                           <p className="text-xs text-gray-600 mt-1">
                             Completed on{" "}
-                            {new Date(challenge.endDate).toLocaleDateString("en-US", {
+                            {new Date(challenge.end_date).toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
                               year: "numeric",
@@ -458,21 +637,116 @@ export default function SavingsChallengesPage() {
               Add a contribution to {selectedChallenge?.name}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <form onSubmit={handleAddContribution} className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Contribution Amount</Label>
-              <Input type="number" placeholder="0.00" />
+              <Input 
+                type="number" 
+                placeholder="0.00" 
+                step="0.01"
+                value={contributionForm.amount}
+                onChange={(e) => setContributionForm({ ...contributionForm, amount: e.target.value })}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label>Date</Label>
-              <Input type="date" defaultValue={new Date().toISOString().split("T")[0]} />
+              <Input 
+                type="date" 
+                value={contributionForm.contribution_date}
+                onChange={(e) => setContributionForm({ ...contributionForm, contribution_date: e.target.value })}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label>Notes (optional)</Label>
-              <Input placeholder="Add any notes..." />
+              <Input 
+                placeholder="Add any notes..." 
+                value={contributionForm.notes}
+                onChange={(e) => setContributionForm({ ...contributionForm, notes: e.target.value })}
+              />
             </div>
-            <Button className="w-full">Add Contribution</Button>
-          </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Add Contribution
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Challenge Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Challenge</DialogTitle>
+            <DialogDescription>
+              Update challenge information
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditChallenge} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Challenge Name</Label>
+              <Input 
+                placeholder="e.g., Vacation Fund" 
+                value={challengeForm.name}
+                onChange={(e) => setChallengeForm({ ...challengeForm, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Target Amount</Label>
+                <Input 
+                  type="number" 
+                  placeholder="0.00" 
+                  step="0.01"
+                  value={challengeForm.target_amount}
+                  onChange={(e) => setChallengeForm({ ...challengeForm, target_amount: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Frequency</Label>
+                <Select
+                  value={challengeForm.frequency}
+                  onValueChange={(value: any) => setChallengeForm({ ...challengeForm, frequency: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <Input 
+                  type="date" 
+                  value={challengeForm.start_date}
+                  onChange={(e) => setChallengeForm({ ...challengeForm, start_date: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>End Date</Label>
+                <Input 
+                  type="date" 
+                  value={challengeForm.end_date}
+                  onChange={(e) => setChallengeForm({ ...challengeForm, end_date: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Update Challenge
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

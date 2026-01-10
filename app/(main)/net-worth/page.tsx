@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { useNetWorthStore } from "@/store/net-worth-store";
+import { useNetWorthStore, type Asset, type Liability } from "@/store/net-worth-store";
 import {
   Card,
   CardContent,
@@ -30,6 +30,12 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   TrendingUp,
   TrendingDown,
   Plus,
@@ -41,6 +47,8 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   Trash2,
+  Edit,
+  MoreVertical,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { formatCurrency } from "@/lib/utils/currency";
@@ -59,12 +67,18 @@ export default function NetWorthPage() {
     fetchSnapshots,
     addAsset,
     addLiability,
+    updateAsset,
+    updateLiability,
     deleteAsset,
     deleteLiability
   } = useNetWorthStore();
 
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
+  const [isEditAssetOpen, setIsEditAssetOpen] = useState(false);
   const [isAddLiabilityOpen, setIsAddLiabilityOpen] = useState(false);
+  const [isEditLiabilityOpen, setIsEditLiabilityOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [selectedLiability, setSelectedLiability] = useState<Liability | null>(null);
 
   // Form states for adding assets/liabilities
   const [assetForm, setAssetForm] = useState({
@@ -125,6 +139,36 @@ export default function NetWorthPage() {
     }
   };
 
+  const handleEditAsset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAsset) return;
+    try {
+      await updateAsset(selectedAsset.id, {
+        name: assetForm.name,
+        type: assetForm.type,
+        value: parseFloat(assetForm.value),
+        notes: assetForm.notes,
+      });
+      toast.success("Asset updated successfully!");
+      setIsEditAssetOpen(false);
+      setSelectedAsset(null);
+    } catch (error) {
+      toast.error("Failed to update asset");
+    }
+  };
+
+  const openEditAssetDialog = (asset: Asset) => {
+    setSelectedAsset(asset);
+    setAssetForm({
+      name: asset.name,
+      type: asset.type,
+      value: asset.value.toString(),
+      currency: asset.currency,
+      notes: asset.notes || "",
+    });
+    setIsEditAssetOpen(true);
+  };
+
   const handleAddLiability = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -153,6 +197,42 @@ export default function NetWorthPage() {
     } catch (error) {
       toast.error("Failed to add liability");
     }
+  };
+
+  const handleEditLiability = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLiability) return;
+    try {
+      await updateLiability(selectedLiability.id, {
+        name: liabilityForm.name,
+        type: liabilityForm.type,
+        balance: parseFloat(liabilityForm.balance),
+        interest_rate: liabilityForm.interest_rate ? parseFloat(liabilityForm.interest_rate) : undefined,
+        minimum_payment: liabilityForm.minimum_payment ? parseFloat(liabilityForm.minimum_payment) : undefined,
+        due_date: liabilityForm.due_date || undefined,
+        notes: liabilityForm.notes,
+      });
+      toast.success("Liability updated successfully!");
+      setIsEditLiabilityOpen(false);
+      setSelectedLiability(null);
+    } catch (error) {
+      toast.error("Failed to update liability");
+    }
+  };
+
+  const openEditLiabilityDialog = (liability: Liability) => {
+    setSelectedLiability(liability);
+    setLiabilityForm({
+      name: liability.name,
+      type: liability.type,
+      balance: liability.balance.toString(),
+      interest_rate: liability.interest_rate?.toString() || "",
+      minimum_payment: liability.minimum_payment?.toString() || "",
+      due_date: liability.due_date || "",
+      currency: liability.currency,
+      notes: liability.notes || "",
+    });
+    setIsEditLiabilityOpen(true);
   };
 
   const getAssetIcon = (type: string) => {
@@ -365,22 +445,35 @@ export default function NetWorthPage() {
                             {formatCurrency(asset.value)}
                           </p>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={async () => {
-                            if (confirm(`Are you sure you want to delete ${asset.name}?`)) {
-                              try {
-                                await deleteAsset(asset.id);
-                                toast.success("Asset deleted successfully!");
-                              } catch (error) {
-                                toast.error("Failed to delete asset");
-                              }
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditAssetDialog(asset)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={async () => {
+                                if (confirm(`Are you sure you want to delete ${asset.name}?`)) {
+                                  try {
+                                    await deleteAsset(asset.id);
+                                    toast.success("Asset deleted successfully!");
+                                  } catch (error) {
+                                    toast.error("Failed to delete asset");
+                                  }
+                                }
+                              }}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </CardContent>
@@ -489,22 +582,35 @@ export default function NetWorthPage() {
                             {formatCurrency(liability.balance)}
                           </p>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={async () => {
-                            if (confirm(`Are you sure you want to delete ${liability.name}?`)) {
-                              try {
-                                await deleteLiability(liability.id);
-                                toast.success("Liability deleted successfully!");
-                              } catch (error) {
-                                toast.error("Failed to delete liability");
-                              }
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditLiabilityDialog(liability)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={async () => {
+                                if (confirm(`Are you sure you want to delete ${liability.name}?`)) {
+                                  try {
+                                    await deleteLiability(liability.id);
+                                    toast.success("Liability deleted successfully!");
+                                  } catch (error) {
+                                    toast.error("Failed to delete liability");
+                                  }
+                                }
+                              }}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </CardContent>
@@ -574,6 +680,133 @@ export default function NetWorthPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Edit Asset Dialog */}
+      <Dialog open={isEditAssetOpen} onOpenChange={setIsEditAssetOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Asset</DialogTitle>
+            <DialogDescription>
+              Update asset information
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditAsset} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="editAssetName">Asset Name</Label>
+              <Input 
+                id="editAssetName" 
+                placeholder="e.g., Savings Account" 
+                value={assetForm.name}
+                onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editAssetType">Type</Label>
+              <Select 
+                value={assetForm.type} 
+                onValueChange={(value: any) => setAssetForm({ ...assetForm, type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="bank">Bank Account</SelectItem>
+                  <SelectItem value="investment">Investment</SelectItem>
+                  <SelectItem value="property">Property</SelectItem>
+                  <SelectItem value="vehicle">Vehicle</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editAssetValue">Current Value</Label>
+              <Input 
+                id="editAssetValue" 
+                type="number" 
+                placeholder="0.00" 
+                step="0.01"
+                value={assetForm.value}
+                onChange={(e) => setAssetForm({ ...assetForm, value: e.target.value })}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Update Asset
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Liability Dialog */}
+      <Dialog open={isEditLiabilityOpen} onOpenChange={setIsEditLiabilityOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Liability</DialogTitle>
+            <DialogDescription>
+              Update liability information
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditLiability} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="editLiabilityName">Liability Name</Label>
+              <Input 
+                id="editLiabilityName" 
+                placeholder="e.g., Car Loan" 
+                value={liabilityForm.name}
+                onChange={(e) => setLiabilityForm({ ...liabilityForm, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editLiabilityType">Type</Label>
+              <Select 
+                value={liabilityForm.type} 
+                onValueChange={(value: any) => setLiabilityForm({ ...liabilityForm, type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="credit_card">Credit Card</SelectItem>
+                  <SelectItem value="loan">Personal Loan</SelectItem>
+                  <SelectItem value="mortgage">Mortgage</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editLiabilityBalance">Current Balance</Label>
+              <Input 
+                id="editLiabilityBalance" 
+                type="number" 
+                placeholder="0.00" 
+                step="0.01"
+                value={liabilityForm.balance}
+                onChange={(e) => setLiabilityForm({ ...liabilityForm, balance: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editInterestRate">Interest Rate (%) - Optional</Label>
+              <Input 
+                id="editInterestRate" 
+                type="number" 
+                placeholder="0.0" 
+                step="0.1" 
+                value={liabilityForm.interest_rate}
+                onChange={(e) => setLiabilityForm({ ...liabilityForm, interest_rate: e.target.value })}
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Update Liability
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

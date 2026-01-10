@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -36,77 +37,177 @@ import {
   Calendar,
   DollarSign,
   Target,
+  Trash2,
+  Edit,
+  Loader2,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { formatCurrency } from "@/lib/utils/currency";
 import { EmptyState } from "@/components/ui/empty-state";
-
-interface Debt {
-  id: string;
-  name: string;
-  type: "credit_card" | "loan" | "mortgage" | "other";
-  balance: number;
-  originalAmount: number;
-  interestRate: number;
-  minimumPayment: number;
-  dueDate: number; // Day of month
-  nextDueDate: string;
-}
+import { useDebtTrackerStore, type Debt } from "@/store/debt-tracker-store";
 
 export default function DebtTrackerPage() {
-  const [debts, setDebts] = useState<Debt[]>([
-    {
-      id: "1",
-      name: "Chase Credit Card",
-      type: "credit_card",
-      balance: 2500,
-      originalAmount: 5000,
-      interestRate: 18.9,
-      minimumPayment: 75,
-      dueDate: 15,
-      nextDueDate: "2026-02-15",
-    },
-    {
-      id: "2",
-      name: "Car Loan",
-      type: "loan",
-      balance: 15000,
-      originalAmount: 25000,
-      interestRate: 4.2,
-      minimumPayment: 450,
-      dueDate: 1,
-      nextDueDate: "2026-02-01",
-    },
-    {
-      id: "3",
-      name: "Student Loan",
-      type: "loan",
-      balance: 35000,
-      originalAmount: 50000,
-      interestRate: 5.5,
-      minimumPayment: 350,
-      dueDate: 10,
-      nextDueDate: "2026-02-10",
-    },
-  ]);
+  const { 
+    debts, 
+    loading, 
+    fetchDebts, 
+    addDebt, 
+    updateDebt, 
+    deleteDebt,
+    addPayment 
+  } = useDebtTrackerStore();
 
   const [isAddDebtOpen, setIsAddDebtOpen] = useState(false);
+  const [isEditDebtOpen, setIsEditDebtOpen] = useState(false);
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
   const [payoffStrategy, setPayoffStrategy] = useState<"snowball" | "avalanche">("avalanche");
 
+  // Form states
+  const [debtForm, setDebtForm] = useState({
+    name: "",
+    type: "credit_card" as const,
+    balance: "",
+    original_amount: "",
+    interest_rate: "",
+    minimum_payment: "",
+    due_date: "",
+    currency: "USD",
+    notes: "",
+  });
+
+  const [paymentForm, setPaymentForm] = useState({
+    amount: "",
+    payment_date: new Date().toISOString().split('T')[0],
+    notes: "",
+  });
+
+  useEffect(() => {
+    fetchDebts();
+  }, [fetchDebts]);
+
   const totalDebt = debts.reduce((sum, debt) => sum + debt.balance, 0);
-  const totalMinPayment = debts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
-  const avgInterestRate = debts.reduce((sum, debt) => sum + debt.interestRate, 0) / debts.length;
+  const totalMinPayment = debts.reduce((sum, debt) => sum + debt.minimum_payment, 0);
+  const avgInterestRate = debts.length > 0 ? debts.reduce((sum, debt) => sum + debt.interest_rate, 0) / debts.length : 0;
 
   // Calculate payoff order based on strategy
   const sortedDebts = [...debts].sort((a, b) => {
     if (payoffStrategy === "snowball") {
       return a.balance - b.balance; // Smallest balance first
     } else {
-      return b.interestRate - a.interestRate; // Highest interest first
+      return b.interest_rate - a.interest_rate; // Highest interest first
     }
   });
+
+  const handleAddDebt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await addDebt({
+        name: debtForm.name,
+        type: debtForm.type,
+        balance: parseFloat(debtForm.balance),
+        original_amount: parseFloat(debtForm.original_amount),
+        interest_rate: parseFloat(debtForm.interest_rate),
+        minimum_payment: parseFloat(debtForm.minimum_payment),
+        due_date: parseInt(debtForm.due_date),
+        currency: debtForm.currency,
+        notes: debtForm.notes,
+      });
+      toast.success("Debt added successfully!");
+      setIsAddDebtOpen(false);
+      setDebtForm({
+        name: "",
+        type: "credit_card",
+        balance: "",
+        original_amount: "",
+        interest_rate: "",
+        minimum_payment: "",
+        due_date: "",
+        currency: "USD",
+        notes: "",
+      });
+    } catch (error) {
+      toast.error("Failed to add debt");
+    }
+  };
+
+  const handleEditDebt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDebt) return;
+    try {
+      await updateDebt(selectedDebt.id, {
+        name: debtForm.name,
+        type: debtForm.type,
+        balance: parseFloat(debtForm.balance),
+        original_amount: parseFloat(debtForm.original_amount),
+        interest_rate: parseFloat(debtForm.interest_rate),
+        minimum_payment: parseFloat(debtForm.minimum_payment),
+        due_date: parseInt(debtForm.due_date),
+        notes: debtForm.notes,
+      });
+      toast.success("Debt updated successfully!");
+      setIsEditDebtOpen(false);
+      setSelectedDebt(null);
+    } catch (error) {
+      toast.error("Failed to update debt");
+    }
+  };
+
+  const handleDeleteDebt = async (debt: Debt) => {
+    if (confirm(`Are you sure you want to delete ${debt.name}?`)) {
+      try {
+        await deleteDebt(debt.id);
+        toast.success("Debt deleted successfully!");
+      } catch (error) {
+        toast.error("Failed to delete debt");
+      }
+    }
+  };
+
+  const openEditDialog = (debt: Debt) => {
+    setSelectedDebt(debt);
+    setDebtForm({
+      name: debt.name,
+      type: debt.type,
+      balance: debt.balance.toString(),
+      original_amount: debt.original_amount.toString(),
+      interest_rate: debt.interest_rate.toString(),
+      minimum_payment: debt.minimum_payment.toString(),
+      due_date: debt.due_date.toString(),
+      currency: debt.currency,
+      notes: debt.notes || "",
+    });
+    setIsEditDebtOpen(true);
+  };
+
+  const handleAddPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDebt) return;
+    try {
+      await addPayment({
+        debt_id: selectedDebt.id,
+        amount: parseFloat(paymentForm.amount),
+        payment_date: paymentForm.payment_date,
+        notes: paymentForm.notes,
+      });
+      toast.success("Payment recorded successfully!");
+      setIsAddPaymentOpen(false);
+      setSelectedDebt(null);
+      setPaymentForm({
+        amount: "",
+        payment_date: new Date().toISOString().split('T')[0],
+        notes: "",
+      });
+    } catch (error) {
+      toast.error("Failed to record payment");
+    }
+  };
 
   // Mock payment history
   const paymentHistory = [
@@ -118,16 +219,31 @@ export default function DebtTrackerPage() {
     { month: "Jan", paid: 875, balance: 52500 },
   ];
 
-  const getDaysUntilDue = (dueDate: string) => {
+  const getNextDueDate = (dueDate: number) => {
     const today = new Date();
-    const due = new Date(dueDate);
-    const diff = due.getTime() - today.getTime();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    const currentDay = today.getDate();
+    
+    let nextDue = new Date(currentYear, currentMonth, dueDate);
+    
+    if (currentDay >= dueDate) {
+      nextDue = new Date(currentYear, currentMonth + 1, dueDate);
+    }
+    
+    return nextDue.toISOString().split('T')[0];
+  };
+
+  const getDaysUntilDue = (dueDate: number) => {
+    const today = new Date();
+    const nextDue = new Date(getNextDueDate(dueDate));
+    const diff = nextDue.getTime() - today.getTime();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
   const calculateMonthsToPayoff = (debt: Debt) => {
     // Simple calculation: balance / minimum payment
-    return Math.ceil(debt.balance / debt.minimumPayment);
+    return Math.ceil(debt.balance / debt.minimum_payment);
   };
 
   const getDebtIcon = (type: string) => {
@@ -164,14 +280,23 @@ export default function DebtTrackerPage() {
                     Track a new debt or liability
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
+                <form onSubmit={handleAddDebt} className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label htmlFor="debtName">Debt Name</Label>
-                    <Input id="debtName" placeholder="e.g., Credit Card" />
+                    <Input 
+                      id="debtName" 
+                      placeholder="e.g., Credit Card" 
+                      value={debtForm.name}
+                      onChange={(e) => setDebtForm({ ...debtForm, name: e.target.value })}
+                      required
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="debtType">Type</Label>
-                    <Select>
+                    <Select 
+                      value={debtForm.type}
+                      onValueChange={(value: any) => setDebtForm({ ...debtForm, type: value })}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
@@ -186,29 +311,73 @@ export default function DebtTrackerPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="currentBalance">Current Balance</Label>
-                      <Input id="currentBalance" type="number" placeholder="0.00" />
+                      <Input 
+                        id="currentBalance" 
+                        type="number" 
+                        placeholder="0.00" 
+                        step="0.01"
+                        value={debtForm.balance}
+                        onChange={(e) => setDebtForm({ ...debtForm, balance: e.target.value })}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="originalAmount">Original Amount</Label>
-                      <Input id="originalAmount" type="number" placeholder="0.00" />
+                      <Input 
+                        id="originalAmount" 
+                        type="number" 
+                        placeholder="0.00" 
+                        step="0.01"
+                        value={debtForm.original_amount}
+                        onChange={(e) => setDebtForm({ ...debtForm, original_amount: e.target.value })}
+                        required
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="interestRate">Interest Rate (%)</Label>
-                      <Input id="interestRate" type="number" placeholder="0.0" step="0.1" />
+                      <Input 
+                        id="interestRate" 
+                        type="number" 
+                        placeholder="0.0" 
+                        step="0.1" 
+                        value={debtForm.interest_rate}
+                        onChange={(e) => setDebtForm({ ...debtForm, interest_rate: e.target.value })}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="minPayment">Min Payment</Label>
-                      <Input id="minPayment" type="number" placeholder="0.00" />
+                      <Input 
+                        id="minPayment" 
+                        type="number" 
+                        placeholder="0.00" 
+                        step="0.01"
+                        value={debtForm.minimum_payment}
+                        onChange={(e) => setDebtForm({ ...debtForm, minimum_payment: e.target.value })}
+                        required
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="dueDate">Due Date (Day of Month)</Label>
-                    <Input id="dueDate" type="number" min="1" max="31" placeholder="15" />
+                    <Input 
+                      id="dueDate" 
+                      type="number" 
+                      min="1" 
+                      max="31" 
+                      placeholder="15" 
+                      value={debtForm.due_date}
+                      onChange={(e) => setDebtForm({ ...debtForm, due_date: e.target.value })}
+                      required
+                    />
                   </div>
-                  <Button className="w-full">Add Debt</Button>
-                </div>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Add Debt
+                  </Button>
+                </form>
               </DialogContent>
             </Dialog>
           </div>
@@ -321,9 +490,10 @@ export default function DebtTrackerPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
                 {debts.map((debt) => {
-                  const progress = ((debt.originalAmount - debt.balance) / debt.originalAmount) * 100;
-                  const daysUntilDue = getDaysUntilDue(debt.nextDueDate);
+                  const progress = ((debt.original_amount - debt.balance) / debt.original_amount) * 100;
+                  const daysUntilDue = getDaysUntilDue(debt.due_date);
                   const monthsToPayoff = calculateMonthsToPayoff(debt);
+                  const nextDueDate = getNextDueDate(debt.due_date);
 
                   return (
                     <Card key={debt.id} className="hover:shadow-md transition-shadow">
@@ -342,14 +512,37 @@ export default function DebtTrackerPage() {
                               </p>
                             </div>
                           </div>
-                          {daysUntilDue <= 7 && (
-                            <div className="flex items-center space-x-1 text-amber-600">
-                              <Calendar className="h-4 w-4" />
-                              <span className="text-xs font-semibold">
-                                {daysUntilDue}d
-                              </span>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {daysUntilDue <= 7 && (
+                              <div className="flex items-center space-x-1 text-amber-600">
+                                <Calendar className="h-4 w-4" />
+                                <span className="text-xs font-semibold">
+                                  {daysUntilDue}d
+                                </span>
+                              </div>
+                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <span className="sr-only">Open menu</span>
+                                  <span className="text-lg">⋮</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEditDialog(debt)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => handleDeleteDebt(debt)}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
@@ -363,7 +556,7 @@ export default function DebtTrackerPage() {
                           <div className="text-right">
                             <p className="text-sm text-gray-500">Min Payment</p>
                             <p className="text-lg font-semibold">
-                              {formatCurrency(debt.minimumPayment)}
+                              {formatCurrency(debt.minimum_payment)}
                             </p>
                           </div>
                         </div>
@@ -379,7 +572,7 @@ export default function DebtTrackerPage() {
                         <div className="grid grid-cols-3 gap-4 pt-2 border-t text-center">
                           <div>
                             <p className="text-xs text-gray-500">APR</p>
-                            <p className="font-semibold">{debt.interestRate}%</p>
+                            <p className="font-semibold">{debt.interest_rate}%</p>
                           </div>
                           <div>
                             <p className="text-xs text-gray-500">Payoff Time</p>
@@ -388,7 +581,7 @@ export default function DebtTrackerPage() {
                           <div>
                             <p className="text-xs text-gray-500">Next Due</p>
                             <p className="font-semibold">
-                              {new Date(debt.nextDueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                              {new Date(nextDueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                             </p>
                           </div>
                         </div>
@@ -397,6 +590,11 @@ export default function DebtTrackerPage() {
                           className="w-full"
                           onClick={() => {
                             setSelectedDebt(debt);
+                            setPaymentForm({
+                              amount: debt.minimum_payment.toString(),
+                              payment_date: new Date().toISOString().split('T')[0],
+                              notes: "",
+                            });
                             setIsAddPaymentOpen(true);
                           }}
                         >
@@ -458,12 +656,12 @@ export default function DebtTrackerPage() {
                         <div>
                           <p className="font-semibold">{debt.name}</p>
                           <p className="text-sm text-gray-500">
-                            {formatCurrency(debt.balance)} @ {debt.interestRate}% APR
+                            {formatCurrency(debt.balance)} @ {debt.interest_rate}% APR
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">{formatCurrency(debt.minimumPayment)}</p>
+                        <p className="font-semibold">{formatCurrency(debt.minimum_payment)}</p>
                         <p className="text-xs text-gray-500">min payment</p>
                       </div>
                     </div>
@@ -530,25 +728,150 @@ export default function DebtTrackerPage() {
               Record a payment for {selectedDebt?.name}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <form onSubmit={handleAddPayment} className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Payment Amount</Label>
               <Input
                 type="number"
-                defaultValue={selectedDebt?.minimumPayment}
+                step="0.01"
+                value={paymentForm.amount}
+                onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
                 placeholder="0.00"
+                required
               />
             </div>
             <div className="space-y-2">
               <Label>Payment Date</Label>
-              <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
+              <Input 
+                type="date" 
+                value={paymentForm.payment_date}
+                onChange={(e) => setPaymentForm({ ...paymentForm, payment_date: e.target.value })}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label>Notes (optional)</Label>
-              <Input placeholder="Add any notes..." />
+              <Input 
+                placeholder="Add any notes..." 
+                value={paymentForm.notes}
+                onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+              />
             </div>
-            <Button className="w-full">Record Payment</Button>
-          </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Record Payment
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Debt Dialog */}
+      <Dialog open={isEditDebtOpen} onOpenChange={setIsEditDebtOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Debt</DialogTitle>
+            <DialogDescription>
+              Update debt information
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditDebt} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="editDebtName">Debt Name</Label>
+              <Input 
+                id="editDebtName" 
+                placeholder="e.g., Credit Card" 
+                value={debtForm.name}
+                onChange={(e) => setDebtForm({ ...debtForm, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editDebtType">Type</Label>
+              <Select 
+                value={debtForm.type}
+                onValueChange={(value: any) => setDebtForm({ ...debtForm, type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="credit_card">Credit Card</SelectItem>
+                  <SelectItem value="loan">Personal Loan</SelectItem>
+                  <SelectItem value="mortgage">Mortgage</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="editCurrentBalance">Current Balance</Label>
+                <Input 
+                  id="editCurrentBalance" 
+                  type="number" 
+                  placeholder="0.00" 
+                  step="0.01"
+                  value={debtForm.balance}
+                  onChange={(e) => setDebtForm({ ...debtForm, balance: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editOriginalAmount">Original Amount</Label>
+                <Input 
+                  id="editOriginalAmount" 
+                  type="number" 
+                  placeholder="0.00" 
+                  step="0.01"
+                  value={debtForm.original_amount}
+                  onChange={(e) => setDebtForm({ ...debtForm, original_amount: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="editInterestRate">Interest Rate (%)</Label>
+                <Input 
+                  id="editInterestRate" 
+                  type="number" 
+                  placeholder="0.0" 
+                  step="0.1" 
+                  value={debtForm.interest_rate}
+                  onChange={(e) => setDebtForm({ ...debtForm, interest_rate: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editMinPayment">Min Payment</Label>
+                <Input 
+                  id="editMinPayment" 
+                  type="number" 
+                  placeholder="0.00" 
+                  step="0.01"
+                  value={debtForm.minimum_payment}
+                  onChange={(e) => setDebtForm({ ...debtForm, minimum_payment: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editDueDate">Due Date (Day of Month)</Label>
+              <Input 
+                id="editDueDate" 
+                type="number" 
+                min="1" 
+                max="31" 
+                placeholder="15" 
+                value={debtForm.due_date}
+                onChange={(e) => setDebtForm({ ...debtForm, due_date: e.target.value })}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Update Debt
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
