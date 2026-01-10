@@ -488,7 +488,7 @@ export default function AnalyticsPage() {
                       <YAxis tick={{ fontSize: 12 }} />
                       <Tooltip 
                         contentStyle={{ backgroundColor: "#fff", border: "1px solid #e5e7eb" }}
-                        formatter={(value: number) => `₹${value.toFixed(2)}`}
+                        formatter={(value: number | undefined) => value !== undefined ? `₹${value.toFixed(2)}` : '₹0.00'}
                       />
                       <Legend />
                       <Area
@@ -531,7 +531,7 @@ export default function AnalyticsPage() {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percentage }) => `${name} ${percentage.toFixed(0)}%`}
+                        label={({ name, percent }) => `${name} ${percent ? (percent * 100).toFixed(0) : '0'}%`}
                         outerRadius={90}
                         fill="#8884d8"
                         dataKey="value"
@@ -540,7 +540,7 @@ export default function AnalyticsPage() {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                      <Tooltip formatter={(value: number | undefined) => value !== undefined ? `₹${value.toFixed(2)}` : '₹0.00'} />
                     </PieChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -558,7 +558,7 @@ export default function AnalyticsPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis dataKey="day" tick={{ fontSize: 12 }} />
                       <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                      <Tooltip formatter={(value: number | undefined) => value !== undefined ? `₹${value.toFixed(2)}` : '₹0.00'} />
                       <Bar dataKey="amount" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -584,7 +584,7 @@ export default function AnalyticsPage() {
                         fill="#8b5cf6"
                         fillOpacity={0.6}
                       />
-                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                      <Tooltip formatter={(value: number | undefined) => value !== undefined ? `₹${value.toFixed(2)}` : '₹0.00'} />
                     </RadarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -635,7 +635,7 @@ export default function AnalyticsPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                    <Tooltip formatter={(value: number | undefined) => value !== undefined ? `₹${value.toFixed(2)}` : '₹0.00'} />
                     <Legend />
                     {categoryData.slice(0, 5).map((cat, idx) => (
                       <Line
@@ -710,7 +710,7 @@ export default function AnalyticsPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                    <Tooltip formatter={(value: number | undefined) => value !== undefined ? `₹${value.toFixed(2)}` : '₹0.00'} />
                     <Bar dataKey="net" fill="#6366f1" radius={[8, 8, 0, 0]}>
                       {monthlyData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.net >= 0 ? "#22c55e" : "#ef4444"} />
@@ -736,7 +736,7 @@ export default function AnalyticsPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis type="number" tick={{ fontSize: 12 }} />
                       <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                      <Tooltip formatter={(value: number | undefined) => value !== undefined ? `₹${value.toFixed(2)}` : '₹0.00'} />
                       <Bar dataKey="value" radius={[0, 8, 8, 0]}>
                         {categoryData.slice(0, 10).map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -760,7 +760,7 @@ export default function AnalyticsPage() {
                         cx="50%"
                         cy="50%"
                         labelLine={true}
-                        label={({ name, percentage }) => `${name}: ${percentage.toFixed(1)}%`}
+                        label={({ name, percent }) => `${name}: ${percent ? (percent * 100).toFixed(1) : '0'}%`}
                         outerRadius={120}
                         fill="#8884d8"
                         dataKey="value"
@@ -769,7 +769,7 @@ export default function AnalyticsPage() {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                      <Tooltip formatter={(value: number | undefined) => value !== undefined ? `₹${value.toFixed(2)}` : '₹0.00'} />
                     </PieChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -841,7 +841,7 @@ export default function AnalyticsPage() {
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis dataKey="category" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={80} />
                         <YAxis tick={{ fontSize: 12 }} />
-                        <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                        <Tooltip formatter={(value: number | undefined) => value !== undefined ? `₹${value.toFixed(2)}` : '₹0.00'} />
                         <Legend />
                         <Bar dataKey="spent" fill="#ef4444" name="Spent" radius={[8, 8, 0, 0]} />
                         <Bar dataKey="limit" fill="#22c55e" name="Limit" radius={[8, 8, 0, 0]} />
@@ -909,7 +909,7 @@ export default function AnalyticsPage() {
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis type="number" tick={{ fontSize: 12 }} />
                         <YAxis dataKey="title" type="category" width={150} tick={{ fontSize: 11 }} />
-                        <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                        <Tooltip formatter={(value: number | undefined) => value !== undefined ? `₹${value.toFixed(2)}` : '₹0.00'} />
                         <Legend />
                         <Bar dataKey="current" fill="#3b82f6" name="Current" radius={[0, 8, 8, 0]} />
                         <Bar dataKey="target" fill="#e5e7eb" name="Target" radius={[0, 8, 8, 0]} />

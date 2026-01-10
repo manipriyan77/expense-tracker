@@ -482,7 +482,7 @@ export default function BudgetTemplatesPage() {
                     <div>
                       <p className="text-sm text-gray-600">Total Monthly Budget</p>
                       <p className="text-2xl font-bold">
-                        {formatCurrency(selectedTemplate.total_budget)}
+                        {formatCurrency(calculateTotalBudget(selectedTemplate.categories))}
                       </p>
                     </div>
                     <Badge variant="outline">

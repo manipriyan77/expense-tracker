@@ -236,7 +236,7 @@ export function Sidebar({ className }: SidebarProps) {
                 </button>
 
                 {/* Sub Items */}
-                {isExpanded && !isCollapsed && (
+                {isExpanded && !isCollapsed && item.subItems && (
                   <div className="ml-4 space-y-1 border-l-2 border-gray-200 pl-4">
                     {item.subItems.map((subItem) => {
                       const SubIcon = subItem.icon;

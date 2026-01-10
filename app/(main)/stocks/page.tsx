@@ -53,7 +53,7 @@ export default function StocksPage() {
       investedAmount: 0,
       currentValue: 0,
       purchaseDate: "",
-      sector: "",
+      sector: "General",
     },
   });
 

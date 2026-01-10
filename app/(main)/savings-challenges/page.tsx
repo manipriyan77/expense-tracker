@@ -70,14 +70,22 @@ export default function SavingsChallengesPage() {
   const [selectedChallenge, setSelectedChallenge] = useState<SavingsChallenge | null>(null);
 
   // Form states
-  const [challengeForm, setChallengeForm] = useState({
+  const [challengeForm, setChallengeForm] = useState<{
+    name: string;
+    type: "52_week" | "daily_dollar" | "custom" | "percentage";
+    target_amount: string;
+    start_date: string;
+    end_date: string;
+    frequency: "daily" | "weekly" | "monthly";
+    status: "active" | "completed" | "paused";
+  }>({
     name: "",
-    type: "custom" as const,
+    type: "custom",
     target_amount: "",
     start_date: "",
     end_date: "",
-    frequency: "monthly" as const,
-    status: "active" as const,
+    frequency: "monthly",
+    status: "active",
   });
 
   const [contributionForm, setContributionForm] = useState({

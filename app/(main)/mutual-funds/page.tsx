@@ -52,7 +52,7 @@ export default function MutualFundsPage() {
       nav: 0,
       currentValue: 0,
       purchaseDate: "",
-      category: "",
+      category: "General",
     },
   });
 

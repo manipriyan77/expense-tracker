@@ -8,7 +8,7 @@ export const mutualFundFormSchema = z.object({
   nav: z.number().min(0.01, "NAV must be greater than 0"),
   currentValue: z.number().min(0, "Current value cannot be negative"),
   purchaseDate: z.string().optional(),
-  category: z.string().default("General"),
+  category: z.string().min(1, "Category is required"),
 });
 
 export type MutualFundFormData = z.infer<typeof mutualFundFormSchema>;

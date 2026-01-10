@@ -21,8 +21,12 @@ export interface BudgetTemplate {
 }
 
 // Helper function to calculate total budget from categories
-export const calculateTotalBudget = (categories: BudgetTemplateCategory[]): number => {
-  return categories.reduce((sum, cat) => sum + cat.amount, 0);
+export const calculateTotalBudget = (categories: readonly { amount: number }[] | { amount: number }[]): number => {
+  let total = 0;
+  for (const cat of categories) {
+    total += cat.amount;
+  }
+  return total;
 };
 
 interface BudgetTemplatesState {

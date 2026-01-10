@@ -72,9 +72,19 @@ export default function DebtTrackerPage() {
   const [payoffStrategy, setPayoffStrategy] = useState<"snowball" | "avalanche">("avalanche");
 
   // Form states
-  const [debtForm, setDebtForm] = useState({
+  const [debtForm, setDebtForm] = useState<{
+    name: string;
+    type: "credit_card" | "loan" | "mortgage" | "other";
+    balance: string;
+    original_amount: string;
+    interest_rate: string;
+    minimum_payment: string;
+    due_date: string;
+    currency: string;
+    notes: string;
+  }>({
     name: "",
-    type: "credit_card" as const,
+    type: "credit_card",
     balance: "",
     original_amount: "",
     interest_rate: "",
@@ -511,7 +521,7 @@ export default function DebtTrackerPage() {
                 <XAxis dataKey="month" />
                 <YAxis yAxisId="left" tickFormatter={(value) => `$${value / 1000}k`} />
                 <YAxis yAxisId="right" orientation="right" tickFormatter={(value) => `$${value}`} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Tooltip formatter={(value: number | undefined) => value !== undefined ? formatCurrency(value) : '$0.00'} />
                 <Bar yAxisId="left" dataKey="balance" fill="#ef4444" name="Remaining Balance" />
                 <Bar yAxisId="right" dataKey="paid" fill="#10b981" name="Amount Paid" />
               </BarChart>

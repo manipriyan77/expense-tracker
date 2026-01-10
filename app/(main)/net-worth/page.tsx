@@ -81,17 +81,32 @@ export default function NetWorthPage() {
   const [selectedLiability, setSelectedLiability] = useState<Liability | null>(null);
 
   // Form states for adding assets/liabilities
-  const [assetForm, setAssetForm] = useState({
+  const [assetForm, setAssetForm] = useState<{
+    name: string;
+    type: "cash" | "bank" | "investment" | "property" | "vehicle" | "other";
+    value: string;
+    currency: string;
+    notes: string;
+  }>({
     name: "",
-    type: "cash" as const,
+    type: "cash",
     value: "",
     currency: "USD",
     notes: "",
   });
 
-  const [liabilityForm, setLiabilityForm] = useState({
+  const [liabilityForm, setLiabilityForm] = useState<{
+    name: string;
+    type: "credit_card" | "loan" | "mortgage" | "other";
+    balance: string;
+    interest_rate: string;
+    minimum_payment: string;
+    due_date: string;
+    currency: string;
+    notes: string;
+  }>({
     name: "",
-    type: "credit_card" as const,
+    type: "credit_card",
     balance: "",
     interest_rate: "",
     minimum_payment: "",
@@ -336,7 +351,7 @@ export default function NetWorthPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={(value) => `$${value / 1000}k`} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Tooltip formatter={(value: number | undefined) => value !== undefined ? formatCurrency(value) : '$0.00'} />
                 <Area 
                   type="monotone" 
                   dataKey="netWorth" 

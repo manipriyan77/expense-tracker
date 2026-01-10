@@ -9,7 +9,7 @@ export const stockFormSchema = z.object({
   investedAmount: z.number().min(0, "Invested amount cannot be negative"),
   currentValue: z.number().min(0, "Current value cannot be negative"),
   purchaseDate: z.string().optional(),
-  sector: z.string().default("General"),
+  sector: z.string().min(1, "Sector is required"),
 });
 
 export type StockFormData = z.infer<typeof stockFormSchema>;

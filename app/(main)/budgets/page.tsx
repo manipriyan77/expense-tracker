@@ -227,7 +227,7 @@ export default function BudgetsPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
-          <Button onClick={fetchBudgets} variant="outline">
+          <Button onClick={() => fetchBudgets()} variant="outline">
             Try Again
           </Button>
         </div>
