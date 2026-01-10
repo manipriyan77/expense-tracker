@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -8,6 +9,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   LineChart,
   Line,
@@ -24,106 +32,496 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  ComposedChart,
 } from "recharts";
-import { TrendingUp, TrendingDown, Calendar, DollarSign } from "lucide-react";
+import {
+  TrendingUp,
+  TrendingDown,
+  Calendar,
+  DollarSign,
+  Loader2,
+  Target,
+  AlertCircle,
+  ArrowUpRight,
+  ArrowDownRight,
+  PieChart as PieChartIcon,
+} from "lucide-react";
+import { useTransactionsStore } from "@/store/transactions-store";
+import { useBudgetsStore } from "@/store/budgets-store";
+import { useGoalsStore } from "@/store/goals-store";
+import { Progress } from "@/components/ui/progress";
+
+// Color palette for categories
+const CATEGORY_COLORS: Record<string, string> = {
+  Food: "#ef4444",
+  Transportation: "#f97316",
+  Entertainment: "#f59e0b",
+  Bills: "#eab308",
+  Shopping: "#84cc16",
+  Healthcare: "#22c55e",
+  Savings: "#10b981",
+  Investment: "#14b8a6",
+  Education: "#06b6d4",
+  Travel: "#0ea5e9",
+  Other: "#6366f1",
+  Salary: "#22c55e",
+  Freelance: "#3b82f6",
+  Business: "#8b5cf6",
+  Gift: "#a855f7",
+};
+
+interface Transaction {
+  id: string;
+  type: "income" | "expense";
+  amount: number;
+  description: string;
+  category: string;
+  subtype?: string;
+  date: string;
+}
 
 export default function AnalyticsPage() {
+  const { transactions, loading: transLoading, fetchTransactions } = useTransactionsStore();
+  const { budgets, loading: budgetLoading, fetchBudgets } = useBudgetsStore();
+  const { goals, loading: goalsLoading, fetchGoals } = useGoalsStore();
+  
+  const [selectedPeriod, setSelectedPeriod] = useState<"1M" | "3M" | "6M" | "1Y" | "ALL">("6M");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
-  // Mock data for charts
-  const monthlyData = [
-    { month: "Jan", income: 1200, expenses: 800 },
-    { month: "Feb", income: 1400, expenses: 950 },
-    { month: "Mar", income: 1300, expenses: 900 },
-    { month: "Apr", income: 1500, expenses: 1100 },
-    { month: "May", income: 1600, expenses: 1200 },
-    { month: "Jun", income: 1550, expenses: 1050 },
-  ];
+  useEffect(() => {
+    fetchTransactions();
+    fetchBudgets();
+    fetchGoals();
+  }, [fetchTransactions, fetchBudgets, fetchGoals]);
 
-  const categoryData = [
-    { name: "Food", value: 400, color: "#ef4444" },
-    { name: "Transportation", value: 200, color: "#f97316" },
-    { name: "Entertainment", value: 150, color: "#f59e0b" },
-    { name: "Bills", value: 300, color: "#eab308" },
-    { name: "Shopping", value: 250, color: "#84cc16" },
-    { name: "Other", value: 100, color: "#22c55e" },
-  ];
+  // Filter transactions by period
+  const filteredTransactions = useMemo(() => {
+    const now = new Date();
+    const periodDays: Record<typeof selectedPeriod, number> = {
+      "1M": 30,
+      "3M": 90,
+      "6M": 180,
+      "1Y": 365,
+      "ALL": Infinity,
+    };
 
-  const weeklyData = [
-    { day: "Mon", amount: 45 },
-    { day: "Tue", amount: 80 },
-    { day: "Wed", amount: 35 },
-    { day: "Thu", amount: 95 },
-    { day: "Fri", amount: 125 },
-    { day: "Sat", amount: 180 },
-    { day: "Sun", amount: 90 },
-  ];
+    const cutoffDate = new Date(now);
+    cutoffDate.setDate(cutoffDate.getDate() - periodDays[selectedPeriod]);
 
-  const cashFlowData = [
-    { month: "Jan", cashFlow: 400 },
-    { month: "Feb", cashFlow: 450 },
-    { month: "Mar", cashFlow: 400 },
-    { month: "Apr", cashFlow: 400 },
-    { month: "May", cashFlow: 400 },
-    { month: "Jun", cashFlow: 500 },
-  ];
+    return transactions.filter((t) => {
+      const transDate = new Date(t.date);
+      const meetsDate = periodDays[selectedPeriod] === Infinity || transDate >= cutoffDate;
+      const meetsCategory = selectedCategory === "all" || t.category === selectedCategory;
+      return meetsDate && meetsCategory;
+    });
+  }, [transactions, selectedPeriod, selectedCategory]);
+
+  // Calculate monthly data
+  const monthlyData = useMemo(() => {
+    const months: Record<string, { income: number; expenses: number; net: number }> = {};
+    
+    filteredTransactions.forEach((t) => {
+      const date = new Date(t.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const monthName = date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      
+      if (!months[monthKey]) {
+        months[monthKey] = { income: 0, expenses: 0, net: 0 };
+      }
+      
+      if (t.type === "income") {
+        months[monthKey].income += t.amount;
+      } else {
+        months[monthKey].expenses += t.amount;
+      }
+      months[monthKey].net = months[monthKey].income - months[monthKey].expenses;
+    });
+
+    return Object.entries(months)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, data]) => {
+        const date = new Date(key);
+        return {
+          month: date.toLocaleDateString("en-US", { month: "short" }),
+          year: date.getFullYear(),
+          ...data,
+        };
+      })
+      .slice(-12); // Last 12 months max
+  }, [filteredTransactions]);
+
+  // Calculate category breakdown
+  const categoryData = useMemo(() => {
+    const categories: Record<string, number> = {};
+    
+    filteredTransactions
+      .filter((t) => t.type === "expense")
+      .forEach((t) => {
+        categories[t.category] = (categories[t.category] || 0) + t.amount;
+      });
+
+    return Object.entries(categories)
+      .map(([name, value]) => ({
+        name,
+        value,
+        color: CATEGORY_COLORS[name] || "#6366f1",
+        percentage: 0,
+      }))
+      .sort((a, b) => b.value - a.value)
+      .map((item, _, arr) => {
+        const total = arr.reduce((sum, i) => sum + i.value, 0);
+        return {
+          ...item,
+          percentage: total > 0 ? (item.value / total) * 100 : 0,
+        };
+      });
+  }, [filteredTransactions]);
+
+  // Calculate daily spending pattern
+  const dailyPattern = useMemo(() => {
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const dayData: Record<string, number> = {};
+    
+    days.forEach((day) => (dayData[day] = 0));
+    
+    filteredTransactions
+      .filter((t) => t.type === "expense")
+      .forEach((t) => {
+        const dayName = days[new Date(t.date).getDay()];
+        dayData[dayName] += t.amount;
+      });
+
+    return days.map((day) => ({
+      day: day.substring(0, 3),
+      amount: dayData[day],
+    }));
+  }, [filteredTransactions]);
+
+  // Calculate statistics
+  const statistics = useMemo(() => {
+    const income = filteredTransactions
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const expenses = filteredTransactions
+      .filter((t) => t.type === "expense")
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const net = income - expenses;
+    const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
+    
+    const avgMonthlyIncome = monthlyData.length > 0
+      ? monthlyData.reduce((sum, m) => sum + m.income, 0) / monthlyData.length
+      : 0;
+    
+    const avgMonthlyExpenses = monthlyData.length > 0
+      ? monthlyData.reduce((sum, m) => sum + m.expenses, 0) / monthlyData.length
+      : 0;
+
+    // Calculate trends
+    const recentMonths = monthlyData.slice(-2);
+    const incomeTrend = recentMonths.length === 2
+      ? ((recentMonths[1].income - recentMonths[0].income) / recentMonths[0].income) * 100
+      : 0;
+    const expenseTrend = recentMonths.length === 2
+      ? ((recentMonths[1].expenses - recentMonths[0].expenses) / recentMonths[0].expenses) * 100
+      : 0;
+
+    return {
+      income,
+      expenses,
+      net,
+      savingsRate,
+      avgMonthlyIncome,
+      avgMonthlyExpenses,
+      incomeTrend,
+      expenseTrend,
+      transactionCount: filteredTransactions.length,
+      avgTransactionAmount: filteredTransactions.length > 0
+        ? filteredTransactions.reduce((sum, t) => sum + t.amount, 0) / filteredTransactions.length
+        : 0,
+    };
+  }, [filteredTransactions, monthlyData]);
+
+  // Budget vs Actual Analysis
+  const budgetAnalysis = useMemo(() => {
+    return budgets.map((budget) => {
+      const spent = budget.spent_amount || 0;
+      const limit = budget.limit_amount;
+      const percentage = (spent / limit) * 100;
+      
+      return {
+        category: budget.category,
+        subtype: budget.subtype,
+        spent,
+        limit,
+        remaining: limit - spent,
+        percentage,
+        status: percentage >= 100 ? "over" : percentage >= 80 ? "warning" : "good",
+      };
+    });
+  }, [budgets]);
+
+  // Goal Progress Analysis
+  const goalAnalysis = useMemo(() => {
+    return goals
+      .filter((g) => g.status === "active")
+      .map((goal) => {
+        const percentage = (goal.currentAmount / goal.targetAmount) * 100;
+        const remaining = goal.targetAmount - goal.currentAmount;
+        
+        return {
+          title: goal.title,
+          current: goal.currentAmount,
+          target: goal.targetAmount,
+          remaining,
+          percentage,
+          category: goal.category,
+        };
+      });
+  }, [goals]);
+
+  // Category comparison over months
+  const categoryTrends = useMemo(() => {
+    const topCategories = categoryData.slice(0, 5);
+    const monthMap = new Map<string, Record<string, number>>();
+
+    filteredTransactions
+      .filter((t) => t.type === "expense")
+      .forEach((t) => {
+        const date = new Date(t.date);
+        const monthKey = date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+        
+        if (!monthMap.has(monthKey)) {
+          monthMap.set(monthKey, {});
+        }
+        
+        const monthData = monthMap.get(monthKey)!;
+        monthData[t.category] = (monthData[t.category] || 0) + t.amount;
+      });
+
+    return Array.from(monthMap.entries())
+      .sort(([a], [b]) => {
+        const [aMonth, aYear] = a.split(" ");
+        const [bMonth, bYear] = b.split(" ");
+        return new Date(`${aMonth} 1 20${aYear}`).getTime() - new Date(`${bMonth} 1 20${bYear}`).getTime();
+      })
+      .slice(-6)
+      .map(([month, data]) => ({
+        month,
+        ...Object.fromEntries(
+          topCategories.map((cat) => [cat.name, data[cat.name] || 0])
+        ),
+      }));
+  }, [filteredTransactions, categoryData]);
+
+  // Spending radar chart data
+  const radarData = useMemo(() => {
+    const topCats = categoryData.slice(0, 6);
+    const maxValue = Math.max(...topCats.map((c) => c.value), 1);
+    
+    return topCats.map((cat) => ({
+      category: cat.name,
+      value: cat.value,
+      fullMark: maxValue * 1.2,
+    }));
+  }, [categoryData]);
+
+  const loading = transLoading || budgetLoading || goalsLoading;
+  const allCategories = ["all", ...Array.from(new Set(transactions.map((t) => t.category)))];
+
+  if (loading && transactions.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Advanced Analytics</h1>
+              <p className="text-sm text-gray-500 mt-1">
+                Comprehensive insights into your financial data
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {allCategories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat === "all" ? "All Categories" : cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as typeof selectedPeriod)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1M">Last Month</SelectItem>
+                  <SelectItem value="3M">Last 3 Months</SelectItem>
+                  <SelectItem value="6M">Last 6 Months</SelectItem>
+                  <SelectItem value="1Y">Last Year</SelectItem>
+                  <SelectItem value="ALL">All Time</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
+        {/* Key Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Income</CardTitle>
+              <TrendingUp className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                ₹{statistics.income.toFixed(2)}
+              </div>
+              <div className="flex items-center text-xs text-gray-600 mt-1">
+                {statistics.incomeTrend >= 0 ? (
+                  <ArrowUpRight className="h-3 w-3 text-green-600 mr-1" />
+                ) : (
+                  <ArrowDownRight className="h-3 w-3 text-red-600 mr-1" />
+                )}
+                <span className={statistics.incomeTrend >= 0 ? "text-green-600" : "text-red-600"}>
+                  {Math.abs(statistics.incomeTrend).toFixed(1)}%
+                </span>
+                <span className="ml-1">vs last month</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+              <TrendingDown className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                ₹{statistics.expenses.toFixed(2)}
+              </div>
+              <div className="flex items-center text-xs text-gray-600 mt-1">
+                {statistics.expenseTrend >= 0 ? (
+                  <ArrowUpRight className="h-3 w-3 text-red-600 mr-1" />
+                ) : (
+                  <ArrowDownRight className="h-3 w-3 text-green-600 mr-1" />
+                )}
+                <span className={statistics.expenseTrend >= 0 ? "text-red-600" : "text-green-600"}>
+                  {Math.abs(statistics.expenseTrend).toFixed(1)}%
+                </span>
+                <span className="ml-1">vs last month</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Net Balance</CardTitle>
+              <DollarSign className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${statistics.net >= 0 ? "text-green-600" : "text-red-600"}`}>
+                ₹{statistics.net.toFixed(2)}
+              </div>
+              <p className="text-xs text-gray-600 mt-1">
+                {statistics.transactionCount} transactions
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Savings Rate</CardTitle>
+              <Target className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">
+                {statistics.savingsRate.toFixed(1)}%
+              </div>
+              <Progress value={Math.min(statistics.savingsRate, 100)} className="mt-2" />
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="trends">Trends</TabsTrigger>
             <TabsTrigger value="categories">Categories</TabsTrigger>
-            <TabsTrigger value="cashflow">Cash Flow</TabsTrigger>
+            <TabsTrigger value="budgets">Budget Analysis</TabsTrigger>
+            <TabsTrigger value="goals">Goal Tracking</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Income vs Expenses Line Chart */}
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Income vs Expenses Trend */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Income vs Expenses</CardTitle>
-                  <CardDescription>Monthly comparison over 6 months</CardDescription>
+                  <CardTitle>Income vs Expenses Trend</CardTitle>
+                  <CardDescription>Monthly comparison over time</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={monthlyData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
+                    <ComposedChart data={monthlyData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: "#fff", border: "1px solid #e5e7eb" }}
+                        formatter={(value: number) => `₹${value.toFixed(2)}`}
+                      />
                       <Legend />
-                      <Line
+                      <Area
                         type="monotone"
                         dataKey="income"
+                        fill="#22c55e"
                         stroke="#22c55e"
-                        strokeWidth={2}
+                        fillOpacity={0.3}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="expenses"
+                        fill="#ef4444"
+                        stroke="#ef4444"
+                        fillOpacity={0.3}
                       />
                       <Line
                         type="monotone"
-                        dataKey="expenses"
-                        stroke="#ef4444"
+                        dataKey="net"
+                        stroke="#6366f1"
                         strokeWidth={2}
+                        dot={{ r: 4 }}
                       />
-                    </LineChart>
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
 
-              {/* Category Breakdown Pie Chart */}
+              {/* Category Distribution */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Spending by Category</CardTitle>
-                  <CardDescription>This month's breakdown</CardDescription>
+                  <CardTitle>Expense Distribution</CardTitle>
+                  <CardDescription>Breakdown by category</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -133,109 +531,123 @@ export default function AnalyticsPage() {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percent }) =>
-                          `₹{name} ₹{((percent || 0) * 100).toFixed(0)}%`
-                        }
-                        outerRadius={80}
+                        label={({ name, percentage }) => `${name} ${percentage.toFixed(0)}%`}
+                        outerRadius={90}
                         fill="#8884d8"
                         dataKey="value"
                       >
                         {categoryData.map((entry, index) => (
-                          <Cell key={`cell-₹{index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
                     </PieChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
 
-              {/* Weekly Spending Bar Chart */}
+              {/* Daily Spending Pattern */}
               <Card>
                 <CardHeader>
                   <CardTitle>Weekly Spending Pattern</CardTitle>
-                  <CardDescription>Last 7 days activity</CardDescription>
+                  <CardDescription>Average spending by day of week</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={weeklyData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="day" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="amount" fill="#3b82f6" />
+                    <BarChart data={dailyPattern}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="day" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                      <Bar dataKey="amount" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
 
-              {/* Top Categories */}
+              {/* Spending Radar */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Top Spending Categories</CardTitle>
-                  <CardDescription>Your biggest expenses this month</CardDescription>
+                  <CardTitle>Category Spending Radar</CardTitle>
+                  <CardDescription>Top categories at a glance</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {categoryData
-                      .sort((a, b) => b.value - a.value)
-                      .slice(0, 5)
-                      .map((category) => (
-                        <div
-                          key={category.name}
-                          className="flex items-center justify-between"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div
-                              className="w-4 h-4 rounded"
-                              style={{ backgroundColor: category.color }}
-                            />
-                            <span className="font-medium">{category.name}</span>
-                          </div>
-                          <span className="text-gray-600">
-                            ₹{category.value.toFixed(2)}
-                          </span>
-                        </div>
-                      ))}
-                  </div>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RadarChart data={radarData}>
+                      <PolarGrid stroke="#e5e7eb" />
+                      <PolarAngleAxis dataKey="category" tick={{ fontSize: 11 }} />
+                      <PolarRadiusAxis tick={{ fontSize: 11 }} />
+                      <Radar
+                        name="Spending"
+                        dataKey="value"
+                        stroke="#8b5cf6"
+                        fill="#8b5cf6"
+                        fillOpacity={0.6}
+                      />
+                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                    </RadarChart>
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
 
-          <TabsContent value="trends" className="space-y-4">
+            {/* Top Categories List */}
             <Card>
               <CardHeader>
-                <CardTitle>6-Month Trend Analysis</CardTitle>
-                <CardDescription>
-                  Track your financial trends over time
-                </CardDescription>
+                <CardTitle>Top Spending Categories</CardTitle>
+                <CardDescription>Detailed breakdown of your expenses</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {categoryData.slice(0, 8).map((category) => (
+                    <div key={category.name} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div
+                            className="w-4 h-4 rounded"
+                            style={{ backgroundColor: category.color }}
+                          />
+                          <span className="font-medium">{category.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold">₹{category.value.toFixed(2)}</div>
+                          <div className="text-xs text-gray-500">{category.percentage.toFixed(1)}%</div>
+                        </div>
+                      </div>
+                      <Progress value={category.percentage} className="h-2" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Trends Tab */}
+          <TabsContent value="trends" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Category Trends Over Time</CardTitle>
+                <CardDescription>Compare category spending across months</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={400}>
-                  <AreaChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
+                  <LineChart data={categoryTrends}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
                     <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="income"
-                      stackId="1"
-                      stroke="#22c55e"
-                      fill="#22c55e"
-                      fillOpacity={0.6}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="expenses"
-                      stackId="2"
-                      stroke="#ef4444"
-                      fill="#ef4444"
-                      fillOpacity={0.6}
-                    />
-                  </AreaChart>
+                    {categoryData.slice(0, 5).map((cat, idx) => (
+                      <Line
+                        key={cat.name}
+                        type="monotone"
+                        dataKey={cat.name}
+                        stroke={cat.color}
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                      />
+                    ))}
+                  </LineChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
@@ -243,160 +655,280 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Average Monthly Income
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">Avg Monthly Income</CardTitle>
                   <TrendingUp className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600">₹1,425</div>
-                  <p className="text-xs text-muted-foreground">
-                    +12% from last period
+                  <div className="text-2xl font-bold text-green-600">
+                    ₹{statistics.avgMonthlyIncome.toFixed(2)}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Based on {monthlyData.length} months
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Average Monthly Expenses
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">Avg Monthly Expenses</CardTitle>
                   <TrendingDown className="h-4 w-4 text-red-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-red-600">₹1,000</div>
-                  <p className="text-xs text-muted-foreground">
-                    +8% from last period
+                  <div className="text-2xl font-bold text-red-600">
+                    ₹{statistics.avgMonthlyExpenses.toFixed(2)}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Based on {monthlyData.length} months
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Savings Rate
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">Avg Transaction</CardTitle>
                   <DollarSign className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">29.8%</div>
-                  <p className="text-xs text-muted-foreground">
-                    Of total income saved
+                  <div className="text-2xl font-bold text-blue-600">
+                    ₹{statistics.avgTransactionAmount.toFixed(2)}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Per transaction average
                   </p>
                 </CardContent>
               </Card>
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Net Cash Flow</CardTitle>
+                <CardDescription>Monthly surplus/deficit visualization</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={350}>
+                  <BarChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                    <Bar dataKey="net" fill="#6366f1" radius={[8, 8, 0, 0]}>
+                      {monthlyData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.net >= 0 ? "#22c55e" : "#ef4444"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           </TabsContent>
 
-          <TabsContent value="categories" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Categories Tab */}
+          <TabsContent value="categories" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Category Distribution</CardTitle>
-                  <CardDescription>All-time spending breakdown</CardDescription>
+                  <CardTitle>Expense Categories</CardTitle>
+                  <CardDescription>Detailed category breakdown</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={350}>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={categoryData.slice(0, 10)} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis type="number" tick={{ fontSize: 12 }} />
+                      <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                      <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                        {categoryData.slice(0, 10).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Category Percentage</CardTitle>
+                  <CardDescription>Relative spending distribution</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={400}>
                     <PieChart>
                       <Pie
                         data={categoryData}
                         cx="50%"
                         cy="50%"
                         labelLine={true}
-                        label={({ name, value }) => `₹{name}: ₹₹{value}`}
-                        outerRadius={100}
+                        label={({ name, percentage }) => `${name}: ${percentage.toFixed(1)}%`}
+                        outerRadius={120}
                         fill="#8884d8"
                         dataKey="value"
                       >
                         {categoryData.map((entry, index) => (
-                          <Cell key={`cell-₹{index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
                     </PieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Category Spending Comparison</CardTitle>
-                  <CardDescription>Month-over-month comparison</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={categoryData} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis dataKey="name" type="category" width={100} />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#8b5cf6" />
-                    </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
-          <TabsContent value="cashflow" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Monthly Cash Flow</CardTitle>
-                <CardDescription>
-                  Your net cash flow (Income - Expenses) over time
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={cashFlowData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="cashFlow" fill="#10b981" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+          {/* Budget Analysis Tab */}
+          <TabsContent value="budgets" className="space-y-6">
+            {budgetAnalysis.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {budgetAnalysis.map((budget, idx) => (
+                    <Card key={idx} className={budget.status === "over" ? "border-red-500" : ""}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base">{budget.category}</CardTitle>
+                          {budget.status === "over" ? (
+                            <AlertCircle className="h-5 w-5 text-red-600" />
+                          ) : budget.status === "warning" ? (
+                            <AlertCircle className="h-5 w-5 text-orange-500" />
+                          ) : null}
+                        </div>
+                        {budget.subtype && (
+                          <CardDescription className="text-xs">{budget.subtype}</CardDescription>
+                        )}
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span>Spent:</span>
+                          <span className="font-semibold">₹{budget.spent.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Limit:</span>
+                          <span className="font-semibold">₹{budget.limit.toFixed(2)}</span>
+                        </div>
+                        <Progress 
+                          value={Math.min(budget.percentage, 100)} 
+                          className={`h-2 ${
+                            budget.status === "over" ? "bg-red-200" : 
+                            budget.status === "warning" ? "bg-orange-200" : ""
+                          }`}
+                        />
+                        <div className="flex justify-between text-xs">
+                          <span className={
+                            budget.status === "over" ? "text-red-600 font-semibold" :
+                            budget.status === "warning" ? "text-orange-600 font-semibold" :
+                            "text-gray-600"
+                          }>
+                            {budget.percentage.toFixed(1)}% used
+                          </span>
+                          <span className={budget.remaining < 0 ? "text-red-600 font-semibold" : "text-gray-600"}>
+                            ₹{Math.abs(budget.remaining).toFixed(2)} {budget.remaining < 0 ? "over" : "left"}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Budget Performance Overview</CardTitle>
+                    <CardDescription>Compare all budgets at once</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={350}>
+                      <BarChart data={budgetAnalysis}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="category" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={80} />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                        <Legend />
+                        <Bar dataKey="spent" fill="#ef4444" name="Spent" radius={[8, 8, 0, 0]} />
+                        <Bar dataKey="limit" fill="#22c55e" name="Limit" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
               <Card>
-                <CardHeader>
-                  <CardTitle>Best Month</CardTitle>
-                  <CardDescription>Highest cash flow recorded</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center space-x-4">
-                    <Calendar className="h-8 w-8 text-green-600" />
-                    <div>
-                      <div className="text-2xl font-bold">June 2024</div>
-                      <div className="text-xl text-green-600 font-semibold">
-                        +₹500
-                      </div>
-                    </div>
-                  </div>
+                <CardContent className="py-12 text-center">
+                  <PieChartIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-lg font-semibold text-gray-900 mb-2">No Budgets Set</p>
+                  <p className="text-gray-600 mb-4">
+                    Create budgets to track your spending limits
+                  </p>
                 </CardContent>
               </Card>
+            )}
+          </TabsContent>
 
+          {/* Goals Tab */}
+          <TabsContent value="goals" className="space-y-6">
+            {goalAnalysis.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {goalAnalysis.map((goal, idx) => (
+                    <Card key={idx}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base">{goal.title}</CardTitle>
+                          <Target className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <CardDescription>{goal.category}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>Current:</span>
+                            <span className="font-semibold">₹{goal.current.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span>Target:</span>
+                            <span className="font-semibold">₹{goal.target.toFixed(2)}</span>
+                          </div>
+                          <Progress value={Math.min(goal.percentage, 100)} className="h-3" />
+                          <div className="flex justify-between text-xs text-gray-600">
+                            <span>{goal.percentage.toFixed(1)}% complete</span>
+                            <span>₹{goal.remaining.toFixed(2)} to go</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Goal Progress Comparison</CardTitle>
+                    <CardDescription>Track all your goals together</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={350}>
+                      <BarChart data={goalAnalysis} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis type="number" tick={{ fontSize: 12 }} />
+                        <YAxis dataKey="title" type="category" width={150} tick={{ fontSize: 11 }} />
+                        <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                        <Legend />
+                        <Bar dataKey="current" fill="#3b82f6" name="Current" radius={[0, 8, 8, 0]} />
+                        <Bar dataKey="target" fill="#e5e7eb" name="Target" radius={[0, 8, 8, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
               <Card>
-                <CardHeader>
-                  <CardTitle>Average Cash Flow</CardTitle>
-                  <CardDescription>Monthly average over 6 months</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center space-x-4">
-                    <DollarSign className="h-8 w-8 text-blue-600" />
-                    <div>
-                      <div className="text-2xl font-bold">₹425/month</div>
-                      <div className="text-sm text-gray-600">
-                        Consistent savings pattern
-                      </div>
-                    </div>
-                  </div>
+                <CardContent className="py-12 text-center">
+                  <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-lg font-semibold text-gray-900 mb-2">No Active Goals</p>
+                  <p className="text-gray-600 mb-4">
+                    Set financial goals to track your progress
+                  </p>
                 </CardContent>
               </Card>
-            </div>
+            )}
           </TabsContent>
         </Tabs>
       </main>
