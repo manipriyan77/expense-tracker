@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useNetWorthStore } from "@/store/net-worth-store";
 import {
   Card,
   CardContent,
@@ -42,52 +44,115 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { formatCurrency } from "@/lib/utils/currency";
 import { EmptyState } from "@/components/ui/empty-state";
-
-interface Asset {
-  id: string;
-  name: string;
-  type: string;
-  value: number;
-}
-
-interface Liability {
-  id: string;
-  name: string;
-  type: string;
-  balance: number;
-  interestRate?: number;
-}
+import { StatsSkeleton } from "@/components/ui/skeleton";
+import { Loader2 } from "lucide-react";
 
 export default function NetWorthPage() {
-  const [assets, setAssets] = useState<Asset[]>([
-    { id: "1", name: "Checking Account", type: "cash", value: 5000 },
-    { id: "2", name: "Savings Account", type: "bank", value: 15000 },
-    { id: "3", name: "Investment Portfolio", type: "investment", value: 50000 },
-    { id: "4", name: "Home", type: "property", value: 300000 },
-  ]);
-
-  const [liabilities, setLiabilities] = useState<Liability[]>([
-    { id: "1", name: "Mortgage", type: "mortgage", balance: 250000, interestRate: 3.5 },
-    { id: "2", name: "Car Loan", type: "loan", balance: 15000, interestRate: 4.2 },
-    { id: "3", name: "Credit Card", type: "credit_card", balance: 2000, interestRate: 18.9 },
-  ]);
+  const { 
+    assets, 
+    liabilities, 
+    snapshots, 
+    loading, 
+    fetchAssets, 
+    fetchLiabilities, 
+    fetchSnapshots,
+    addAsset,
+    addLiability,
+    deleteAsset,
+    deleteLiability
+  } = useNetWorthStore();
 
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
   const [isAddLiabilityOpen, setIsAddLiabilityOpen] = useState(false);
+
+  // Form states for adding assets/liabilities
+  const [assetForm, setAssetForm] = useState({
+    name: "",
+    type: "cash" as const,
+    value: "",
+    currency: "USD",
+    notes: "",
+  });
+
+  const [liabilityForm, setLiabilityForm] = useState({
+    name: "",
+    type: "credit_card" as const,
+    balance: "",
+    interest_rate: "",
+    minimum_payment: "",
+    due_date: "",
+    currency: "USD",
+    notes: "",
+  });
+
+  useEffect(() => {
+    fetchAssets();
+    fetchLiabilities();
+    fetchSnapshots();
+  }, [fetchAssets, fetchLiabilities, fetchSnapshots]);
 
   const totalAssets = assets.reduce((sum, asset) => sum + asset.value, 0);
   const totalLiabilities = liabilities.reduce((sum, liability) => sum + liability.balance, 0);
   const netWorth = totalAssets - totalLiabilities;
 
-  // Mock historical data
-  const historicalData = [
-    { month: "Jan", netWorth: 95000, assets: 350000, liabilities: 255000 },
-    { month: "Feb", netWorth: 97000, assets: 355000, liabilities: 258000 },
-    { month: "Mar", netWorth: 99000, assets: 360000, liabilities: 261000 },
-    { month: "Apr", netWorth: 101000, assets: 365000, liabilities: 264000 },
-    { month: "May", netWorth: 102500, assets: 368000, liabilities: 265500 },
-    { month: "Jun", netWorth: 103000, assets: 370000, liabilities: 267000 },
-  ];
+  // Format snapshots for the chart
+  const historicalData = snapshots.slice(-6).map((snapshot) => {
+    const date = new Date(snapshot.date);
+    return {
+      month: date.toLocaleDateString("en-US", { month: "short" }),
+      netWorth: snapshot.net_worth,
+      assets: snapshot.total_assets,
+      liabilities: snapshot.total_liabilities,
+    };
+  });
+
+  const handleAddAsset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await addAsset({
+        name: assetForm.name,
+        type: assetForm.type,
+        value: parseFloat(assetForm.value),
+        currency: assetForm.currency,
+        notes: assetForm.notes,
+      });
+      toast.success("Asset added successfully!");
+      setIsAddAssetOpen(false);
+      setAssetForm({ name: "", type: "cash", value: "", currency: "USD", notes: "" });
+    } catch (error) {
+      toast.error("Failed to add asset");
+    }
+  };
+
+  const handleAddLiability = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await addLiability({
+        name: liabilityForm.name,
+        type: liabilityForm.type,
+        balance: parseFloat(liabilityForm.balance),
+        interest_rate: liabilityForm.interest_rate ? parseFloat(liabilityForm.interest_rate) : undefined,
+        minimum_payment: liabilityForm.minimum_payment ? parseFloat(liabilityForm.minimum_payment) : undefined,
+        due_date: liabilityForm.due_date || undefined,
+        currency: liabilityForm.currency,
+        notes: liabilityForm.notes,
+      });
+      toast.success("Liability added successfully!");
+      setIsAddLiabilityOpen(false);
+      setLiabilityForm({ 
+        name: "", 
+        type: "credit_card", 
+        balance: "", 
+        interest_rate: "", 
+        minimum_payment: "",
+        due_date: "",
+        currency: "USD", 
+        notes: "" 
+      });
+    } catch (error) {
+      toast.error("Failed to add liability");
+    }
+  };
 
   const getAssetIcon = (type: string) => {
     switch (type) {
@@ -104,6 +169,14 @@ export default function NetWorthPage() {
       default: return <DollarSign className="h-5 w-5" />;
     }
   };
+
+  if (loading && assets.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-8">
+        <StatsSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -220,14 +293,23 @@ export default function NetWorthPage() {
                       Add a new asset to track your net worth
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
+                  <form onSubmit={handleAddAsset} className="space-y-4 py-4">
                     <div className="space-y-2">
                       <Label htmlFor="assetName">Asset Name</Label>
-                      <Input id="assetName" placeholder="e.g., Savings Account" />
+                      <Input 
+                        id="assetName" 
+                        placeholder="e.g., Savings Account" 
+                        value={assetForm.name}
+                        onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="assetType">Type</Label>
-                      <Select>
+                      <Select 
+                        value={assetForm.type} 
+                        onValueChange={(value: any) => setAssetForm({ ...assetForm, type: value })}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
@@ -243,10 +325,21 @@ export default function NetWorthPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="assetValue">Current Value</Label>
-                      <Input id="assetValue" type="number" placeholder="0.00" />
+                      <Input 
+                        id="assetValue" 
+                        type="number" 
+                        placeholder="0.00" 
+                        step="0.01"
+                        value={assetForm.value}
+                        onChange={(e) => setAssetForm({ ...assetForm, value: e.target.value })}
+                        required
+                      />
                     </div>
-                    <Button className="w-full">Add Asset</Button>
-                  </div>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Add Asset
+                    </Button>
+                  </form>
                 </DialogContent>
               </Dialog>
             </div>
@@ -294,14 +387,23 @@ export default function NetWorthPage() {
                       Add a new debt or liability to track
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
+                  <form onSubmit={handleAddLiability} className="space-y-4 py-4">
                     <div className="space-y-2">
                       <Label htmlFor="liabilityName">Liability Name</Label>
-                      <Input id="liabilityName" placeholder="e.g., Car Loan" />
+                      <Input 
+                        id="liabilityName" 
+                        placeholder="e.g., Car Loan" 
+                        value={liabilityForm.name}
+                        onChange={(e) => setLiabilityForm({ ...liabilityForm, name: e.target.value })}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="liabilityType">Type</Label>
-                      <Select>
+                      <Select 
+                        value={liabilityForm.type} 
+                        onValueChange={(value: any) => setLiabilityForm({ ...liabilityForm, type: value })}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
@@ -315,14 +417,32 @@ export default function NetWorthPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="liabilityBalance">Current Balance</Label>
-                      <Input id="liabilityBalance" type="number" placeholder="0.00" />
+                      <Input 
+                        id="liabilityBalance" 
+                        type="number" 
+                        placeholder="0.00" 
+                        step="0.01"
+                        value={liabilityForm.balance}
+                        onChange={(e) => setLiabilityForm({ ...liabilityForm, balance: e.target.value })}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="interestRate">Interest Rate (%)</Label>
-                      <Input id="interestRate" type="number" placeholder="0.0" step="0.1" />
+                      <Label htmlFor="interestRate">Interest Rate (%) - Optional</Label>
+                      <Input 
+                        id="interestRate" 
+                        type="number" 
+                        placeholder="0.0" 
+                        step="0.1" 
+                        value={liabilityForm.interest_rate}
+                        onChange={(e) => setLiabilityForm({ ...liabilityForm, interest_rate: e.target.value })}
+                      />
                     </div>
-                    <Button className="w-full">Add Liability</Button>
-                  </div>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Add Liability
+                    </Button>
+                  </form>
                 </DialogContent>
               </Dialog>
             </div>
