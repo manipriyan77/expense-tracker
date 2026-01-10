@@ -50,6 +50,11 @@ const sidebarItems: SidebarItem[] = [
     icon: ArrowLeftRight,
   },
   {
+    title: "Calendar",
+    href: "/calendar",
+    icon: Bell,
+  },
+  {
     title: "Analytics",
     href: "/analytics",
     icon: PieChart,
@@ -60,9 +65,9 @@ const sidebarItems: SidebarItem[] = [
     icon: CreditCard,
   },
   {
-    title: "Reminders",
-    href: "/reminders",
-    icon: Bell,
+    title: "Budget Templates",
+    href: "/budget-templates",
+    icon: FileText,
   },
   {
     title: "Goals",
@@ -70,8 +75,23 @@ const sidebarItems: SidebarItem[] = [
     icon: Target,
   },
   {
-    title: "Savings",
+    title: "Savings Challenges",
+    href: "/savings-challenges",
     icon: TrendingUp,
+  },
+  {
+    title: "Net Worth",
+    href: "/net-worth",
+    icon: Wallet,
+  },
+  {
+    title: "Debt Tracker",
+    href: "/debt-tracker",
+    icon: CreditCard,
+  },
+  {
+    title: "Investments",
+    icon: BarChart3,
     subItems: [
       {
         title: "Mutual Funds",
@@ -84,6 +104,11 @@ const sidebarItems: SidebarItem[] = [
         icon: BarChart3,
       },
     ],
+  },
+  {
+    title: "Reminders",
+    href: "/reminders",
+    icon: Bell,
   },
   {
     title: "Reports",
