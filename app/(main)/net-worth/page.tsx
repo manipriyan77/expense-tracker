@@ -40,6 +40,7 @@ import {
   CreditCard,
   ArrowUpCircle,
   ArrowDownCircle,
+  Trash2,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { formatCurrency } from "@/lib/utils/currency";
@@ -358,10 +359,28 @@ export default function NetWorthPage() {
                           <p className="text-sm text-gray-500 capitalize">{asset.type}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-green-600">
-                          {formatCurrency(asset.value)}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-green-600">
+                            {formatCurrency(asset.value)}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={async () => {
+                            if (confirm(`Are you sure you want to delete ${asset.name}?`)) {
+                              try {
+                                await deleteAsset(asset.id);
+                                toast.success("Asset deleted successfully!");
+                              } catch (error) {
+                                toast.error("Failed to delete asset");
+                              }
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -460,14 +479,32 @@ export default function NetWorthPage() {
                           <h4 className="font-semibold">{liability.name}</h4>
                           <p className="text-sm text-gray-500 capitalize">
                             {liability.type.replace("_", " ")}
-                            {liability.interestRate && ` • ${liability.interestRate}% APR`}
+                            {liability.interest_rate && ` • ${liability.interest_rate}% APR`}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-red-600">
-                          {formatCurrency(liability.balance)}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-red-600">
+                            {formatCurrency(liability.balance)}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={async () => {
+                            if (confirm(`Are you sure you want to delete ${liability.name}?`)) {
+                              try {
+                                await deleteLiability(liability.id);
+                                toast.success("Liability deleted successfully!");
+                              } catch (error) {
+                                toast.error("Failed to delete liability");
+                              }
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
