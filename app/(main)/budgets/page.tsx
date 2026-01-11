@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -142,14 +143,25 @@ export default function BudgetsPage() {
   };
 
   const handleDeleteBudget = async (id: string) => {
-    if (confirm("Are you sure you want to delete this budget?")) {
+    const budget = budgets.find(b => b.id === id);
+    const budgetName = budget ? `${budget.category}${budget.subtype ? ` - ${budget.subtype}` : ''}` : 'this budget';
+    
+    if (confirm(`Are you sure you want to delete ${budgetName}?\n\n⚠️ Warning: All transactions linked to this budget will also be deleted permanently.`)) {
       try {
-        await deleteBudget(id);
+        const result = await deleteBudget(id);
+        // Show success toast with transaction count
+        if (result && result.deletedTransactions > 0) {
+          toast.success(`Budget deleted successfully! ${result.deletedTransactions} linked transaction${result.deletedTransactions > 1 ? 's were' : ' was'} also deleted.`);
+        } else {
+          toast.success("Budget deleted successfully!");
+        }
       } catch (error) {
         // Error is already set in the store and logged
-        // Show alert to user
+        // Show error toast to user
         if (error instanceof Error) {
-          alert(error.message);
+          toast.error(`Failed to delete budget: ${error.message}`);
+        } else {
+          toast.error("Failed to delete budget");
         }
       }
     }
@@ -217,6 +229,7 @@ export default function BudgetsPage() {
   if (loading && budgets.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
+        <Toaster position="top-right" />
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
@@ -225,6 +238,7 @@ export default function BudgetsPage() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
+        <Toaster position="top-right" />
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
           <Button onClick={() => fetchBudgets()} variant="outline">
@@ -237,6 +251,7 @@ export default function BudgetsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Toaster position="top-right" />
       <header className="bg-white shadow-sm border-b">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">

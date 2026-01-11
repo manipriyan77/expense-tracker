@@ -63,22 +63,32 @@ export async function DELETE(
       .from("transactions")
       .select("id")
       .eq("budget_id", params.id)
-      .eq("user_id", user.id)
-      .limit(1);
+      .eq("user_id", user.id);
 
     if (checkError) {
       return NextResponse.json({ error: checkError.message }, { status: 500 });
     }
 
-    // If there are linked transactions, prevent deletion
+    // If there are linked transactions, delete them first (cascade delete)
     if (linkedTransactions && linkedTransactions.length > 0) {
-      return NextResponse.json({ 
-        error: "Cannot delete budget with linked transactions. Please delete or reassign the transactions first.",
-        hasTransactions: true 
-      }, { status: 400 });
+      console.log(`[Budget Delete] Deleting ${linkedTransactions.length} linked transactions for budget ${params.id}`);
+      
+      const { error: deleteTransactionsError } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("budget_id", params.id)
+        .eq("user_id", user.id);
+
+      if (deleteTransactionsError) {
+        return NextResponse.json({ 
+          error: `Failed to delete linked transactions: ${deleteTransactionsError.message}` 
+        }, { status: 500 });
+      }
+
+      console.log(`[Budget Delete] Successfully deleted ${linkedTransactions.length} linked transactions`);
     }
 
-    // No linked transactions, safe to delete
+    // Now safe to delete the budget
     const { error } = await supabase
       .from("budgets")
       .delete()
@@ -89,8 +99,13 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    console.log(`[Budget Delete] Successfully deleted budget ${params.id}`);
+    return NextResponse.json({ 
+      success: true,
+      deletedTransactions: linkedTransactions?.length || 0 
+    });
   } catch (error) {
+    console.error("[Budget Delete] Unexpected error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

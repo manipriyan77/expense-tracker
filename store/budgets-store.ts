@@ -24,7 +24,7 @@ interface BudgetsState {
   setMonth: (month: number, year: number) => void;
   addBudget: (budget: Omit<Budget, "id" | "user_id" | "created_at" | "updated_at" | "spent_amount" | "month" | "year">) => Promise<void>;
   updateBudget: (id: string, updates: Partial<Budget>) => Promise<void>;
-  deleteBudget: (id: string) => Promise<void>;
+  deleteBudget: (id: string) => Promise<{ success: boolean; deletedTransactions: number } | void>;
 }
 
 export const useBudgetsStore = create<BudgetsState>((set, get) => ({
@@ -136,10 +136,14 @@ export const useBudgetsStore = create<BudgetsState>((set, get) => ({
         throw new Error(errorData.error || "Failed to delete budget");
       }
 
+      const result = await response.json();
+
       set((state) => ({
         budgets: state.budgets.filter((budget) => budget.id !== id),
         loading: false,
       }));
+
+      return result;
     } catch (error) {
       console.error("Error deleting budget:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to delete budget";
