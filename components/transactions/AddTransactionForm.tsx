@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TrendingUp, TrendingDown, Loader2, Target, AlertCircle, Plus } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, Target, AlertCircle, Plus, Trophy, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 const transactionFormSchema = z.object({
@@ -72,9 +72,21 @@ interface Budget {
 interface AddTransactionFormProps {
   onSuccess: () => void;
   onCancel: () => void;
+  initialValues?: {
+    type?: "income" | "expense";
+    category?: string;
+    subtype?: string;
+    budgetId?: string;
+    goalId?: string;
+    description?: string;
+  };
+  contextInfo?: {
+    source?: "budget" | "goal" | "savings-challenge";
+    sourceName?: string;
+  };
 }
 
-export default function AddTransactionForm({ onSuccess, onCancel }: AddTransactionFormProps) {
+export default function AddTransactionForm({ onSuccess, onCancel, initialValues, contextInfo }: AddTransactionFormProps) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [budgetInfo, setBudgetInfo] = useState<{
@@ -104,13 +116,13 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
   } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionFormSchema),
     defaultValues: {
-      type: "expense",
+      type: initialValues?.type || "expense",
       amount: "",
-      description: "",
-      category: "",
-      subtype: "",
-      budgetId: "",
-      goalId: "",
+      description: initialValues?.description || "",
+      category: initialValues?.category || "",
+      subtype: initialValues?.subtype || "",
+      budgetId: initialValues?.budgetId || "",
+      goalId: initialValues?.goalId || "",
       date: new Date().toISOString().split("T")[0],
     },
   });
@@ -309,6 +321,27 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* Context Info Banner */}
+      {contextInfo && contextInfo.source && (
+        <Card className="border-2 border-blue-500 bg-blue-50">
+          <CardContent className="pt-4">
+            <div className="flex items-center space-x-2">
+              {contextInfo.source === "budget" && <Target className="h-5 w-5 text-blue-600" />}
+              {contextInfo.source === "goal" && <Trophy className="h-5 w-5 text-blue-600" />}
+              {contextInfo.source === "savings-challenge" && <Sparkles className="h-5 w-5 text-blue-600" />}
+              <div>
+                <p className="text-sm font-medium text-blue-900">
+                  Adding transaction for {contextInfo.source === "budget" ? "Budget" : contextInfo.source === "goal" ? "Goal" : "Savings Challenge"}
+                </p>
+                <p className="text-sm text-blue-700">
+                  {contextInfo.sourceName}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
       {/* Transaction Type */}
       <Card className="border-2">
         <CardHeader className="pb-3">

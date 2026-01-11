@@ -51,10 +51,20 @@ import {
   ArrowDownRight,
   PieChart as PieChartIcon,
 } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import { useTransactionsStore } from "@/store/transactions-store";
 import { useBudgetsStore } from "@/store/budgets-store";
 import { useGoalsStore } from "@/store/goals-store";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import {
+  prepareMonthlyData,
+  linearTrendForecast,
+  exponentialSmoothingForecast,
+  movingAverageForecast,
+  ensembleForecast,
+  type ForecastResult,
+} from "@/lib/utils/forecasting";
 
 // Color palette for categories
 const CATEGORY_COLORS: Record<string, string> = {
@@ -92,6 +102,11 @@ export default function AnalyticsPage() {
   
   const [selectedPeriod, setSelectedPeriod] = useState<"1M" | "3M" | "6M" | "1Y" | "ALL">("6M");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  
+  // Forecasting state
+  const [forecastMethod, setForecastMethod] = useState<"linear" | "exponential" | "moving-average" | "ensemble">("ensemble");
+  const [forecastPeriods, setForecastPeriods] = useState<number>(6);
+  const [forecastType, setForecastType] = useState<"expense" | "income">("expense");
 
   useEffect(() => {
     fetchTransactions();
@@ -335,6 +350,54 @@ export default function AnalyticsPage() {
   const loading = transLoading || budgetLoading || goalsLoading;
   const allCategories = ["all", ...Array.from(new Set(transactions.map((t) => t.category)))];
 
+  // Compute forecasts
+  const forecastData = useMemo(() => {
+    if (transactions.length < 3) return null;
+    
+    const monthlyData = prepareMonthlyData(transactions, forecastType, 12);
+    if (monthlyData.length < 3) return null;
+    
+    let forecast: ForecastResult;
+    switch (forecastMethod) {
+      case "linear":
+        forecast = linearTrendForecast(monthlyData, forecastPeriods);
+        break;
+      case "exponential":
+        forecast = exponentialSmoothingForecast(monthlyData, forecastPeriods);
+        break;
+      case "moving-average":
+        forecast = movingAverageForecast(monthlyData, forecastPeriods);
+        break;
+      case "ensemble":
+      default:
+        forecast = ensembleForecast(monthlyData, forecastPeriods);
+        break;
+    }
+    
+    // Combine historical and forecast data for chart
+    const historicalData = monthlyData.map(d => ({
+      date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+      actual: d.value,
+      predicted: null as number | null,
+      lower: null as number | null,
+      upper: null as number | null,
+    }));
+    
+    const forecastChartData = forecast.forecasts.map(f => ({
+      date: new Date(f.date).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+      actual: null as number | null,
+      predicted: f.predicted,
+      lower: f.lower,
+      upper: f.upper,
+    }));
+    
+    return {
+      ...forecast,
+      chartData: [...historicalData, ...forecastChartData],
+      historicalData: monthlyData,
+    };
+  }, [transactions, forecastMethod, forecastPeriods, forecastType]);
+
   if (loading && transactions.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -463,12 +526,13 @@ export default function AnalyticsPage() {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="trends">Trends</TabsTrigger>
             <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="budgets">Budget Analysis</TabsTrigger>
             <TabsTrigger value="goals">Goal Tracking</TabsTrigger>
+            <TabsTrigger value="forecast">Forecast</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -929,6 +993,303 @@ export default function AnalyticsPage() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* Forecast Tab */}
+          <TabsContent value="forecast" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <TrendingUp className="h-5 w-5" />
+                  <span>Financial Forecasting</span>
+                </CardTitle>
+                <CardDescription>
+                  Advanced predictions using multiple forecasting models
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Forecast Controls */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Forecast Type</Label>
+                    <Select value={forecastType} onValueChange={(value: "income" | "expense") => setForecastType(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="expense">Expenses</SelectItem>
+                        <SelectItem value="income">Income</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Forecasting Method</Label>
+                    <Select value={forecastMethod} onValueChange={(value: any) => setForecastMethod(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ensemble">Ensemble (Best)</SelectItem>
+                        <SelectItem value="exponential">Exponential Smoothing</SelectItem>
+                        <SelectItem value="linear">Linear Trend</SelectItem>
+                        <SelectItem value="moving-average">Moving Average</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Forecast Months</Label>
+                    <Select value={forecastPeriods.toString()} onValueChange={(value) => setForecastPeriods(parseInt(value))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="3">3 Months</SelectItem>
+                        <SelectItem value="6">6 Months</SelectItem>
+                        <SelectItem value="12">12 Months</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {forecastData ? (
+                  <>
+                    {/* Forecast Insights */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Card className="border-2">
+                        <CardContent className="pt-6">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm text-gray-600">Trend Direction</p>
+                              <p className="text-2xl font-bold capitalize flex items-center space-x-2">
+                                {forecastData.trend === "increasing" && <ArrowUpRight className="h-6 w-6 text-red-600" />}
+                                {forecastData.trend === "decreasing" && <ArrowDownRight className="h-6 w-6 text-green-600" />}
+                                <span className={
+                                  forecastData.trend === "increasing" ? "text-red-600" :
+                                  forecastData.trend === "decreasing" ? "text-green-600" :
+                                  "text-gray-600"
+                                }>
+                                  {forecastData.trend}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-2">
+                        <CardContent className="pt-6">
+                          <div>
+                            <p className="text-sm text-gray-600">Forecasting Model</p>
+                            <p className="text-lg font-bold">{forecastData.method}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {forecastData.seasonality ? "Seasonality detected" : "No seasonality"}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-2">
+                        <CardContent className="pt-6">
+                          <div>
+                            <p className="text-sm text-gray-600">Next Month Prediction</p>
+                            <p className="text-2xl font-bold text-indigo-600">
+                              ₹{forecastData.forecasts[0]?.predicted.toFixed(0).toLocaleString()}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Range: ₹{forecastData.forecasts[0]?.lower.toFixed(0)} - ₹{forecastData.forecasts[0]?.upper.toFixed(0)}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Forecast Chart */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Historical Data & Forecast</CardTitle>
+                        <CardDescription>
+                          Blue line shows historical data, orange shows predictions with confidence intervals
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <ResponsiveContainer width="100%" height={400}>
+                          <ComposedChart data={forecastData.chartData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip 
+                              formatter={(value: any) => value ? `₹${value.toFixed(0)}` : 'N/A'}
+                              contentStyle={{ backgroundColor: 'white', border: '1px solid #ccc' }}
+                            />
+                            <Legend />
+                            
+                            {/* Confidence interval area */}
+                            <Area
+                              type="monotone"
+                              dataKey="upper"
+                              stroke="none"
+                              fill="#fbbf24"
+                              fillOpacity={0.2}
+                              name="Upper Bound"
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="lower"
+                              stroke="none"
+                              fill="#fbbf24"
+                              fillOpacity={0.2}
+                              name="Lower Bound"
+                            />
+                            
+                            {/* Historical data */}
+                            <Line
+                              type="monotone"
+                              dataKey="actual"
+                              stroke="#3b82f6"
+                              strokeWidth={3}
+                              dot={{ fill: '#3b82f6', r: 4 }}
+                              name="Historical"
+                            />
+                            
+                            {/* Forecast */}
+                            <Line
+                              type="monotone"
+                              dataKey="predicted"
+                              stroke="#f97316"
+                              strokeWidth={3}
+                              strokeDasharray="5 5"
+                              dot={{ fill: '#f97316', r: 4 }}
+                              name="Forecast"
+                            />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </CardContent>
+                    </Card>
+
+                    {/* Forecast Table */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Detailed Forecast</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left py-3 px-4">Month</th>
+                                <th className="text-right py-3 px-4">Predicted</th>
+                                <th className="text-right py-3 px-4">Lower Bound</th>
+                                <th className="text-right py-3 px-4">Upper Bound</th>
+                                <th className="text-right py-3 px-4">Range</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {forecastData.forecasts.map((forecast, idx) => (
+                                <tr key={idx} className="border-b hover:bg-gray-50">
+                                  <td className="py-3 px-4">
+                                    {new Date(forecast.date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                                  </td>
+                                  <td className="text-right py-3 px-4 font-semibold text-indigo-600">
+                                    ₹{forecast.predicted.toFixed(0).toLocaleString()}
+                                  </td>
+                                  <td className="text-right py-3 px-4 text-gray-600">
+                                    ₹{forecast.lower.toFixed(0).toLocaleString()}
+                                  </td>
+                                  <td className="text-right py-3 px-4 text-gray-600">
+                                    ₹{forecast.upper.toFixed(0).toLocaleString()}
+                                  </td>
+                                  <td className="text-right py-3 px-4 text-sm text-gray-500">
+                                    ±₹{((forecast.upper - forecast.lower) / 2).toFixed(0).toLocaleString()}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Insights & Recommendations */}
+                    <Card className="border-2 border-indigo-200 bg-indigo-50">
+                      <CardHeader>
+                        <CardTitle className="flex items-center space-x-2">
+                          <AlertCircle className="h-5 w-5 text-indigo-600" />
+                          <span>AI Insights</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {forecastData.trend === "increasing" && forecastType === "expense" && (
+                          <div className="flex items-start space-x-3">
+                            <div className="p-2 bg-red-100 rounded-full">
+                              <TrendingUp className="h-4 w-4 text-red-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">Rising Expenses Detected</p>
+                              <p className="text-sm text-gray-600">
+                                Your expenses are trending upward. Consider reviewing your budget and identifying areas to cut back.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {forecastData.trend === "decreasing" && forecastType === "expense" && (
+                          <div className="flex items-start space-x-3">
+                            <div className="p-2 bg-green-100 rounded-full">
+                              <TrendingDown className="h-4 w-4 text-green-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">Great Progress!</p>
+                              <p className="text-sm text-gray-600">
+                                Your expenses are trending downward. Keep up the good work with your spending habits!
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {forecastData.seasonality && (
+                          <div className="flex items-start space-x-3">
+                            <div className="p-2 bg-blue-100 rounded-full">
+                              <Calendar className="h-4 w-4 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">Seasonal Pattern Found</p>
+                              <p className="text-sm text-gray-600">
+                                Your {forecastType} shows seasonal variations. Plan ahead for months with higher predicted values.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-start space-x-3">
+                          <div className="p-2 bg-indigo-100 rounded-full">
+                            <Target className="h-4 w-4 text-indigo-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">Forecast Confidence</p>
+                            <p className="text-sm text-gray-600">
+                              The {forecastData.method.toLowerCase()} model provides predictions with 95% confidence intervals. 
+                              Wider ranges indicate higher uncertainty.
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </>
+                ) : (
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-lg font-semibold text-gray-900 mb-2">Insufficient Data</p>
+                      <p className="text-gray-600">
+                        Need at least 3 months of transaction data to generate forecasts
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>

@@ -51,6 +51,8 @@ import {
 import { formatCurrency } from "@/lib/utils/currency";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useSavingsChallengesStore, type SavingsChallenge } from "@/store/savings-challenges-store";
+import AddTransactionForm from "@/components/transactions/AddTransactionForm";
+import { DollarSign } from "lucide-react";
 
 export default function SavingsChallengesPage() {
   const { 
@@ -68,6 +70,10 @@ export default function SavingsChallengesPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAddContributionOpen, setIsAddContributionOpen] = useState(false);
   const [selectedChallenge, setSelectedChallenge] = useState<SavingsChallenge | null>(null);
+  
+  // Transaction dialog
+  const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
+  const [transactionChallenge, setTransactionChallenge] = useState<SavingsChallenge | null>(null);
 
   // Form states
   const [challengeForm, setChallengeForm] = useState<{
@@ -161,6 +167,18 @@ export default function SavingsChallengesPage() {
         toast.error("Failed to delete challenge");
       }
     }
+  };
+
+  const openAddTransactionDialog = (challenge: SavingsChallenge) => {
+    setTransactionChallenge(challenge);
+    setIsAddTransactionOpen(true);
+  };
+
+  const handleTransactionSuccess = () => {
+    setIsAddTransactionOpen(false);
+    setTransactionChallenge(null);
+    fetchChallenges(); // Refresh to update challenge amounts
+    toast.success("Transaction added successfully!");
   };
 
   const openEditDialog = (challenge: SavingsChallenge) => {
@@ -497,6 +515,10 @@ export default function SavingsChallengesPage() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => openAddTransactionDialog(challenge)}>
+                                    <DollarSign className="h-4 w-4 mr-2 text-green-600" />
+                                    Add Transaction
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => openEditDialog(challenge)}>
                                     <Edit className="h-4 w-4 mr-2" />
                                     Edit
@@ -755,6 +777,34 @@ export default function SavingsChallengesPage() {
               Update Challenge
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Transaction Dialog */}
+      <Dialog open={isAddTransactionOpen} onOpenChange={setIsAddTransactionOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Transaction</DialogTitle>
+            <DialogDescription>
+              Add a transaction for challenge: {transactionChallenge?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {transactionChallenge && (
+            <AddTransactionForm
+              onSuccess={handleTransactionSuccess}
+              onCancel={() => setIsAddTransactionOpen(false)}
+              initialValues={{
+                type: "expense",
+                category: "Savings",
+                subtype: "Savings Challenge",
+                description: `Contribution to ${transactionChallenge.name}`,
+              }}
+              contextInfo={{
+                source: "savings-challenge",
+                sourceName: transactionChallenge.name,
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

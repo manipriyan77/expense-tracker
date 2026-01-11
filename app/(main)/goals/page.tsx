@@ -35,6 +35,9 @@ import {
 import { useGoalsStore, Goal } from "@/store/goals-store";
 import { goalFormSchema, GoalFormData } from "@/lib/schemas/goal-form-schema";
 import GoalDetailsModal from "@/components/goals/GoalDetailsModal";
+import AddTransactionForm from "@/components/transactions/AddTransactionForm";
+import { DollarSign } from "lucide-react";
+import { toast, Toaster } from "sonner";
 
 export default function GoalsPage() {
   const { goals, loading, error, fetchGoals, addGoal, updateGoal, deleteGoal } = useGoalsStore();
@@ -43,6 +46,10 @@ export default function GoalsPage() {
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  
+  // Transaction dialog
+  const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
+  const [transactionGoal, setTransactionGoal] = useState<Goal | null>(null);
 
   const addForm = useForm<GoalFormData>({
     resolver: zodResolver(goalFormSchema),
@@ -153,6 +160,18 @@ export default function GoalsPage() {
   const handleTransactionDeleted = () => {
     // Refresh goals to update amounts
     fetchGoals();
+  };
+
+  const openAddTransactionDialog = (goal: Goal) => {
+    setTransactionGoal(goal);
+    setIsAddTransactionOpen(true);
+  };
+
+  const handleTransactionSuccess = () => {
+    setIsAddTransactionOpen(false);
+    setTransactionGoal(null);
+    fetchGoals(); // Refresh to update goal amounts
+    toast.success("Transaction added successfully!");
   };
 
   if (loading && goals.length === 0) {
@@ -474,6 +493,17 @@ export default function GoalsPage() {
                             </p>
                           </div>
                           <Button
+                            variant="default"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openAddTransactionDialog(goal);
+                            }}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <DollarSign className="h-4 w-4" />
+                          </Button>
+                          <Button
                             variant="outline"
                             size="sm"
                             onClick={(e) => {
@@ -537,6 +567,37 @@ export default function GoalsPage() {
         onClose={handleDetailsModalClose}
         onTransactionDeleted={handleTransactionDeleted}
       />
+
+      {/* Add Transaction Dialog */}
+      <Dialog open={isAddTransactionOpen} onOpenChange={setIsAddTransactionOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Transaction</DialogTitle>
+            <DialogDescription>
+              Add a transaction for goal: {transactionGoal?.title}
+            </DialogDescription>
+          </DialogHeader>
+          {transactionGoal && (
+            <AddTransactionForm
+              onSuccess={handleTransactionSuccess}
+              onCancel={() => setIsAddTransactionOpen(false)}
+              initialValues={{
+                type: "expense",
+                category: "Savings",
+                subtype: "Goal Savings",
+                goalId: transactionGoal.id,
+                description: `Contribution to ${transactionGoal.title}`,
+              }}
+              contextInfo={{
+                source: "goal",
+                sourceName: transactionGoal.title,
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Toaster position="top-right" />
     </div>
   );
 }

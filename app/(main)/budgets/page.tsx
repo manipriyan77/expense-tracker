@@ -43,6 +43,8 @@ import {
 import { useBudgetsStore, Budget } from "@/store/budgets-store";
 import BudgetDetailsModal from "@/components/budgets/BudgetDetailsModal";
 import { MonthSelector } from "@/components/ui/month-selector";
+import AddTransactionForm from "@/components/transactions/AddTransactionForm";
+import { DollarSign } from "lucide-react";
 
 const budgetFormSchema = z.object({
   category: z.string().min(1, "Category is required"),
@@ -68,6 +70,10 @@ export default function BudgetsPage() {
   const [showEditCategoryInput, setShowEditCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [customCategories, setCustomCategories] = useState<string[]>([]);
+  
+  // Transaction dialog
+  const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
+  const [transactionBudget, setTransactionBudget] = useState<Budget | null>(null);
 
   const {
     control: addControl,
@@ -191,6 +197,18 @@ export default function BudgetsPage() {
   const handleTransactionDeleted = () => {
     // Refresh budgets to update amounts
     fetchBudgets();
+  };
+
+  const openAddTransactionDialog = (budget: Budget) => {
+    setTransactionBudget(budget);
+    setIsAddTransactionOpen(true);
+  };
+
+  const handleTransactionSuccess = () => {
+    setIsAddTransactionOpen(false);
+    setTransactionBudget(null);
+    fetchBudgets(); // Refresh to update spent amounts
+    toast.success("Transaction added successfully!");
   };
 
   const getProgressColor = (percentage: number) => {
@@ -728,6 +746,17 @@ export default function BudgetsPage() {
                       </div>
                       <div className="flex space-x-2">
                         <Button
+                          variant="default"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openAddTransactionDialog(budget);
+                          }}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <DollarSign className="h-4 w-4" />
+                        </Button>
+                        <Button
                           variant="outline"
                           size="sm"
                           onClick={(e) => {
@@ -795,6 +824,35 @@ export default function BudgetsPage() {
         onClose={handleDetailsModalClose}
         onTransactionDeleted={handleTransactionDeleted}
       />
+
+      {/* Add Transaction Dialog */}
+      <Dialog open={isAddTransactionOpen} onOpenChange={setIsAddTransactionOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Transaction</DialogTitle>
+            <DialogDescription>
+              Add a transaction for {transactionBudget?.category}
+              {transactionBudget?.subtype && ` - ${transactionBudget.subtype}`}
+            </DialogDescription>
+          </DialogHeader>
+          {transactionBudget && (
+            <AddTransactionForm
+              onSuccess={handleTransactionSuccess}
+              onCancel={() => setIsAddTransactionOpen(false)}
+              initialValues={{
+                type: "expense",
+                category: transactionBudget.category,
+                subtype: transactionBudget.subtype || "",
+                budgetId: transactionBudget.id,
+              }}
+              contextInfo={{
+                source: "budget",
+                sourceName: `${transactionBudget.category}${transactionBudget.subtype ? ` - ${transactionBudget.subtype}` : ""}`,
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
