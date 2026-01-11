@@ -63,7 +63,8 @@ export default function StocksPage() {
 
   useEffect(() => {
     fetchStocks();
-  }, [fetchStocks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAddStock = async (data: StockFormData) => {
     const investedAmount = data.shares * data.avgPurchasePrice;

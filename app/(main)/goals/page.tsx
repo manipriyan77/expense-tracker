@@ -89,7 +89,8 @@ export default function GoalsPage() {
 
   useEffect(() => {
     fetchGoals();
-  }, [fetchGoals]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAddGoal = async (data: GoalFormData) => {
     const newGoal = {
@@ -577,7 +578,7 @@ export default function GoalsPage() {
               Add a transaction for goal: {transactionGoal?.title}
             </DialogDescription>
           </DialogHeader>
-          {transactionGoal && (
+          {isAddTransactionOpen && transactionGoal && (
             <AddTransactionForm
               onSuccess={handleTransactionSuccess}
               onCancel={() => setIsAddTransactionOpen(false)}

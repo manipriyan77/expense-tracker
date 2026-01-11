@@ -102,7 +102,8 @@ export default function SavingsChallengesPage() {
 
   useEffect(() => {
     fetchChallenges();
-  }, [fetchChallenges]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const activeTotal = challenges
     .filter((c) => c.status === "active")
@@ -789,7 +790,7 @@ export default function SavingsChallengesPage() {
               Add a transaction for challenge: {transactionChallenge?.name}
             </DialogDescription>
           </DialogHeader>
-          {transactionChallenge && (
+          {isAddTransactionOpen && transactionChallenge && (
             <AddTransactionForm
               onSuccess={handleTransactionSuccess}
               onCancel={() => setIsAddTransactionOpen(false)}

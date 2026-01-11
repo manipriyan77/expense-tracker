@@ -102,7 +102,8 @@ export default function DebtTrackerPage() {
 
   useEffect(() => {
     fetchDebts();
-  }, [fetchDebts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch payments after debts are loaded
   useEffect(() => {
@@ -110,7 +111,8 @@ export default function DebtTrackerPage() {
       console.log('Debts loaded, fetching payments...');
       fetchAllPayments();
     }
-  }, [debts, fetchAllPayments]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debts.length]);
 
   const totalDebt = debts.reduce((sum, debt) => sum + debt.balance, 0);
   const totalMinPayment = debts.reduce((sum, debt) => sum + debt.minimum_payment, 0);

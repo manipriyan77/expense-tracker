@@ -112,7 +112,8 @@ export default function AnalyticsPage() {
     fetchTransactions();
     fetchBudgets();
     fetchGoals();
-  }, [fetchTransactions, fetchBudgets, fetchGoals]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Filter transactions by period
   const filteredTransactions = useMemo(() => {

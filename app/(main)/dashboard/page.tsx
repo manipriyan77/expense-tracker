@@ -62,7 +62,8 @@ export default function Dashboard() {
     fetchTransactions();
     fetchGoals();
     fetchBudgets();
-  }, [fetchTransactions, fetchGoals, fetchBudgets]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Keyboard shortcuts
   useKeyboardShortcuts([
@@ -355,13 +356,15 @@ export default function Dashboard() {
                 Record your income or expense transaction with detailed categorization.
               </DialogDescription>
             </DialogHeader>
-            <AddTransactionForm
-              onSuccess={() => {
-                setIsAddDialogOpen(false);
-                fetchTransactions();
-              }}
-              onCancel={() => setIsAddDialogOpen(false)}
-            />
+            {isAddDialogOpen && (
+              <AddTransactionForm
+                onSuccess={() => {
+                  setIsAddDialogOpen(false);
+                  fetchTransactions();
+                }}
+                onCancel={() => setIsAddDialogOpen(false)}
+              />
+            )}
           </DialogContent>
         </Dialog>
       </div>

@@ -43,10 +43,12 @@ export function QuickAddButton() {
               Add a new income or expense transaction
             </DialogDescription>
           </DialogHeader>
-          <AddTransactionForm
-            onSuccess={() => setIsOpen(false)}
-            onCancel={() => setIsOpen(false)}
-          />
+          {isOpen && (
+            <AddTransactionForm
+              onSuccess={() => setIsOpen(false)}
+              onCancel={() => setIsOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </>

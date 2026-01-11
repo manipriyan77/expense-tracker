@@ -274,10 +274,12 @@ export default function TransactionsPage() {
                   Add a new income or expense transaction
                 </DialogDescription>
               </DialogHeader>
-              <AddTransactionForm
-                onSuccess={handleTransactionSuccess}
-                onCancel={() => setIsAddDialogOpen(false)}
-              />
+              {isAddDialogOpen && (
+                <AddTransactionForm
+                  onSuccess={handleTransactionSuccess}
+                  onCancel={() => setIsAddDialogOpen(false)}
+                />
+              )}
             </DialogContent>
           </Dialog>
         </div>

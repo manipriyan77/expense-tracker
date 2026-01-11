@@ -37,7 +37,8 @@ export default function CalendarPage() {
 
   useEffect(() => {
     fetchTransactions();
-  }, [fetchTransactions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -388,10 +389,12 @@ export default function CalendarPage() {
               Add a new income or expense transaction
             </DialogDescription>
           </DialogHeader>
-          <AddTransactionForm
-            onSuccess={() => setIsAddDialogOpen(false)}
-            onCancel={() => setIsAddDialogOpen(false)}
-          />
+          {isAddDialogOpen && (
+            <AddTransactionForm
+              onSuccess={() => setIsAddDialogOpen(false)}
+              onCancel={() => setIsAddDialogOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

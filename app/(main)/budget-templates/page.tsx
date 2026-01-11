@@ -148,7 +148,8 @@ export default function BudgetTemplatesPage() {
 
   useEffect(() => {
     fetchTemplates();
-  }, [fetchTemplates]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadCurrentBudgets = async () => {
     try {

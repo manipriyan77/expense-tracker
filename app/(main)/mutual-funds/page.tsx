@@ -61,7 +61,8 @@ export default function MutualFundsPage() {
 
   useEffect(() => {
     fetchMutualFunds();
-  }, [fetchMutualFunds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAddMutualFund = async (data: MutualFundFormData) => {
     const currentValue = data.units * data.nav;

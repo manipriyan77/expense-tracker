@@ -103,7 +103,8 @@ export default function BudgetsPage() {
     const month = selectedMonth.getMonth() + 1;
     const year = selectedMonth.getFullYear();
     fetchBudgets(month, year);
-  }, [selectedMonth, fetchBudgets]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonth]);
 
   const handleAddCustomCategory = (isEditMode = false) => {
     if (newCategoryName.trim()) {
@@ -835,7 +836,7 @@ export default function BudgetsPage() {
               {transactionBudget?.subtype && ` - ${transactionBudget.subtype}`}
             </DialogDescription>
           </DialogHeader>
-          {transactionBudget && (
+          {isAddTransactionOpen && transactionBudget && (
             <AddTransactionForm
               onSuccess={handleTransactionSuccess}
               onCancel={() => setIsAddTransactionOpen(false)}

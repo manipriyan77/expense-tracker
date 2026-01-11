@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,13 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { DollarSign } from "lucide-react";
 
 export function RecentTransactionsWidget() {
-  const { transactions, loading, fetchTransactions } = useTransactionsStore();
-
-  useEffect(() => {
-    if (transactions.length === 0 && !loading) {
-      fetchTransactions();
-    }
-  }, [transactions, loading, fetchTransactions]);
+  const { transactions, loading } = useTransactionsStore();
 
   // Get the 5 most recent transactions
   const recentTransactions = [...transactions]

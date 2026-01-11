@@ -119,7 +119,8 @@ export default function NetWorthPage() {
     fetchAssets();
     fetchLiabilities();
     fetchSnapshots();
-  }, [fetchAssets, fetchLiabilities, fetchSnapshots]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalAssets = assets.reduce((sum, asset) => sum + asset.value, 0);
   const totalLiabilities = liabilities.reduce((sum, liability) => sum + liability.balance, 0);
