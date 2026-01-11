@@ -1,24 +1,132 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Expense Tracker
+
+A comprehensive personal finance management application built with Next.js 16, Supabase, and TypeScript.
+
+## Features
+
+✅ **Transaction Management** - Track income and expenses with detailed categorization
+✅ **Budget Planning** - Set monthly budgets and track spending by category
+✅ **Budget Templates** - Create reusable budget templates or use pre-built ones
+✅ **Goal Tracking** - Set financial goals and monitor progress
+✅ **Investment Tracking** - Track stocks and mutual funds
+✅ **Net Worth Monitoring** - Track assets and liabilities
+✅ **Debt Tracker** - Manage and track debt payments
+✅ **Savings Challenges** - Create savings goals with milestone tracking
+✅ **Analytics & Reports** - Visualize spending patterns and trends
+✅ **Real-time Updates** - Live data synchronization across devices
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Styling**: Tailwind CSS
+- **UI Components**: shadcn/ui
+- **State Management**: Zustand
+- **Charts**: Recharts
+- **Type Safety**: TypeScript
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+ installed
+- A Supabase account and project
+- pnpm (recommended) or npm
+
+### 1. Clone the Repository
 
 ```bash
-npm run dev
+git clone <your-repo-url>
+cd expense-tracker
+```
+
+### 2. Install Dependencies
+
+```bash
+pnpm install
 # or
-yarn dev
-# or
+npm install
+```
+
+### 3. Set Up Environment Variables
+
+Create a `.env.local` file in the root directory:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+### 4. Run Database Migrations
+
+**Important**: You must run these migrations in your Supabase SQL Editor before using the app.
+
+1. Open your Supabase project dashboard
+2. Go to **SQL Editor** → **New Query**
+3. Run the following migrations in order:
+
+#### Step 4a: Base Schema
+Copy and paste the contents of `database/schema.sql` and run it.
+
+#### Step 4b: Missing Tables
+Copy and paste the contents of `database/setup-missing-tables.sql` and run it.
+
+#### Step 4c: Advanced Features (Budget Templates, etc.)
+Copy and paste the contents of `database/migrations/add-advanced-features.sql` and run it.
+
+#### Step 4d: Budget Templates Table (If Step 4c didn't work)
+If you still can't create budget templates, run:
+`database/migrations/create-budget-templates-table.sql`
+
+#### Step 4e: Additional Migrations
+Run these in order:
+- `database/migrations/add-monthly-budgets.sql`
+- `database/migrations/add-original-amount-to-liabilities.sql`
+
+### 5. Run the Development Server
+
+```bash
 pnpm dev
 # or
-bun dev
+npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Troubleshooting
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Budget Templates Not Working?
+
+See `BUDGET_TEMPLATES_FIX.md` for detailed troubleshooting steps.
+
+### Common Issues
+
+1. **"relation does not exist" errors**: Run all database migrations in the correct order
+2. **Authentication errors**: Check your Supabase environment variables
+3. **RLS Policy errors**: Make sure Row Level Security policies were created with the migrations
+
+## Project Structure
+
+```
+expense-tracker/
+├── app/                    # Next.js app directory
+│   ├── (auth)/            # Authentication pages
+│   ├── (main)/            # Main app pages
+│   └── api/               # API routes
+├── components/            # React components
+│   ├── ui/               # UI components (shadcn)
+│   └── ...               # Feature components
+├── database/              # Database schemas and migrations
+│   ├── schema.sql        # Base schema
+│   ├── setup-missing-tables.sql
+│   └── migrations/       # Migration files
+├── lib/                   # Utility functions
+│   ├── supabase/         # Supabase clients
+│   ├── hooks/            # Custom React hooks
+│   └── utils/            # Helper functions
+├── store/                 # Zustand state management
+└── public/               # Static assets
 
 ## Learn More
 

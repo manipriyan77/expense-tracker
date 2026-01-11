@@ -268,6 +268,12 @@ export default function TransactionsPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add Transaction</DialogTitle>
+                <DialogDescription>
+                  Add a new income or expense transaction
+                </DialogDescription>
+              </DialogHeader>
               <AddTransactionForm
                 onSuccess={handleTransactionSuccess}
                 onCancel={() => setIsAddDialogOpen(false)}

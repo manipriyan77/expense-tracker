@@ -34,9 +34,14 @@ const transactionFormSchema = z.object({
   date: z.string().optional(),
 }).refine(
   (data) => {
-    // If category is Savings, goalId is required
-    if (data.category === "Savings" && !data.goalId) {
-      return false;
+    // If category is Savings, it must be an expense and goalId is required
+    if (data.category === "Savings") {
+      if (data.type !== "expense") {
+        return false;
+      }
+      if (!data.goalId || data.goalId === "none") {
+        return false;
+      }
     }
     return true;
   },
@@ -120,9 +125,9 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
     fetchBudgets();
   }, []);
 
-  // Load active goals for income/savings transactions
+  // Load active goals for savings transactions
   useEffect(() => {
-    if (transactionType === "income" || selectedCategory === "Savings") {
+    if (transactionType === "expense" && selectedCategory === "Savings") {
       fetchGoals();
     }
   }, [transactionType, selectedCategory]);
@@ -184,10 +189,18 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
       
       if (response.ok) {
         const data = await response.json();
-        setBudgetInfo(data);
+        // Only set budgetInfo if we have valid data with required properties
+        if (data && typeof data.budgetLimit !== 'undefined' && typeof data.totalSpent !== 'undefined') {
+          setBudgetInfo(data);
+        } else {
+          setBudgetInfo(null);
+        }
+      } else {
+        setBudgetInfo(null);
       }
     } catch (error) {
       console.error("Error checking budget:", error);
+      setBudgetInfo(null);
     }
   };
 
@@ -203,8 +216,8 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
           description: data.description,
           category: data.category,
           subtype: data.subtype,
-          budgetId: data.budgetId,
-          goalId: data.goalId || null,
+          budgetId: data.budgetId && data.budgetId !== "auto" ? data.budgetId : null,
+          goalId: data.goalId && data.goalId !== "none" ? data.goalId : null,
           date: data.date || new Date().toISOString().split("T")[0],
         }),
       });
@@ -262,7 +275,7 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
     return [...baseSubtypes, ...customForCategory.filter(sub => !baseSubtypes.includes(sub))];
   };
 
-  const showGoalMapping = transactionType === "income" || selectedCategory === "Savings";
+  const showGoalMapping = transactionType === "expense" && selectedCategory === "Savings";
   const isGoalRequired = selectedCategory === "Savings";
 
   const handleAddCustomCategory = () => {
@@ -593,7 +606,7 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
                       <SelectValue placeholder="Auto-select matching budget" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Auto-select</SelectItem>
+                      <SelectItem value="auto">Auto-select</SelectItem>
                       {getMatchingBudgets().map((budget) => (
                         <SelectItem key={budget.id} value={budget.id}>
                           <div className="flex flex-col">
@@ -630,7 +643,7 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
       </Card>
 
       {/* Budget Warning (for expenses) */}
-      {transactionType === "expense" && budgetInfo && (
+      {transactionType === "expense" && budgetInfo && budgetInfo.budgetLimit !== undefined && (
         <Card className={`border-2 ${budgetInfo.isOverLimit ? "border-red-500 bg-red-50" : budgetInfo.isNearLimit ? "border-orange-500 bg-orange-50" : "border-blue-500 bg-blue-50"}`}>
           <CardHeader className="pb-3">
             <div className="flex items-center space-x-2">
@@ -642,16 +655,16 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Budget Limit:</span>
-                <span className="font-semibold">₹{budgetInfo.budgetLimit.toFixed(2)}</span>
+                <span className="font-semibold">₹{(budgetInfo.budgetLimit || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Current Spending:</span>
-                <span className="font-semibold">₹{budgetInfo.totalSpent.toFixed(2)}</span>
+                <span className="font-semibold">₹{(budgetInfo.totalSpent || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>After this transaction:</span>
                 <span className={`font-semibold ${budgetInfo.isOverLimit ? "text-red-600" : ""}`}>
-                  ₹{budgetInfo.newTotal.toFixed(2)}
+                  ₹{(budgetInfo.newTotal || 0).toFixed(2)}
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
@@ -659,18 +672,18 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
                   className={`h-2 rounded-full transition-all ${
                     budgetInfo.isOverLimit ? "bg-red-600" : budgetInfo.isNearLimit ? "bg-orange-500" : "bg-blue-600"
                   }`}
-                  style={{ width: `${Math.min(budgetInfo.percentage, 100)}%` }}
+                  style={{ width: `${Math.min(budgetInfo.percentage || 0, 100)}%` }}
                 />
               </div>
               <p className="text-sm text-center font-medium mt-2">
-                {budgetInfo.percentage.toFixed(1)}% of budget
+                {(budgetInfo.percentage || 0).toFixed(1)}% of budget
               </p>
-              {budgetInfo.isOverLimit && (
+              {budgetInfo.isOverLimit && budgetInfo.remainingAmount !== undefined && (
                 <p className="text-sm text-red-600 font-medium text-center">
                   ⚠️ This will exceed your budget by ₹{Math.abs(budgetInfo.remainingAmount).toFixed(2)}
                 </p>
               )}
-              {budgetInfo.isNearLimit && !budgetInfo.isOverLimit && (
+              {budgetInfo.isNearLimit && !budgetInfo.isOverLimit && budgetInfo.remainingAmount !== undefined && (
                 <p className="text-sm text-orange-600 font-medium text-center">
                   ⚠️ Remaining: ₹{budgetInfo.remainingAmount.toFixed(2)}
                 </p>
@@ -693,7 +706,7 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
             <CardDescription>
               {isGoalRequired 
                 ? "Required for savings transactions - Select which goal this contributes to"
-                : `Contribute this ${transactionType === "income" ? "income" : "savings"} to a financial goal`
+                : "Contribute this savings to a financial goal"
               }
             </CardDescription>
           </CardHeader>
@@ -716,7 +729,7 @@ export default function AddTransactionForm({ onSuccess, onCancel }: AddTransacti
                         <SelectValue placeholder={isGoalRequired ? "Select a goal *" : "Select a goal (optional)"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {!isGoalRequired && <SelectItem value="">No goal</SelectItem>}
+                        {!isGoalRequired && <SelectItem value="none">No goal</SelectItem>}
                         {goals.map((goal) => (
                           <SelectItem key={goal.id} value={goal.id}>
                             <div className="flex flex-col">

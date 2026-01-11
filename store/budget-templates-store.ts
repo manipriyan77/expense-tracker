@@ -60,16 +60,32 @@ export const useBudgetTemplatesStore = create<BudgetTemplatesState>((set, get) =
 
   addTemplate: async (template) => {
     try {
+      set({ loading: true, error: null });
       const response = await fetch("/api/budget-templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(template),
       });
-      if (!response.ok) throw new Error("Failed to add template");
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        const errorMessage = errorData.error || "Failed to add template";
+        const hint = errorData.hint;
+        
+        // Provide helpful error message with hint if available
+        const fullError = hint ? `${errorMessage}\n\n${hint}` : errorMessage;
+        throw new Error(fullError);
+      }
+      
       const newTemplate = await response.json();
-      set({ templates: [...get().templates, newTemplate] });
+      set({ 
+        templates: [...get().templates, newTemplate],
+        loading: false,
+        error: null 
+      });
     } catch (error) {
-      set({ error: (error as Error).message });
+      const errorMessage = (error as Error).message;
+      set({ error: errorMessage, loading: false });
       throw error;
     }
   },
