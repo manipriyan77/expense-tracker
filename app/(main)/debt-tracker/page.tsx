@@ -116,6 +116,81 @@ export default function DebtTrackerPage() {
     notes: "",
   });
 
+  const [calculatorInputs, setCalculatorInputs] = useState({
+    currentPayment: "0",
+    extraPayment: "0",
+  });
+
+  const [calculatorResult, setCalculatorResult] = useState<{
+    months: number | null;
+    baselineMonths: number | null;
+    interestSaved: number | null;
+    totalInterest: number | null;
+    breakdown: {
+      id: string;
+      name: string;
+      payoffMonth: number | null;
+      interestPaid: number;
+      baselinePayoffMonth: number | null;
+      baselineInterestPaid: number | null;
+    }[];
+    error: string | null;
+  }>({
+    months: null,
+    baselineMonths: null,
+    interestSaved: null,
+    totalInterest: null,
+    breakdown: [],
+    error: null,
+  });
+
+  const [extraFocusDebtId, setExtraFocusDebtId] = useState<string>("all");
+  const [payoffView, setPayoffView] = useState<"cards" | "list">("cards");
+
+  const totalDebt = debts.reduce((sum, debt) => sum + debt.balance, 0);
+  const totalMinPayment = debts.reduce(
+    (sum, debt) => sum + debt.minimum_payment,
+    0
+  );
+  const avgInterestRate =
+    debts.length > 0
+      ? debts.reduce((sum, debt) => sum + debt.interest_rate, 0) / debts.length
+      : 0;
+
+  const selectedBreakdown = React.useMemo(() => {
+    if (!calculatorResult.breakdown || calculatorResult.breakdown.length === 0) {
+      return null;
+    }
+    if (extraFocusDebtId === "all") return null;
+    return calculatorResult.breakdown.find((b) => b.id === extraFocusDebtId) ?? null;
+  }, [calculatorResult.breakdown, extraFocusDebtId]);
+
+  useEffect(() => {
+    // Keep calculator default in sync with current minimum payments
+    setCalculatorInputs((prev) => ({
+      ...prev,
+      currentPayment: totalMinPayment.toString(),
+    }));
+  }, [totalMinPayment]);
+
+  useEffect(() => {
+    // When focusing on a specific debt, align current payment with that debt's minimum
+    if (extraFocusDebtId === "all") {
+      setCalculatorInputs((prev) => ({
+        ...prev,
+        currentPayment: totalMinPayment.toString(),
+      }));
+      return;
+    }
+    const targetDebt = debts.find((d) => d.id === extraFocusDebtId);
+    if (targetDebt) {
+      setCalculatorInputs((prev) => ({
+        ...prev,
+        currentPayment: targetDebt.minimum_payment.toString(),
+      }));
+    }
+  }, [extraFocusDebtId, debts, totalMinPayment]);
+
   const schedulePreview = React.useMemo(
     () =>
       buildDueDateSchedule(
@@ -142,16 +217,6 @@ export default function DebtTrackerPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debts.length]);
-
-  const totalDebt = debts.reduce((sum, debt) => sum + debt.balance, 0);
-  const totalMinPayment = debts.reduce(
-    (sum, debt) => sum + debt.minimum_payment,
-    0
-  );
-  const avgInterestRate =
-    debts.length > 0
-      ? debts.reduce((sum, debt) => sum + debt.interest_rate, 0) / debts.length
-      : 0;
 
   // Calculate payoff order based on strategy
   const sortedDebts = [...debts].sort((a, b) => {
@@ -417,6 +482,251 @@ export default function DebtTrackerPage() {
     }
     // Simple calculation: balance / minimum payment
     return Math.ceil(debt.balance / debt.minimum_payment);
+  };
+
+  const simulatePayoff = (
+    allDebts: Debt[],
+    monthlyBudget: number,
+    extraTargetId?: string
+  ): {
+    success: boolean;
+    months: number;
+    interestPaid: number;
+    debtDetails: {
+      id: string;
+      name: string;
+      payoffMonth: number | null;
+      interestPaid: number;
+    }[];
+    message?: string;
+  } => {
+    const debtsCopy = allDebts
+      .filter((debt) => debt.balance > 0)
+      .map((debt) => ({
+        id: debt.id,
+        name: debt.name,
+        balance: debt.balance,
+        interest_rate: debt.interest_rate,
+        minimum_payment: debt.minimum_payment,
+        payoffMonth: null as number | null,
+        interestPaid: 0,
+      }));
+
+    if (debtsCopy.length === 0) {
+      return { success: true, months: 0, interestPaid: 0, debtDetails: [] };
+    }
+
+    const minRequired = debtsCopy.reduce(
+      (sum, debt) => sum + debt.minimum_payment,
+      0
+    );
+
+    if (monthlyBudget < minRequired) {
+      return {
+        success: false,
+        months: 0,
+        interestPaid: 0,
+        debtDetails: debtsCopy.map((d) => ({
+          id: d.id,
+          name: d.name,
+          payoffMonth: d.payoffMonth,
+          interestPaid: d.interestPaid,
+        })),
+        message: `Monthly payment must be at least ${formatCurrency(minRequired)} (current minimums)`,
+      };
+    }
+
+    let months = 0;
+    let totalInterest = 0;
+    const maxMonths = 600; // 50-year safety guard
+
+    while (debtsCopy.some((d) => d.balance > 0) && months < maxMonths) {
+      months += 1;
+
+      // Accrue monthly interest
+      let interestThisMonth = 0;
+      debtsCopy.forEach((debt) => {
+        if (debt.balance <= 0) return;
+        const interest = debt.balance * (debt.interest_rate / 100) / 12;
+        debt.balance += interest;
+        debt.interestPaid += interest;
+        interestThisMonth += interest;
+        totalInterest += interest;
+      });
+
+      if (monthlyBudget <= interestThisMonth) {
+        return {
+          success: false,
+          months,
+          interestPaid: totalInterest,
+          debtDetails: debtsCopy.map((d) => ({
+            id: d.id,
+            name: d.name,
+            payoffMonth: d.payoffMonth,
+            interestPaid: d.interestPaid,
+          })),
+          message:
+            "Monthly payment is below accrued interest. Increase the payment to make progress.",
+        };
+      }
+
+      let remaining = monthlyBudget;
+
+      // Pay minimums first
+      debtsCopy.forEach((debt) => {
+        if (debt.balance <= 0) return;
+        const payment = Math.min(debt.minimum_payment, debt.balance);
+        debt.balance -= payment;
+        remaining -= payment;
+      });
+
+      // Direct extra to the selected debt first, if any
+      if (extraTargetId && extraTargetId !== "all" && remaining > 0) {
+        const target = debtsCopy.find(
+          (d) => d.id === extraTargetId && d.balance > 0
+        );
+        if (target) {
+          const payTarget = Math.min(target.balance, remaining);
+          target.balance -= payTarget;
+          remaining -= payTarget;
+        }
+      }
+
+      // Avalanche: apply remaining to highest interest-rate debts
+      const avalancheOrder = debtsCopy
+        .filter((d) => d.balance > 0)
+        .sort(
+          (a, b) =>
+            b.interest_rate - a.interest_rate || b.balance - a.balance
+        );
+
+      for (const debt of avalancheOrder) {
+        if (remaining <= 0) break;
+        const payment = Math.min(remaining, debt.balance);
+        debt.balance -= payment;
+        remaining -= payment;
+      }
+
+      // Record payoff month per debt
+      debtsCopy.forEach((debt) => {
+        if (debt.balance <= 0 && debt.payoffMonth === null) {
+          debt.payoffMonth = months;
+        }
+      });
+    }
+
+    if (months >= maxMonths && debtsCopy.some((d) => d.balance > 0)) {
+      return {
+        success: false,
+        months: maxMonths,
+        interestPaid: totalInterest,
+        debtDetails: debtsCopy.map((d) => ({
+          id: d.id,
+          name: d.name,
+          payoffMonth: d.payoffMonth,
+          interestPaid: d.interestPaid,
+        })),
+        message: "Payoff exceeds the simulation window. Increase your payment.",
+      };
+    }
+
+    return {
+      success: true,
+      months,
+      interestPaid: totalInterest,
+      debtDetails: debtsCopy.map((d) => ({
+        id: d.id,
+        name: d.name,
+        payoffMonth: d.payoffMonth,
+        interestPaid: d.interestPaid,
+      })),
+    };
+  };
+
+  const handleCalculatePayoff = (e?: React.FormEvent) => {
+    e?.preventDefault();
+
+    if (debts.length === 0) {
+      setCalculatorResult({
+        months: null,
+        baselineMonths: null,
+        interestSaved: null,
+        totalInterest: null,
+        breakdown: [],
+        error: "Add at least one debt to run the calculator.",
+      });
+      return;
+    }
+
+    const currentPaymentValue =
+      parseFloat(calculatorInputs.currentPayment) || 0;
+    const extraPaymentValue = parseFloat(calculatorInputs.extraPayment) || 0;
+    const baselineBudget = Math.max(currentPaymentValue, totalMinPayment);
+    const acceleratedBudget = baselineBudget + extraPaymentValue;
+
+    if (acceleratedBudget <= 0) {
+      setCalculatorResult({
+        months: null,
+        baselineMonths: null,
+        interestSaved: null,
+        totalInterest: null,
+        breakdown: [],
+        error: "Enter a monthly payment greater than 0.",
+      });
+      return;
+    }
+
+    const baseline = simulatePayoff(debts, baselineBudget);
+    if (!baseline.success) {
+      setCalculatorResult({
+        months: null,
+        baselineMonths: null,
+        interestSaved: null,
+        totalInterest: null,
+        breakdown: [],
+        error: baseline.message || "Unable to calculate payoff.",
+      });
+      return;
+    }
+
+    const accelerated = simulatePayoff(
+      debts,
+      acceleratedBudget,
+      extraFocusDebtId === "all" ? undefined : extraFocusDebtId
+    );
+    if (!accelerated.success) {
+      setCalculatorResult({
+        months: null,
+        baselineMonths: null,
+        interestSaved: null,
+        totalInterest: null,
+        breakdown: [],
+        error: accelerated.message || "Unable to calculate payoff.",
+      });
+      return;
+    }
+
+    const interestSaved = Math.max(
+      0,
+      baseline.interestPaid - accelerated.interestPaid
+    );
+
+    const baselineMap = new Map(
+      baseline.debtDetails.map((d) => [d.id, d])
+    );
+
+    setCalculatorResult({
+      months: accelerated.months,
+      baselineMonths: baseline.months,
+      interestSaved,
+      totalInterest: accelerated.interestPaid,
+      breakdown: accelerated.debtDetails.map((detail) => ({
+        ...detail,
+        baselinePayoffMonth: baselineMap.get(detail.id)?.payoffMonth ?? null,
+        baselineInterestPaid: baselineMap.get(detail.id)?.interestPaid ?? null,
+      })),
+      error: null,
+    });
   };
 
   const getDebtIcon = (type: string) => {
@@ -997,47 +1307,225 @@ export default function DebtTrackerPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <form className="space-y-4" onSubmit={handleCalculatePayoff}>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Current Monthly Payment</Label>
                       <Input
                         type="number"
-                        defaultValue={totalMinPayment}
+                        min={0}
+                        step="0.01"
+                        value={calculatorInputs.currentPayment}
+                        onChange={(e) =>
+                          setCalculatorInputs((prev) => ({
+                            ...prev,
+                            currentPayment: e.target.value,
+                          }))
+                        }
                         placeholder="0.00"
                       />
+                      <p className="text-xs text-gray-500">
+                        Minimum required across all debts: {formatCurrency(totalMinPayment)}
+                      </p>
                     </div>
                     <div className="space-y-2">
                       <Label>Extra Monthly Payment</Label>
                       <Input
                         type="number"
-                        defaultValue={0}
+                        min={0}
+                        step="0.01"
+                        value={calculatorInputs.extraPayment}
+                        onChange={(e) =>
+                          setCalculatorInputs((prev) => ({
+                            ...prev,
+                            extraPayment: e.target.value,
+                          }))
+                        }
                         placeholder="0.00"
                       />
                     </div>
                   </div>
 
-                  <Button className="w-full">Calculate Payoff</Button>
+                  <div className="space-y-2">
+                    <Label>Focus extra payment on (optional)</Label>
+                    <Select
+                      value={extraFocusDebtId}
+                      onValueChange={(value) => setExtraFocusDebtId(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Spread across debts (avalanche)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">
+                          Spread across debts (highest APR first)
+                        </SelectItem>
+                        {debts.map((debt) => (
+                          <SelectItem key={debt.id} value={debt.id}>
+                            {debt.name} — {formatCurrency(debt.minimum_payment)} min
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button type="submit" className="w-full">
+                    Calculate Payoff
+                  </Button>
+
+                  {calculatorResult.error ? (
+                    <p className="text-sm text-red-600">
+                      {calculatorResult.error}
+                    </p>
+                  ) : null}
+
+                  {calculatorResult.breakdown.length > 0 ? (
+                    <div className="flex items-center gap-2 pt-2">
+                      <Label className="text-sm">View</Label>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant={payoffView === "cards" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setPayoffView("cards")}
+                        >
+                          Detail
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={payoffView === "list" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setPayoffView("list")}
+                        >
+                          List
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div className="grid grid-cols-2 gap-4 pt-4">
                     <Card>
                       <CardContent className="p-4">
                         <p className="text-sm text-gray-500">Time to Pay Off</p>
                         <p className="text-2xl font-bold text-blue-600">
-                          48 months
+                          {selectedBreakdown?.payoffMonth != null
+                            ? `${selectedBreakdown.payoffMonth} months`
+                            : calculatorResult.months != null
+                              ? `${calculatorResult.months} months`
+                              : "—"}
                         </p>
+                        {selectedBreakdown?.baselinePayoffMonth != null &&
+                        selectedBreakdown?.payoffMonth != null ? (
+                          <p className="text-xs text-gray-500">
+                            Was {selectedBreakdown.baselinePayoffMonth} months with minimums
+                          </p>
+                        ) : calculatorResult.baselineMonths !== null &&
+                          calculatorResult.months !== null ? (
+                          <p className="text-xs text-gray-500">
+                            Was {calculatorResult.baselineMonths} months with minimums
+                          </p>
+                        ) : null}
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="p-4">
                         <p className="text-sm text-gray-500">Interest Saved</p>
                         <p className="text-2xl font-bold text-green-600">
-                          $8,450
+                          {calculatorResult.interestSaved !== null
+                            ? formatCurrency(calculatorResult.interestSaved)
+                            : formatCurrency(0)}
                         </p>
+                        {calculatorResult.totalInterest !== null ? (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Interest with extra payments:{" "}
+                            {formatCurrency(calculatorResult.totalInterest)}
+                          </p>
+                        ) : null}
                       </CardContent>
                     </Card>
                   </div>
-                </div>
+
+                  {calculatorResult.breakdown.length > 0 ? (
+                    <div className="pt-2 space-y-3">
+                      <h4 className="font-semibold">Payoff details</h4>
+                      {payoffView === "cards" ? (
+                        <div className="grid md:grid-cols-2 gap-3">
+                          {calculatorResult.breakdown.map((detail) => (
+                            <Card key={detail.id}>
+                              <CardContent className="p-4 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <p className="font-semibold">{detail.name}</p>
+                                  {detail.baselinePayoffMonth !== null &&
+                                  detail.payoffMonth !== null ? (
+                                    <span className="text-xs text-green-600">
+                                      -{Math.max(
+                                        0,
+                                        detail.baselinePayoffMonth - detail.payoffMonth
+                                      )}{" "}
+                                      months vs. baseline
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="text-sm text-gray-500">
+                                  Payoff:{" "}
+                                  {detail.payoffMonth !== null
+                                    ? `${detail.payoffMonth} months`
+                                    : "Not reached"}
+                                </p>
+                                {detail.baselineInterestPaid !== null ? (
+                                  <p className="text-sm text-gray-500">
+                                    Interest saved on this debt:{" "}
+                                    {formatCurrency(
+                                      Math.max(
+                                        0,
+                                        detail.baselineInterestPaid - detail.interestPaid
+                                      )
+                                    )}
+                                  </p>
+                                ) : null}
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full text-sm">
+                            <thead>
+                              <tr className="text-left text-gray-500">
+                                <th className="py-2 pr-4">Debt</th>
+                                <th className="py-2 pr-4">Payoff (months)</th>
+                                <th className="py-2 pr-4">Baseline (months)</th>
+                                <th className="py-2 pr-4">Interest Saved</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {calculatorResult.breakdown.map((detail) => (
+                                <tr key={detail.id} className="border-t">
+                                  <td className="py-2 pr-4 font-medium">{detail.name}</td>
+                                  <td className="py-2 pr-4">
+                                    {detail.payoffMonth ?? "—"}
+                                  </td>
+                                  <td className="py-2 pr-4">
+                                    {detail.baselinePayoffMonth ?? "—"}
+                                  </td>
+                                  <td className="py-2 pr-4">
+                                    {detail.baselineInterestPaid !== null
+                                      ? formatCurrency(
+                                          Math.max(
+                                            0,
+                                            detail.baselineInterestPaid - detail.interestPaid
+                                          )
+                                        )
+                                      : "—"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </form>
               </CardContent>
             </Card>
           </TabsContent>

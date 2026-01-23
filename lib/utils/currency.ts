@@ -10,7 +10,7 @@ export interface CurrencyPreferences {
 export const CURRENCY_CONFIGS: Record<string, CurrencyPreferences> = {
   INR: {
     code: "INR",
-    symbol: "$",
+    symbol: "₹",
     format: "symbol",
     decimalPlaces: 2,
     thousandsSeparator: ",",
@@ -37,14 +37,6 @@ export const CURRENCY_CONFIGS: Record<string, CurrencyPreferences> = {
     symbol: "¥",
     format: "symbol",
     decimalPlaces: 0,
-    thousandsSeparator: ",",
-    decimalSeparator: ".",
-  },
-  INR: {
-    code: "INR",
-    symbol: "₹",
-    format: "symbol",
-    decimalPlaces: 2,
     thousandsSeparator: ",",
     decimalSeparator: ".",
   },

@@ -28,13 +28,17 @@ import {
   DollarSign,
   BarChart3,
   Loader2,
+  Trash2,
 } from "lucide-react";
-import { useStocksStore } from "@/store/stocks-store";
+import { useStocksStore, type Stock } from "@/store/stocks-store";
 import { stockFormSchema, StockFormData } from "@/lib/schemas/stock-form-schema";
 
 export default function StocksPage() {
-  const { stocks, loading, error, fetchStocks, addStock } = useStocksStore();
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const { stocks, loading, error, fetchStocks, addStock, updateStock, deleteStock } =
+    useStocksStore();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingStock, setEditingStock] = useState<Stock | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const {
     register,
@@ -66,7 +70,7 @@ export default function StocksPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleAddStock = async (data: StockFormData) => {
+  const handleUpsertStock = async (data: StockFormData) => {
     const investedAmount = data.shares * data.avgPurchasePrice;
     const currentValue = data.shares * data.currentPrice;
 
@@ -82,9 +86,26 @@ export default function StocksPage() {
       sector: data.sector || "General",
     };
 
-    await addStock(newStock);
+    if (editingStock) {
+      await updateStock(editingStock.id, newStock);
+    } else {
+      await addStock(newStock);
+    }
+
     reset();
-    setIsAddDialogOpen(false);
+    setEditingStock(null);
+    setIsDialogOpen(false);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    const confirmed = window.confirm(`Delete ${name}? This cannot be undone.`);
+    if (!confirmed) return;
+    setDeletingId(id);
+    try {
+      await deleteStock(id);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (loading) {
@@ -120,21 +141,31 @@ export default function StocksPage() {
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <h1 className="text-2xl font-bold text-gray-900">Stocks Tracker</h1>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) setEditingStock(null);
+            }}>
               <DialogTrigger asChild>
-                <Button>
+                <Button
+                  onClick={() => {
+                    setEditingStock(null);
+                    reset();
+                  }}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Stock
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Add Stock</DialogTitle>
+                  <DialogTitle>{editingStock ? "Edit Stock" : "Add Stock"}</DialogTitle>
                   <DialogDescription>
-                    Add a stock to track its performance.
+                    {editingStock
+                      ? "Update this stock's details."
+                      : "Add a stock to track its performance."}
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleSubmit(handleAddStock)} className="space-y-4">
+                <form onSubmit={handleSubmit(handleUpsertStock)} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Company Name</Label>
                     <Input
@@ -243,10 +274,10 @@ export default function StocksPage() {
                     {isSubmitting ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Adding Stock...
+                        {editingStock ? "Saving..." : "Adding Stock..."}
                       </>
                     ) : (
-                      "Add Stock"
+                      editingStock ? "Save Changes" : "Add Stock"
                     )}
                   </Button>
                 </form>
@@ -352,7 +383,39 @@ export default function StocksPage() {
                             {stock.symbol} • {stock.sector}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="flex items-center gap-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setEditingStock(stock);
+                              reset({
+                                name: stock.name,
+                                symbol: stock.symbol,
+                                shares: stock.shares,
+                                avgPurchasePrice: stock.avgPurchasePrice,
+                                currentPrice: stock.currentPrice,
+                                investedAmount: stock.investedAmount,
+                                currentValue: stock.currentValue,
+                                purchaseDate: stock.purchaseDate,
+                                sector: stock.sector,
+                              });
+                              setIsDialogOpen(true);
+                            }}
+                          >
+                            <TrendingUp className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            disabled={deletingId === stock.id || loading}
+                            onClick={() => handleDelete(stock.id, stock.name)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            {deletingId === stock.id ? "Deleting..." : "Delete"}
+                          </Button>
+                          <div className="text-right">
                           <div
                             className={`text-lg font-bold flex items-center ₹{
                               gainLoss >= 0 ? "text-green-600" : "text-red-600"
@@ -369,6 +432,7 @@ export default function StocksPage() {
                             ({gainLossPercentage >= 0 ? "+" : ""}
                             {gainLossPercentage.toFixed(2)}%)
                           </p>
+                          </div>
                         </div>
                       </div>
 

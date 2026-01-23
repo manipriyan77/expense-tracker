@@ -28,13 +28,24 @@ import {
   DollarSign,
   BarChart3,
   Loader2,
+  Trash2,
 } from "lucide-react";
-import { useMutualFundsStore } from "@/store/mutual-funds-store";
+import { useMutualFundsStore, type MutualFund } from "@/store/mutual-funds-store";
 import { mutualFundFormSchema, MutualFundFormData } from "@/lib/schemas/mutual-fund-form-schema";
 
 export default function MutualFundsPage() {
-  const { mutualFunds, loading, error, fetchMutualFunds, addMutualFund } = useMutualFundsStore();
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const {
+    mutualFunds,
+    loading,
+    error,
+    fetchMutualFunds,
+    addMutualFund,
+    updateMutualFund,
+    deleteMutualFund,
+  } = useMutualFundsStore();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingFund, setEditingFund] = useState<MutualFund | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const {
     register,
@@ -78,9 +89,26 @@ export default function MutualFundsPage() {
       category: data.category || "General",
     };
 
-    await addMutualFund(newFund);
+    if (editingFund) {
+      await updateMutualFund(editingFund.id, newFund);
+    } else {
+      await addMutualFund(newFund);
+    }
+
     reset();
-    setIsAddDialogOpen(false);
+    setEditingFund(null);
+    setIsDialogOpen(false);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    const confirmed = window.confirm(`Delete ${name}? This cannot be undone.`);
+    if (!confirmed) return;
+    setDeletingId(id);
+    try {
+      await deleteMutualFund(id);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (loading) {
@@ -116,18 +144,31 @@ export default function MutualFundsPage() {
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <h1 className="text-2xl font-bold text-gray-900">Mutual Funds Tracker</h1>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <Dialog
+              open={isDialogOpen}
+              onOpenChange={(open) => {
+                setIsDialogOpen(open);
+                if (!open) setEditingFund(null);
+              }}
+            >
               <DialogTrigger asChild>
-                <Button>
+                <Button
+                  onClick={() => {
+                    setEditingFund(null);
+                    reset();
+                  }}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Fund
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Add Mutual Fund</DialogTitle>
+                  <DialogTitle>{editingFund ? "Edit Mutual Fund" : "Add Mutual Fund"}</DialogTitle>
                   <DialogDescription>
-                    Add a mutual fund to track its performance.
+                    {editingFund
+                      ? "Update this mutual fund's details."
+                      : "Add a mutual fund to track its performance."}
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit(handleAddMutualFund)} className="space-y-4">
@@ -233,10 +274,10 @@ export default function MutualFundsPage() {
                     {isSubmitting ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Adding Fund...
+                        {editingFund ? "Saving..." : "Adding Fund..."}
                       </>
                     ) : (
-                      "Add Mutual Fund"
+                      editingFund ? "Save Changes" : "Add Mutual Fund"
                     )}
                   </Button>
                 </form>
@@ -340,7 +381,38 @@ export default function MutualFundsPage() {
                             {fund.symbol} • {fund.category}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="flex items-center gap-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setEditingFund(fund);
+                              reset({
+                                name: fund.name,
+                                symbol: fund.symbol,
+                                investedAmount: fund.investedAmount,
+                                units: fund.units,
+                                nav: fund.nav,
+                                currentValue: fund.currentValue,
+                                purchaseDate: fund.purchaseDate,
+                                category: fund.category,
+                              });
+                              setIsDialogOpen(true);
+                            }}
+                          >
+                            <TrendingUp className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            disabled={deletingId === fund.id || loading}
+                            onClick={() => handleDelete(fund.id, fund.name)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            {deletingId === fund.id ? "Deleting..." : "Delete"}
+                          </Button>
+                          <div className="text-right">
                           <div
                             className={`text-lg font-bold flex items-center ₹{
                               gainLoss >= 0 ? "text-green-600" : "text-red-600"
@@ -357,6 +429,7 @@ export default function MutualFundsPage() {
                             ({gainLossPercentage >= 0 ? "+" : ""}
                             {gainLossPercentage.toFixed(2)}%)
                           </p>
+                          </div>
                         </div>
                       </div>
 
