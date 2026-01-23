@@ -47,29 +47,41 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from "recharts";
 import { formatCurrency } from "@/lib/utils/currency";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useDebtTrackerStore, type Debt } from "@/store/debt-tracker-store";
 
 export default function DebtTrackerPage() {
-  const { 
-    debts, 
+  const {
+    debts,
     payments,
-    loading, 
+    loading,
     fetchDebts,
-    fetchAllPayments, 
-    addDebt, 
-    updateDebt, 
+    fetchAllPayments,
+    addDebt,
+    updateDebt,
     deleteDebt,
-    addPayment 
+    addPayment,
   } = useDebtTrackerStore();
 
   const [isAddDebtOpen, setIsAddDebtOpen] = useState(false);
   const [isEditDebtOpen, setIsEditDebtOpen] = useState(false);
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
-  const [payoffStrategy, setPayoffStrategy] = useState<"snowball" | "avalanche">("avalanche");
+  const [payoffStrategy, setPayoffStrategy] = useState<
+    "snowball" | "avalanche"
+  >("avalanche");
 
   // Form states
   const [debtForm, setDebtForm] = useState<{
@@ -80,6 +92,8 @@ export default function DebtTrackerPage() {
     interest_rate: string;
     minimum_payment: string;
     due_date: string;
+    term_months: string;
+    months_remaining: string;
     currency: string;
     notes: string;
   }>({
@@ -90,15 +104,30 @@ export default function DebtTrackerPage() {
     interest_rate: "",
     minimum_payment: "",
     due_date: "", // Will store full date in YYYY-MM-DD format
-    currency: "USD",
+    term_months: "",
+    months_remaining: "",
+    currency: "INR",
     notes: "",
   });
 
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
-    payment_date: new Date().toISOString().split('T')[0],
+    payment_date: new Date().toISOString().split("T")[0],
     notes: "",
   });
+
+  const schedulePreview = React.useMemo(
+    () =>
+      buildDueDateSchedule(
+        debtForm.due_date || null,
+        debtForm.months_remaining
+          ? parseInt(debtForm.months_remaining, 10)
+          : debtForm.term_months
+            ? parseInt(debtForm.term_months, 10)
+            : null
+      ),
+    [debtForm.due_date, debtForm.months_remaining, debtForm.term_months]
+  );
 
   useEffect(() => {
     fetchDebts();
@@ -108,15 +137,21 @@ export default function DebtTrackerPage() {
   // Fetch payments after debts are loaded
   useEffect(() => {
     if (debts.length > 0) {
-      console.log('Debts loaded, fetching payments...');
+      console.log("Debts loaded, fetching payments...");
       fetchAllPayments();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debts.length]);
 
   const totalDebt = debts.reduce((sum, debt) => sum + debt.balance, 0);
-  const totalMinPayment = debts.reduce((sum, debt) => sum + debt.minimum_payment, 0);
-  const avgInterestRate = debts.length > 0 ? debts.reduce((sum, debt) => sum + debt.interest_rate, 0) / debts.length : 0;
+  const totalMinPayment = debts.reduce(
+    (sum, debt) => sum + debt.minimum_payment,
+    0
+  );
+  const avgInterestRate =
+    debts.length > 0
+      ? debts.reduce((sum, debt) => sum + debt.interest_rate, 0) / debts.length
+      : 0;
 
   // Calculate payoff order based on strategy
   const sortedDebts = [...debts].sort((a, b) => {
@@ -130,6 +165,12 @@ export default function DebtTrackerPage() {
   const handleAddDebt = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const termMonths = debtForm.term_months
+        ? parseInt(debtForm.term_months, 10)
+        : null;
+      const monthsRemaining = debtForm.months_remaining
+        ? parseInt(debtForm.months_remaining, 10)
+        : null;
       await addDebt({
         name: debtForm.name,
         type: debtForm.type,
@@ -138,6 +179,8 @@ export default function DebtTrackerPage() {
         interest_rate: parseFloat(debtForm.interest_rate),
         minimum_payment: parseFloat(debtForm.minimum_payment),
         due_date: debtForm.due_date || null,
+        term_months: termMonths,
+        months_remaining: monthsRemaining,
         currency: debtForm.currency,
         notes: debtForm.notes,
       });
@@ -151,7 +194,9 @@ export default function DebtTrackerPage() {
         interest_rate: "",
         minimum_payment: "",
         due_date: "",
-        currency: "USD",
+        term_months: "",
+        months_remaining: "",
+        currency: "INR",
         notes: "",
       });
     } catch (error) {
@@ -163,6 +208,12 @@ export default function DebtTrackerPage() {
     e.preventDefault();
     if (!selectedDebt) return;
     try {
+      const termMonths = debtForm.term_months
+        ? parseInt(debtForm.term_months, 10)
+        : null;
+      const monthsRemaining = debtForm.months_remaining
+        ? parseInt(debtForm.months_remaining, 10)
+        : null;
       await updateDebt(selectedDebt.id, {
         name: debtForm.name,
         type: debtForm.type,
@@ -171,6 +222,8 @@ export default function DebtTrackerPage() {
         interest_rate: parseFloat(debtForm.interest_rate),
         minimum_payment: parseFloat(debtForm.minimum_payment),
         due_date: debtForm.due_date || null,
+        term_months: termMonths,
+        months_remaining: monthsRemaining,
         notes: debtForm.notes,
       });
       toast.success("Debt updated successfully!");
@@ -202,6 +255,8 @@ export default function DebtTrackerPage() {
       interest_rate: debt.interest_rate.toString(),
       minimum_payment: debt.minimum_payment.toString(),
       due_date: debt.due_date || "",
+      term_months: debt.term_months?.toString() || "",
+      months_remaining: debt.months_remaining?.toString() || "",
       currency: debt.currency,
       notes: debt.notes || "",
     });
@@ -225,7 +280,7 @@ export default function DebtTrackerPage() {
       setSelectedDebt(null);
       setPaymentForm({
         amount: "",
-        payment_date: new Date().toISOString().split('T')[0],
+        payment_date: new Date().toISOString().split("T")[0],
         notes: "",
       });
     } catch (error) {
@@ -235,15 +290,18 @@ export default function DebtTrackerPage() {
 
   // Calculate payment history from actual data
   const paymentHistory = React.useMemo(() => {
-    console.log('Calculating payment history. Total payments:', payments.length);
-    
+    console.log(
+      "Calculating payment history. Total payments:",
+      payments.length
+    );
+
     // If no debts yet, return empty data
     if (debts.length === 0) {
       const result = [];
       const now = new Date();
       for (let i = 5; i >= 0; i--) {
         const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+        const monthName = date.toLocaleDateString("en-US", { month: "short" });
         result.push({
           month: monthName,
           paid: 0,
@@ -252,52 +310,95 @@ export default function DebtTrackerPage() {
       }
       return result;
     }
-    
+
     // Group payments by month
     const monthlyData: { [key: string]: { paid: number } } = {};
-    
+
     payments.forEach((payment) => {
       const date = new Date(payment.payment_date);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
+      const monthKey = `${date.getFullYear()}-${String(
+        date.getMonth() + 1
+      ).padStart(2, "0")}`;
+
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = { paid: 0 };
       }
-      
+
       monthlyData[monthKey].paid += payment.amount;
     });
 
     // Get last 6 months and calculate cumulative balance
     const result = [];
     const now = new Date();
-    
+
     // Calculate total payments made to adjust starting balance
     const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0);
     const startingBalance = totalDebt + totalPayments;
-    
+
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
-      
+      const monthKey = `${date.getFullYear()}-${String(
+        date.getMonth() + 1
+      ).padStart(2, "0")}`;
+      const monthName = date.toLocaleDateString("en-US", { month: "short" });
+
       const monthData = monthlyData[monthKey];
       const paid = monthData?.paid || 0;
-      
+
       // Calculate balance for this month (for visualization purposes)
       // This is a simplified calculation - ideally would track historical balances
       const monthProgress = (5 - i) / 6;
-      const balanceForMonth = Math.max(0, startingBalance - (totalPayments * monthProgress));
-      
+      const balanceForMonth = Math.max(
+        0,
+        startingBalance - totalPayments * monthProgress
+      );
+
       result.push({
         month: monthName,
         paid: Math.round(paid),
         balance: Math.round(balanceForMonth),
       });
     }
-    
-    console.log('Payment history calculated:', result);
+
+    console.log("Payment history calculated:", result);
     return result;
   }, [payments, totalDebt, debts.length]);
+
+  function buildDueDateSchedule(
+    startDate: string | null,
+    monthsRemaining?: number | null
+  ) {
+    if (!startDate || !monthsRemaining || monthsRemaining <= 0) return [];
+    const base = new Date(startDate);
+    if (Number.isNaN(base.getTime())) return [];
+
+    const dates: string[] = [];
+    for (let i = 0; i < monthsRemaining; i++) {
+      const next = new Date(
+        base.getFullYear(),
+        base.getMonth() + i,
+        base.getDate()
+      );
+      dates.push(next.toISOString().split("T")[0]);
+    }
+    return dates;
+  }
+
+  const getNextDueDate = (debt: Debt) => {
+    const schedule = buildDueDateSchedule(
+      debt.due_date,
+      (debt.months_remaining ?? debt.term_months) ?? null
+    );
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const nextDate =
+      schedule.find(
+        (date) => new Date(date).getTime() >= today.getTime()
+      ) || debt.due_date;
+
+    return nextDate || null;
+  };
 
   const getDaysUntilDue = (dueDate: string | null) => {
     if (!dueDate) return 999; // Return large number if no due date
@@ -308,6 +409,12 @@ export default function DebtTrackerPage() {
   };
 
   const calculateMonthsToPayoff = (debt: Debt) => {
+    if (debt.months_remaining && debt.months_remaining > 0) {
+      return debt.months_remaining;
+    }
+    if (debt.term_months && debt.term_months > 0) {
+      return debt.term_months;
+    }
     // Simple calculation: balance / minimum payment
     return Math.ceil(debt.balance / debt.minimum_payment);
   };
@@ -349,19 +456,23 @@ export default function DebtTrackerPage() {
                 <form onSubmit={handleAddDebt} className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label htmlFor="debtName">Debt Name</Label>
-                    <Input 
-                      id="debtName" 
-                      placeholder="e.g., Credit Card" 
+                    <Input
+                      id="debtName"
+                      placeholder="e.g., Credit Card"
                       value={debtForm.name}
-                      onChange={(e) => setDebtForm({ ...debtForm, name: e.target.value })}
+                      onChange={(e) =>
+                        setDebtForm({ ...debtForm, name: e.target.value })
+                      }
                       required
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="debtType">Type</Label>
-                    <Select 
+                    <Select
                       value={debtForm.type}
-                      onValueChange={(value: any) => setDebtForm({ ...debtForm, type: value })}
+                      onValueChange={(value: any) =>
+                        setDebtForm({ ...debtForm, type: value })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select type" />
@@ -377,25 +488,32 @@ export default function DebtTrackerPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="currentBalance">Current Balance</Label>
-                      <Input 
-                        id="currentBalance" 
-                        type="number" 
-                        placeholder="0.00" 
+                      <Input
+                        id="currentBalance"
+                        type="number"
+                        placeholder="0.00"
                         step="0.01"
                         value={debtForm.balance}
-                        onChange={(e) => setDebtForm({ ...debtForm, balance: e.target.value })}
+                        onChange={(e) =>
+                          setDebtForm({ ...debtForm, balance: e.target.value })
+                        }
                         required
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="originalAmount">Original Amount</Label>
-                      <Input 
-                        id="originalAmount" 
-                        type="number" 
-                        placeholder="0.00" 
+                      <Input
+                        id="originalAmount"
+                        type="number"
+                        placeholder="0.00"
                         step="0.01"
                         value={debtForm.original_amount}
-                        onChange={(e) => setDebtForm({ ...debtForm, original_amount: e.target.value })}
+                        onChange={(e) =>
+                          setDebtForm({
+                            ...debtForm,
+                            original_amount: e.target.value,
+                          })
+                        }
                         required
                       />
                     </div>
@@ -403,40 +521,109 @@ export default function DebtTrackerPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="interestRate">Interest Rate (%)</Label>
-                      <Input 
-                        id="interestRate" 
-                        type="number" 
-                        placeholder="0.0" 
-                        step="0.1" 
+                      <Input
+                        id="interestRate"
+                        type="number"
+                        placeholder="0.0"
+                        step="0.1"
                         value={debtForm.interest_rate}
-                        onChange={(e) => setDebtForm({ ...debtForm, interest_rate: e.target.value })}
+                        onChange={(e) =>
+                          setDebtForm({
+                            ...debtForm,
+                            interest_rate: e.target.value,
+                          })
+                        }
                         required
                       />
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="termMonths">Total Months</Label>
+                      <Input
+                        id="termMonths"
+                        type="number"
+                        min="1"
+                        placeholder="e.g., 60"
+                        value={debtForm.term_months}
+                        onChange={(e) =>
+                          setDebtForm({
+                            ...debtForm,
+                            term_months: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="monthsRemaining">Months Remaining</Label>
+                      <Input
+                        id="monthsRemaining"
+                        type="number"
+                        min="1"
+                        placeholder="e.g., 24"
+                        value={debtForm.months_remaining}
+                        onChange={(e) =>
+                          setDebtForm({
+                            ...debtForm,
+                            months_remaining: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="minPayment">Min Payment</Label>
-                      <Input 
-                        id="minPayment" 
-                        type="number" 
-                        placeholder="0.00" 
+                      <Input
+                        id="minPayment"
+                        type="number"
+                        placeholder="0.00"
                         step="0.01"
                         value={debtForm.minimum_payment}
-                        onChange={(e) => setDebtForm({ ...debtForm, minimum_payment: e.target.value })}
+                        onChange={(e) =>
+                          setDebtForm({
+                            ...debtForm,
+                            minimum_payment: e.target.value,
+                          })
+                        }
                         required
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="dueDate">Next Due Date</Label>
-                    <Input 
-                      id="dueDate" 
-                      type="date" 
+                    <Label htmlFor="dueDate">First Due Date</Label>
+                    <Input
+                      id="dueDate"
+                      type="date"
                       value={debtForm.due_date}
-                      onChange={(e) => setDebtForm({ ...debtForm, due_date: e.target.value })}
+                      onChange={(e) =>
+                        setDebtForm({ ...debtForm, due_date: e.target.value })
+                      }
                     />
                   </div>
+                  {schedulePreview.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Monthly Due Dates (preview)</Label>
+                      <div className="flex flex-wrap gap-2 text-sm">
+                        {schedulePreview.slice(0, 6).map((date) => (
+                          <span
+                            key={date}
+                            className="px-2 py-1 rounded-full bg-gray-100"
+                          >
+                            {new Date(date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                        ))}
+                        {schedulePreview.length > 6 ? (
+                          <span className="text-xs text-gray-500">
+                            +{schedulePreview.length - 6} more months
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
                     Add Debt
                   </Button>
                 </form>
@@ -473,15 +660,15 @@ export default function DebtTrackerPage() {
               <div className="text-2xl font-bold">
                 {formatCurrency(totalMinPayment)}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Per month
-              </p>
+              <p className="text-xs text-gray-500 mt-1">Per month</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Interest Rate</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Avg Interest Rate
+              </CardTitle>
               <TrendingDown className="h-4 w-4 text-amber-600" />
             </CardHeader>
             <CardContent>
@@ -496,13 +683,13 @@ export default function DebtTrackerPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Debt-Free In</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Debt-Free In
+              </CardTitle>
               <Target className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                48 months
-              </div>
+              <div className="text-2xl font-bold text-blue-600">48 months</div>
               <p className="text-xs text-gray-500 mt-1">
                 With current payments
               </p>
@@ -514,18 +701,41 @@ export default function DebtTrackerPage() {
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Debt Payoff Progress</CardTitle>
-            <CardDescription>Your debt reduction over the past 6 months</CardDescription>
+            <CardDescription>
+              Your debt reduction over the past 6 months
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={paymentHistory}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
-                <YAxis yAxisId="left" tickFormatter={(value) => `$${value / 1000}k`} />
-                <YAxis yAxisId="right" orientation="right" tickFormatter={(value) => `$${value}`} />
-                <Tooltip formatter={(value: number | undefined) => value !== undefined ? formatCurrency(value) : '$0.00'} />
-                <Bar yAxisId="left" dataKey="balance" fill="#ef4444" name="Remaining Balance" />
-                <Bar yAxisId="right" dataKey="paid" fill="#10b981" name="Amount Paid" />
+                <YAxis
+                  yAxisId="left"
+                  tickFormatter={(value) => `$${value / 1000}k`}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tickFormatter={(value) => `$${value}`}
+                />
+                <Tooltip
+                  formatter={(value: number | undefined) =>
+                    value !== undefined ? formatCurrency(value) : "$0.00"
+                  }
+                />
+                <Bar
+                  yAxisId="left"
+                  dataKey="balance"
+                  fill="#ef4444"
+                  name="Remaining Balance"
+                />
+                <Bar
+                  yAxisId="right"
+                  dataKey="paid"
+                  fill="#10b981"
+                  name="Amount Paid"
+                />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -552,22 +762,35 @@ export default function DebtTrackerPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
                 {debts.map((debt) => {
-                  const progress = ((debt.original_amount - debt.balance) / debt.original_amount) * 100;
-                  const daysUntilDue = getDaysUntilDue(debt.due_date);
+                  const progress =
+                    ((debt.original_amount - debt.balance) /
+                      debt.original_amount) *
+                    100;
+                  const nextDueDate = getNextDueDate(debt);
+                  const daysUntilDue = getDaysUntilDue(nextDueDate);
                   const monthsToPayoff = calculateMonthsToPayoff(debt);
 
                   return (
-                    <Card key={debt.id} className="hover:shadow-md transition-shadow">
+                    <Card
+                      key={debt.id}
+                      className="hover:shadow-md transition-shadow"
+                    >
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
-                            <div className={`p-2 rounded-full ${
-                              debt.type === "credit_card" ? "bg-purple-100" : "bg-blue-100"
-                            }`}>
+                            <div
+                              className={`p-2 rounded-full ${
+                                debt.type === "credit_card"
+                                  ? "bg-purple-100"
+                                  : "bg-blue-100"
+                              }`}
+                            >
                               {getDebtIcon(debt.type)}
                             </div>
                             <div>
-                              <CardTitle className="text-lg">{debt.name}</CardTitle>
+                              <CardTitle className="text-lg">
+                                {debt.name}
+                              </CardTitle>
                               <p className="text-sm text-gray-500 capitalize">
                                 {debt.type.replace("_", " ")}
                               </p>
@@ -590,11 +813,13 @@ export default function DebtTrackerPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openEditDialog(debt)}>
+                                <DropdownMenuItem
+                                  onClick={() => openEditDialog(debt)}
+                                >
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit
                                 </DropdownMenuItem>
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => handleDeleteDebt(debt)}
                                   className="text-red-600"
                                 >
@@ -609,7 +834,9 @@ export default function DebtTrackerPage() {
                       <CardContent className="space-y-4">
                         <div className="flex justify-between items-end">
                           <div>
-                            <p className="text-sm text-gray-500">Current Balance</p>
+                            <p className="text-sm text-gray-500">
+                              Current Balance
+                            </p>
                             <p className="text-2xl font-bold text-red-600">
                               {formatCurrency(debt.balance)}
                             </p>
@@ -625,7 +852,9 @@ export default function DebtTrackerPage() {
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-500">Progress</span>
-                            <span className="font-medium">{progress.toFixed(0)}% paid off</span>
+                            <span className="font-medium">
+                              {progress.toFixed(0)}% paid off
+                            </span>
                           </div>
                           <Progress value={progress} className="h-2" />
                         </div>
@@ -633,7 +862,9 @@ export default function DebtTrackerPage() {
                         <div className="grid grid-cols-3 gap-4 pt-2 border-t text-center">
                           <div>
                             <p className="text-xs text-gray-500">APR</p>
-                            <p className="font-semibold">{debt.interest_rate}%</p>
+                            <p className="font-semibold">
+                              {debt.interest_rate}%
+                            </p>
                           </div>
                           <div>
                             <p className="text-xs text-gray-500">Payoff Time</p>
@@ -642,10 +873,19 @@ export default function DebtTrackerPage() {
                           <div>
                             <p className="text-xs text-gray-500">Next Due</p>
                             <p className="font-semibold">
-                              {debt.due_date 
-                                ? new Date(debt.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                              {nextDueDate
+                                ? new Date(nextDueDate).toLocaleDateString(
+                                    "en-US",
+                                    { month: "short", day: "numeric" }
+                                  )
                                 : "Not set"}
                             </p>
+                            {debt.term_months ? (
+                              <p className="text-xs text-gray-500">
+                                {debt.months_remaining ?? debt.term_months} of{" "}
+                                {debt.term_months} months left
+                              </p>
+                            ) : null}
                           </div>
                         </div>
 
@@ -655,7 +895,9 @@ export default function DebtTrackerPage() {
                             setSelectedDebt(debt);
                             setPaymentForm({
                               amount: debt.minimum_payment.toString(),
-                              payment_date: new Date().toISOString().split('T')[0],
+                              payment_date: new Date()
+                                .toISOString()
+                                .split("T")[0],
                               notes: "",
                             });
                             setIsAddPaymentOpen(true);
@@ -682,14 +924,18 @@ export default function DebtTrackerPage() {
               <CardContent className="space-y-6">
                 <div className="flex gap-4">
                   <Button
-                    variant={payoffStrategy === "avalanche" ? "default" : "outline"}
+                    variant={
+                      payoffStrategy === "avalanche" ? "default" : "outline"
+                    }
                     className="flex-1"
                     onClick={() => setPayoffStrategy("avalanche")}
                   >
                     Avalanche Method
                   </Button>
                   <Button
-                    variant={payoffStrategy === "snowball" ? "default" : "outline"}
+                    variant={
+                      payoffStrategy === "snowball" ? "default" : "outline"
+                    }
                     className="flex-1"
                     onClick={() => setPayoffStrategy("snowball")}
                   >
@@ -699,7 +945,9 @@ export default function DebtTrackerPage() {
 
                 <div className="p-4 bg-blue-50 rounded-lg">
                   <h4 className="font-semibold mb-2">
-                    {payoffStrategy === "avalanche" ? "Avalanche Method" : "Snowball Method"}
+                    {payoffStrategy === "avalanche"
+                      ? "Avalanche Method"
+                      : "Snowball Method"}
                   </h4>
                   <p className="text-sm text-gray-600">
                     {payoffStrategy === "avalanche"
@@ -711,7 +959,10 @@ export default function DebtTrackerPage() {
                 <div className="space-y-3">
                   <h4 className="font-semibold">Recommended Payoff Order:</h4>
                   {sortedDebts.map((debt, index) => (
-                    <div key={debt.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div
+                      key={debt.id}
+                      className="flex items-center justify-between p-4 border rounded-lg"
+                    >
                       <div className="flex items-center space-x-4">
                         <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold">
                           {index + 1}
@@ -719,12 +970,15 @@ export default function DebtTrackerPage() {
                         <div>
                           <p className="font-semibold">{debt.name}</p>
                           <p className="text-sm text-gray-500">
-                            {formatCurrency(debt.balance)} @ {debt.interest_rate}% APR
+                            {formatCurrency(debt.balance)} @{" "}
+                            {debt.interest_rate}% APR
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">{formatCurrency(debt.minimum_payment)}</p>
+                        <p className="font-semibold">
+                          {formatCurrency(debt.minimum_payment)}
+                        </p>
                         <p className="text-xs text-gray-500">min payment</p>
                       </div>
                     </div>
@@ -755,7 +1009,11 @@ export default function DebtTrackerPage() {
                     </div>
                     <div className="space-y-2">
                       <Label>Extra Monthly Payment</Label>
-                      <Input type="number" defaultValue={0} placeholder="0.00" />
+                      <Input
+                        type="number"
+                        defaultValue={0}
+                        placeholder="0.00"
+                      />
                     </div>
                   </div>
 
@@ -765,13 +1023,17 @@ export default function DebtTrackerPage() {
                     <Card>
                       <CardContent className="p-4">
                         <p className="text-sm text-gray-500">Time to Pay Off</p>
-                        <p className="text-2xl font-bold text-blue-600">48 months</p>
+                        <p className="text-2xl font-bold text-blue-600">
+                          48 months
+                        </p>
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="p-4">
                         <p className="text-sm text-gray-500">Interest Saved</p>
-                        <p className="text-2xl font-bold text-green-600">$8,450</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          $8,450
+                        </p>
                       </CardContent>
                     </Card>
                   </div>
@@ -798,30 +1060,41 @@ export default function DebtTrackerPage() {
                 type="number"
                 step="0.01"
                 value={paymentForm.amount}
-                onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                onChange={(e) =>
+                  setPaymentForm({ ...paymentForm, amount: e.target.value })
+                }
                 placeholder="0.00"
                 required
               />
             </div>
             <div className="space-y-2">
               <Label>Payment Date</Label>
-              <Input 
-                type="date" 
+              <Input
+                type="date"
                 value={paymentForm.payment_date}
-                onChange={(e) => setPaymentForm({ ...paymentForm, payment_date: e.target.value })}
+                onChange={(e) =>
+                  setPaymentForm({
+                    ...paymentForm,
+                    payment_date: e.target.value,
+                  })
+                }
                 required
               />
             </div>
             <div className="space-y-2">
               <Label>Notes (optional)</Label>
-              <Input 
-                placeholder="Add any notes..." 
+              <Input
+                placeholder="Add any notes..."
                 value={paymentForm.notes}
-                onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                onChange={(e) =>
+                  setPaymentForm({ ...paymentForm, notes: e.target.value })
+                }
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               Record Payment
             </Button>
           </form>
@@ -833,26 +1106,28 @@ export default function DebtTrackerPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Debt</DialogTitle>
-            <DialogDescription>
-              Update debt information
-            </DialogDescription>
+            <DialogDescription>Update debt information</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditDebt} className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="editDebtName">Debt Name</Label>
-              <Input 
-                id="editDebtName" 
-                placeholder="e.g., Credit Card" 
+              <Input
+                id="editDebtName"
+                placeholder="e.g., Credit Card"
                 value={debtForm.name}
-                onChange={(e) => setDebtForm({ ...debtForm, name: e.target.value })}
+                onChange={(e) =>
+                  setDebtForm({ ...debtForm, name: e.target.value })
+                }
                 required
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="editDebtType">Type</Label>
-              <Select 
+              <Select
                 value={debtForm.type}
-                onValueChange={(value: any) => setDebtForm({ ...debtForm, type: value })}
+                onValueChange={(value: any) =>
+                  setDebtForm({ ...debtForm, type: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
@@ -868,25 +1143,32 @@ export default function DebtTrackerPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="editCurrentBalance">Current Balance</Label>
-                <Input 
-                  id="editCurrentBalance" 
-                  type="number" 
-                  placeholder="0.00" 
+                <Input
+                  id="editCurrentBalance"
+                  type="number"
+                  placeholder="0.00"
                   step="0.01"
                   value={debtForm.balance}
-                  onChange={(e) => setDebtForm({ ...debtForm, balance: e.target.value })}
+                  onChange={(e) =>
+                    setDebtForm({ ...debtForm, balance: e.target.value })
+                  }
                   required
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="editOriginalAmount">Original Amount</Label>
-                <Input 
-                  id="editOriginalAmount" 
-                  type="number" 
-                  placeholder="0.00" 
+                <Input
+                  id="editOriginalAmount"
+                  type="number"
+                  placeholder="0.00"
                   step="0.01"
                   value={debtForm.original_amount}
-                  onChange={(e) => setDebtForm({ ...debtForm, original_amount: e.target.value })}
+                  onChange={(e) =>
+                    setDebtForm({
+                      ...debtForm,
+                      original_amount: e.target.value,
+                    })
+                  }
                   required
                 />
               </div>
@@ -894,40 +1176,103 @@ export default function DebtTrackerPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="editInterestRate">Interest Rate (%)</Label>
-                <Input 
-                  id="editInterestRate" 
-                  type="number" 
-                  placeholder="0.0" 
-                  step="0.1" 
+                <Input
+                  id="editInterestRate"
+                  type="number"
+                  placeholder="0.0"
+                  step="0.1"
                   value={debtForm.interest_rate}
-                  onChange={(e) => setDebtForm({ ...debtForm, interest_rate: e.target.value })}
+                  onChange={(e) =>
+                    setDebtForm({ ...debtForm, interest_rate: e.target.value })
+                  }
                   required
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="editTermMonths">Total Months</Label>
+                <Input
+                  id="editTermMonths"
+                  type="number"
+                  min="1"
+                  placeholder="e.g., 60"
+                  value={debtForm.term_months}
+                  onChange={(e) =>
+                    setDebtForm({ ...debtForm, term_months: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editMonthsRemaining">Months Remaining</Label>
+                <Input
+                  id="editMonthsRemaining"
+                  type="number"
+                  min="1"
+                  placeholder="e.g., 24"
+                  value={debtForm.months_remaining}
+                  onChange={(e) =>
+                    setDebtForm({
+                      ...debtForm,
+                      months_remaining: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="editMinPayment">Min Payment</Label>
-                <Input 
-                  id="editMinPayment" 
-                  type="number" 
-                  placeholder="0.00" 
+                <Input
+                  id="editMinPayment"
+                  type="number"
+                  placeholder="0.00"
                   step="0.01"
                   value={debtForm.minimum_payment}
-                  onChange={(e) => setDebtForm({ ...debtForm, minimum_payment: e.target.value })}
+                  onChange={(e) =>
+                    setDebtForm({
+                      ...debtForm,
+                      minimum_payment: e.target.value,
+                    })
+                  }
                   required
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="editDueDate">Next Due Date</Label>
-              <Input 
-                id="editDueDate" 
-                type="date" 
+              <Label htmlFor="editDueDate">First Due Date</Label>
+              <Input
+                id="editDueDate"
+                type="date"
                 value={debtForm.due_date}
-                onChange={(e) => setDebtForm({ ...debtForm, due_date: e.target.value })}
+                onChange={(e) =>
+                  setDebtForm({ ...debtForm, due_date: e.target.value })
+                }
               />
             </div>
+            {schedulePreview.length > 0 && (
+              <div className="space-y-2">
+                <Label>Monthly Due Dates (preview)</Label>
+                <div className="flex flex-wrap gap-2 text-sm">
+                  {schedulePreview.slice(0, 6).map((date) => (
+                    <span
+                      key={date}
+                      className="px-2 py-1 rounded-full bg-gray-100"
+                    >
+                      {new Date(date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                  ))}
+                  {schedulePreview.length > 6 ? (
+                    <span className="text-xs text-gray-500">
+                      +{schedulePreview.length - 6} more months
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               Update Debt
             </Button>
           </form>

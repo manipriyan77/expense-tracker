@@ -3,7 +3,11 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { useNetWorthStore, type Asset, type Liability } from "@/store/net-worth-store";
+import {
+  useNetWorthStore,
+  type Asset,
+  type Liability,
+} from "@/store/net-worth-store";
 import {
   Card,
   CardContent,
@@ -50,27 +54,37 @@ import {
   Edit,
   MoreVertical,
 } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+} from "recharts";
 import { formatCurrency } from "@/lib/utils/currency";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatsSkeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
 
 export default function NetWorthPage() {
-  const { 
-    assets, 
-    liabilities, 
-    snapshots, 
-    loading, 
-    fetchAssets, 
-    fetchLiabilities, 
+  const {
+    assets,
+    liabilities,
+    snapshots,
+    loading,
+    fetchAssets,
+    fetchLiabilities,
     fetchSnapshots,
     addAsset,
     addLiability,
     updateAsset,
     updateLiability,
     deleteAsset,
-    deleteLiability
+    deleteLiability,
   } = useNetWorthStore();
 
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
@@ -78,7 +92,9 @@ export default function NetWorthPage() {
   const [isAddLiabilityOpen, setIsAddLiabilityOpen] = useState(false);
   const [isEditLiabilityOpen, setIsEditLiabilityOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
-  const [selectedLiability, setSelectedLiability] = useState<Liability | null>(null);
+  const [selectedLiability, setSelectedLiability] = useState<Liability | null>(
+    null
+  );
 
   // Form states for adding assets/liabilities
   const [assetForm, setAssetForm] = useState<{
@@ -91,7 +107,7 @@ export default function NetWorthPage() {
     name: "",
     type: "cash",
     value: "",
-    currency: "USD",
+    currency: "INR",
     notes: "",
   });
 
@@ -111,7 +127,7 @@ export default function NetWorthPage() {
     interest_rate: "",
     minimum_payment: "",
     due_date: "",
-    currency: "USD",
+    currency: "INR",
     notes: "",
   });
 
@@ -123,7 +139,10 @@ export default function NetWorthPage() {
   }, []);
 
   const totalAssets = assets.reduce((sum, asset) => sum + asset.value, 0);
-  const totalLiabilities = liabilities.reduce((sum, liability) => sum + liability.balance, 0);
+  const totalLiabilities = liabilities.reduce(
+    (sum, liability) => sum + liability.balance,
+    0
+  );
   const netWorth = totalAssets - totalLiabilities;
 
   // Format snapshots for the chart
@@ -149,7 +168,13 @@ export default function NetWorthPage() {
       });
       toast.success("Asset added successfully!");
       setIsAddAssetOpen(false);
-      setAssetForm({ name: "", type: "cash", value: "", currency: "USD", notes: "" });
+      setAssetForm({
+        name: "",
+        type: "cash",
+        value: "",
+        currency: "INR",
+        notes: "",
+      });
     } catch (error) {
       toast.error("Failed to add asset");
     }
@@ -192,23 +217,27 @@ export default function NetWorthPage() {
         name: liabilityForm.name,
         type: liabilityForm.type,
         balance: parseFloat(liabilityForm.balance),
-        interest_rate: liabilityForm.interest_rate ? parseFloat(liabilityForm.interest_rate) : undefined,
-        minimum_payment: liabilityForm.minimum_payment ? parseFloat(liabilityForm.minimum_payment) : undefined,
+        interest_rate: liabilityForm.interest_rate
+          ? parseFloat(liabilityForm.interest_rate)
+          : undefined,
+        minimum_payment: liabilityForm.minimum_payment
+          ? parseFloat(liabilityForm.minimum_payment)
+          : undefined,
         due_date: liabilityForm.due_date || undefined,
         currency: liabilityForm.currency,
         notes: liabilityForm.notes,
       });
       toast.success("Liability added successfully!");
       setIsAddLiabilityOpen(false);
-      setLiabilityForm({ 
-        name: "", 
-        type: "credit_card", 
-        balance: "", 
-        interest_rate: "", 
+      setLiabilityForm({
+        name: "",
+        type: "credit_card",
+        balance: "",
+        interest_rate: "",
         minimum_payment: "",
         due_date: "",
-        currency: "USD", 
-        notes: "" 
+        currency: "INR",
+        notes: "",
       });
     } catch (error) {
       toast.error("Failed to add liability");
@@ -223,8 +252,12 @@ export default function NetWorthPage() {
         name: liabilityForm.name,
         type: liabilityForm.type,
         balance: parseFloat(liabilityForm.balance),
-        interest_rate: liabilityForm.interest_rate ? parseFloat(liabilityForm.interest_rate) : undefined,
-        minimum_payment: liabilityForm.minimum_payment ? parseFloat(liabilityForm.minimum_payment) : undefined,
+        interest_rate: liabilityForm.interest_rate
+          ? parseFloat(liabilityForm.interest_rate)
+          : undefined,
+        minimum_payment: liabilityForm.minimum_payment
+          ? parseFloat(liabilityForm.minimum_payment)
+          : undefined,
         due_date: liabilityForm.due_date || undefined,
         notes: liabilityForm.notes,
       });
@@ -253,17 +286,23 @@ export default function NetWorthPage() {
 
   const getAssetIcon = (type: string) => {
     switch (type) {
-      case "property": return <Home className="h-5 w-5" />;
-      case "vehicle": return <Car className="h-5 w-5" />;
-      case "investment": return <Briefcase className="h-5 w-5" />;
-      default: return <DollarSign className="h-5 w-5" />;
+      case "property":
+        return <Home className="h-5 w-5" />;
+      case "vehicle":
+        return <Car className="h-5 w-5" />;
+      case "investment":
+        return <Briefcase className="h-5 w-5" />;
+      default:
+        return <DollarSign className="h-5 w-5" />;
     }
   };
 
   const getLiabilityIcon = (type: string) => {
     switch (type) {
-      case "credit_card": return <CreditCard className="h-5 w-5" />;
-      default: return <DollarSign className="h-5 w-5" />;
+      case "credit_card":
+        return <CreditCard className="h-5 w-5" />;
+      default:
+        return <DollarSign className="h-5 w-5" />;
     }
   };
 
@@ -280,7 +319,9 @@ export default function NetWorthPage() {
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">Net Worth Tracking</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Net Worth Tracking
+            </h1>
           </div>
         </div>
       </header>
@@ -290,7 +331,9 @@ export default function NetWorthPage() {
         <div className="grid gap-4 md:grid-cols-3 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Assets
+              </CardTitle>
               <ArrowUpCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
@@ -305,7 +348,9 @@ export default function NetWorthPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Liabilities</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Liabilities
+              </CardTitle>
               <ArrowDownCircle className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
@@ -338,27 +383,39 @@ export default function NetWorthPage() {
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Net Worth Trend</CardTitle>
-            <CardDescription>Your net worth over the past 6 months</CardDescription>
+            <CardDescription>
+              Your net worth over the past 6 months
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={historicalData}>
                 <defs>
-                  <linearGradient id="colorNetWorth" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  <linearGradient
+                    id="colorNetWorth"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={(value) => `$${value / 1000}k`} />
-                <Tooltip formatter={(value: number | undefined) => value !== undefined ? formatCurrency(value) : '$0.00'} />
-                <Area 
-                  type="monotone" 
-                  dataKey="netWorth" 
-                  stroke="#3b82f6" 
-                  fillOpacity={1} 
-                  fill="url(#colorNetWorth)" 
+                <Tooltip
+                  formatter={(value: number | undefined) =>
+                    value !== undefined ? formatCurrency(value) : "$0.00"
+                  }
+                />
+                <Area
+                  type="monotone"
+                  dataKey="netWorth"
+                  stroke="#3b82f6"
+                  fillOpacity={1}
+                  fill="url(#colorNetWorth)"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -393,19 +450,23 @@ export default function NetWorthPage() {
                   <form onSubmit={handleAddAsset} className="space-y-4 py-4">
                     <div className="space-y-2">
                       <Label htmlFor="assetName">Asset Name</Label>
-                      <Input 
-                        id="assetName" 
-                        placeholder="e.g., Savings Account" 
+                      <Input
+                        id="assetName"
+                        placeholder="e.g., Savings Account"
                         value={assetForm.name}
-                        onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })}
+                        onChange={(e) =>
+                          setAssetForm({ ...assetForm, name: e.target.value })
+                        }
                         required
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="assetType">Type</Label>
-                      <Select 
-                        value={assetForm.type} 
-                        onValueChange={(value: any) => setAssetForm({ ...assetForm, type: value })}
+                      <Select
+                        value={assetForm.type}
+                        onValueChange={(value: any) =>
+                          setAssetForm({ ...assetForm, type: value })
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select type" />
@@ -422,18 +483,22 @@ export default function NetWorthPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="assetValue">Current Value</Label>
-                      <Input 
-                        id="assetValue" 
-                        type="number" 
-                        placeholder="0.00" 
+                      <Input
+                        id="assetValue"
+                        type="number"
+                        placeholder="0.00"
                         step="0.01"
                         value={assetForm.value}
-                        onChange={(e) => setAssetForm({ ...assetForm, value: e.target.value })}
+                        onChange={(e) =>
+                          setAssetForm({ ...assetForm, value: e.target.value })
+                        }
                         required
                       />
                     </div>
                     <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
                       Add Asset
                     </Button>
                   </form>
@@ -443,7 +508,10 @@ export default function NetWorthPage() {
 
             <div className="grid gap-4 md:grid-cols-2">
               {assets.map((asset) => (
-                <Card key={asset.id} className="hover:shadow-md transition-shadow">
+                <Card
+                  key={asset.id}
+                  className="hover:shadow-md transition-shadow"
+                >
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
@@ -452,7 +520,9 @@ export default function NetWorthPage() {
                         </div>
                         <div>
                           <h4 className="font-semibold">{asset.name}</h4>
-                          <p className="text-sm text-gray-500 capitalize">{asset.type}</p>
+                          <p className="text-sm text-gray-500 capitalize">
+                            {asset.type}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -468,16 +538,24 @@ export default function NetWorthPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditAssetDialog(asset)}>
+                            <DropdownMenuItem
+                              onClick={() => openEditAssetDialog(asset)}
+                            >
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={async () => {
-                                if (confirm(`Are you sure you want to delete ${asset.name}?`)) {
+                                if (
+                                  confirm(
+                                    `Are you sure you want to delete ${asset.name}?`
+                                  )
+                                ) {
                                   try {
                                     await deleteAsset(asset.id);
-                                    toast.success("Asset deleted successfully!");
+                                    toast.success(
+                                      "Asset deleted successfully!"
+                                    );
                                   } catch (error) {
                                     toast.error("Failed to delete asset");
                                   }
@@ -501,7 +579,10 @@ export default function NetWorthPage() {
           <TabsContent value="liabilities" className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold">Your Liabilities</h3>
-              <Dialog open={isAddLiabilityOpen} onOpenChange={setIsAddLiabilityOpen}>
+              <Dialog
+                open={isAddLiabilityOpen}
+                onOpenChange={setIsAddLiabilityOpen}
+              >
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
@@ -515,28 +596,40 @@ export default function NetWorthPage() {
                       Add a new debt or liability to track
                     </DialogDescription>
                   </DialogHeader>
-                  <form onSubmit={handleAddLiability} className="space-y-4 py-4">
+                  <form
+                    onSubmit={handleAddLiability}
+                    className="space-y-4 py-4"
+                  >
                     <div className="space-y-2">
                       <Label htmlFor="liabilityName">Liability Name</Label>
-                      <Input 
-                        id="liabilityName" 
-                        placeholder="e.g., Car Loan" 
+                      <Input
+                        id="liabilityName"
+                        placeholder="e.g., Car Loan"
                         value={liabilityForm.name}
-                        onChange={(e) => setLiabilityForm({ ...liabilityForm, name: e.target.value })}
+                        onChange={(e) =>
+                          setLiabilityForm({
+                            ...liabilityForm,
+                            name: e.target.value,
+                          })
+                        }
                         required
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="liabilityType">Type</Label>
-                      <Select 
-                        value={liabilityForm.type} 
-                        onValueChange={(value: any) => setLiabilityForm({ ...liabilityForm, type: value })}
+                      <Select
+                        value={liabilityForm.type}
+                        onValueChange={(value: any) =>
+                          setLiabilityForm({ ...liabilityForm, type: value })
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="credit_card">Credit Card</SelectItem>
+                          <SelectItem value="credit_card">
+                            Credit Card
+                          </SelectItem>
                           <SelectItem value="loan">Personal Loan</SelectItem>
                           <SelectItem value="mortgage">Mortgage</SelectItem>
                           <SelectItem value="other">Other</SelectItem>
@@ -545,29 +638,43 @@ export default function NetWorthPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="liabilityBalance">Current Balance</Label>
-                      <Input 
-                        id="liabilityBalance" 
-                        type="number" 
-                        placeholder="0.00" 
+                      <Input
+                        id="liabilityBalance"
+                        type="number"
+                        placeholder="0.00"
                         step="0.01"
                         value={liabilityForm.balance}
-                        onChange={(e) => setLiabilityForm({ ...liabilityForm, balance: e.target.value })}
+                        onChange={(e) =>
+                          setLiabilityForm({
+                            ...liabilityForm,
+                            balance: e.target.value,
+                          })
+                        }
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="interestRate">Interest Rate (%) - Optional</Label>
-                      <Input 
-                        id="interestRate" 
-                        type="number" 
-                        placeholder="0.0" 
-                        step="0.1" 
+                      <Label htmlFor="interestRate">
+                        Interest Rate (%) - Optional
+                      </Label>
+                      <Input
+                        id="interestRate"
+                        type="number"
+                        placeholder="0.0"
+                        step="0.1"
                         value={liabilityForm.interest_rate}
-                        onChange={(e) => setLiabilityForm({ ...liabilityForm, interest_rate: e.target.value })}
+                        onChange={(e) =>
+                          setLiabilityForm({
+                            ...liabilityForm,
+                            interest_rate: e.target.value,
+                          })
+                        }
                       />
                     </div>
                     <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
                       Add Liability
                     </Button>
                   </form>
@@ -577,7 +684,10 @@ export default function NetWorthPage() {
 
             <div className="grid gap-4 md:grid-cols-2">
               {liabilities.map((liability) => (
-                <Card key={liability.id} className="hover:shadow-md transition-shadow border-red-100">
+                <Card
+                  key={liability.id}
+                  className="hover:shadow-md transition-shadow border-red-100"
+                >
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
@@ -588,7 +698,8 @@ export default function NetWorthPage() {
                           <h4 className="font-semibold">{liability.name}</h4>
                           <p className="text-sm text-gray-500 capitalize">
                             {liability.type.replace("_", " ")}
-                            {liability.interest_rate && ` • ${liability.interest_rate}% APR`}
+                            {liability.interest_rate &&
+                              ` • ${liability.interest_rate}% APR`}
                           </p>
                         </div>
                       </div>
@@ -605,16 +716,24 @@ export default function NetWorthPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditLiabilityDialog(liability)}>
+                            <DropdownMenuItem
+                              onClick={() => openEditLiabilityDialog(liability)}
+                            >
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={async () => {
-                                if (confirm(`Are you sure you want to delete ${liability.name}?`)) {
+                                if (
+                                  confirm(
+                                    `Are you sure you want to delete ${liability.name}?`
+                                  )
+                                ) {
                                   try {
                                     await deleteLiability(liability.id);
-                                    toast.success("Liability deleted successfully!");
+                                    toast.success(
+                                      "Liability deleted successfully!"
+                                    );
                                   } catch (error) {
                                     toast.error("Failed to delete liability");
                                   }
@@ -639,14 +758,18 @@ export default function NetWorthPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Asset & Liability Breakdown</CardTitle>
-                <CardDescription>Detailed view of your financial position</CardDescription>
+                <CardDescription>
+                  Detailed view of your financial position
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   <div>
                     <div className="flex justify-between mb-2">
                       <h4 className="font-semibold text-green-600">Assets</h4>
-                      <span className="font-semibold text-green-600">{formatCurrency(totalAssets)}</span>
+                      <span className="font-semibold text-green-600">
+                        {formatCurrency(totalAssets)}
+                      </span>
                     </div>
                     {assets.map((asset) => {
                       const percentage = (asset.value / totalAssets) * 100;
@@ -654,7 +777,9 @@ export default function NetWorthPage() {
                         <div key={asset.id} className="mb-3">
                           <div className="flex justify-between text-sm mb-1">
                             <span>{asset.name}</span>
-                            <span className="text-gray-600">{percentage.toFixed(1)}%</span>
+                            <span className="text-gray-600">
+                              {percentage.toFixed(1)}%
+                            </span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
@@ -669,16 +794,23 @@ export default function NetWorthPage() {
 
                   <div className="pt-4 border-t">
                     <div className="flex justify-between mb-2">
-                      <h4 className="font-semibold text-red-600">Liabilities</h4>
-                      <span className="font-semibold text-red-600">{formatCurrency(totalLiabilities)}</span>
+                      <h4 className="font-semibold text-red-600">
+                        Liabilities
+                      </h4>
+                      <span className="font-semibold text-red-600">
+                        {formatCurrency(totalLiabilities)}
+                      </span>
                     </div>
                     {liabilities.map((liability) => {
-                      const percentage = (liability.balance / totalLiabilities) * 100;
+                      const percentage =
+                        (liability.balance / totalLiabilities) * 100;
                       return (
                         <div key={liability.id} className="mb-3">
                           <div className="flex justify-between text-sm mb-1">
                             <span>{liability.name}</span>
-                            <span className="text-gray-600">{percentage.toFixed(1)}%</span>
+                            <span className="text-gray-600">
+                              {percentage.toFixed(1)}%
+                            </span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
@@ -702,26 +834,28 @@ export default function NetWorthPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Asset</DialogTitle>
-            <DialogDescription>
-              Update asset information
-            </DialogDescription>
+            <DialogDescription>Update asset information</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditAsset} className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="editAssetName">Asset Name</Label>
-              <Input 
-                id="editAssetName" 
-                placeholder="e.g., Savings Account" 
+              <Input
+                id="editAssetName"
+                placeholder="e.g., Savings Account"
                 value={assetForm.name}
-                onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })}
+                onChange={(e) =>
+                  setAssetForm({ ...assetForm, name: e.target.value })
+                }
                 required
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="editAssetType">Type</Label>
-              <Select 
-                value={assetForm.type} 
-                onValueChange={(value: any) => setAssetForm({ ...assetForm, type: value })}
+              <Select
+                value={assetForm.type}
+                onValueChange={(value: any) =>
+                  setAssetForm({ ...assetForm, type: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
@@ -738,18 +872,22 @@ export default function NetWorthPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="editAssetValue">Current Value</Label>
-              <Input 
-                id="editAssetValue" 
-                type="number" 
-                placeholder="0.00" 
+              <Input
+                id="editAssetValue"
+                type="number"
+                placeholder="0.00"
                 step="0.01"
                 value={assetForm.value}
-                onChange={(e) => setAssetForm({ ...assetForm, value: e.target.value })}
+                onChange={(e) =>
+                  setAssetForm({ ...assetForm, value: e.target.value })
+                }
                 required
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               Update Asset
             </Button>
           </form>
@@ -761,26 +899,28 @@ export default function NetWorthPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Liability</DialogTitle>
-            <DialogDescription>
-              Update liability information
-            </DialogDescription>
+            <DialogDescription>Update liability information</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditLiability} className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="editLiabilityName">Liability Name</Label>
-              <Input 
-                id="editLiabilityName" 
-                placeholder="e.g., Car Loan" 
+              <Input
+                id="editLiabilityName"
+                placeholder="e.g., Car Loan"
                 value={liabilityForm.name}
-                onChange={(e) => setLiabilityForm({ ...liabilityForm, name: e.target.value })}
+                onChange={(e) =>
+                  setLiabilityForm({ ...liabilityForm, name: e.target.value })
+                }
                 required
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="editLiabilityType">Type</Label>
-              <Select 
-                value={liabilityForm.type} 
-                onValueChange={(value: any) => setLiabilityForm({ ...liabilityForm, type: value })}
+              <Select
+                value={liabilityForm.type}
+                onValueChange={(value: any) =>
+                  setLiabilityForm({ ...liabilityForm, type: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
@@ -795,29 +935,43 @@ export default function NetWorthPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="editLiabilityBalance">Current Balance</Label>
-              <Input 
-                id="editLiabilityBalance" 
-                type="number" 
-                placeholder="0.00" 
+              <Input
+                id="editLiabilityBalance"
+                type="number"
+                placeholder="0.00"
                 step="0.01"
                 value={liabilityForm.balance}
-                onChange={(e) => setLiabilityForm({ ...liabilityForm, balance: e.target.value })}
+                onChange={(e) =>
+                  setLiabilityForm({
+                    ...liabilityForm,
+                    balance: e.target.value,
+                  })
+                }
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="editInterestRate">Interest Rate (%) - Optional</Label>
-              <Input 
-                id="editInterestRate" 
-                type="number" 
-                placeholder="0.0" 
-                step="0.1" 
+              <Label htmlFor="editInterestRate">
+                Interest Rate (%) - Optional
+              </Label>
+              <Input
+                id="editInterestRate"
+                type="number"
+                placeholder="0.0"
+                step="0.1"
                 value={liabilityForm.interest_rate}
-                onChange={(e) => setLiabilityForm({ ...liabilityForm, interest_rate: e.target.value })}
+                onChange={(e) =>
+                  setLiabilityForm({
+                    ...liabilityForm,
+                    interest_rate: e.target.value,
+                  })
+                }
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               Update Liability
             </Button>
           </form>

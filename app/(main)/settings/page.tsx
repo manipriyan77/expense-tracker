@@ -34,7 +34,7 @@ import {
 export default function SettingsPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
-  const [baseCurrency, setBaseCurrency] = useState("USD");
+  const [baseCurrency, setBaseCurrency] = useState("INR");
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -92,9 +92,7 @@ export default function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Data Management</CardTitle>
-                <CardDescription>
-                  Export or delete your data
-                </CardDescription>
+                <CardDescription>Export or delete your data</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -142,9 +140,7 @@ export default function SettingsPage() {
                     <Moon className="h-5 w-5 text-gray-600" />
                     <div>
                       <p className="font-medium">Dark Mode</p>
-                      <p className="text-sm text-gray-500">
-                        Enable dark theme
-                      </p>
+                      <p className="text-sm text-gray-500">Enable dark theme</p>
                     </div>
                   </div>
                   <Switch checked={darkMode} onCheckedChange={setDarkMode} />
@@ -183,12 +179,14 @@ export default function SettingsPage() {
                       <SelectValue placeholder="Select currency" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="USD">USD - US Dollar</SelectItem>
+                      <SelectItem value="INR">INR - US Dollar</SelectItem>
                       <SelectItem value="EUR">EUR - Euro</SelectItem>
                       <SelectItem value="GBP">GBP - British Pound</SelectItem>
                       <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
                       <SelectItem value="INR">INR - Indian Rupee</SelectItem>
-                      <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
+                      <SelectItem value="AUD">
+                        AUD - Australian Dollar
+                      </SelectItem>
                       <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
                     </SelectContent>
                   </Select>
@@ -222,22 +220,26 @@ export default function SettingsPage() {
                   <Button>Add</Button>
                 </div>
                 <div className="space-y-2">
-                  {["Food", "Transportation", "Entertainment", "Bills", "Shopping"].map(
-                    (category) => (
-                      <div
-                        key={category}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-3 h-3 rounded-full bg-blue-600" />
-                          <span>{category}</span>
-                        </div>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
+                  {[
+                    "Food",
+                    "Transportation",
+                    "Entertainment",
+                    "Bills",
+                    "Shopping",
+                  ].map((category) => (
+                    <div
+                      key={category}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-3 h-3 rounded-full bg-blue-600" />
+                        <span>{category}</span>
                       </div>
-                    )
-                  )}
+                      <Button variant="ghost" size="sm">
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -335,9 +337,7 @@ export default function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Security Settings</CardTitle>
-                <CardDescription>
-                  Manage your account security
-                </CardDescription>
+                <CardDescription>Manage your account security</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">

@@ -8,8 +8,8 @@ export interface CurrencyPreferences {
 }
 
 export const CURRENCY_CONFIGS: Record<string, CurrencyPreferences> = {
-  USD: {
-    code: "USD",
+  INR: {
+    code: "INR",
     symbol: "$",
     format: "symbol",
     decimalPlaces: 2,
@@ -71,7 +71,7 @@ export function formatCurrency(
   preferences?: Partial<CurrencyPreferences>
 ): string {
   const config = {
-    ...CURRENCY_CONFIGS.USD,
+    ...CURRENCY_CONFIGS.INR,
     ...preferences,
   };
 
@@ -92,8 +92,12 @@ export function formatCurrency(
       : integerPart;
 
   if (config.format === "code") {
+    console.log("formattedNumber", `${sign}${config.code} ${formattedNumber}`);
+
     return `${sign}${config.code} ${formattedNumber}`;
   } else {
+    console.log("formattedNumber", `${sign}${config.code} `);
+
     return `${sign}${config.symbol}${formattedNumber}`;
   }
 }
@@ -109,13 +113,12 @@ export function formatCompactCurrency(
   preferences?: Partial<CurrencyPreferences>
 ): string {
   const config = {
-    ...CURRENCY_CONFIGS.USD,
+    ...CURRENCY_CONFIGS.INR,
     ...preferences,
   };
 
   const absAmount = Math.abs(amount);
   const sign = amount < 0 ? "-" : "";
-
   let formattedNumber: string;
   if (absAmount >= 1000000) {
     formattedNumber = (absAmount / 1000000).toFixed(1) + "M";

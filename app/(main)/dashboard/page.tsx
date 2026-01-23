@@ -19,7 +19,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   DollarSign,
   TrendingUp,
@@ -49,10 +54,10 @@ import { useKeyboardShortcuts } from "@/lib/hooks/useKeyboardShortcuts";
 import { formatCurrency } from "@/lib/utils/currency";
 import { StatsSkeleton } from "@/components/ui/skeleton";
 
-
 export default function Dashboard() {
   const router = useRouter();
-  const { transactions, loading, error, fetchTransactions } = useTransactionsStore();
+  const { transactions, loading, error, fetchTransactions } =
+    useTransactionsStore();
   const { goals, fetchGoals } = useGoalsStore();
   const { budgets, fetchBudgets } = useBudgetsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -135,7 +140,6 @@ export default function Dashboard() {
     .reduce((sum, t) => sum + t.amount, 0);
 
   const balance = totalIncome - totalExpenses;
-
   const activeGoals = goals.filter((g) => g.status === "active").length;
   const activeBudgets = budgets.length;
 
@@ -148,12 +152,18 @@ export default function Dashboard() {
             <div className="flex justify-between items-center py-4">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-                <p className="text-sm text-gray-500">Welcome back! Here's your financial overview</p>
+                <p className="text-sm text-gray-500">
+                  Welcome back! Here's your financial overview
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={() => setShowShortcuts(true)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowShortcuts(true)}
+                    >
                       <span className="text-lg">?</span>
                     </Button>
                   </TooltipTrigger>
@@ -164,7 +174,9 @@ export default function Dashboard() {
                   <UserIcon className="h-5 w-5 text-gray-500" />
                   <div className="text-sm text-gray-700">
                     <div>Welcome, User</div>
-                    <div className="text-xs text-gray-500">user@example.com</div>
+                    <div className="text-xs text-gray-500">
+                      user@example.com
+                    </div>
                   </div>
                 </div>
               </div>
@@ -185,7 +197,11 @@ export default function Dashboard() {
                     <DollarSign className="h-4 w-4 text-blue-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className={`text-2xl font-bold ${balance >= 0 ? "text-blue-600" : "text-red-600"}`}>
+                    <div
+                      className={`text-2xl font-bold ${
+                        balance >= 0 ? "text-blue-600" : "text-red-600"
+                      }`}
+                    >
                       {formatCurrency(balance)}
                     </div>
                     <p className="text-xs text-gray-500">Income - Expenses</p>
@@ -217,7 +233,9 @@ export default function Dashboard() {
                   </Link>
                 </Card>
               </TooltipTrigger>
-              <TooltipContent>Click to view all income transactions</TooltipContent>
+              <TooltipContent>
+                Click to view all income transactions
+              </TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -242,7 +260,9 @@ export default function Dashboard() {
                   </Link>
                 </Card>
               </TooltipTrigger>
-              <TooltipContent>Click to view all expense transactions</TooltipContent>
+              <TooltipContent>
+                Click to view all expense transactions
+              </TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -285,7 +305,9 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <h4 className="font-semibold">Goals</h4>
-                      <p className="text-sm text-gray-500">{activeGoals} active</p>
+                      <p className="text-sm text-gray-500">
+                        {activeGoals} active
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -299,7 +321,9 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <h4 className="font-semibold">Budgets</h4>
-                      <p className="text-sm text-gray-500">{activeBudgets} set</p>
+                      <p className="text-sm text-gray-500">
+                        {activeBudgets} set
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -345,7 +369,10 @@ export default function Dashboard() {
         <QuickAddButton />
 
         {/* Keyboard Shortcuts Dialog */}
-        <KeyboardShortcutsDialog open={showShortcuts} onOpenChange={setShowShortcuts} />
+        <KeyboardShortcutsDialog
+          open={showShortcuts}
+          onOpenChange={setShowShortcuts}
+        />
 
         {/* Add Transaction Dialog */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -353,7 +380,8 @@ export default function Dashboard() {
             <DialogHeader>
               <DialogTitle>Add New Transaction</DialogTitle>
               <DialogDescription>
-                Record your income or expense transaction with detailed categorization.
+                Record your income or expense transaction with detailed
+                categorization.
               </DialogDescription>
             </DialogHeader>
             {isAddDialogOpen && (
