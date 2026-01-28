@@ -15,7 +15,18 @@ export async function PUT(
 
     const params = await context.params;
     const body = await request.json();
-    const { name, symbol, investedAmount, currentValue, units, nav, purchaseDate, category } = body;
+    const {
+      name,
+      symbol,
+      investedAmount,
+      currentValue,
+      units,
+      nav,
+      purchaseNav,
+      purchaseDate,
+      category,
+      subCategory,
+    } = body;
 
     const { data, error } = await supabase
       .from("mutual_funds")
@@ -26,6 +37,8 @@ export async function PUT(
         current_value: currentValue,
         units,
         nav,
+        purchase_nav: purchaseNav,
+        sub_category: subCategory,
         purchase_date: purchaseDate,
         category,
       })

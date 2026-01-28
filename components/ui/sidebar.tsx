@@ -22,6 +22,10 @@ import {
   Settings,
   ArrowLeftRight,
   TrendingUp,
+  Gem,
+  PiggyBank,
+  Landmark,
+  PieChart as PieChartIcon,
 } from "lucide-react";
 import { Button } from "./button";
 
@@ -90,9 +94,14 @@ const sidebarItems: SidebarItem[] = [
     icon: CreditCard,
   },
   {
-    title: "Investments",
+    title: "Assets",
     icon: BarChart3,
     subItems: [
+      {
+        title: "Asset Allocation",
+        href: "/assets",
+        icon: PieChartIcon,
+      },
       {
         title: "Mutual Funds",
         href: "/mutual-funds",
@@ -103,12 +112,22 @@ const sidebarItems: SidebarItem[] = [
         href: "/stocks",
         icon: BarChart3,
       },
+      {
+        title: "Gold",
+        href: "/gold",
+        icon: Gem,
+      },
+      {
+        title: "Fixed Deposits",
+        href: "/fixed-deposits",
+        icon: Landmark,
+      },
+      {
+        title: "Provident Fund",
+        href: "/provident-fund",
+        icon: PiggyBank,
+      },
     ],
-  },
-  {
-    title: "Reminders",
-    href: "/reminders",
-    icon: Bell,
   },
   {
     title: "Reports",

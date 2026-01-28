@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useMemo, useState } from "react";
+import { useForm, type DefaultValues, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +32,76 @@ import {
 } from "lucide-react";
 import { useStocksStore, type Stock } from "@/store/stocks-store";
 import { stockFormSchema, StockFormData } from "@/lib/schemas/stock-form-schema";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const SECTOR_OPTIONS: StockFormData["sector"][] = [
+  "consumer_discretionary",
+  "communication_services",
+  "consumer_staples",
+  "energy",
+  "financials",
+  "health_care",
+  "industrials",
+  "information_technology",
+  "materials",
+  "real_estate",
+  "utilities",
+  "etf",
+  "other",
+];
+
+const CONSUMER_DISCRETIONARY_SUBSECTORS: StockFormData["subSector"][] = [
+  "auto_parts",
+  "tires_rubber",
+  "four_wheelers",
+  "three_wheelers",
+  "two_wheelers",
+  "cycles",
+  "education_services",
+  "wellness_services",
+  "hotels_resorts_cruise",
+  "restaurants_cafes",
+  "theme_parks_gaming",
+  "tour_travel_services",
+  "home_electronics_appliances",
+  "home_furnishing",
+  "housewares",
+  "retail_apparel",
+  "retail_department_stores",
+  "retail_online",
+  "retail_speciality",
+  "apparel_accessories",
+  "footwear",
+  "precious_metals_jewellery",
+  "textiles",
+];
+
+const formatLabel = (value: string) =>
+  value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+const defaultValues: DefaultValues<StockFormData> = {
+  name: "",
+  symbol: "",
+  stockType: "large_cap",
+  shares: 0,
+  avgPurchasePrice: 0,
+  currentPrice: 0,
+  investedAmount: 0,
+  currentValue: 0,
+  purchaseDate: "",
+  sector: "consumer_discretionary",
+  subSector: "auto_parts",
+};
 
 export default function StocksPage() {
   const { stocks, loading, error, fetchStocks, addStock, updateStock, deleteStock } =
@@ -45,25 +115,32 @@ export default function StocksPage() {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<StockFormData>({
-    resolver: zodResolver(stockFormSchema),
-    defaultValues: {
-      name: "",
-      symbol: "",
-      shares: 0,
-      avgPurchasePrice: 0,
-      currentPrice: 0,
-      investedAmount: 0,
-      currentValue: 0,
-      purchaseDate: "",
-      sector: "General",
-    },
+    resolver: zodResolver(stockFormSchema) as Resolver<StockFormData>,
+    defaultValues,
   });
 
   const shares = watch("shares");
   const avgPurchasePrice = watch("avgPurchasePrice");
   const currentPrice = watch("currentPrice");
+  const sector = watch("sector");
+  const subSector = watch("subSector");
+  const purchaseDate = watch("purchaseDate");
+
+  const parsedPurchaseDate = purchaseDate ? new Date(purchaseDate) : undefined;
+
+  const subSectorOptions = useMemo<StockFormData["subSector"][]>(() => {
+    if (sector === "consumer_discretionary") return CONSUMER_DISCRETIONARY_SUBSECTORS;
+    return ["other"] as StockFormData["subSector"][];
+  }, [sector]);
+
+  useEffect(() => {
+    if (!subSectorOptions.includes(subSector as StockFormData["subSector"])) {
+      setValue("subSector", subSectorOptions[0] as StockFormData["subSector"]);
+    }
+  }, [subSectorOptions, subSector, setValue]);
 
   useEffect(() => {
     fetchStocks();
@@ -77,13 +154,15 @@ export default function StocksPage() {
     const newStock = {
       name: data.name,
       symbol: data.symbol,
+      stockType: data.stockType,
       shares: data.shares,
       avgPurchasePrice: data.avgPurchasePrice,
       currentPrice: data.currentPrice,
       investedAmount,
       currentValue,
       purchaseDate: data.purchaseDate || new Date().toISOString().split("T")[0],
-      sector: data.sector || "General",
+      sector: data.sector || "consumer_discretionary",
+      subSector: data.subSector || subSectorOptions[0],
     };
 
     if (editingStock) {
@@ -149,7 +228,11 @@ export default function StocksPage() {
                 <Button
                   onClick={() => {
                     setEditingStock(null);
-                    reset();
+                    reset({
+                      stockType: "large_cap",
+                      sector: "consumer_discretionary",
+                      subSector: "auto_parts",
+                    });
                   }}
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -247,27 +330,95 @@ export default function StocksPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="purchaseDate">Purchase Date</Label>
-                      <Input
-                        id="purchaseDate"
-                        type="date"
-                        {...register("purchaseDate")}
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !parsedPurchaseDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {parsedPurchaseDate
+                              ? parsedPurchaseDate.toLocaleDateString()
+                              : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={parsedPurchaseDate}
+                            onSelect={(date) =>
+                              setValue(
+                                "purchaseDate",
+                                date ? date.toISOString().split("T")[0] : "",
+                                { shouldDirty: true, shouldTouch: true }
+                              )
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                       {errors.purchaseDate && (
                         <p className="text-sm text-red-600">{errors.purchaseDate.message}</p>
                       )}
                     </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="sector">Sector</Label>
-                      <Input
-                        id="sector"
-                        placeholder="e.g., Technology"
-                        {...register("sector")}
-                      />
+                      <Select
+                        value={sector}
+                        onValueChange={(val) =>
+                          setValue("sector", val as StockFormData["sector"], {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select sector" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SECTOR_OPTIONS.map((opt) => (
+                            <SelectItem key={opt} value={opt}>
+                              {formatLabel(opt)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       {errors.sector && (
                         <p className="text-sm text-red-600">{errors.sector.message}</p>
                       )}
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="subSector">Sub Sector</Label>
+                      <Select
+                        value={subSector}
+                        onValueChange={(val) =>
+                          setValue("subSector", val as StockFormData["subSector"], {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select sub sector" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {subSectorOptions.map((opt) => (
+                            <SelectItem key={opt} value={opt}>
+                              {formatLabel(opt)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.subSector && (
+                        <p className="text-sm text-red-600">{errors.subSector.message}</p>
+                      )}
+                    </div>
+                  </div>
                   </div>
 
                   <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -380,7 +531,8 @@ export default function StocksPage() {
                         <div>
                           <h3 className="text-lg font-semibold">{stock.name}</h3>
                           <p className="text-sm text-gray-500">
-                            {stock.symbol} • {stock.sector}
+                            {stock.symbol} • {formatLabel(stock.sector)} •{" "}
+                            {formatLabel(stock.subSector || "other")} • {formatLabel(stock.stockType)}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
@@ -392,13 +544,16 @@ export default function StocksPage() {
                               reset({
                                 name: stock.name,
                                 symbol: stock.symbol,
+                              stockType: stock.stockType ?? "other",
                                 shares: stock.shares,
                                 avgPurchasePrice: stock.avgPurchasePrice,
                                 currentPrice: stock.currentPrice,
                                 investedAmount: stock.investedAmount,
                                 currentValue: stock.currentValue,
                                 purchaseDate: stock.purchaseDate,
-                                sector: stock.sector,
+                                sector: (stock.sector as StockFormData["sector"]) ?? "consumer_discretionary",
+                                subSector:
+                                  (stock.subSector as StockFormData["subSector"]) ?? "auto_parts",
                               });
                               setIsDialogOpen(true);
                             }}

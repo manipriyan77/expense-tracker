@@ -8,6 +8,8 @@ export interface MutualFund {
   currentValue: number;
   units: number;
   nav: number;
+  purchaseNav: number;
+  subCategory: string;
   purchaseDate: string;
   category: string;
   user_id: string;
@@ -50,6 +52,8 @@ export const useMutualFundsStore = create<MutualFundsState>((set) => ({
         currentValue: parseFloat(fund.current_value || 0),
         units: parseFloat(fund.units || 0),
         nav: parseFloat(fund.nav || 0),
+        purchaseNav: parseFloat(fund.purchase_nav || 0),
+        subCategory: fund.sub_category,
         purchaseDate: fund.purchase_date,
         category: fund.category,
         user_id: fund.user_id,
@@ -91,6 +95,8 @@ export const useMutualFundsStore = create<MutualFundsState>((set) => ({
         currentValue: parseFloat(data.current_value || 0),
         units: parseFloat(data.units || 0),
         nav: parseFloat(data.nav || 0),
+        purchaseNav: parseFloat(data.purchase_nav || 0),
+        subCategory: data.sub_category,
         purchaseDate: data.purchase_date,
         category: data.category,
         user_id: data.user_id,
@@ -135,6 +141,8 @@ export const useMutualFundsStore = create<MutualFundsState>((set) => ({
         currentValue: parseFloat(data.current_value || 0),
         units: parseFloat(data.units || 0),
         nav: parseFloat(data.nav || 0),
+        purchaseNav: parseFloat(data.purchase_nav || 0),
+        subCategory: data.sub_category,
         purchaseDate: data.purchase_date,
         category: data.category,
         user_id: data.user_id,

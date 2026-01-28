@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,78 @@ import {
 import { useMutualFundsStore, type MutualFund } from "@/store/mutual-funds-store";
 import { mutualFundFormSchema, MutualFundFormData } from "@/lib/schemas/mutual-fund-form-schema";
 
+const CATEGORY_OPTIONS: MutualFundFormData["category"][] = [
+  "equity",
+  "debt",
+  "hybrid",
+  "index",
+  "international",
+  "other",
+];
+
+const EQUITY_SUBCATEGORY_OPTIONS: MutualFundFormData["subCategory"][] = [
+  "thematic_fund",
+  "large_mid_cap",
+  "focused_fund",
+  "index_fund",
+  "flexi_cap",
+  "large_cap",
+  "contra_fund",
+  "mid_cap",
+  "small_cap",
+  "sectoral_service",
+  "value_fund",
+  "sectoral_pharma",
+  "sectoral_consumption",
+  "elss",
+  "thematic_mnc",
+  "sectoral_infrastructure",
+  "multi_cap",
+  "thematic_global",
+  "sectoral_banks",
+  "sectoral_technology",
+  "dividend_yield",
+  "sectoral_energy",
+  "sectoral_auto",
+];
+
+const DEBT_SUBCATEGORY_OPTIONS: MutualFundFormData["subCategory"][] = [
+  "floating_rate",
+  "banking_psu",
+  "fixed_maturity",
+  "ultra_short_duration",
+  "overnight",
+  "money_market",
+  "dynamic_bond",
+  "credit_risk",
+  "corporate_bond",
+  "liquid",
+  "low_duration",
+  "gilt_long_term",
+  "medium_duration",
+  "long_duration",
+  "short_duration",
+  "medium_to_long_duration",
+  "gilt_short_mid_term",
+  "debt_interval",
+  "index_debt_oriented",
+  "sectoral_infrastructure_debt",
+];
+
+const HYBRID_SUBCATEGORY_OPTIONS: MutualFundFormData["subCategory"][] = [
+  "arbitrage",
+  "multi_asset_allocation",
+  "balanced_advantage",
+  "aggressive_hybrid",
+  "dynamic_asset_allocation",
+  "equity_savings",
+  "conservative_hybrid",
+  "balanced_hybrid",
+];
+
+const formatLabel = (value: string) =>
+  value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
 export default function MutualFundsPage() {
   const {
     mutualFunds,
@@ -51,6 +123,7 @@ export default function MutualFundsPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
     watch,
     formState: { errors, isSubmitting },
   } = useForm<MutualFundFormData>({
@@ -61,14 +134,32 @@ export default function MutualFundsPage() {
       investedAmount: 0,
       units: 0,
       nav: 0,
+      purchaseNav: 0,
       currentValue: 0,
       purchaseDate: "",
-      category: "General",
+      category: "equity",
+      subCategory: "large_cap",
     },
   });
 
   const units = watch("units");
   const nav = watch("nav");
+  const purchaseNav = watch("purchaseNav");
+  const category = watch("category");
+  const subCategory = watch("subCategory");
+
+  const subCategoryOptions = useMemo(() => {
+    if (category === "equity") return EQUITY_SUBCATEGORY_OPTIONS;
+    if (category === "debt") return DEBT_SUBCATEGORY_OPTIONS;
+    if (category === "hybrid") return HYBRID_SUBCATEGORY_OPTIONS;
+    return ["other"];
+  }, [category]);
+
+  useEffect(() => {
+    if (!subCategoryOptions.includes(subCategory as any)) {
+      setValue("subCategory", subCategoryOptions[0] as MutualFundFormData["subCategory"]);
+    }
+  }, [subCategoryOptions, subCategory, setValue]);
 
   useEffect(() => {
     fetchMutualFunds();
@@ -76,17 +167,22 @@ export default function MutualFundsPage() {
   }, []);
 
   const handleAddMutualFund = async (data: MutualFundFormData) => {
+    const purchaseValue = data.units * data.purchaseNav;
+    const investedAmount =
+      data.investedAmount > 0 ? data.investedAmount : purchaseValue;
     const currentValue = data.units * data.nav;
 
     const newFund = {
       name: data.name,
       symbol: data.symbol,
-      investedAmount: data.investedAmount,
+      investedAmount,
       currentValue,
       units: data.units,
       nav: data.nav,
+      purchaseNav: data.purchaseNav,
       purchaseDate: data.purchaseDate || new Date().toISOString().split("T")[0],
-      category: data.category || "General",
+      category: data.category || "equity",
+      subCategory: data.subCategory || subCategoryOptions[0],
     };
 
     if (editingFund) {
@@ -226,6 +322,19 @@ export default function MutualFundsPage() {
                     </div>
 
                     <div className="space-y-2">
+                      <Label htmlFor="purchaseNav">Purchase NAV</Label>
+                      <Input
+                        id="purchaseNav"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...register("purchaseNav", { valueAsNumber: true })}
+                      />
+                      {errors.purchaseNav && (
+                        <p className="text-sm text-red-600">{errors.purchaseNav.message}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="nav">Current NAV</Label>
                       <Input
                         id="nav"
@@ -240,11 +349,14 @@ export default function MutualFundsPage() {
                     </div>
                   </div>
 
-                  {units && nav && (
-                    <div className="text-sm text-gray-600">
-                      Current Value: ₹{(units * nav).toFixed(2)}
-                    </div>
-                  )}
+                  <div className="text-sm text-gray-600 space-y-1">
+                    {units && purchaseNav ? (
+                      <div>Purchase Value: ₹{(units * purchaseNav).toFixed(2)}</div>
+                    ) : null}
+                    {units && nav ? (
+                      <div>Current Value: ₹{(units * nav).toFixed(2)}</div>
+                    ) : null}
+                  </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="purchaseDate">Purchase Date</Label>
@@ -258,16 +370,41 @@ export default function MutualFundsPage() {
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Input
-                      id="category"
-                      placeholder="e.g., Large Cap, Mid Cap, Sectoral"
-                      {...register("category")}
-                    />
-                    {errors.category && (
-                      <p className="text-sm text-red-600">{errors.category.message}</p>
-                    )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="category">Category</Label>
+                      <select
+                        id="category"
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                        {...register("category")}
+                      >
+                        {CATEGORY_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {formatLabel(opt)}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.category && (
+                        <p className="text-sm text-red-600">{errors.category.message}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="subCategory">Sub Sector</Label>
+                      <select
+                        id="subCategory"
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                        {...register("subCategory")}
+                      >
+                        {subCategoryOptions.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {formatLabel(opt)}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.subCategory && (
+                        <p className="text-sm text-red-600">{errors.subCategory.message}</p>
+                      )}
+                    </div>
                   </div>
 
                   <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -378,7 +515,8 @@ export default function MutualFundsPage() {
                         <div>
                           <h3 className="text-lg font-semibold">{fund.name}</h3>
                           <p className="text-sm text-gray-500">
-                            {fund.symbol} • {fund.category}
+                            {fund.symbol} • {formatLabel(fund.category || "other")} •{" "}
+                            {formatLabel(fund.subCategory || "other")}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
@@ -393,9 +531,11 @@ export default function MutualFundsPage() {
                                 investedAmount: fund.investedAmount,
                                 units: fund.units,
                                 nav: fund.nav,
+                                purchaseNav: fund.purchaseNav,
                                 currentValue: fund.currentValue,
                                 purchaseDate: fund.purchaseDate,
-                                category: fund.category,
+                                category: (fund.category as MutualFundFormData["category"]) || "equity",
+                                subCategory: (fund.subCategory as MutualFundFormData["subCategory"]) || "large_cap",
                               });
                               setIsDialogOpen(true);
                             }}
@@ -433,7 +573,7 @@ export default function MutualFundsPage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                         <div>
                           <p className="text-gray-500">Invested</p>
                           <p className="font-semibold">
@@ -453,6 +593,12 @@ export default function MutualFundsPage() {
                         <div>
                           <p className="text-gray-500">Current NAV</p>
                           <p className="font-semibold">₹{fund.nav.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Purchase NAV</p>
+                          <p className="font-semibold">
+                            ₹{fund.purchaseNav.toFixed(2)}
+                          </p>
                         </div>
                       </div>
 

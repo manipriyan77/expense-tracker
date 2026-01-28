@@ -4,6 +4,7 @@ export interface Stock {
   id: string;
   name: string;
   symbol: string;
+  stockType: "large_cap" | "mid_cap" | "small_cap" | "etf" | "other";
   shares: number;
   avgPurchasePrice: number;
   currentPrice: number;
@@ -11,6 +12,7 @@ export interface Stock {
   currentValue: number;
   purchaseDate: string;
   sector: string;
+  subSector?: string;
   user_id: string;
   created_at: string;
   updated_at: string;
@@ -47,6 +49,7 @@ export const useStocksStore = create<StocksState>((set) => ({
         id: stock.id,
         name: stock.name,
         symbol: stock.symbol,
+        stockType: (stock.stock_type as Stock["stockType"]) ?? "other",
         shares: parseFloat(stock.shares || 0),
         avgPurchasePrice: parseFloat(stock.avg_purchase_price || 0),
         currentPrice: parseFloat(stock.current_price || 0),
@@ -54,6 +57,7 @@ export const useStocksStore = create<StocksState>((set) => ({
         currentValue: parseFloat(stock.current_value || 0),
         purchaseDate: stock.purchase_date,
         sector: stock.sector,
+        subSector: stock.sub_sector,
         user_id: stock.user_id,
         created_at: stock.created_at,
         updated_at: stock.updated_at,
@@ -89,6 +93,7 @@ export const useStocksStore = create<StocksState>((set) => ({
         id: data.id,
         name: data.name,
         symbol: data.symbol,
+        stockType: (data.stock_type as Stock["stockType"]) ?? "other",
         shares: parseFloat(data.shares || 0),
         avgPurchasePrice: parseFloat(data.avg_purchase_price || 0),
         currentPrice: parseFloat(data.current_price || 0),
@@ -96,6 +101,7 @@ export const useStocksStore = create<StocksState>((set) => ({
         currentValue: parseFloat(data.current_value || 0),
         purchaseDate: data.purchase_date,
         sector: data.sector,
+        subSector: data.sub_sector,
         user_id: data.user_id,
         created_at: data.created_at,
         updated_at: data.updated_at,
@@ -134,6 +140,7 @@ export const useStocksStore = create<StocksState>((set) => ({
         id: data.id,
         name: data.name,
         symbol: data.symbol,
+        stockType: (data.stock_type as Stock["stockType"]) ?? "other",
         shares: parseFloat(data.shares || 0),
         avgPurchasePrice: parseFloat(data.avg_purchase_price || 0),
         currentPrice: parseFloat(data.current_price || 0),
@@ -141,6 +148,7 @@ export const useStocksStore = create<StocksState>((set) => ({
         currentValue: parseFloat(data.current_value || 0),
         purchaseDate: data.purchase_date,
         sector: data.sector,
+        subSector: data.sub_sector,
         user_id: data.user_id,
         created_at: data.created_at,
         updated_at: data.updated_at,

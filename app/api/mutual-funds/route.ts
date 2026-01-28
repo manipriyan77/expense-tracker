@@ -36,10 +36,22 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, symbol, investedAmount, currentValue, units, nav, purchaseDate, category } = body;
+    const { name, symbol, investedAmount, currentValue, units, nav, purchaseNav, purchaseDate, category, subCategory } = body;
 
-    if (!name || !symbol || !investedAmount || !units || !nav) {
+    if (!name || !symbol || units === undefined || nav === undefined || purchaseNav === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const navNum = Number(nav);
+    const purchaseNavNum = Number(purchaseNav);
+    const unitsNum = Number(units);
+    const investedAmountNum =
+      investedAmount !== undefined ? Number(investedAmount) : undefined;
+    const currentValueNum =
+      currentValue !== undefined ? Number(currentValue) : unitsNum * navNum;
+
+    if ([navNum, purchaseNavNum, unitsNum].some((n) => Number.isNaN(n) || n <= 0)) {
+      return NextResponse.json({ error: "Invalid numeric values" }, { status: 400 });
     }
 
     const { data, error } = await supabase
@@ -47,12 +59,15 @@ export async function POST(request: NextRequest) {
       .insert({
         name,
         symbol,
-        invested_amount: investedAmount,
-        current_value: currentValue,
-        units,
-        nav,
+        invested_amount:
+          investedAmountNum !== undefined ? investedAmountNum : unitsNum * purchaseNavNum,
+        current_value: currentValueNum,
+        units: unitsNum,
+        nav: navNum,
+        purchase_nav: purchaseNavNum,
+        sub_category: subCategory ?? "other",
         purchase_date: purchaseDate || new Date().toISOString().split("T")[0],
-        category: category || "General",
+        category: category || "equity",
         user_id: user.id,
       })
       .select()
