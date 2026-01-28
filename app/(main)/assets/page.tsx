@@ -154,7 +154,9 @@ export default function AssetsOverviewPage() {
                       outerRadius={100}
                       innerRadius={50}
                       paddingAngle={2}
-                      label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                      label={({ percent = 0 }) =>
+                        `${(percent * 100).toFixed(0)}%`
+                      }
                     >
                       {allocation.items.map((_, index) => (
                         <Cell
@@ -164,7 +166,9 @@ export default function AssetsOverviewPage() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: number) => formatCurrency(value)}
+                      formatter={(value) =>
+                        formatCurrency((value ?? 0) as number)
+                      }
                     />
                     <Legend />
                   </PieChart>
@@ -237,7 +241,7 @@ export default function AssetsOverviewPage() {
                         outerRadius={100}
                         innerRadius={45}
                         paddingAngle={2}
-                        label={({ percent }) =>
+                        label={({ percent = 0 }) =>
                           `${(percent * 100).toFixed(0)}%`
                         }
                       >
@@ -249,7 +253,9 @@ export default function AssetsOverviewPage() {
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(value: number) => formatCurrency(value)}
+                        formatter={(value) =>
+                          formatCurrency((value ?? 0) as number)
+                        }
                       />
                       <Legend />
                     </PieChart>
@@ -313,7 +319,7 @@ export default function AssetsOverviewPage() {
                         outerRadius={100}
                         innerRadius={45}
                         paddingAngle={2}
-                        label={({ percent }) =>
+                        label={({ percent = 0 }) =>
                           `${(percent * 100).toFixed(0)}%`
                         }
                       >
@@ -325,7 +331,9 @@ export default function AssetsOverviewPage() {
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(value: number) => formatCurrency(value)}
+                        formatter={(value) =>
+                          formatCurrency((value ?? 0) as number)
+                        }
                       />
                       <Legend />
                     </PieChart>
