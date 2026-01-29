@@ -3,19 +3,30 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function PUT(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const params = await context.params;
     const body = await request.json();
-    const { title, targetAmount, currentAmount, targetDate, category, status } = body;
+    const {
+      title,
+      targetAmount,
+      currentAmount,
+      targetDate,
+      category,
+      status,
+      monthlyContribution,
+    } = body;
 
     const { data, error } = await supabase
       .from("goals")
@@ -26,6 +37,9 @@ export async function PUT(
         target_date: targetDate,
         category,
         status,
+        ...(monthlyContribution !== undefined && {
+          monthly_contribution: monthlyContribution,
+        }),
       })
       .eq("id", params.id)
       .eq("user_id", user.id)
@@ -42,18 +56,24 @@ export async function PUT(
 
     return NextResponse.json(data);
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -74,10 +94,14 @@ export async function DELETE(
 
     // If there are linked transactions, prevent deletion
     if (linkedTransactions && linkedTransactions.length > 0) {
-      return NextResponse.json({ 
-        error: "Cannot delete goal with linked transactions. Please delete the transactions first or they will be unlinked.",
-        hasTransactions: true 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error:
+            "Cannot delete goal with linked transactions. Please delete the transactions first or they will be unlinked.",
+          hasTransactions: true,
+        },
+        { status: 400 },
+      );
     }
 
     // No linked transactions, safe to delete
@@ -93,6 +117,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

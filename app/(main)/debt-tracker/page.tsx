@@ -150,7 +150,7 @@ export default function DebtTrackerPage() {
   const totalDebt = debts.reduce((sum, debt) => sum + debt.balance, 0);
   const totalMinPayment = debts.reduce(
     (sum, debt) => sum + debt.minimum_payment,
-    0
+    0,
   );
   const avgInterestRate =
     debts.length > 0
@@ -158,11 +158,16 @@ export default function DebtTrackerPage() {
       : 0;
 
   const selectedBreakdown = React.useMemo(() => {
-    if (!calculatorResult.breakdown || calculatorResult.breakdown.length === 0) {
+    if (
+      !calculatorResult.breakdown ||
+      calculatorResult.breakdown.length === 0
+    ) {
       return null;
     }
     if (extraFocusDebtId === "all") return null;
-    return calculatorResult.breakdown.find((b) => b.id === extraFocusDebtId) ?? null;
+    return (
+      calculatorResult.breakdown.find((b) => b.id === extraFocusDebtId) ?? null
+    );
   }, [calculatorResult.breakdown, extraFocusDebtId]);
 
   useEffect(() => {
@@ -199,9 +204,9 @@ export default function DebtTrackerPage() {
           ? parseInt(debtForm.months_remaining, 10)
           : debtForm.term_months
             ? parseInt(debtForm.term_months, 10)
-            : null
+            : null,
       ),
-    [debtForm.due_date, debtForm.months_remaining, debtForm.term_months]
+    [debtForm.due_date, debtForm.months_remaining, debtForm.term_months],
   );
 
   useEffect(() => {
@@ -357,7 +362,7 @@ export default function DebtTrackerPage() {
   const paymentHistory = React.useMemo(() => {
     console.log(
       "Calculating payment history. Total payments:",
-      payments.length
+      payments.length,
     );
 
     // If no debts yet, return empty data
@@ -382,7 +387,7 @@ export default function DebtTrackerPage() {
     payments.forEach((payment) => {
       const date = new Date(payment.payment_date);
       const monthKey = `${date.getFullYear()}-${String(
-        date.getMonth() + 1
+        date.getMonth() + 1,
       ).padStart(2, "0")}`;
 
       if (!monthlyData[monthKey]) {
@@ -403,7 +408,7 @@ export default function DebtTrackerPage() {
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthKey = `${date.getFullYear()}-${String(
-        date.getMonth() + 1
+        date.getMonth() + 1,
       ).padStart(2, "0")}`;
       const monthName = date.toLocaleDateString("en-US", { month: "short" });
 
@@ -415,7 +420,7 @@ export default function DebtTrackerPage() {
       const monthProgress = (5 - i) / 6;
       const balanceForMonth = Math.max(
         0,
-        startingBalance - totalPayments * monthProgress
+        startingBalance - totalPayments * monthProgress,
       );
 
       result.push({
@@ -431,7 +436,7 @@ export default function DebtTrackerPage() {
 
   function buildDueDateSchedule(
     startDate: string | null,
-    monthsRemaining?: number | null
+    monthsRemaining?: number | null,
   ) {
     if (!startDate || !monthsRemaining || monthsRemaining <= 0) return [];
     const base = new Date(startDate);
@@ -442,7 +447,7 @@ export default function DebtTrackerPage() {
       const next = new Date(
         base.getFullYear(),
         base.getMonth() + i,
-        base.getDate()
+        base.getDate(),
       );
       dates.push(next.toISOString().split("T")[0]);
     }
@@ -452,15 +457,14 @@ export default function DebtTrackerPage() {
   const getNextDueDate = (debt: Debt) => {
     const schedule = buildDueDateSchedule(
       debt.due_date,
-      (debt.months_remaining ?? debt.term_months) ?? null
+      debt.months_remaining ?? debt.term_months ?? null,
     );
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const nextDate =
-      schedule.find(
-        (date) => new Date(date).getTime() >= today.getTime()
-      ) || debt.due_date;
+      schedule.find((date) => new Date(date).getTime() >= today.getTime()) ||
+      debt.due_date;
 
     return nextDate || null;
   };
@@ -487,7 +491,7 @@ export default function DebtTrackerPage() {
   const simulatePayoff = (
     allDebts: Debt[],
     monthlyBudget: number,
-    extraTargetId?: string
+    extraTargetId?: string,
   ): {
     success: boolean;
     months: number;
@@ -518,7 +522,7 @@ export default function DebtTrackerPage() {
 
     const minRequired = debtsCopy.reduce(
       (sum, debt) => sum + debt.minimum_payment,
-      0
+      0,
     );
 
     if (monthlyBudget < minRequired) {
@@ -547,7 +551,7 @@ export default function DebtTrackerPage() {
       let interestThisMonth = 0;
       debtsCopy.forEach((debt) => {
         if (debt.balance <= 0) return;
-        const interest = debt.balance * (debt.interest_rate / 100) / 12;
+        const interest = (debt.balance * (debt.interest_rate / 100)) / 12;
         debt.balance += interest;
         debt.interestPaid += interest;
         interestThisMonth += interest;
@@ -583,7 +587,7 @@ export default function DebtTrackerPage() {
       // Direct extra to the selected debt first, if any
       if (extraTargetId && extraTargetId !== "all" && remaining > 0) {
         const target = debtsCopy.find(
-          (d) => d.id === extraTargetId && d.balance > 0
+          (d) => d.id === extraTargetId && d.balance > 0,
         );
         if (target) {
           const payTarget = Math.min(target.balance, remaining);
@@ -596,8 +600,7 @@ export default function DebtTrackerPage() {
       const avalancheOrder = debtsCopy
         .filter((d) => d.balance > 0)
         .sort(
-          (a, b) =>
-            b.interest_rate - a.interest_rate || b.balance - a.balance
+          (a, b) => b.interest_rate - a.interest_rate || b.balance - a.balance,
         );
 
       for (const debt of avalancheOrder) {
@@ -692,7 +695,7 @@ export default function DebtTrackerPage() {
     const accelerated = simulatePayoff(
       debts,
       acceleratedBudget,
-      extraFocusDebtId === "all" ? undefined : extraFocusDebtId
+      extraFocusDebtId === "all" ? undefined : extraFocusDebtId,
     );
     if (!accelerated.success) {
       setCalculatorResult({
@@ -708,12 +711,10 @@ export default function DebtTrackerPage() {
 
     const interestSaved = Math.max(
       0,
-      baseline.interestPaid - accelerated.interestPaid
+      baseline.interestPaid - accelerated.interestPaid,
     );
 
-    const baselineMap = new Map(
-      baseline.debtDetails.map((d) => [d.id, d])
-    );
+    const baselineMap = new Map(baseline.debtDetails.map((d) => [d.id, d]));
 
     setCalculatorResult({
       months: accelerated.months,
@@ -1186,7 +1187,7 @@ export default function DebtTrackerPage() {
                               {nextDueDate
                                 ? new Date(nextDueDate).toLocaleDateString(
                                     "en-US",
-                                    { month: "short", day: "numeric" }
+                                    { month: "short", day: "numeric" },
                                   )
                                 : "Not set"}
                             </p>
@@ -1325,7 +1326,8 @@ export default function DebtTrackerPage() {
                         placeholder="0.00"
                       />
                       <p className="text-xs text-gray-500">
-                        Minimum required across all debts: {formatCurrency(totalMinPayment)}
+                        Minimum required across all debts:{" "}
+                        {formatCurrency(totalMinPayment)}
                       </p>
                     </div>
                     <div className="space-y-2">
@@ -1361,7 +1363,8 @@ export default function DebtTrackerPage() {
                         </SelectItem>
                         {debts.map((debt) => (
                           <SelectItem key={debt.id} value={debt.id}>
-                            {debt.name} — {formatCurrency(debt.minimum_payment)} min
+                            {debt.name} — {formatCurrency(debt.minimum_payment)}{" "}
+                            min
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1384,7 +1387,9 @@ export default function DebtTrackerPage() {
                       <div className="flex gap-2">
                         <Button
                           type="button"
-                          variant={payoffView === "cards" ? "default" : "outline"}
+                          variant={
+                            payoffView === "cards" ? "default" : "outline"
+                          }
                           size="sm"
                           onClick={() => setPayoffView("cards")}
                         >
@@ -1392,7 +1397,9 @@ export default function DebtTrackerPage() {
                         </Button>
                         <Button
                           type="button"
-                          variant={payoffView === "list" ? "default" : "outline"}
+                          variant={
+                            payoffView === "list" ? "default" : "outline"
+                          }
                           size="sm"
                           onClick={() => setPayoffView("list")}
                         >
@@ -1416,12 +1423,14 @@ export default function DebtTrackerPage() {
                         {selectedBreakdown?.baselinePayoffMonth != null &&
                         selectedBreakdown?.payoffMonth != null ? (
                           <p className="text-xs text-gray-500">
-                            Was {selectedBreakdown.baselinePayoffMonth} months with minimums
+                            Was {selectedBreakdown.baselinePayoffMonth} months
+                            with minimums
                           </p>
                         ) : calculatorResult.baselineMonths !== null &&
                           calculatorResult.months !== null ? (
                           <p className="text-xs text-gray-500">
-                            Was {calculatorResult.baselineMonths} months with minimums
+                            Was {calculatorResult.baselineMonths} months with
+                            minimums
                           </p>
                         ) : null}
                       </CardContent>
@@ -1457,9 +1466,11 @@ export default function DebtTrackerPage() {
                                   {detail.baselinePayoffMonth !== null &&
                                   detail.payoffMonth !== null ? (
                                     <span className="text-xs text-green-600">
-                                      -{Math.max(
+                                      -
+                                      {Math.max(
                                         0,
-                                        detail.baselinePayoffMonth - detail.payoffMonth
+                                        detail.baselinePayoffMonth -
+                                          detail.payoffMonth,
                                       )}{" "}
                                       months vs. baseline
                                     </span>
@@ -1477,8 +1488,9 @@ export default function DebtTrackerPage() {
                                     {formatCurrency(
                                       Math.max(
                                         0,
-                                        detail.baselineInterestPaid - detail.interestPaid
-                                      )
+                                        detail.baselineInterestPaid -
+                                          detail.interestPaid,
+                                      ),
                                     )}
                                   </p>
                                 ) : null}
@@ -1500,7 +1512,9 @@ export default function DebtTrackerPage() {
                             <tbody>
                               {calculatorResult.breakdown.map((detail) => (
                                 <tr key={detail.id} className="border-t">
-                                  <td className="py-2 pr-4 font-medium">{detail.name}</td>
+                                  <td className="py-2 pr-4 font-medium">
+                                    {detail.name}
+                                  </td>
                                   <td className="py-2 pr-4">
                                     {detail.payoffMonth ?? "—"}
                                   </td>
@@ -1512,8 +1526,9 @@ export default function DebtTrackerPage() {
                                       ? formatCurrency(
                                           Math.max(
                                             0,
-                                            detail.baselineInterestPaid - detail.interestPaid
-                                          )
+                                            detail.baselineInterestPaid -
+                                              detail.interestPaid,
+                                          ),
                                         )
                                       : "—"}
                                   </td>

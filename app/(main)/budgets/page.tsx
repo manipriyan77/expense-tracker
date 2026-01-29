@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -41,10 +41,12 @@ import {
   Loader2,
 } from "lucide-react";
 import { useBudgetsStore, Budget } from "@/store/budgets-store";
+import { useTransactionsStore } from "@/store/transactions-store";
 import BudgetDetailsModal from "@/components/budgets/BudgetDetailsModal";
 import { MonthSelector } from "@/components/ui/month-selector";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { DollarSign } from "lucide-react";
+import { formatCurrency } from "@/lib/utils/currency";
 
 const budgetFormSchema = z.object({
   category: z.string().min(1, "Category is required"),
@@ -52,14 +54,29 @@ const budgetFormSchema = z.object({
   limit_amount: z
     .string()
     .min(1, "Limit is required")
-    .refine((val) => !isNaN(Number(val)) && Number(val) > 0, "Must be a positive number"),
+    .refine(
+      (val) => !isNaN(Number(val)) && Number(val) > 0,
+      "Must be a positive number",
+    ),
   period: z.enum(["weekly", "monthly", "yearly"]),
 });
 
 type BudgetFormData = z.infer<typeof budgetFormSchema>;
 
 export default function BudgetsPage() {
-  const { budgets, loading, error, fetchBudgets, addBudget, updateBudget, deleteBudget, currentMonth, currentYear, setMonth } = useBudgetsStore();
+  const {
+    budgets,
+    loading,
+    error,
+    fetchBudgets,
+    addBudget,
+    updateBudget,
+    deleteBudget,
+    currentMonth,
+    currentYear,
+    setMonth,
+  } = useBudgetsStore();
+  const { transactions, fetchTransactions } = useTransactionsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
@@ -70,10 +87,53 @@ export default function BudgetsPage() {
   const [showEditCategoryInput, setShowEditCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [customCategories, setCustomCategories] = useState<string[]>([]);
-  
+
   // Transaction dialog
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
-  const [transactionBudget, setTransactionBudget] = useState<Budget | null>(null);
+  const [transactionBudget, setTransactionBudget] = useState<Budget | null>(
+    null,
+  );
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
+
+  // Calculate projected spending for budgets
+  const calculateBudgetProjection = (budget: Budget) => {
+    const currentMonthNum = selectedMonth.getMonth();
+    const currentYearNum = selectedMonth.getFullYear();
+    const daysInMonth = new Date(
+      currentYearNum,
+      currentMonthNum + 1,
+      0,
+    ).getDate();
+    const daysPassed = new Date().getDate();
+    const daysRemaining = daysInMonth - daysPassed;
+
+    // Get transactions for this budget in current month
+    const monthTransactions = transactions.filter((t) => {
+      if (t.budget_id !== budget.id || t.type !== "expense") return false;
+      const date = new Date(t.date);
+      return (
+        date.getMonth() === currentMonthNum &&
+        date.getFullYear() === currentYearNum
+      );
+    });
+
+    const spent = budget.spent_amount || 0;
+    const dailyAvg = daysPassed > 0 ? spent / daysPassed : 0;
+    const projectedMonthEnd = spent + dailyAvg * daysRemaining;
+    const projectedOverspend = projectedMonthEnd - budget.limit_amount;
+    const projectedPercentage = (projectedMonthEnd / budget.limit_amount) * 100;
+
+    return {
+      projectedMonthEnd,
+      projectedOverspend,
+      projectedPercentage,
+      dailyAvg,
+      isLikelyToOverspend: projectedMonthEnd > budget.limit_amount * 0.9, // 90% threshold
+    };
+  };
 
   const {
     control: addControl,
@@ -137,7 +197,7 @@ export default function BudgetsPage() {
 
   const handleEditBudget = async (data: BudgetFormData) => {
     if (!editingBudgetId) return;
-    
+
     await updateBudget(editingBudgetId, {
       category: data.category,
       subtype: data.subtype || null,
@@ -150,15 +210,23 @@ export default function BudgetsPage() {
   };
 
   const handleDeleteBudget = async (id: string) => {
-    const budget = budgets.find(b => b.id === id);
-    const budgetName = budget ? `${budget.category}${budget.subtype ? ` - ${budget.subtype}` : ''}` : 'this budget';
-    
-    if (confirm(`Are you sure you want to delete ${budgetName}?\n\n⚠️ Warning: All transactions linked to this budget will also be deleted permanently.`)) {
+    const budget = budgets.find((b) => b.id === id);
+    const budgetName = budget
+      ? `${budget.category}${budget.subtype ? ` - ${budget.subtype}` : ""}`
+      : "this budget";
+
+    if (
+      confirm(
+        `Are you sure you want to delete ${budgetName}?\n\n⚠️ Warning: All transactions linked to this budget will also be deleted permanently.`,
+      )
+    ) {
       try {
         const result = await deleteBudget(id);
         // Show success toast with transaction count
         if (result && result.deletedTransactions > 0) {
-          toast.success(`Budget deleted successfully! ${result.deletedTransactions} linked transaction${result.deletedTransactions > 1 ? 's were' : ' was'} also deleted.`);
+          toast.success(
+            `Budget deleted successfully! ${result.deletedTransactions} linked transaction${result.deletedTransactions > 1 ? "s were" : " was"} also deleted.`,
+          );
         } else {
           toast.success("Budget deleted successfully!");
         }
@@ -229,7 +297,8 @@ export default function BudgetsPage() {
 
   const totalBudget = budgets.reduce((sum, b) => sum + b.limit_amount, 0);
   const totalSpent = budgets.reduce((sum, b) => sum + (b.spent_amount || 0), 0);
-  const overallPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+  const overallPercentage =
+    totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
   const categories = [
     "Food",
@@ -274,7 +343,9 @@ export default function BudgetsPage() {
       <header className="bg-white shadow-sm border-b">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">Budget Management</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Budget Management
+            </h1>
           </div>
         </div>
       </header>
@@ -309,7 +380,9 @@ export default function BudgetsPage() {
               <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm text-gray-600">Total Budget</p>
-                  <p className="text-2xl font-bold">₹{totalBudget.toFixed(2)}</p>
+                  <p className="text-2xl font-bold">
+                    ₹{totalBudget.toFixed(2)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Total Spent</p>
@@ -351,7 +424,10 @@ export default function BudgetsPage() {
                   Set a spending limit for a category
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleAddSubmit(handleAddBudget)} className="space-y-4">
+              <form
+                onSubmit={handleAddSubmit(handleAddBudget)}
+                className="space-y-4"
+              >
                 <div className="space-y-2">
                   <Label htmlFor="add-category">Category *</Label>
                   {showCategoryInput ? (
@@ -360,44 +436,44 @@ export default function BudgetsPage() {
                         value={newCategoryName}
                         onChange={(e) => setNewCategoryName(e.target.value)}
                         placeholder="Enter category name"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddCustomCategory(false);
-                        } else if (e.key === "Escape") {
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddCustomCategory(false);
+                          } else if (e.key === "Escape") {
+                            setShowCategoryInput(false);
+                            setNewCategoryName("");
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => handleAddCustomCategory(false)}
+                        disabled={!newCategoryName.trim()}
+                      >
+                        Add
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
                           setShowCategoryInput(false);
                           setNewCategoryName("");
-                        }
-                      }}
-                      autoFocus
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => handleAddCustomCategory(false)}
-                      disabled={!newCategoryName.trim()}
-                    >
-                      Add
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setShowCategoryInput(false);
-                        setNewCategoryName("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
+                        }}
+                      >
+                        Cancel
+                      </Button>
                     </div>
                   ) : (
                     <Controller
                       name="category"
                       control={addControl}
                       render={({ field }) => (
-                        <Select 
-                          value={field.value} 
+                        <Select
+                          value={field.value}
                           onValueChange={(value) => {
                             if (value === "add_custom") {
                               setShowCategoryInput(true);
@@ -420,7 +496,10 @@ export default function BudgetsPage() {
                                 {cat}
                               </SelectItem>
                             ))}
-                            <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
+                            <SelectItem
+                              value="add_custom"
+                              className="text-blue-600 font-medium border-t mt-1 pt-2"
+                            >
                               <div className="flex items-center space-x-2">
                                 <Plus className="h-4 w-4" />
                                 <span>Add Category</span>
@@ -432,7 +511,9 @@ export default function BudgetsPage() {
                     />
                   )}
                   {addErrors.category && (
-                    <p className="text-sm text-red-600">{addErrors.category.message}</p>
+                    <p className="text-sm text-red-600">
+                      {addErrors.category.message}
+                    </p>
                   )}
                 </div>
 
@@ -467,7 +548,9 @@ export default function BudgetsPage() {
                     )}
                   />
                   {addErrors.limit_amount && (
-                    <p className="text-sm text-red-600">{addErrors.limit_amount.message}</p>
+                    <p className="text-sm text-red-600">
+                      {addErrors.limit_amount.message}
+                    </p>
                   )}
                 </div>
 
@@ -477,7 +560,10 @@ export default function BudgetsPage() {
                     name="period"
                     control={addControl}
                     render={({ field }) => (
-                      <Select value={field.value} onValueChange={field.onChange}>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select period" />
                         </SelectTrigger>
@@ -490,11 +576,17 @@ export default function BudgetsPage() {
                     )}
                   />
                   {addErrors.period && (
-                    <p className="text-sm text-red-600">{addErrors.period.message}</p>
+                    <p className="text-sm text-red-600">
+                      {addErrors.period.message}
+                    </p>
                   )}
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isAddSubmitting}>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isAddSubmitting}
+                >
                   {isAddSubmitting ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -516,7 +608,10 @@ export default function BudgetsPage() {
               <DialogTitle>Edit Budget</DialogTitle>
               <DialogDescription>Update budget details</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleEditSubmit(handleEditBudget)} className="space-y-4">
+            <form
+              onSubmit={handleEditSubmit(handleEditBudget)}
+              className="space-y-4"
+            >
               <div className="space-y-2">
                 <Label htmlFor="edit-category">Category *</Label>
                 {showEditCategoryInput ? (
@@ -561,8 +656,8 @@ export default function BudgetsPage() {
                     name="category"
                     control={editControl}
                     render={({ field }) => (
-                      <Select 
-                        value={field.value} 
+                      <Select
+                        value={field.value}
                         onValueChange={(value) => {
                           if (value === "add_custom") {
                             setShowEditCategoryInput(true);
@@ -585,7 +680,10 @@ export default function BudgetsPage() {
                               {cat}
                             </SelectItem>
                           ))}
-                          <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
+                          <SelectItem
+                            value="add_custom"
+                            className="text-blue-600 font-medium border-t mt-1 pt-2"
+                          >
                             <div className="flex items-center space-x-2">
                               <Plus className="h-4 w-4" />
                               <span>Add Category</span>
@@ -597,7 +695,9 @@ export default function BudgetsPage() {
                   />
                 )}
                 {editErrors.category && (
-                  <p className="text-sm text-red-600">{editErrors.category.message}</p>
+                  <p className="text-sm text-red-600">
+                    {editErrors.category.message}
+                  </p>
                 )}
               </div>
 
@@ -632,7 +732,9 @@ export default function BudgetsPage() {
                   )}
                 />
                 {editErrors.limit_amount && (
-                  <p className="text-sm text-red-600">{editErrors.limit_amount.message}</p>
+                  <p className="text-sm text-red-600">
+                    {editErrors.limit_amount.message}
+                  </p>
                 )}
               </div>
 
@@ -655,11 +757,17 @@ export default function BudgetsPage() {
                   )}
                 />
                 {editErrors.period && (
-                  <p className="text-sm text-red-600">{editErrors.period.message}</p>
+                  <p className="text-sm text-red-600">
+                    {editErrors.period.message}
+                  </p>
                 )}
               </div>
 
-              <Button type="submit" className="w-full" disabled={isEditSubmitting}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isEditSubmitting}
+              >
                 {isEditSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -679,11 +787,16 @@ export default function BudgetsPage() {
             const spent = budget.spent_amount || 0;
             const percentage = (spent / budget.limit_amount) * 100;
             const remaining = budget.limit_amount - spent;
+            const projection = calculateBudgetProjection(budget);
 
             return (
-              <Card 
-                key={budget.id} 
-                className="relative hover:shadow-lg transition-shadow cursor-pointer"
+              <Card
+                key={budget.id}
+                className={`relative hover:shadow-lg transition-shadow cursor-pointer ${
+                  projection.isLikelyToOverspend
+                    ? "border-orange-200 bg-orange-50"
+                    : ""
+                }`}
                 onClick={() => openDetailsModal(budget)}
               >
                 <CardHeader>
@@ -697,6 +810,9 @@ export default function BudgetsPage() {
                           </span>
                         )}
                       </CardTitle>
+                      {projection.isLikelyToOverspend && (
+                        <AlertTriangle className="h-4 w-4 text-orange-600" />
+                      )}
                     </div>
                     {getStatusIcon(percentage)}
                   </div>
@@ -708,13 +824,45 @@ export default function BudgetsPage() {
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="text-sm text-gray-600">Spent</p>
-                      <p className="text-xl font-bold">₹{spent.toFixed(2)}</p>
+                      <p className="text-xl font-bold">
+                        {formatCurrency(spent)}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-600">Limit</p>
-                      <p className="text-xl font-bold">₹{budget.limit_amount.toFixed(2)}</p>
+                      <p className="text-xl font-bold">
+                        {formatCurrency(budget.limit_amount)}
+                      </p>
                     </div>
                   </div>
+
+                  {/* Projection Warning */}
+                  {projection.isLikelyToOverspend && (
+                    <div className="p-3 bg-orange-100 border border-orange-200 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-orange-800">
+                            Projected Overspend
+                          </p>
+                          <p className="text-xs text-orange-700">
+                            At current rate:{" "}
+                            {formatCurrency(projection.projectedMonthEnd)} by
+                            month-end
+                            {projection.projectedOverspend > 0 && (
+                              <span className="font-semibold">
+                                {" "}
+                                ({formatCurrency(
+                                  projection.projectedOverspend,
+                                )}{" "}
+                                over)
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
@@ -730,6 +878,24 @@ export default function BudgetsPage() {
                         style={{ width: `${Math.min(percentage, 100)}%` }}
                       />
                     </div>
+                    {projection.isLikelyToOverspend && (
+                      <div className="relative mt-1">
+                        <Progress
+                          value={Math.min(projection.projectedPercentage, 100)}
+                          className="h-1 opacity-50"
+                        />
+                        <div
+                          className="absolute top-0 left-0 h-full bg-orange-400 rounded-full transition-all"
+                          style={{
+                            width: `${Math.min(projection.projectedPercentage, 100)}%`,
+                          }}
+                        />
+                        <p className="text-xs text-orange-600 mt-1">
+                          Projected: {projection.projectedPercentage.toFixed(1)}
+                          %
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-2 border-t">
@@ -741,7 +907,7 @@ export default function BudgetsPage() {
                             remaining < 0 ? "text-red-600" : "text-green-600"
                           }`}
                         >
-                          ₹{Math.abs(remaining).toFixed(2)}
+                          {formatCurrency(Math.abs(remaining))}
                           {remaining < 0 && " over"}
                         </p>
                       </div>
@@ -827,7 +993,10 @@ export default function BudgetsPage() {
       />
 
       {/* Add Transaction Dialog */}
-      <Dialog open={isAddTransactionOpen} onOpenChange={setIsAddTransactionOpen}>
+      <Dialog
+        open={isAddTransactionOpen}
+        onOpenChange={setIsAddTransactionOpen}
+      >
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Transaction</DialogTitle>

@@ -37,13 +37,17 @@ interface DebtTrackerState {
   payments: DebtPayment[];
   loading: boolean;
   error: string | null;
-  
+
   // Actions
   fetchDebts: () => Promise<void>;
   fetchPayments: (debtId: string) => Promise<void>;
   fetchAllPayments: () => Promise<void>;
-  addDebt: (debt: Omit<Debt, "id" | "user_id" | "created_at" | "updated_at">) => Promise<void>;
-  addPayment: (payment: Omit<DebtPayment, "id" | "user_id" | "created_at">) => Promise<void>;
+  addDebt: (
+    debt: Omit<Debt, "id" | "user_id" | "created_at" | "updated_at">,
+  ) => Promise<void>;
+  addPayment: (
+    payment: Omit<DebtPayment, "id" | "user_id" | "created_at">,
+  ) => Promise<void>;
   updateDebt: (id: string, updates: Partial<Debt>) => Promise<void>;
   deleteDebt: (id: string) => Promise<void>;
 }
@@ -80,28 +84,37 @@ export const useDebtTrackerStore = create<DebtTrackerState>((set, get) => ({
   fetchAllPayments: async () => {
     try {
       const debts = get().debts;
-      console.log('Fetching payments for', debts.length, 'debts');
+      console.log("Fetching payments for", debts.length, "debts");
       const allPayments: DebtPayment[] = [];
-      
+
       // Fetch payments for each debt
       for (const debt of debts) {
         const response = await fetch(`/api/debt-tracker/${debt.id}/payments`);
         if (response.ok) {
           const payments = await response.json();
-          console.log(`Fetched ${payments.length} payments for debt ${debt.name}`);
+          console.log(
+            `Fetched ${payments.length} payments for debt ${debt.name}`,
+          );
           allPayments.push(...payments);
         } else {
-          console.error(`Failed to fetch payments for debt ${debt.id}:`, response.statusText);
+          console.error(
+            `Failed to fetch payments for debt ${debt.id}:`,
+            response.statusText,
+          );
         }
       }
-      
+
       // Sort by payment date (most recent first)
-      allPayments.sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime());
-      
-      console.log('Total payments fetched:', allPayments.length);
+      allPayments.sort(
+        (a, b) =>
+          new Date(b.payment_date).getTime() -
+          new Date(a.payment_date).getTime(),
+      );
+
+      console.log("Total payments fetched:", allPayments.length);
       set({ payments: allPayments });
     } catch (error) {
-      console.error('Error fetching all payments:', error);
+      console.error("Error fetching all payments:", error);
       set({ error: (error as Error).message });
     }
   },
@@ -123,21 +136,24 @@ export const useDebtTrackerStore = create<DebtTrackerState>((set, get) => ({
 
   addPayment: async (payment) => {
     try {
-      const response = await fetch(`/api/debt-tracker/${payment.liability_id}/payments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payment),
-      });
+      const response = await fetch(
+        `/api/debt-tracker/${payment.liability_id}/payments`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payment),
+        },
+      );
       if (!response.ok) throw new Error("Failed to add payment");
       const newPayment = await response.json();
-      
+
       // Update debt balance
       set({
         payments: [...get().payments, newPayment],
         debts: get().debts.map((d) =>
           d.id === payment.liability_id
             ? { ...d, balance: Math.max(0, d.balance - payment.amount) }
-            : d
+            : d,
         ),
       });
     } catch (error) {

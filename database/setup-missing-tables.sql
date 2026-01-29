@@ -45,10 +45,13 @@ CREATE TABLE IF NOT EXISTS goals (
   target_date DATE NOT NULL,
   category TEXT DEFAULT 'General',
   status goal_status DEFAULT 'active',
+  monthly_contribution DECIMAL(12, 2) DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 -- Ensure goals table has all required columns
+ALTER TABLE goals
+ADD COLUMN IF NOT EXISTS monthly_contribution DECIMAL(12, 2) DEFAULT 0;
 ALTER TABLE goals
 ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 ALTER TABLE goals

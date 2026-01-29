@@ -44,59 +44,77 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
   {
-    title: "Dashboard",
-    href: "/dashboard",
+    title: "Overview",
     icon: Home,
-  },
-  {
-    title: "Transactions",
-    href: "/transactions",
-    icon: ArrowLeftRight,
-  },
-  {
-    title: "Calendar",
-    href: "/calendar",
-    icon: Bell,
-  },
-  {
-    title: "Analytics",
-    href: "/analytics",
-    icon: PieChart,
-  },
-  {
-    title: "Budgets",
-    href: "/budgets",
-    icon: CreditCard,
-  },
-  {
-    title: "Budget Templates",
-    href: "/budget-templates",
-    icon: FileText,
-  },
-  {
-    title: "Goals",
-    href: "/goals",
-    icon: Target,
-  },
-  {
-    title: "Savings Challenges",
-    href: "/savings-challenges",
-    icon: TrendingUp,
-  },
-  {
-    title: "Net Worth",
-    href: "/net-worth",
-    icon: Wallet,
-  },
-  {
-    title: "Debt Tracker",
-    href: "/debt-tracker",
-    icon: CreditCard,
-  },
-  {
-    title: "Assets",
-    icon: BarChart3,
     subItems: [
+      {
+        title: "Dashboard",
+        href: "/dashboard",
+        icon: Home,
+      },
+      {
+        title: "Calendar",
+        href: "/calendar",
+        icon: Bell,
+      },
+      {
+        title: "Analytics",
+        href: "/analytics",
+        icon: PieChart,
+      },
+    ],
+  },
+  {
+    title: "Cashflow",
+    icon: ArrowLeftRight,
+    subItems: [
+      {
+        title: "Transactions",
+        href: "/transactions",
+        icon: ArrowLeftRight,
+      },
+    ],
+  },
+  {
+    title: "Planning",
+    icon: Target,
+    subItems: [
+      {
+        title: "Budgets",
+        href: "/budgets",
+        icon: CreditCard,
+      },
+      {
+        title: "Budget Templates",
+        href: "/budget-templates",
+        icon: FileText,
+      },
+      {
+        title: "Goals",
+        href: "/goals",
+        icon: Target,
+      },
+      {
+        title: "Savings Challenges",
+        href: "/savings-challenges",
+        icon: TrendingUp,
+      },
+      {
+        title: "Debt Tracker",
+        href: "/debt-tracker",
+        icon: CreditCard,
+      },
+    ],
+  },
+  {
+    title: "Wealth",
+    icon: Wallet,
+    subItems: [
+      {
+        title: "Net Worth",
+        href: "/net-worth",
+        icon: Wallet,
+      },
       {
         title: "Asset Allocation",
         href: "/assets",
@@ -130,11 +148,6 @@ const sidebarItems: SidebarItem[] = [
     ],
   },
   {
-    title: "Reports",
-    href: "/reports",
-    icon: FileText,
-  },
-  {
     title: "Settings",
     href: "/settings",
     icon: Settings,
@@ -147,12 +160,15 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [expandedItems, setExpandedItems] = useState<string[]>(["Savings"]);
+  const [expandedItems, setExpandedItems] = useState<string[]>([
+    "Overview",
+    "Wealth",
+  ]);
   const pathname = usePathname();
 
   const toggleExpand = (title: string) => {
     setExpandedItems((prev) =>
-      prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title]
+      prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title],
     );
   };
 
@@ -161,19 +177,21 @@ export function Sidebar({ className }: SidebarProps) {
       className={cn(
         "relative flex flex-col bg-white border-r border-gray-200 transition-all duration-300",
         isCollapsed ? "w-16" : "w-64",
-        className
+        className,
       )}
     >
       {/* Logo Header - Acts as Home Button */}
-      <Link 
-        href="/dashboard" 
+      <Link
+        href="/dashboard"
         className="flex items-center justify-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors group"
         title="Go to Dashboard"
       >
-        <div className={cn(
-          "flex items-center gap-3 transition-all duration-300",
-          isCollapsed ? "justify-center" : "justify-start w-full"
-        )}>
+        <div
+          className={cn(
+            "flex items-center gap-3 transition-all duration-300",
+            isCollapsed ? "justify-center" : "justify-start w-full",
+          )}
+        >
           {/* Logo */}
           <div className="relative flex-shrink-0">
             <Image
@@ -185,7 +203,7 @@ export function Sidebar({ className }: SidebarProps) {
               priority
             />
           </div>
-          
+
           {/* App Name */}
           {!isCollapsed && (
             <div className="flex flex-col">
@@ -224,7 +242,8 @@ export function Sidebar({ className }: SidebarProps) {
           const isExpanded = expandedItems.includes(item.title);
           const hasSubItems = item.subItems && item.subItems.length > 0;
           const isActive = item.href && pathname === item.href;
-          const hasActiveChild = hasSubItems && item.subItems?.some((sub) => pathname === sub.href);
+          const hasActiveChild =
+            hasSubItems && item.subItems?.some((sub) => pathname === sub.href);
 
           if (hasSubItems) {
             return (
@@ -234,7 +253,7 @@ export function Sidebar({ className }: SidebarProps) {
                   className={cn(
                     "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors hover:bg-gray-100",
                     (hasActiveChild || isExpanded) && "bg-gray-100",
-                    isCollapsed && "justify-center px-2"
+                    isCollapsed && "justify-center px-2",
                   )}
                 >
                   <div className="flex items-center space-x-3">
@@ -267,11 +286,14 @@ export function Sidebar({ className }: SidebarProps) {
                           href={subItem.href}
                           className={cn(
                             "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100",
-                            isSubActive && "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                            isSubActive &&
+                              "bg-blue-50 text-blue-700 hover:bg-blue-100",
                           )}
                         >
                           <SubIcon className="h-4 w-4 flex-shrink-0" />
-                          <span className="text-sm font-medium">{subItem.title}</span>
+                          <span className="text-sm font-medium">
+                            {subItem.title}
+                          </span>
                         </Link>
                       );
                     })}
@@ -288,7 +310,7 @@ export function Sidebar({ className }: SidebarProps) {
               className={cn(
                 "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100",
                 isActive && "bg-gray-100 text-gray-900",
-                isCollapsed && "justify-center px-2"
+                isCollapsed && "justify-center px-2",
               )}
             >
               <Icon className="h-5 w-5 flex-shrink-0" />
@@ -314,4 +336,3 @@ export function Sidebar({ className }: SidebarProps) {
     </div>
   );
 }
-

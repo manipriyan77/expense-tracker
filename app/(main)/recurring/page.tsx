@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -37,87 +38,157 @@ import {
   Pause,
   Play,
   Trash2,
+  Zap,
+  Lightbulb,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
-
-interface RecurringTransaction {
-  id: string;
-  type: "income" | "expense";
-  amount: number;
-  description: string;
-  category: string;
-  frequency: "daily" | "weekly" | "monthly" | "yearly";
-  nextDate: string;
-  isActive: boolean;
-}
+import type { Transaction } from "@/store/transactions-store";
+import {
+  useRecurringPatternsStore,
+  type RecurringPattern,
+} from "@/store/recurring-patterns-store";
+import { useTransactionsStore } from "@/store/transactions-store";
+import { formatCurrency } from "@/lib/utils/currency";
 
 export default function RecurringPage() {
-  const [transactions, setTransactions] = useState<RecurringTransaction[]>([]);
+  const {
+    patterns,
+    loading,
+    fetchPatterns,
+    addPattern,
+    updatePattern,
+    deletePattern,
+    createTransaction,
+  } = useRecurringPatternsStore();
+  const { transactions: allTransactions, fetchTransactions } =
+    useTransactionsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showCategoryInput, setShowCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [creatingTransaction, setCreatingTransaction] = useState<string | null>(
+    null,
+  );
   const [formData, setFormData] = useState({
+    name: "",
     type: "expense" as "income" | "expense",
     amount: "",
     description: "",
     category: "",
-    frequency: "monthly" as "daily" | "weekly" | "monthly" | "yearly",
+    subtype: "",
+    frequency: "monthly" as
+      | "daily"
+      | "weekly"
+      | "biweekly"
+      | "monthly"
+      | "quarterly"
+      | "yearly",
+    start_date: new Date().toISOString().split("T")[0],
+    end_date: "",
+    auto_create: false,
   });
 
   useEffect(() => {
-    loadRecurringTransactions();
-  }, []);
+    fetchPatterns();
+    fetchTransactions();
+  }, [fetchPatterns, fetchTransactions]);
 
-  const loadRecurringTransactions = async () => {
-    const mockTransactions: RecurringTransaction[] = [
-      {
-        id: "1",
-        type: "income",
-        amount: 3000,
-        description: "Monthly Salary",
-        category: "Salary",
-        frequency: "monthly",
-        nextDate: "2025-01-01",
-        isActive: true,
-      },
-      {
-        id: "2",
-        type: "expense",
-        amount: 1200,
-        description: "Rent Payment",
-        category: "Bills",
-        frequency: "monthly",
-        nextDate: "2025-01-01",
-        isActive: true,
-      },
-      {
-        id: "3",
-        type: "expense",
-        amount: 15,
-        description: "Netflix Subscription",
-        category: "Entertainment",
-        frequency: "monthly",
-        nextDate: "2025-01-15",
-        isActive: true,
-      },
-      {
-        id: "4",
-        type: "expense",
-        amount: 50,
-        description: "Gym Membership",
-        category: "Healthcare",
-        frequency: "monthly",
-        nextDate: "2025-01-10",
-        isActive: false,
-      },
-    ];
-    setTransactions(mockTransactions);
-  };
+  // Smart detection: Find potential recurring transactions
+  const potentialRecurring = useMemo(() => {
+    const potential: Array<{
+      description: string;
+      category: string;
+      amount: number;
+      count: number;
+      frequency: string;
+    }> = [];
+    const grouped = new Map<
+      string,
+      { transactions: Transaction[]; amounts: number[] }
+    >();
+
+    // Group transactions by description and category
+    allTransactions.forEach((t: Transaction) => {
+      const key = `${t.description.toLowerCase()}_${t.category}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, { transactions: [], amounts: [] });
+      }
+      const group = grouped.get(key)!;
+      group.transactions.push(t);
+      group.amounts.push(t.amount);
+    });
+
+    // Find groups with 3+ occurrences (likely recurring)
+    grouped.forEach((group) => {
+      if (group.transactions.length >= 3) {
+        const avgAmount =
+          group.amounts.reduce((a, b) => a + b, 0) / group.amounts.length;
+        const dates = group.transactions
+          .map((t: Transaction) => new Date(t.date).getTime())
+          .sort((a, b) => a - b);
+
+        // Detect frequency
+        let frequency = "monthly";
+        if (dates.length >= 2) {
+          const avgDaysBetween =
+            (dates[dates.length - 1] - dates[0]) / (dates.length - 1);
+          if (avgDaysBetween <= 2) frequency = "daily";
+          else if (avgDaysBetween <= 9) frequency = "weekly";
+          else if (avgDaysBetween <= 18) frequency = "biweekly";
+          else if (avgDaysBetween <= 35) frequency = "monthly";
+          else if (avgDaysBetween <= 100) frequency = "quarterly";
+          else frequency = "yearly";
+        }
+
+        potential.push({
+          description: group.transactions[0].description,
+          category: group.transactions[0].category,
+          amount: avgAmount,
+          count: group.transactions.length,
+          frequency,
+        });
+      }
+    });
+
+    return potential.slice(0, 5); // Top 5 potential recurring
+  }, [allTransactions]);
+
+  // Upcoming recurring transactions (due in next 7 days)
+  const upcomingRecurring = useMemo(() => {
+    const today = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(today.getDate() + 7);
+
+    return patterns
+      .filter((p) => p.is_active)
+      .map((p) => {
+        const nextDate = new Date(p.next_date);
+        return {
+          ...p,
+          daysUntil: Math.ceil(
+            (nextDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+          ),
+        };
+      })
+      .filter((p) => p.daysUntil >= 0 && p.daysUntil <= 7)
+      .sort((a, b) => a.daysUntil - b.daysUntil);
+  }, [patterns]);
 
   const handleAddCustomCategory = () => {
     if (newCategoryName.trim()) {
       const trimmedName = newCategoryName.trim();
-      const allCategories = ["Salary", "Bills", "Subscriptions", "Food", "Transportation", "Entertainment", "Healthcare", "Other", ...customCategories];
+      const allCategories = [
+        "Salary",
+        "Bills",
+        "Subscriptions",
+        "Food",
+        "Transportation",
+        "Entertainment",
+        "Healthcare",
+        "Other",
+        ...customCategories,
+      ];
       if (!allCategories.includes(trimmedName)) {
         setCustomCategories([...customCategories, trimmedName]);
         setFormData({ ...formData, category: trimmedName });
@@ -127,46 +198,151 @@ export default function RecurringPage() {
     }
   };
 
-  const handleAddTransaction = () => {
-    if (!formData.amount || !formData.description || !formData.category) return;
+  const handleAddTransaction = async () => {
+    if (
+      !formData.amount ||
+      !formData.description ||
+      !formData.category ||
+      !formData.name
+    ) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
 
-    const newTransaction: RecurringTransaction = {
-      id: Date.now().toString(),
-      type: formData.type,
-      amount: parseFloat(formData.amount),
-      description: formData.description,
-      category: formData.category,
-      frequency: formData.frequency,
-      nextDate: new Date().toISOString().split("T")[0],
-      isActive: true,
-    };
-
-    setTransactions([newTransaction, ...transactions]);
-    setFormData({
-      type: "expense",
-      amount: "",
-      description: "",
-      category: "",
-      frequency: "monthly",
-    });
-    setIsAddDialogOpen(false);
+    try {
+      const nextDate = new Date(formData.start_date);
+      await addPattern({
+        name: formData.name,
+        type: formData.type,
+        amount: parseFloat(formData.amount),
+        description: formData.description,
+        category: formData.category,
+        subtype: formData.subtype || "Other",
+        frequency: formData.frequency,
+        start_date: formData.start_date,
+        end_date: formData.end_date || null,
+        next_date: nextDate.toISOString().split("T")[0],
+        is_active: true,
+        auto_create: formData.auto_create,
+        tags: [],
+        notes: null,
+      });
+      toast.success("Recurring pattern added successfully!");
+      setFormData({
+        name: "",
+        type: "expense",
+        amount: "",
+        description: "",
+        category: "",
+        subtype: "",
+        frequency: "monthly",
+        start_date: new Date().toISOString().split("T")[0],
+        end_date: "",
+        auto_create: false,
+      });
+      setIsAddDialogOpen(false);
+    } catch {
+      toast.error("Failed to add recurring pattern");
+    }
   };
 
-  const toggleActive = (id: string) => {
-    setTransactions(
-      transactions.map((t) =>
-        t.id === id ? { ...t, isActive: !t.isActive } : t
+  const handleCreateTransaction = async (patternId: string) => {
+    setCreatingTransaction(patternId);
+    try {
+      await createTransaction(patternId);
+      await fetchTransactions();
+      toast.success("Transaction created successfully!");
+    } catch {
+      toast.error("Failed to create transaction");
+    } finally {
+      setCreatingTransaction(null);
+    }
+  };
+
+  const toggleActive = async (id: string) => {
+    const pattern = patterns.find((p) => p.id === id);
+    if (!pattern) return;
+    try {
+      await updatePattern(id, { is_active: !pattern.is_active });
+      toast.success(`Pattern ${!pattern.is_active ? "activated" : "paused"}`);
+    } catch {
+      toast.error("Failed to update pattern");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this recurring pattern?"))
+      return;
+    try {
+      await deletePattern(id);
+      toast.success("Pattern deleted successfully");
+    } catch {
+      toast.error("Failed to delete pattern");
+    }
+  };
+
+  const handleSmartDetect = async (
+    potential: (typeof potentialRecurring)[0],
+  ) => {
+    try {
+      const nextDate = new Date();
+      const validFrequencies: RecurringPattern["frequency"][] = [
+        "daily",
+        "weekly",
+        "biweekly",
+        "monthly",
+        "quarterly",
+        "yearly",
+      ];
+      const frequency = validFrequencies.includes(
+        potential.frequency as RecurringPattern["frequency"],
       )
-    );
+        ? (potential.frequency as RecurringPattern["frequency"])
+        : "monthly";
+
+      await addPattern({
+        name: potential.description,
+        type: "expense",
+        amount: potential.amount,
+        description: potential.description,
+        category: potential.category,
+        subtype: "Other",
+        frequency,
+        start_date: new Date().toISOString().split("T")[0],
+        end_date: null,
+        next_date: nextDate.toISOString().split("T")[0],
+        is_active: true,
+        auto_create: false,
+        tags: [],
+        notes: `Auto-detected from ${potential.count} transactions`,
+      });
+      toast.success("Recurring pattern created from detection!");
+    } catch {
+      toast.error("Failed to create pattern");
+    }
   };
 
-  const activeTransactions = transactions.filter((t) => t.isActive);
-  const totalMonthlyIncome = activeTransactions
-    .filter((t) => t.type === "income" && t.frequency === "monthly")
-    .reduce((sum, t) => sum + t.amount, 0);
-  const totalMonthlyExpenses = activeTransactions
-    .filter((t) => t.type === "expense" && t.frequency === "monthly")
-    .reduce((sum, t) => sum + t.amount, 0);
+  const activePatterns = patterns.filter((p) => p.is_active);
+  const totalMonthlyIncome = activePatterns
+    .filter(
+      (p) =>
+        p.type === "income" &&
+        (p.frequency === "monthly" || p.frequency === "biweekly"),
+    )
+    .reduce((sum, p) => {
+      const multiplier = p.frequency === "biweekly" ? 2 : 1;
+      return sum + p.amount * multiplier;
+    }, 0);
+  const totalMonthlyExpenses = activePatterns
+    .filter(
+      (p) =>
+        p.type === "expense" &&
+        (p.frequency === "monthly" || p.frequency === "biweekly"),
+    )
+    .reduce((sum, p) => {
+      const multiplier = p.frequency === "biweekly" ? 2 : 1;
+      return sum + p.amount * multiplier;
+    }, 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -192,7 +368,7 @@ export default function RecurringPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                ₹{totalMonthlyIncome.toFixed(2)}
+                {formatCurrency(totalMonthlyIncome)}
               </div>
               <p className="text-xs text-muted-foreground">
                 From recurring sources
@@ -209,7 +385,7 @@ export default function RecurringPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                ₹{totalMonthlyExpenses.toFixed(2)}
+                {formatCurrency(totalMonthlyExpenses)}
               </div>
               <p className="text-xs text-muted-foreground">
                 From recurring bills
@@ -219,14 +395,12 @@ export default function RecurringPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Net Monthly
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Net Monthly</CardTitle>
               <DollarSign className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
-                ₹{(totalMonthlyIncome - totalMonthlyExpenses).toFixed(2)}
+                {formatCurrency(totalMonthlyIncome - totalMonthlyExpenses)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Expected balance change
@@ -235,13 +409,110 @@ export default function RecurringPage() {
           </Card>
         </div>
 
+        {/* Upcoming Recurring Transactions */}
+        {upcomingRecurring.length > 0 && (
+          <Card className="mb-8 border-blue-200 bg-blue-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-blue-600" />
+                Upcoming This Week
+              </CardTitle>
+              <CardDescription>
+                Recurring transactions due in the next 7 days
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {upcomingRecurring.map((pattern) => (
+                  <div
+                    key={pattern.id}
+                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{pattern.description}</p>
+                        <span className="text-xs text-gray-500">
+                          {pattern.daysUntil === 0
+                            ? "Due today"
+                            : pattern.daysUntil === 1
+                              ? "Due tomorrow"
+                              : `Due in ${pattern.daysUntil} days`}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {pattern.category} • {formatCurrency(pattern.amount)}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleCreateTransaction(pattern.id)}
+                      disabled={creatingTransaction === pattern.id}
+                    >
+                      {creatingTransaction === pattern.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                          Post Now
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Smart Detection */}
+        {potentialRecurring.length > 0 && (
+          <Card className="mb-8 border-yellow-200 bg-yellow-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5 text-yellow-600" />
+                Smart Detection
+              </CardTitle>
+              <CardDescription>
+                We found potential recurring transactions in your history
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {potentialRecurring.map((potential, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-yellow-200"
+                  >
+                    <div className="flex-1">
+                      <p className="font-semibold">{potential.description}</p>
+                      <p className="text-sm text-gray-600">
+                        {potential.category} •{" "}
+                        {formatCurrency(potential.amount)} •{" "}
+                        {potential.frequency} • Found {potential.count} times
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleSmartDetect(potential)}
+                    >
+                      <Zap className="h-4 w-4 mr-2" />
+                      Create Pattern
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Add Button */}
-        <div className="mb-6">
+        <div className="mb-6 flex gap-2">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="w-full md:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Recurring Transaction
+                Add Recurring Pattern
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -252,6 +523,19 @@ export default function RecurringPage() {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Pattern Name *</Label>
+                  <Input
+                    id="name"
+                    placeholder="e.g., Monthly Rent"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="type">Type</Label>
                   <Select
@@ -271,7 +555,7 @@ export default function RecurringPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="amount">Amount</Label>
+                  <Label htmlFor="amount">Amount *</Label>
                   <Input
                     id="amount"
                     type="number"
@@ -281,17 +565,31 @@ export default function RecurringPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, amount: e.target.value })
                     }
+                    required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">Description *</Label>
                   <Input
                     id="description"
-                    placeholder="e.g., Monthly Rent"
+                    placeholder="e.g., Monthly Rent Payment"
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="subtype">Subtype</Label>
+                  <Input
+                    id="subtype"
+                    placeholder="Optional subtype"
+                    value={formData.subtype}
+                    onChange={(e) =>
+                      setFormData({ ...formData, subtype: e.target.value })
                     }
                   />
                 </div>
@@ -352,7 +650,9 @@ export default function RecurringPage() {
                       <SelectContent>
                         <SelectItem value="Salary">Salary</SelectItem>
                         <SelectItem value="Bills">Bills</SelectItem>
-                        <SelectItem value="Subscriptions">Subscriptions</SelectItem>
+                        <SelectItem value="Subscriptions">
+                          Subscriptions
+                        </SelectItem>
                         <SelectItem value="Food">Food</SelectItem>
                         <SelectItem value="Transportation">
                           Transportation
@@ -367,7 +667,10 @@ export default function RecurringPage() {
                             {cat}
                           </SelectItem>
                         ))}
-                        <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
+                        <SelectItem
+                          value="add_custom"
+                          className="text-blue-600 font-medium border-t mt-1 pt-2"
+                        >
                           <div className="flex items-center space-x-2">
                             <Plus className="h-4 w-4" />
                             <span>Add Category</span>
@@ -383,7 +686,13 @@ export default function RecurringPage() {
                   <Select
                     value={formData.frequency}
                     onValueChange={(
-                      value: "daily" | "weekly" | "monthly" | "yearly"
+                      value:
+                        | "daily"
+                        | "weekly"
+                        | "biweekly"
+                        | "monthly"
+                        | "quarterly"
+                        | "yearly",
                     ) => setFormData({ ...formData, frequency: value })}
                   >
                     <SelectTrigger>
@@ -392,102 +701,192 @@ export default function RecurringPage() {
                     <SelectContent>
                       <SelectItem value="daily">Daily</SelectItem>
                       <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="biweekly">Bi-weekly</SelectItem>
                       <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="quarterly">Quarterly</SelectItem>
                       <SelectItem value="yearly">Yearly</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <Button onClick={handleAddTransaction} className="w-full">
-                  Add Transaction
+                <div className="space-y-2">
+                  <Label htmlFor="start_date">Start Date</Label>
+                  <Input
+                    id="start_date"
+                    type="date"
+                    value={formData.start_date}
+                    onChange={(e) =>
+                      setFormData({ ...formData, start_date: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="end_date">End Date (Optional)</Label>
+                  <Input
+                    id="end_date"
+                    type="date"
+                    value={formData.end_date}
+                    onChange={(e) =>
+                      setFormData({ ...formData, end_date: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="auto_create"
+                    checked={formData.auto_create}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, auto_create: checked })
+                    }
+                  />
+                  <Label htmlFor="auto_create" className="cursor-pointer">
+                    Auto-create transactions (experimental)
+                  </Label>
+                </div>
+
+                <Button
+                  onClick={handleAddTransaction}
+                  className="w-full"
+                  disabled={loading}
+                >
+                  {loading ? "Adding..." : "Add Pattern"}
                 </Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
-        {/* Transactions List */}
+        {/* Patterns List */}
         <div className="space-y-4">
-          {transactions.map((transaction) => (
-            <Card
-              key={transaction.id}
-              className={transaction.isActive ? "" : "opacity-60"}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div
-                      className={`p-3 rounded-full ₹{
-                        transaction.type === "income"
-                          ? "bg-green-100 text-green-600"
-                          : "bg-red-100 text-red-600"
-                      }`}
-                    >
-                      {transaction.type === "income" ? (
-                        <TrendingUp className="h-5 w-5" />
-                      ) : (
-                        <TrendingDown className="h-5 w-5" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <p className="font-semibold text-lg">
-                          {transaction.description}
-                        </p>
-                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
-                          {transaction.frequency}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-500">
-                        {transaction.category}
-                      </p>
-                      <div className="flex items-center space-x-1 text-xs text-gray-500 mt-1">
-                        <Calendar className="h-3 w-3" />
-                        <span>
-                          Next: {new Date(transaction.nextDate).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+          {patterns.map((pattern) => {
+            const nextDate = new Date(pattern.next_date);
+            const daysUntil = Math.ceil(
+              (nextDate.getTime() - new Date().getTime()) /
+                (1000 * 60 * 60 * 24),
+            );
+            const isDue = daysUntil <= 0;
 
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <p
-                        className={`text-xl font-bold ₹{
-                          transaction.type === "income"
-                            ? "text-green-600"
-                            : "text-red-600"
+            return (
+              <Card
+                key={pattern.id}
+                className={
+                  pattern.is_active
+                    ? isDue
+                      ? "border-orange-200 bg-orange-50"
+                      : ""
+                    : "opacity-60"
+                }
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div
+                        className={`p-3 rounded-full ${
+                          pattern.type === "income"
+                            ? "bg-green-100 text-green-600"
+                            : "bg-red-100 text-red-600"
                         }`}
                       >
-                        {transaction.type === "income" ? "+" : "-"}₹
-                        {transaction.amount.toFixed(2)}
-                      </p>
+                        {pattern.type === "income" ? (
+                          <TrendingUp className="h-5 w-5" />
+                        ) : (
+                          <TrendingDown className="h-5 w-5" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <p className="font-semibold text-lg">
+                            {pattern.name}
+                          </p>
+                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
+                            {pattern.frequency}
+                          </span>
+                          {pattern.auto_create && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700">
+                              Auto
+                            </span>
+                          )}
+                          {isDue && pattern.is_active && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-700">
+                              Due
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          {pattern.description} • {pattern.category}
+                        </p>
+                        <div className="flex items-center space-x-1 text-xs text-gray-500 mt-1">
+                          <Calendar className="h-3 w-3" />
+                          <span>
+                            Next: {nextDate.toLocaleDateString()}
+                            {daysUntil >= 0 &&
+                              ` (${daysUntil === 0 ? "today" : daysUntil === 1 ? "tomorrow" : `${daysUntil} days`})`}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => toggleActive(transaction.id)}
-                      >
-                        {transaction.isActive ? (
-                          <Pause className="h-4 w-4" />
-                        ) : (
-                          <Play className="h-4 w-4" />
+                    <div className="flex items-center space-x-4">
+                      <div className="text-right">
+                        <p
+                          className={`text-xl font-bold ${
+                            pattern.type === "income"
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {pattern.type === "income" ? "+" : "-"}
+                          {formatCurrency(pattern.amount)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        {isDue && pattern.is_active && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleCreateTransaction(pattern.id)}
+                            disabled={creatingTransaction === pattern.id}
+                          >
+                            {creatingTransaction === pattern.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <CheckCircle2 className="h-4 w-4 mr-1" />
+                                Post
+                              </>
+                            )}
+                          </Button>
                         )}
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleActive(pattern.id)}
+                        >
+                          {pattern.is_active ? (
+                            <Pause className="h-4 w-4" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(pattern.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
-        {transactions.length === 0 && (
+        {patterns.length === 0 && !loading && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Repeat className="h-12 w-12 text-gray-400 mb-4" />

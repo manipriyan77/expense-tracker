@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import Link from "next/link";
 import { useGoldStore } from "@/store/gold-store";
 import { useFixedDepositsStore } from "@/store/fixed-deposits-store";
 import { useProvidentFundStore } from "@/store/provident-fund-store";
 import { useMutualFundsStore } from "@/store/mutual-funds-store";
 import { useStocksStore } from "@/store/stocks-store";
+import { useNetWorthStore } from "@/store/net-worth-store";
+import { ExternalLink, TrendingUp } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -40,6 +43,8 @@ export default function AssetsOverviewPage() {
     loading: mfLoading,
   } = useMutualFundsStore();
   const { stocks, fetchStocks, loading: stocksLoading } = useStocksStore();
+  const { assets, liabilities, fetchAssets, fetchLiabilities } =
+    useNetWorthStore();
 
   useEffect(() => {
     loadGold();
@@ -47,6 +52,8 @@ export default function AssetsOverviewPage() {
     loadPF();
     fetchMutualFunds();
     fetchStocks();
+    fetchAssets();
+    fetchLiabilities();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -94,6 +101,17 @@ export default function AssetsOverviewPage() {
       .filter((item) => item.value > 0);
   }, [stocks]);
 
+  // Calculate net worth
+  const totalManualAssets = useMemo(
+    () => assets.reduce((sum, asset) => sum + asset.value, 0),
+    [assets],
+  );
+  const totalLiabilities = useMemo(
+    () => liabilities.reduce((sum, liability) => sum + liability.balance, 0),
+    [liabilities],
+  );
+  const netWorth = allocation.total + totalManualAssets - totalLiabilities;
+
   const isLoading =
     goldLoading || fdLoading || pfLoading || mfLoading || stocksLoading;
 
@@ -107,13 +125,13 @@ export default function AssetsOverviewPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardHeader>
             <CardTitle>Total Assets</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-bold">
-            {formatCurrency(allocation.total)}
+            {formatCurrency(allocation.total + totalManualAssets)}
           </CardContent>
         </Card>
         <Card>
@@ -122,6 +140,32 @@ export default function AssetsOverviewPage() {
           </CardHeader>
           <CardContent className="text-2xl font-bold">
             {allocation.items.length}
+          </CardContent>
+        </Card>
+        <Card className="border-2 border-blue-200 bg-blue-50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
+            <TrendingUp className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {formatCurrency(netWorth)}
+            </div>
+            <Link
+              href="/net-worth"
+              className="text-xs text-blue-600 hover:underline mt-1 flex items-center gap-1"
+            >
+              View Full Details
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Liabilities</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-bold text-red-600">
+            {formatCurrency(totalLiabilities)}
           </CardContent>
         </Card>
       </div>

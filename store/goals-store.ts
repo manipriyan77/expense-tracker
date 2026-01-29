@@ -8,6 +8,7 @@ export interface Goal {
   targetDate: string;
   category: string;
   status: "active" | "completed" | "overdue";
+  monthlyContribution?: number;
   user_id: string;
   created_at: string;
   updated_at: string;
@@ -18,7 +19,9 @@ interface GoalsState {
   loading: boolean;
   error: string | null;
   fetchGoals: () => Promise<void>;
-  addGoal: (goal: Omit<Goal, "id" | "user_id" | "created_at" | "updated_at">) => Promise<void>;
+  addGoal: (
+    goal: Omit<Goal, "id" | "user_id" | "created_at" | "updated_at">,
+  ) => Promise<void>;
   updateGoal: (id: string, updates: Partial<Goal>) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
 }
@@ -38,7 +41,7 @@ export const useGoalsStore = create<GoalsState>((set) => ({
       }
 
       const data = await response.json();
-      
+
       // Transform snake_case to camelCase
       const transformedGoals = data.map((goal: Record<string, unknown>) => ({
         id: goal.id as string,
@@ -48,15 +51,22 @@ export const useGoalsStore = create<GoalsState>((set) => ({
         targetDate: goal.target_date as string,
         category: goal.category as string,
         status: goal.status as "active" | "completed" | "overdue",
+        monthlyContribution:
+          goal.monthly_contribution != null
+            ? parseFloat(String(goal.monthly_contribution))
+            : undefined,
         user_id: goal.user_id as string,
         created_at: goal.created_at as string,
         updated_at: goal.updated_at as string,
       }));
-      
+
       set({ goals: transformedGoals, loading: false });
     } catch (error) {
       console.error("Error fetching goals:", error);
-      set({ error: error instanceof Error ? error.message : "Failed to fetch goals", loading: false });
+      set({
+        error: error instanceof Error ? error.message : "Failed to fetch goals",
+        loading: false,
+      });
     }
   },
 
@@ -77,7 +87,7 @@ export const useGoalsStore = create<GoalsState>((set) => ({
       }
 
       const data = await response.json();
-      
+
       // Transform snake_case to camelCase
       const transformedGoal = {
         id: data.id,
@@ -87,18 +97,25 @@ export const useGoalsStore = create<GoalsState>((set) => ({
         targetDate: data.target_date,
         category: data.category,
         status: data.status,
+        monthlyContribution:
+          data.monthly_contribution != null
+            ? parseFloat(data.monthly_contribution)
+            : undefined,
         user_id: data.user_id,
         created_at: data.created_at,
         updated_at: data.updated_at,
       };
-      
+
       set((state) => ({
         goals: [transformedGoal, ...state.goals],
         loading: false,
       }));
     } catch (error) {
       console.error("Error adding goal:", error);
-      set({ error: error instanceof Error ? error.message : "Failed to add goal", loading: false });
+      set({
+        error: error instanceof Error ? error.message : "Failed to add goal",
+        loading: false,
+      });
     }
   },
 
@@ -119,7 +136,7 @@ export const useGoalsStore = create<GoalsState>((set) => ({
       }
 
       const data = await response.json();
-      
+
       // Transform snake_case to camelCase
       const transformedGoal = {
         id: data.id,
@@ -129,20 +146,27 @@ export const useGoalsStore = create<GoalsState>((set) => ({
         targetDate: data.target_date,
         category: data.category,
         status: data.status,
+        monthlyContribution:
+          data.monthly_contribution != null
+            ? parseFloat(data.monthly_contribution)
+            : undefined,
         user_id: data.user_id,
         created_at: data.created_at,
         updated_at: data.updated_at,
       };
-      
+
       set((state) => ({
         goals: state.goals.map((goal) =>
-          goal.id === id ? transformedGoal : goal
+          goal.id === id ? transformedGoal : goal,
         ),
         loading: false,
       }));
     } catch (error) {
       console.error("Error updating goal:", error);
-      set({ error: error instanceof Error ? error.message : "Failed to update goal", loading: false });
+      set({
+        error: error instanceof Error ? error.message : "Failed to update goal",
+        loading: false,
+      });
     }
   },
 
@@ -164,7 +188,8 @@ export const useGoalsStore = create<GoalsState>((set) => ({
       }));
     } catch (error) {
       console.error("Error deleting goal:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete goal";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to delete goal";
       set({ error: errorMessage, loading: false });
       // Re-throw to let the UI handle it
       throw error;

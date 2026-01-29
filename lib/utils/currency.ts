@@ -60,7 +60,7 @@ export const CURRENCY_CONFIGS: Record<string, CurrencyPreferences> = {
 
 export function formatCurrency(
   amount: number,
-  preferences?: Partial<CurrencyPreferences>
+  preferences?: Partial<CurrencyPreferences>,
 ): string {
   const config = {
     ...CURRENCY_CONFIGS.INR,
@@ -74,7 +74,7 @@ export function formatCurrency(
   const parts = absAmount.toFixed(config.decimalPlaces).split(".");
   const integerPart = parts[0].replace(
     /\B(?=(\d{3})+(?!\d))/g,
-    config.thousandsSeparator
+    config.thousandsSeparator,
   );
   const decimalPart = parts[1] || "";
 
@@ -102,7 +102,7 @@ export function parseCurrency(value: string): number {
 
 export function formatCompactCurrency(
   amount: number,
-  preferences?: Partial<CurrencyPreferences>
+  preferences?: Partial<CurrencyPreferences>,
 ): string {
   const config = {
     ...CURRENCY_CONFIGS.INR,

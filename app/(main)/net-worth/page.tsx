@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +8,11 @@ import {
   type Asset,
   type Liability,
 } from "@/store/net-worth-store";
+import { useGoldStore } from "@/store/gold-store";
+import { useFixedDepositsStore } from "@/store/fixed-deposits-store";
+import { useProvidentFundStore } from "@/store/provident-fund-store";
+import { useMutualFundsStore } from "@/store/mutual-funds-store";
+import { useStocksStore } from "@/store/stocks-store";
 import {
   Card,
   CardContent,
@@ -53,7 +58,14 @@ import {
   Trash2,
   Edit,
   MoreVertical,
+  ExternalLink,
+  Gem,
+  Landmark,
+  PiggyBank,
+  Wallet,
+  BarChart3,
 } from "lucide-react";
+import Link from "next/link";
 import {
   LineChart,
   Line,
@@ -87,13 +99,20 @@ export default function NetWorthPage() {
     deleteLiability,
   } = useNetWorthStore();
 
+  // Investment / asset modules from other parts of the app
+  const { holdings, load: loadGold } = useGoldStore();
+  const { deposits, load: loadFDs } = useFixedDepositsStore();
+  const { funds, load: loadPF } = useProvidentFundStore();
+  const { mutualFunds, fetchMutualFunds } = useMutualFundsStore();
+  const { stocks, fetchStocks } = useStocksStore();
+
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
   const [isEditAssetOpen, setIsEditAssetOpen] = useState(false);
   const [isAddLiabilityOpen, setIsAddLiabilityOpen] = useState(false);
   const [isEditLiabilityOpen, setIsEditLiabilityOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [selectedLiability, setSelectedLiability] = useState<Liability | null>(
-    null
+    null,
   );
 
   // Form states for adding assets/liabilities
@@ -135,15 +154,82 @@ export default function NetWorthPage() {
     fetchAssets();
     fetchLiabilities();
     fetchSnapshots();
+    // Load asset data from other modules so it's included in net worth
+    loadGold();
+    loadFDs();
+    loadPF();
+    fetchMutualFunds();
+    fetchStocks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const totalAssets = assets.reduce((sum, asset) => sum + asset.value, 0);
+  // Assets tracked directly in the net worth module
+  const totalManualAssets = useMemo(
+    () => assets.reduce((sum, asset) => sum + asset.value, 0),
+    [assets],
+  );
+
+  // Assets tracked in dedicated modules (gold, FDs, PF, mutual funds, stocks)
+  const externalAssetsTotal = useMemo(() => {
+    const goldValue = holdings.reduce(
+      (sum, h) => sum + h.quantityGrams * h.currentPricePerGram,
+      0,
+    );
+    const fdValue = deposits.reduce((sum, d) => sum + d.principal, 0);
+    const pfValue = funds.reduce((sum, f) => sum + f.balance, 0);
+    const mfValue = mutualFunds.reduce((sum, f) => sum + f.currentValue, 0);
+    const stockValue = stocks.reduce((sum, s) => sum + s.currentValue, 0);
+
+    return goldValue + fdValue + pfValue + mfValue + stockValue;
+  }, [holdings, deposits, funds, mutualFunds, stocks]);
+
+  const totalAssets = totalManualAssets + externalAssetsTotal;
   const totalLiabilities = liabilities.reduce(
     (sum, liability) => sum + liability.balance,
-    0
+    0,
   );
   const netWorth = totalAssets - totalLiabilities;
+
+  // Asset breakdown by category for drill-down
+  const assetBreakdown = useMemo(() => {
+    const goldValue = holdings.reduce(
+      (sum, h) => sum + h.quantityGrams * h.currentPricePerGram,
+      0,
+    );
+    const fdValue = deposits.reduce((sum, d) => sum + d.principal, 0);
+    const pfValue = funds.reduce((sum, f) => sum + f.balance, 0);
+    const mfValue = mutualFunds.reduce((sum, f) => sum + f.currentValue, 0);
+    const stockValue = stocks.reduce((sum, s) => sum + s.currentValue, 0);
+
+    return [
+      { name: "Gold", value: goldValue, href: "/gold", icon: Gem },
+      {
+        name: "Fixed Deposits",
+        value: fdValue,
+        href: "/fixed-deposits",
+        icon: Landmark,
+      },
+      {
+        name: "Provident Fund",
+        value: pfValue,
+        href: "/provident-fund",
+        icon: PiggyBank,
+      },
+      {
+        name: "Mutual Funds",
+        value: mfValue,
+        href: "/mutual-funds",
+        icon: Wallet,
+      },
+      { name: "Stocks", value: stockValue, href: "/stocks", icon: BarChart3 },
+      {
+        name: "Other Assets",
+        value: totalManualAssets,
+        href: null,
+        icon: DollarSign,
+      },
+    ].filter((item) => item.value > 0);
+  }, [holdings, deposits, funds, mutualFunds, stocks, totalManualAssets]);
 
   // Format snapshots for the chart
   const historicalData = snapshots.slice(-6).map((snapshot) => {
@@ -329,7 +415,7 @@ export default function NetWorthPage() {
       <main className="px-4 sm:px-6 lg:px-8 py-8">
         {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-3 mb-8">
-          <Card>
+          <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Total Assets
@@ -340,9 +426,13 @@ export default function NetWorthPage() {
               <div className="text-2xl font-bold text-green-600">
                 {formatCurrency(totalAssets)}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                +5.2% from last month
-              </p>
+              <Link
+                href="/assets"
+                className="text-xs text-blue-600 hover:underline mt-1 flex items-center gap-1"
+              >
+                View Asset Allocation
+                <ExternalLink className="h-3 w-3" />
+              </Link>
             </CardContent>
           </Card>
 
@@ -378,6 +468,91 @@ export default function NetWorthPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Asset Breakdown by Category */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Asset Breakdown</CardTitle>
+            <CardDescription>
+              Your assets by category - click to view details
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {assetBreakdown.length === 0 ? (
+              <p className="text-center text-gray-500 py-4">
+                No assets tracked yet. Add investments or manual assets to get
+                started.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {assetBreakdown.map((item) => {
+                  const percentage =
+                    totalAssets > 0 ? (item.value / totalAssets) * 100 : 0;
+                  const Icon = item.icon;
+                  return (
+                    <Card
+                      key={item.name}
+                      className={`hover:shadow-md transition-shadow ${
+                        item.href ? "cursor-pointer" : ""
+                      }`}
+                    >
+                      <CardContent className="p-4">
+                        {item.href ? (
+                          <Link href={item.href} className="block">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Icon className="h-5 w-5 text-blue-600" />
+                                <span className="font-semibold">
+                                  {item.name}
+                                </span>
+                              </div>
+                              <ExternalLink className="h-4 w-4 text-gray-400" />
+                            </div>
+                            <div className="text-xl font-bold text-green-600">
+                              {formatCurrency(item.value)}
+                            </div>
+                            <div className="mt-2">
+                              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                <span>{percentage.toFixed(1)}% of total</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-green-600 h-2 rounded-full transition-all"
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                            </div>
+                          </Link>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Icon className="h-5 w-5 text-gray-600" />
+                              <span className="font-semibold">{item.name}</span>
+                            </div>
+                            <div className="text-xl font-bold text-green-600">
+                              {formatCurrency(item.value)}
+                            </div>
+                            <div className="mt-2">
+                              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                <span>{percentage.toFixed(1)}% of total</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-gray-600 h-2 rounded-full transition-all"
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Net Worth Trend Chart */}
         <Card className="mb-8">
@@ -548,13 +723,13 @@ export default function NetWorthPage() {
                               onClick={async () => {
                                 if (
                                   confirm(
-                                    `Are you sure you want to delete ${asset.name}?`
+                                    `Are you sure you want to delete ${asset.name}?`,
                                   )
                                 ) {
                                   try {
                                     await deleteAsset(asset.id);
                                     toast.success(
-                                      "Asset deleted successfully!"
+                                      "Asset deleted successfully!",
                                     );
                                   } catch (error) {
                                     toast.error("Failed to delete asset");
@@ -726,13 +901,13 @@ export default function NetWorthPage() {
                               onClick={async () => {
                                 if (
                                   confirm(
-                                    `Are you sure you want to delete ${liability.name}?`
+                                    `Are you sure you want to delete ${liability.name}?`,
                                   )
                                 ) {
                                   try {
                                     await deleteLiability(liability.id);
                                     toast.success(
-                                      "Liability deleted successfully!"
+                                      "Liability deleted successfully!",
                                     );
                                   } catch (error) {
                                     toast.error("Failed to delete liability");

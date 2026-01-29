@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -31,25 +31,165 @@ import {
   Loader2,
   Edit,
   Trash2,
+  DollarSign,
+  AlertTriangle,
 } from "lucide-react";
 import { useGoalsStore, Goal } from "@/store/goals-store";
+import { useTransactionsStore } from "@/store/transactions-store";
 import { goalFormSchema, GoalFormData } from "@/lib/schemas/goal-form-schema";
 import GoalDetailsModal from "@/components/goals/GoalDetailsModal";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
-import { DollarSign } from "lucide-react";
 import { toast, Toaster } from "sonner";
+import { formatCurrency } from "@/lib/utils/currency";
 
 export default function GoalsPage() {
-  const { goals, loading, error, fetchGoals, addGoal, updateGoal, deleteGoal } = useGoalsStore();
+  const { goals, loading, error, fetchGoals, addGoal, updateGoal, deleteGoal } =
+    useGoalsStore();
+  const { transactions, fetchTransactions } = useTransactionsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  
+
   // Transaction dialog
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
   const [transactionGoal, setTransactionGoal] = useState<Goal | null>(null);
+
+  useEffect(() => {
+    fetchGoals();
+    fetchTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Calculate monthly savings rate from transactions (current month, with fallback to recent months average)
+  const monthlySavingsRate = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Current month only
+    const monthTransactions = transactions.filter((t) => {
+      const date = new Date(t.date);
+      return (
+        date.getMonth() === currentMonth && date.getFullYear() === currentYear
+      );
+    });
+    const income = monthTransactions
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + t.amount, 0);
+    const expenses = monthTransactions
+      .filter((t) => t.type === "expense")
+      .reduce((sum, t) => sum + t.amount, 0);
+    const currentMonthSavings = income - expenses;
+
+    // If we have positive savings this month, use it
+    if (currentMonthSavings > 0) return currentMonthSavings;
+
+    // Fallback: average monthly savings over the last 6 months (so probability isn't stuck at 5%)
+    const monthsToCheck = 6;
+    let totalSavings = 0;
+    let monthsWithData = 0;
+    for (let i = 0; i < monthsToCheck; i++) {
+      const d = new Date(currentYear, currentMonth - i, 1);
+      const m = d.getMonth();
+      const y = d.getFullYear();
+      const tx = transactions.filter((t) => {
+        const date = new Date(t.date);
+        return date.getMonth() === m && date.getFullYear() === y;
+      });
+      const inc = tx
+        .filter((t) => t.type === "income")
+        .reduce((sum, t) => sum + t.amount, 0);
+      const exp = tx
+        .filter((t) => t.type === "expense")
+        .reduce((sum, t) => sum + t.amount, 0);
+      const savings = inc - exp;
+      if (inc > 0 || exp > 0) {
+        totalSavings += savings;
+        monthsWithData += 1;
+      }
+    }
+    const avgSavings = monthsWithData > 0 ? totalSavings / monthsWithData : 0;
+    return avgSavings > 0 ? avgSavings : currentMonthSavings;
+  }, [transactions]);
+
+  // Calculate goal completion probability
+  const calculateGoalProbability = (
+    goal: Goal,
+  ): {
+    probability: number;
+    message: string;
+    status: "on-track" | "at-risk" | "unlikely";
+  } => {
+    if (goal.status === "completed") {
+      return { probability: 100, message: "Completed!", status: "on-track" };
+    }
+
+    const remaining = goal.targetAmount - goal.currentAmount;
+    const targetDate = new Date(goal.targetDate);
+    const today = new Date();
+    const daysRemaining = Math.ceil(
+      (targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    const monthsRemaining = daysRemaining / 30;
+
+    if (daysRemaining < 0) {
+      return {
+        probability: 0,
+        message: "Target date has passed",
+        status: "unlikely",
+      };
+    }
+
+    if (remaining <= 0) {
+      return {
+        probability: 100,
+        message: "Goal achieved!",
+        status: "on-track",
+      };
+    }
+
+    // Calculate required monthly savings
+    const requiredMonthly =
+      monthsRemaining > 0 ? remaining / monthsRemaining : remaining;
+
+    // Use transaction-based monthly savings, or fall back to goal's planned monthly contribution
+    const effectiveMonthly =
+      monthlySavingsRate > 0
+        ? monthlySavingsRate
+        : (goal.monthlyContribution ?? 0);
+
+    // Probability based on effective monthly rate vs required rate
+    let probability = 0;
+    let status: "on-track" | "at-risk" | "unlikely" = "on-track";
+
+    if (effectiveMonthly > 0) {
+      if (effectiveMonthly >= requiredMonthly) {
+        probability = 95; // Very likely if saving more than needed
+        status = "on-track";
+      } else {
+        // Probability decreases as gap increases
+        const ratio = effectiveMonthly / requiredMonthly;
+        probability = Math.min(95, Math.max(10, ratio * 80));
+        status =
+          ratio >= 0.8 ? "on-track" : ratio >= 0.5 ? "at-risk" : "unlikely";
+      }
+    } else {
+      probability = 5; // Very unlikely if not saving
+      status = "unlikely";
+    }
+
+    const isPlannedOnly =
+      monthlySavingsRate <= 0 && (goal.monthlyContribution ?? 0) > 0;
+    const currentLabel = isPlannedOnly ? "planned" : "currently";
+    const message =
+      effectiveMonthly >= requiredMonthly
+        ? `On track! Saving ${formatCurrency(effectiveMonthly)}/month (need ${formatCurrency(requiredMonthly)})`
+        : `Need to save ${formatCurrency(requiredMonthly)}/month (${currentLabel} ${formatCurrency(effectiveMonthly)})`;
+
+    return { probability, message, status };
+  };
 
   const addForm = useForm<GoalFormData>({
     resolver: zodResolver(goalFormSchema),
@@ -59,6 +199,7 @@ export default function GoalsPage() {
       currentAmount: 0,
       targetDate: "",
       category: "General",
+      monthlyContribution: 0,
     },
   });
 
@@ -70,6 +211,7 @@ export default function GoalsPage() {
       currentAmount: 0,
       targetDate: "",
       category: "General",
+      monthlyContribution: 0,
     },
   });
 
@@ -87,11 +229,6 @@ export default function GoalsPage() {
     formState: { errors: editErrors, isSubmitting: isEditSubmitting },
   } = editForm;
 
-  useEffect(() => {
-    fetchGoals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const handleAddGoal = async (data: GoalFormData) => {
     const newGoal = {
       title: data.title,
@@ -99,6 +236,7 @@ export default function GoalsPage() {
       currentAmount: data.currentAmount || 0,
       targetDate: data.targetDate,
       category: data.category || "General",
+      monthlyContribution: data.monthlyContribution ?? 0,
       status: "active" as const,
     };
 
@@ -116,6 +254,7 @@ export default function GoalsPage() {
       currentAmount: data.currentAmount || 0,
       targetDate: data.targetDate,
       category: data.category || "General",
+      monthlyContribution: data.monthlyContribution ?? 0,
     });
     resetEdit();
     setIsEditDialogOpen(false);
@@ -123,7 +262,11 @@ export default function GoalsPage() {
   };
 
   const handleDeleteGoal = async (id: string) => {
-    if (confirm("Are you sure you want to delete this goal? This action cannot be undone.")) {
+    if (
+      confirm(
+        "Are you sure you want to delete this goal? This action cannot be undone.",
+      )
+    ) {
       try {
         await deleteGoal(id);
       } catch (error) {
@@ -144,6 +287,7 @@ export default function GoalsPage() {
       currentAmount: goal.currentAmount,
       targetDate: goal.targetDate,
       category: goal.category,
+      monthlyContribution: goal.monthlyContribution ?? 0,
     });
     setIsEditDialogOpen(true);
   };
@@ -197,10 +341,18 @@ export default function GoalsPage() {
   }
 
   const totalGoals = goals.length;
-  const completedGoals = goals.filter((goal) => goal.status === "completed").length;
+  const completedGoals = goals.filter(
+    (goal) => goal.status === "completed",
+  ).length;
   const activeGoals = goals.filter((goal) => goal.status === "active").length;
-  const totalTargetAmount = goals.reduce((sum, goal) => sum + goal.targetAmount, 0);
-  const totalCurrentAmount = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
+  const totalTargetAmount = goals.reduce(
+    (sum, goal) => sum + goal.targetAmount,
+    0,
+  );
+  const totalCurrentAmount = goals.reduce(
+    (sum, goal) => sum + goal.currentAmount,
+    0,
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -223,7 +375,10 @@ export default function GoalsPage() {
                     Set a new financial goal to track your progress.
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleAddSubmit(handleAddGoal)} className="space-y-4">
+                <form
+                  onSubmit={handleAddSubmit(handleAddGoal)}
+                  className="space-y-4"
+                >
                   <div className="space-y-2">
                     <Label htmlFor="add-title">Goal Title</Label>
                     <Input
@@ -232,7 +387,9 @@ export default function GoalsPage() {
                       {...addRegister("title")}
                     />
                     {addErrors.title && (
-                      <p className="text-sm text-red-600">{addErrors.title.message}</p>
+                      <p className="text-sm text-red-600">
+                        {addErrors.title.message}
+                      </p>
                     )}
                   </div>
 
@@ -246,12 +403,16 @@ export default function GoalsPage() {
                       {...addRegister("targetAmount", { valueAsNumber: true })}
                     />
                     {addErrors.targetAmount && (
-                      <p className="text-sm text-red-600">{addErrors.targetAmount.message}</p>
+                      <p className="text-sm text-red-600">
+                        {addErrors.targetAmount.message}
+                      </p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="add-currentAmount">Current Amount (Optional)</Label>
+                    <Label htmlFor="add-currentAmount">
+                      Current Amount (Optional)
+                    </Label>
                     <Input
                       id="add-currentAmount"
                       type="number"
@@ -260,7 +421,35 @@ export default function GoalsPage() {
                       {...addRegister("currentAmount", { valueAsNumber: true })}
                     />
                     {addErrors.currentAmount && (
-                      <p className="text-sm text-red-600">{addErrors.currentAmount.message}</p>
+                      <p className="text-sm text-red-600">
+                        {addErrors.currentAmount.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="add-monthlyContribution">
+                      Planned monthly amount (Optional)
+                    </Label>
+                    <Input
+                      id="add-monthlyContribution"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      placeholder="e.g. 5000"
+                      {...addRegister("monthlyContribution", {
+                        valueAsNumber: true,
+                      })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      How much you plan to save toward this goal each month.
+                      Used for &quot;chance&quot; when you don&apos;t have
+                      income/expense data.
+                    </p>
+                    {addErrors.monthlyContribution && (
+                      <p className="text-sm text-red-600">
+                        {addErrors.monthlyContribution.message}
+                      </p>
                     )}
                   </div>
 
@@ -272,7 +461,9 @@ export default function GoalsPage() {
                       {...addRegister("targetDate")}
                     />
                     {addErrors.targetDate && (
-                      <p className="text-sm text-red-600">{addErrors.targetDate.message}</p>
+                      <p className="text-sm text-red-600">
+                        {addErrors.targetDate.message}
+                      </p>
                     )}
                   </div>
 
@@ -284,11 +475,17 @@ export default function GoalsPage() {
                       {...addRegister("category")}
                     />
                     {addErrors.category && (
-                      <p className="text-sm text-red-600">{addErrors.category.message}</p>
+                      <p className="text-sm text-red-600">
+                        {addErrors.category.message}
+                      </p>
                     )}
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={isAddSubmitting}>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isAddSubmitting}
+                  >
                     {isAddSubmitting ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -314,7 +511,10 @@ export default function GoalsPage() {
               Update your financial goal details.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEditSubmit(handleEditGoal)} className="space-y-4">
+          <form
+            onSubmit={handleEditSubmit(handleEditGoal)}
+            className="space-y-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="edit-title">Goal Title</Label>
               <Input
@@ -323,7 +523,9 @@ export default function GoalsPage() {
                 {...editRegister("title")}
               />
               {editErrors.title && (
-                <p className="text-sm text-red-600">{editErrors.title.message}</p>
+                <p className="text-sm text-red-600">
+                  {editErrors.title.message}
+                </p>
               )}
             </div>
 
@@ -337,7 +539,9 @@ export default function GoalsPage() {
                 {...editRegister("targetAmount", { valueAsNumber: true })}
               />
               {editErrors.targetAmount && (
-                <p className="text-sm text-red-600">{editErrors.targetAmount.message}</p>
+                <p className="text-sm text-red-600">
+                  {editErrors.targetAmount.message}
+                </p>
               )}
             </div>
 
@@ -351,7 +555,34 @@ export default function GoalsPage() {
                 {...editRegister("currentAmount", { valueAsNumber: true })}
               />
               {editErrors.currentAmount && (
-                <p className="text-sm text-red-600">{editErrors.currentAmount.message}</p>
+                <p className="text-sm text-red-600">
+                  {editErrors.currentAmount.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-monthlyContribution">
+                Planned monthly amount (Optional)
+              </Label>
+              <Input
+                id="edit-monthlyContribution"
+                type="number"
+                step="0.01"
+                min={0}
+                placeholder="e.g. 5000"
+                {...editRegister("monthlyContribution", {
+                  valueAsNumber: true,
+                })}
+              />
+              <p className="text-xs text-muted-foreground">
+                How much you plan to save toward this goal each month. Used for
+                &quot;chance&quot; when you don&apos;t have income/expense data.
+              </p>
+              {editErrors.monthlyContribution && (
+                <p className="text-sm text-red-600">
+                  {editErrors.monthlyContribution.message}
+                </p>
               )}
             </div>
 
@@ -363,7 +594,9 @@ export default function GoalsPage() {
                 {...editRegister("targetDate")}
               />
               {editErrors.targetDate && (
-                <p className="text-sm text-red-600">{editErrors.targetDate.message}</p>
+                <p className="text-sm text-red-600">
+                  {editErrors.targetDate.message}
+                </p>
               )}
             </div>
 
@@ -375,11 +608,17 @@ export default function GoalsPage() {
                 {...editRegister("category")}
               />
               {editErrors.category && (
-                <p className="text-sm text-red-600">{editErrors.category.message}</p>
+                <p className="text-sm text-red-600">
+                  {editErrors.category.message}
+                </p>
               )}
             </div>
 
-            <Button type="submit" className="w-full" disabled={isEditSubmitting}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isEditSubmitting}
+            >
               {isEditSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -409,11 +648,15 @@ export default function GoalsPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Goals</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Active Goals
+              </CardTitle>
               <Circle className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{activeGoals}</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {activeGoals}
+              </div>
               <p className="text-xs text-muted-foreground">In progress</p>
             </CardContent>
           </Card>
@@ -424,7 +667,9 @@ export default function GoalsPage() {
               <CheckCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{completedGoals}</div>
+              <div className="text-2xl font-bold text-green-600">
+                {completedGoals}
+              </div>
               <p className="text-xs text-muted-foreground">Achieved</p>
             </CardContent>
           </Card>
@@ -449,7 +694,9 @@ export default function GoalsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Your Goals</CardTitle>
-            <CardDescription>Track your progress towards financial goals</CardDescription>
+            <CardDescription>
+              Track your progress towards financial goals
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
@@ -459,15 +706,23 @@ export default function GoalsPage() {
                 </p>
               ) : (
                 goals.map((goal) => {
-                  const progress = (goal.currentAmount / goal.targetAmount) * 100;
+                  const progress =
+                    (goal.currentAmount / goal.targetAmount) * 100;
                   const isCompleted = goal.status === "completed";
                   const isOverdue =
                     new Date(goal.targetDate) < new Date() && !isCompleted;
+                  const probability = calculateGoalProbability(goal);
 
                   return (
                     <div
                       key={goal.id}
-                      className="border rounded-lg p-6 space-y-4 hover:shadow-lg transition-shadow cursor-pointer"
+                      className={`border rounded-lg p-6 space-y-4 hover:shadow-lg transition-shadow cursor-pointer ${
+                        probability.status === "at-risk"
+                          ? "border-orange-200 bg-orange-50"
+                          : probability.status === "unlikely"
+                            ? "border-red-200 bg-red-50"
+                            : ""
+                      }`}
                       onClick={() => openDetailsModal(goal)}
                     >
                       <div className="flex items-center justify-between">
@@ -478,19 +733,46 @@ export default function GoalsPage() {
                             <Circle className="h-6 w-6 text-gray-400" />
                           )}
                           <div>
-                            <h3 className="text-lg font-semibold">{goal.title}</h3>
-                            <p className="text-sm text-gray-500">{goal.category}</p>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-lg font-semibold">
+                                {goal.title}
+                              </h3>
+                              {probability.status === "at-risk" && (
+                                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                              )}
+                              {probability.status === "unlikely" && (
+                                <AlertTriangle className="h-4 w-4 text-red-600" />
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              {goal.category}
+                            </p>
+                            {!isCompleted && (
+                              <p
+                                className={`text-xs mt-1 ${
+                                  probability.status === "on-track"
+                                    ? "text-green-600"
+                                    : probability.status === "at-risk"
+                                      ? "text-orange-600"
+                                      : "text-red-600"
+                                }`}
+                              >
+                                {probability.probability.toFixed(2)}% chance •{" "}
+                                {probability.message}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
                           <div className="text-right mr-4">
                             <p className="text-lg font-bold">
-                              ₹{goal.currentAmount.toLocaleString()} / ₹
-                              {goal.targetAmount.toLocaleString()}
+                              {formatCurrency(goal.currentAmount)} /{" "}
+                              {formatCurrency(goal.targetAmount)}
                             </p>
                             <p className="text-sm text-gray-500 flex items-center justify-end">
                               <Calendar className="h-3 w-3 mr-1" />
-                              Target: {new Date(goal.targetDate).toLocaleDateString()}
+                              Target:{" "}
+                              {new Date(goal.targetDate).toLocaleDateString()}
                             </p>
                           </div>
                           <Button
@@ -539,8 +821,8 @@ export default function GoalsPage() {
                               isCompleted
                                 ? "bg-green-600"
                                 : isOverdue
-                                ? "bg-red-600"
-                                : "bg-blue-600"
+                                  ? "bg-red-600"
+                                  : "bg-blue-600"
                             }`}
                             style={{ width: `${Math.min(progress, 100)}%` }}
                           ></div>
@@ -570,7 +852,10 @@ export default function GoalsPage() {
       />
 
       {/* Add Transaction Dialog */}
-      <Dialog open={isAddTransactionOpen} onOpenChange={setIsAddTransactionOpen}>
+      <Dialog
+        open={isAddTransactionOpen}
+        onOpenChange={setIsAddTransactionOpen}
+      >
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Transaction</DialogTitle>

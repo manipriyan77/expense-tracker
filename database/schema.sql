@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS goals (
   target_date DATE NOT NULL,
   category TEXT DEFAULT 'General',
   status goal_status DEFAULT 'active',
+  monthly_contribution DECIMAL(12, 2) DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
