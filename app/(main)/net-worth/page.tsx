@@ -77,12 +77,13 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { formatCurrency } from "@/lib/utils/currency";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatsSkeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
 
 export default function NetWorthPage() {
+  const { format } = useFormatCurrency();
   const {
     assets,
     liabilities,
@@ -424,7 +425,7 @@ export default function NetWorthPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(totalAssets)}
+                {format(totalAssets)}
               </div>
               <Link
                 href="/assets"
@@ -445,7 +446,7 @@ export default function NetWorthPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {formatCurrency(totalLiabilities)}
+                {format(totalLiabilities)}
               </div>
               <p className="text-xs text-gray-500 mt-1">
                 -1.8% from last month
@@ -460,7 +461,7 @@ export default function NetWorthPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
-                {formatCurrency(netWorth)}
+                {format(netWorth)}
               </div>
               <p className="text-xs text-gray-500 mt-1">
                 +12.5% from last month
@@ -509,7 +510,7 @@ export default function NetWorthPage() {
                               <ExternalLink className="h-4 w-4 text-gray-400" />
                             </div>
                             <div className="text-xl font-bold text-green-600">
-                              {formatCurrency(item.value)}
+                              {format(item.value)}
                             </div>
                             <div className="mt-2">
                               <div className="flex justify-between text-xs text-gray-600 mb-1">
@@ -530,7 +531,7 @@ export default function NetWorthPage() {
                               <span className="font-semibold">{item.name}</span>
                             </div>
                             <div className="text-xl font-bold text-green-600">
-                              {formatCurrency(item.value)}
+                              {format(item.value)}
                             </div>
                             <div className="mt-2">
                               <div className="flex justify-between text-xs text-gray-600 mb-1">
@@ -582,7 +583,7 @@ export default function NetWorthPage() {
                 <YAxis tickFormatter={(value) => `$${value / 1000}k`} />
                 <Tooltip
                   formatter={(value: number | undefined) =>
-                    value !== undefined ? formatCurrency(value) : "$0.00"
+                    value !== undefined ? format(value) : "$0.00"
                   }
                 />
                 <Area
@@ -703,7 +704,7 @@ export default function NetWorthPage() {
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           <p className="text-lg font-bold text-green-600">
-                            {formatCurrency(asset.value)}
+                            {format(asset.value)}
                           </p>
                         </div>
                         <DropdownMenu>
@@ -881,7 +882,7 @@ export default function NetWorthPage() {
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           <p className="text-lg font-bold text-red-600">
-                            {formatCurrency(liability.balance)}
+                            {format(liability.balance)}
                           </p>
                         </div>
                         <DropdownMenu>
@@ -943,7 +944,7 @@ export default function NetWorthPage() {
                     <div className="flex justify-between mb-2">
                       <h4 className="font-semibold text-green-600">Assets</h4>
                       <span className="font-semibold text-green-600">
-                        {formatCurrency(totalAssets)}
+                        {format(totalAssets)}
                       </span>
                     </div>
                     {assets.map((asset) => {
@@ -973,7 +974,7 @@ export default function NetWorthPage() {
                         Liabilities
                       </h4>
                       <span className="font-semibold text-red-600">
-                        {formatCurrency(totalLiabilities)}
+                        {format(totalLiabilities)}
                       </span>
                     </div>
                     {liabilities.map((liability) => {

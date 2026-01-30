@@ -26,12 +26,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Plus,
-  DollarSign,
-  TrendingUp,
-  Calendar,
-} from "lucide-react";
+import { Plus, DollarSign, TrendingUp, Calendar } from "lucide-react";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 interface Income {
   id: string;
@@ -42,6 +38,7 @@ interface Income {
 }
 
 export default function IncomesPage() {
+  const { format } = useFormatCurrency();
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showCategoryInput, setShowCategoryInput] = useState(false);
@@ -81,7 +78,14 @@ export default function IncomesPage() {
   const handleAddCustomCategory = () => {
     if (newCategoryName.trim()) {
       const trimmedName = newCategoryName.trim();
-      const allCategories = ["Salary", "Freelance", "Investment", "Business", "Other", ...customCategories];
+      const allCategories = [
+        "Salary",
+        "Freelance",
+        "Investment",
+        "Business",
+        "Other",
+        ...customCategories,
+      ];
       if (!allCategories.includes(trimmedName)) {
         setCustomCategories([...customCategories, trimmedName]);
         setFormData({ ...formData, category: trimmedName });
@@ -133,7 +137,7 @@ export default function IncomesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                ₹{totalIncome.toFixed(2)}
+                {format(totalIncome)}
               </div>
               <p className="text-xs text-muted-foreground">This month</p>
             </CardContent>
@@ -148,7 +152,7 @@ export default function IncomesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                ₹{monthlyAverage.toFixed(2)}
+                {format(monthlyAverage)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Based on {incomes.length} transactions
@@ -264,7 +268,10 @@ export default function IncomesPage() {
                             {cat}
                           </SelectItem>
                         ))}
-                        <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
+                        <SelectItem
+                          value="add_custom"
+                          className="text-blue-600 font-medium border-t mt-1 pt-2"
+                        >
                           <div className="flex items-center space-x-2">
                             <Plus className="h-4 w-4" />
                             <span>Add Category</span>
@@ -307,12 +314,14 @@ export default function IncomesPage() {
                       </div>
                       <div>
                         <p className="font-medium">{income.description}</p>
-                        <p className="text-sm text-gray-500">{income.category}</p>
+                        <p className="text-sm text-gray-500">
+                          {income.category}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-green-600">
-                        +₹{income.amount.toFixed(2)}
+                        +{format(income.amount)}
                       </p>
                       <p className="text-sm text-gray-500 flex items-center">
                         <Calendar className="h-3 w-3 mr-1" />

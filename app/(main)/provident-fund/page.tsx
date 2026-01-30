@@ -1,8 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useProvidentFundStore, type PFType, type ProvidentFund } from "@/store/provident-fund-store";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  useProvidentFundStore,
+  type PFType,
+  type ProvidentFund,
+} from "@/store/provident-fund-store";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,14 +24,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, Edit3, PiggyBank } from "lucide-react";
-import { formatCurrency } from "@/lib/utils/currency";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 const pfTypes: PFType[] = ["EPF", "PPF", "VPF", "Other"];
 
 export default function ProvidentFundPage() {
+  const { format } = useFormatCurrency();
   const { funds, load, add, update, remove, loading } = useProvidentFundStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ProvidentFund | null>(null);
@@ -84,7 +101,8 @@ export default function ProvidentFundPage() {
       annualInterestRate: fund.annualInterestRate,
       employeeContribution: fund.employeeContribution,
       employerContribution: fund.employerContribution,
-      lastInterestCredit: fund.lastInterestCredit ?? new Date().toISOString().split("T")[0],
+      lastInterestCredit:
+        fund.lastInterestCredit ?? new Date().toISOString().split("T")[0],
       startDate: fund.startDate ?? new Date().toISOString().split("T")[0],
       notes: fund.notes ?? "",
     });
@@ -97,13 +115,17 @@ export default function ProvidentFundPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Provident Fund</h1>
           <p className="text-sm text-gray-600">
-            Track EPF/PPF/VPF balances, contributions, and interest accrual. Stored locally in your browser.
+            Track EPF/PPF/VPF balances, contributions, and interest accrual.
+            Stored locally in your browser.
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}
+        >
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
               <Plus className="h-4 w-4 mr-2" />
@@ -112,9 +134,12 @@ export default function ProvidentFundPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editing ? "Edit PF" : "Add Provident Fund"}</DialogTitle>
+              <DialogTitle>
+                {editing ? "Edit PF" : "Add Provident Fund"}
+              </DialogTitle>
               <DialogDescription>
-                Capture balances and contributions to keep PF in sync with your net worth.
+                Capture balances and contributions to keep PF in sync with your
+                net worth.
               </DialogDescription>
             </DialogHeader>
             <form className="space-y-4" onSubmit={handleSubmit}>
@@ -122,7 +147,9 @@ export default function ProvidentFundPage() {
                 <Label>Account Name</Label>
                 <Input
                   value={form.name}
-                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, name: e.target.value }))
+                  }
                   placeholder="e.g., EPF - Company ABC"
                   required
                 />
@@ -131,7 +158,9 @@ export default function ProvidentFundPage() {
                 <Label>Type</Label>
                 <Select
                   value={form.type}
-                  onValueChange={(val) => setForm((p) => ({ ...p, type: val as PFType }))}
+                  onValueChange={(val) =>
+                    setForm((p) => ({ ...p, type: val as PFType }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
@@ -154,7 +183,10 @@ export default function ProvidentFundPage() {
                     step="0.01"
                     value={form.balance}
                     onChange={(e) =>
-                      setForm((p) => ({ ...p, balance: parseFloat(e.target.value) || 0 }))
+                      setForm((p) => ({
+                        ...p,
+                        balance: parseFloat(e.target.value) || 0,
+                      }))
                     }
                     required
                   />
@@ -214,7 +246,9 @@ export default function ProvidentFundPage() {
                   <Input
                     type="date"
                     value={form.startDate}
-                    onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, startDate: e.target.value }))
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -223,7 +257,10 @@ export default function ProvidentFundPage() {
                     type="date"
                     value={form.lastInterestCredit}
                     onChange={(e) =>
-                      setForm((p) => ({ ...p, lastInterestCredit: e.target.value }))
+                      setForm((p) => ({
+                        ...p,
+                        lastInterestCredit: e.target.value,
+                      }))
                     }
                   />
                 </div>
@@ -232,7 +269,9 @@ export default function ProvidentFundPage() {
                 <Label>Notes</Label>
                 <Textarea
                   value={form.notes}
-                  onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, notes: e.target.value }))
+                  }
                   placeholder="Account number, UAN, lock-in info, etc."
                 />
               </div>
@@ -250,7 +289,7 @@ export default function ProvidentFundPage() {
             <CardTitle>Total PF Balance</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-bold">
-            {formatCurrency(totals.balance)}
+            {format(totals.balance)}
           </CardContent>
         </Card>
         <Card>
@@ -258,14 +297,16 @@ export default function ProvidentFundPage() {
             <CardTitle>Monthly Contribution</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-bold">
-            {formatCurrency(totals.employee + totals.employer)}
+            {format(totals.employee + totals.employer)}
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>Accounts</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold">{funds.length}</CardContent>
+          <CardContent className="text-2xl font-bold">
+            {funds.length}
+          </CardContent>
         </Card>
       </div>
 
@@ -280,7 +321,9 @@ export default function ProvidentFundPage() {
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : funds.length === 0 ? (
-            <p className="text-center text-gray-500 py-6">No PF accounts yet. Add one above.</p>
+            <p className="text-center text-gray-500 py-6">
+              No PF accounts yet. Add one above.
+            </p>
           ) : (
             funds.map((fund) => (
               <div
@@ -297,28 +340,39 @@ export default function ProvidentFundPage() {
                       {fund.type} • Rate {fund.annualInterestRate}%
                     </p>
                     <p className="text-xs text-gray-500">
-                      Start: {fund.startDate || "—"} | Last credit: {fund.lastInterestCredit || "—"}
+                      Start: {fund.startDate || "—"} | Last credit:{" "}
+                      {fund.lastInterestCredit || "—"}
                     </p>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-6 text-sm">
                   <div>
                     <p className="text-gray-500">Balance</p>
-                    <p className="font-semibold">{formatCurrency(fund.balance)}</p>
+                    <p className="font-semibold">{format(fund.balance)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Monthly</p>
                     <p className="font-semibold">
-                      {formatCurrency(fund.employeeContribution + fund.employerContribution)}
+                      {format(
+                        fund.employeeContribution + fund.employerContribution,
+                      )}
                     </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => openEdit(fund)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEdit(fund)}
+                  >
                     <Edit3 className="h-4 w-4 mr-1" />
                     Edit
                   </Button>
-                  <Button variant="destructive" size="sm" onClick={() => remove(fund.id)}>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => remove(fund.id)}
+                  >
                     <Trash2 className="h-4 w-4 mr-1" />
                     Delete
                   </Button>

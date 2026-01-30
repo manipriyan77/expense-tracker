@@ -1,8 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useFixedDepositsStore, type FixedDeposit, type Compounding, type Payout } from "@/store/fixed-deposits-store";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  useFixedDepositsStore,
+  type FixedDeposit,
+  type Compounding,
+  type Payout,
+} from "@/store/fixed-deposits-store";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,10 +25,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, Edit3, Landmark } from "lucide-react";
-import { formatCurrency } from "@/lib/utils/currency";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 const compoundingOptions: { value: Compounding; label: string }[] = [
   { value: "monthly", label: "Monthly" },
@@ -32,7 +49,9 @@ const payoutOptions: { value: Payout; label: string }[] = [
 ];
 
 export default function FixedDepositsPage() {
-  const { deposits, load, add, update, remove, loading } = useFixedDepositsStore();
+  const { format } = useFormatCurrency();
+  const { deposits, load, add, update, remove, loading } =
+    useFixedDepositsStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<FixedDeposit | null>(null);
   const [form, setForm] = useState<Omit<FixedDeposit, "id">>({
@@ -113,7 +132,8 @@ export default function FixedDepositsPage() {
     const maturity =
       fd.payout === "payout"
         ? fd.principal + fd.principal * (fd.rate / 100) * years
-        : fd.principal * Math.pow(1 + fd.rate / 100 / periodsPerYear, periodsPerYear * years);
+        : fd.principal *
+          Math.pow(1 + fd.rate / 100 / periodsPerYear, periodsPerYear * years);
     return maturity;
   };
 
@@ -123,13 +143,17 @@ export default function FixedDepositsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Fixed Deposits</h1>
           <p className="text-sm text-gray-600">
-            Track principal, rate, tenure, and see estimated maturity values. Data is stored locally in your browser.
+            Track principal, rate, tenure, and see estimated maturity values.
+            Data is stored locally in your browser.
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}
+        >
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
               <Plus className="h-4 w-4 mr-2" />
@@ -138,7 +162,9 @@ export default function FixedDepositsPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editing ? "Edit FD" : "Add Fixed Deposit"}</DialogTitle>
+              <DialogTitle>
+                {editing ? "Edit FD" : "Add Fixed Deposit"}
+              </DialogTitle>
               <DialogDescription>
                 Capture key FD details to monitor maturity and laddering.
               </DialogDescription>
@@ -148,7 +174,9 @@ export default function FixedDepositsPage() {
                 <Label>Institution</Label>
                 <Input
                   value={form.institution}
-                  onChange={(e) => setForm((p) => ({ ...p, institution: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, institution: e.target.value }))
+                  }
                   placeholder="Bank / NBFC name"
                   required
                 />
@@ -162,7 +190,10 @@ export default function FixedDepositsPage() {
                     step="0.01"
                     value={form.principal}
                     onChange={(e) =>
-                      setForm((p) => ({ ...p, principal: parseFloat(e.target.value) || 0 }))
+                      setForm((p) => ({
+                        ...p,
+                        principal: parseFloat(e.target.value) || 0,
+                      }))
                     }
                     required
                   />
@@ -175,7 +206,10 @@ export default function FixedDepositsPage() {
                     step="0.01"
                     value={form.rate}
                     onChange={(e) =>
-                      setForm((p) => ({ ...p, rate: parseFloat(e.target.value) || 0 }))
+                      setForm((p) => ({
+                        ...p,
+                        rate: parseFloat(e.target.value) || 0,
+                      }))
                     }
                     required
                   />
@@ -187,7 +221,10 @@ export default function FixedDepositsPage() {
                   <Select
                     value={form.compounding}
                     onValueChange={(val) =>
-                      setForm((p) => ({ ...p, compounding: val as Compounding }))
+                      setForm((p) => ({
+                        ...p,
+                        compounding: val as Compounding,
+                      }))
                     }
                   >
                     <SelectTrigger>
@@ -229,7 +266,9 @@ export default function FixedDepositsPage() {
                   <Input
                     type="date"
                     value={form.startDate}
-                    onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, startDate: e.target.value }))
+                    }
                     required
                   />
                 </div>
@@ -238,7 +277,9 @@ export default function FixedDepositsPage() {
                   <Input
                     type="date"
                     value={form.maturityDate}
-                    onChange={(e) => setForm((p) => ({ ...p, maturityDate: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, maturityDate: e.target.value }))
+                    }
                     required
                   />
                 </div>
@@ -250,7 +291,10 @@ export default function FixedDepositsPage() {
                   min="1"
                   value={form.tenureMonths}
                   onChange={(e) =>
-                    setForm((p) => ({ ...p, tenureMonths: parseInt(e.target.value, 10) || 0 }))
+                    setForm((p) => ({
+                      ...p,
+                      tenureMonths: parseInt(e.target.value, 10) || 0,
+                    }))
                   }
                   required
                 />
@@ -259,7 +303,9 @@ export default function FixedDepositsPage() {
                 <Label>Notes</Label>
                 <Textarea
                   value={form.notes}
-                  onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, notes: e.target.value }))
+                  }
                   placeholder="Receipt number, auto-renewal, special rate, etc."
                 />
               </div>
@@ -277,21 +323,25 @@ export default function FixedDepositsPage() {
             <CardTitle>Total Principal</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-bold">
-            {formatCurrency(totals.principal)}
+            {format(totals.principal)}
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>FD Count</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold">{deposits.length}</CardContent>
+          <CardContent className="text-2xl font-bold">
+            {deposits.length}
+          </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Your Fixed Deposits</CardTitle>
-          <CardDescription>Locally saved list with estimated maturity</CardDescription>
+          <CardDescription>
+            Locally saved list with estimated maturity
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {loading ? (
@@ -299,7 +349,9 @@ export default function FixedDepositsPage() {
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : deposits.length === 0 ? (
-            <p className="text-center text-gray-500 py-6">No FDs yet. Add one above.</p>
+            <p className="text-center text-gray-500 py-6">
+              No FDs yet. Add one above.
+            </p>
           ) : (
             deposits.map((fd) => {
               const maturity = estimateMaturity(fd);
@@ -315,7 +367,8 @@ export default function FixedDepositsPage() {
                     <div>
                       <p className="font-semibold">{fd.institution}</p>
                       <p className="text-xs text-gray-500">
-                        {fd.tenureMonths} mo @ {fd.rate}% • {fd.compounding}, {fd.payout}
+                        {fd.tenureMonths} mo @ {fd.rate}% • {fd.compounding},{" "}
+                        {fd.payout}
                       </p>
                       <p className="text-xs text-gray-500">
                         {fd.startDate} → {fd.maturityDate}
@@ -325,19 +378,27 @@ export default function FixedDepositsPage() {
                   <div className="flex flex-wrap gap-6 text-sm">
                     <div>
                       <p className="text-gray-500">Principal</p>
-                      <p className="font-semibold">{formatCurrency(fd.principal)}</p>
+                      <p className="font-semibold">{format(fd.principal)}</p>
                     </div>
                     <div>
                       <p className="text-gray-500">Est. Maturity</p>
-                      <p className="font-semibold">{formatCurrency(maturity)}</p>
+                      <p className="font-semibold">{format(maturity)}</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => openEdit(fd)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEdit(fd)}
+                    >
                       <Edit3 className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => remove(fd.id)}>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => remove(fd.id)}
+                    >
                       <Trash2 className="h-4 w-4 mr-1" />
                       Delete
                     </Button>

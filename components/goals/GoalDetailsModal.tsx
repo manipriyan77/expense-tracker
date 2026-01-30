@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 interface Transaction {
   id: string;
@@ -47,6 +48,7 @@ export default function GoalDetailsModal({
   onClose,
   onTransactionDeleted,
 }: GoalDetailsModalProps) {
+  const { format } = useFormatCurrency();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -60,7 +62,7 @@ export default function GoalDetailsModal({
 
   const fetchTransactions = async () => {
     if (!goal) return;
-    
+
     setLoading(true);
     try {
       const response = await fetch(`/api/goals/${goal.id}/transactions`);
@@ -76,7 +78,11 @@ export default function GoalDetailsModal({
   };
 
   const handleDeleteTransaction = async (transactionId: string) => {
-    if (!confirm("Are you sure you want to delete this transaction? This will also update the goal progress.")) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this transaction? This will also update the goal progress.",
+      )
+    ) {
       return;
     }
 
@@ -149,10 +155,15 @@ export default function GoalDetailsModal({
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Status</p>
-                    <p className={`text-lg font-semibold capitalize ${
-                      isCompleted ? "text-green-600" : 
-                      isOverdue ? "text-red-600" : "text-blue-600"
-                    }`}>
+                    <p
+                      className={`text-lg font-semibold capitalize ${
+                        isCompleted
+                          ? "text-green-600"
+                          : isOverdue
+                            ? "text-red-600"
+                            : "text-blue-600"
+                      }`}
+                    >
                       {goal.status}
                     </p>
                   </div>
@@ -167,8 +178,9 @@ export default function GoalDetailsModal({
                     <p className="text-sm text-gray-600">Days Remaining</p>
                     <p className="text-lg font-semibold">
                       {Math.ceil(
-                        (new Date(goal.targetDate).getTime() - new Date().getTime()) /
-                          (1000 * 60 * 60 * 24)
+                        (new Date(goal.targetDate).getTime() -
+                          new Date().getTime()) /
+                          (1000 * 60 * 60 * 24),
                       )}{" "}
                       days
                     </p>
@@ -181,9 +193,10 @@ export default function GoalDetailsModal({
                       ⚠️ This goal is overdue by{" "}
                       {Math.abs(
                         Math.ceil(
-                          (new Date(goal.targetDate).getTime() - new Date().getTime()) /
-                            (1000 * 60 * 60 * 24)
-                        )
+                          (new Date(goal.targetDate).getTime() -
+                            new Date().getTime()) /
+                            (1000 * 60 * 60 * 24),
+                        ),
                       )}{" "}
                       days
                     </p>
@@ -204,19 +217,19 @@ export default function GoalDetailsModal({
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
                     <p className="text-sm text-gray-600">Current Amount</p>
                     <p className="text-2xl font-bold text-blue-600">
-                      ₹{goal.currentAmount.toLocaleString()}
+                      {format(goal.currentAmount)}
                     </p>
                   </div>
                   <div className="text-center p-4 bg-green-50 rounded-lg">
                     <p className="text-sm text-gray-600">Target Amount</p>
                     <p className="text-2xl font-bold text-green-600">
-                      ₹{goal.targetAmount.toLocaleString()}
+                      {format(goal.targetAmount)}
                     </p>
                   </div>
                   <div className="text-center p-4 bg-orange-50 rounded-lg">
                     <p className="text-sm text-gray-600">Remaining</p>
                     <p className="text-2xl font-bold text-orange-600">
-                      ₹{remaining.toLocaleString()}
+                      {format(remaining)}
                     </p>
                   </div>
                 </div>
@@ -232,8 +245,8 @@ export default function GoalDetailsModal({
                         isCompleted
                           ? "bg-green-600"
                           : isOverdue
-                          ? "bg-red-600"
-                          : "bg-blue-600"
+                            ? "bg-red-600"
+                            : "bg-blue-600"
                       }`}
                       style={{ width: `${Math.min(progress, 100)}%` }}
                     />
@@ -272,38 +285,58 @@ export default function GoalDetailsModal({
               <>
                 <div className="space-y-2">
                   {currentTransactions.map((transaction) => (
-                    <Card key={transaction.id} className="hover:shadow-md transition-shadow">
+                    <Card
+                      key={transaction.id}
+                      className="hover:shadow-md transition-shadow"
+                    >
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="flex items-center space-x-3">
-                              <div className={`w-2 h-2 rounded-full ${
-                                transaction.type === "income" ? "bg-green-500" : "bg-red-500"
-                              }`} />
+                              <div
+                                className={`w-2 h-2 rounded-full ${
+                                  transaction.type === "income"
+                                    ? "bg-green-500"
+                                    : "bg-red-500"
+                                }`}
+                              />
                               <div>
-                                <p className="font-semibold">{transaction.description}</p>
+                                <p className="font-semibold">
+                                  {transaction.description}
+                                </p>
                                 <p className="text-sm text-gray-600">
                                   {transaction.category}
-                                  {transaction.subtype && ` → ${transaction.subtype}`}
+                                  {transaction.subtype &&
+                                    ` → ${transaction.subtype}`}
                                 </p>
                               </div>
                             </div>
                           </div>
                           <div className="flex items-center space-x-4">
                             <div className="text-right">
-                              <p className={`text-lg font-bold ${
-                                transaction.type === "income" ? "text-green-600" : "text-blue-600"
-                              }`}>
-                                ₹{parseFloat(transaction.amount.toString()).toLocaleString()}
+                              <p
+                                className={`text-lg font-bold ${
+                                  transaction.type === "income"
+                                    ? "text-green-600"
+                                    : "text-blue-600"
+                                }`}
+                              >
+                                {format(
+                                  parseFloat(transaction.amount.toString()),
+                                )}
                               </p>
                               <p className="text-xs text-gray-500">
-                                {new Date(transaction.date).toLocaleDateString()}
+                                {new Date(
+                                  transaction.date,
+                                ).toLocaleDateString()}
                               </p>
                             </div>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleDeleteTransaction(transaction.id)}
+                              onClick={() =>
+                                handleDeleteTransaction(transaction.id)
+                              }
                               disabled={deleting === transaction.id}
                             >
                               {deleting === transaction.id ? (
@@ -323,14 +356,17 @@ export default function GoalDetailsModal({
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between pt-4">
                     <p className="text-sm text-gray-600">
-                      Showing {startIndex + 1}-{Math.min(endIndex, transactions.length)} of{" "}
+                      Showing {startIndex + 1}-
+                      {Math.min(endIndex, transactions.length)} of{" "}
                       {transactions.length} transactions
                     </p>
                     <div className="flex items-center space-x-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        onClick={() =>
+                          setCurrentPage((p) => Math.max(1, p - 1))
+                        }
                         disabled={currentPage === 1}
                       >
                         <ChevronLeft className="h-4 w-4" />
@@ -341,7 +377,9 @@ export default function GoalDetailsModal({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        onClick={() =>
+                          setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
                         disabled={currentPage === totalPages}
                       >
                         <ChevronRight className="h-4 w-4" />
@@ -357,4 +395,3 @@ export default function GoalDetailsModal({
     </Dialog>
   );
 }
-

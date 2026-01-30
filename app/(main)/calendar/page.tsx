@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Plus, TrendingUp, TrendingDown } from "lucide-react";
-import { formatCurrency } from "@/lib/utils/currency";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ interface DayTransaction {
 }
 
 export default function CalendarPage() {
+  const { format } = useFormatCurrency();
   const { transactions, loading, fetchTransactions } = useTransactionsStore();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -114,7 +116,11 @@ export default function CalendarPage() {
 
     // Add cells for each day of the month
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+      const date = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        day,
+      );
       const dayTransactions = getTransactionsForDate(date);
       const { income, expenses, net } = getDayTotal(date);
       const hasTransactions = dayTransactions.length > 0;
@@ -149,13 +155,13 @@ export default function CalendarPage() {
               {income > 0 && (
                 <div className="flex items-center gap-1 text-xs text-green-600">
                   <TrendingUp className="h-3 w-3" />
-                  <span>{formatCurrency(income)}</span>
+                  <span>{format(income)}</span>
                 </div>
               )}
               {expenses > 0 && (
                 <div className="flex items-center gap-1 text-xs text-red-600">
                   <TrendingDown className="h-3 w-3" />
-                  <span>{formatCurrency(expenses)}</span>
+                  <span>{format(expenses)}</span>
                 </div>
               )}
               {dayTransactions.slice(0, 2).map((t) => (
@@ -174,7 +180,7 @@ export default function CalendarPage() {
               )}
             </div>
           )}
-        </div>
+        </div>,
       );
     }
 
@@ -206,7 +212,9 @@ export default function CalendarPage() {
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">Transaction Calendar</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Transaction Calendar
+            </h1>
             <Button onClick={() => setIsAddDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Transaction
@@ -226,7 +234,7 @@ export default function CalendarPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(stats.income)}
+                {format(stats.income)}
               </div>
             </CardContent>
           </Card>
@@ -239,7 +247,7 @@ export default function CalendarPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {formatCurrency(stats.expenses)}
+                {format(stats.expenses)}
               </div>
             </CardContent>
           </Card>
@@ -251,8 +259,10 @@ export default function CalendarPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${stats.net >= 0 ? "text-blue-600" : "text-red-600"}`}>
-                {formatCurrency(stats.net)}
+              <div
+                className={`text-2xl font-bold ${stats.net >= 0 ? "text-blue-600" : "text-red-600"}`}
+              >
+                {format(stats.net)}
               </div>
             </CardContent>
           </Card>
@@ -365,11 +375,13 @@ export default function CalendarPage() {
                       </div>
                       <p
                         className={`font-semibold ${
-                          t.type === "income" ? "text-green-600" : "text-red-600"
+                          t.type === "income"
+                            ? "text-green-600"
+                            : "text-red-600"
                         }`}
                       >
                         {t.type === "income" ? "+" : "-"}
-                        {formatCurrency(t.amount)}
+                        {format(t.amount)}
                       </p>
                     </div>
                   ))}

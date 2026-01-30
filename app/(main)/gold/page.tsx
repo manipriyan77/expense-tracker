@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useGoldStore, type GoldHolding, type GoldType } from "@/store/gold-store";
+import {
+  useGoldStore,
+  type GoldHolding,
+  type GoldType,
+} from "@/store/gold-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,13 +18,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, Edit3, Gem } from "lucide-react";
-import { formatCurrency } from "@/lib/utils/currency";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 export default function GoldPage() {
-  const { holdings, load, addHolding, updateHolding, deleteHolding, loading } = useGoldStore();
+  const { format } = useFormatCurrency();
+  const { holdings, load, addHolding, updateHolding, deleteHolding, loading } =
+    useGoldStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<GoldHolding | null>(null);
   const [form, setForm] = useState<Omit<GoldHolding, "id">>({
@@ -42,11 +54,11 @@ export default function GoldPage() {
   const totals = useMemo(() => {
     const invested = holdings.reduce(
       (sum, h) => sum + h.quantityGrams * h.purchasePricePerGram,
-      0
+      0,
     );
     const current = holdings.reduce(
       (sum, h) => sum + h.quantityGrams * h.currentPricePerGram,
-      0
+      0,
     );
     const grams = holdings.reduce((sum, h) => sum + h.quantityGrams, 0);
     return {
@@ -103,13 +115,17 @@ export default function GoldPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gold Holdings</h1>
           <p className="text-sm text-gray-600">
-            Track physical gold, ETFs, or sovereign gold bonds. Values persist locally in your browser.
+            Track physical gold, ETFs, or sovereign gold bonds. Values persist
+            locally in your browser.
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}
+        >
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
               <Plus className="h-4 w-4 mr-2" />
@@ -118,9 +134,12 @@ export default function GoldPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editing ? "Edit Holding" : "Add Holding"}</DialogTitle>
+              <DialogTitle>
+                {editing ? "Edit Holding" : "Add Holding"}
+              </DialogTitle>
               <DialogDescription>
-                Enter quantity, purity, and prices to see mark-to-market P&amp;L.
+                Enter quantity, purity, and prices to see mark-to-market
+                P&amp;L.
               </DialogDescription>
             </DialogHeader>
             <form className="space-y-4" onSubmit={handleSubmit}>
@@ -128,7 +147,9 @@ export default function GoldPage() {
                 <Label>Name</Label>
                 <Input
                   value={form.name}
-                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, name: e.target.value }))
+                  }
                   placeholder="e.g., 24K Coins or Gold ETF"
                   required
                 />
@@ -161,7 +182,10 @@ export default function GoldPage() {
                     step="0.01"
                     value={form.quantityGrams}
                     onChange={(e) =>
-                      setForm((p) => ({ ...p, quantityGrams: parseFloat(e.target.value) || 0 }))
+                      setForm((p) => ({
+                        ...p,
+                        quantityGrams: parseFloat(e.target.value) || 0,
+                      }))
                     }
                     required
                   />
@@ -174,7 +198,10 @@ export default function GoldPage() {
                     max="24"
                     value={form.purity}
                     onChange={(e) =>
-                      setForm((p) => ({ ...p, purity: parseFloat(e.target.value) || 0 }))
+                      setForm((p) => ({
+                        ...p,
+                        purity: parseFloat(e.target.value) || 0,
+                      }))
                     }
                     required
                   />
@@ -219,7 +246,9 @@ export default function GoldPage() {
                 <Input
                   type="date"
                   value={form.purchaseDate}
-                  onChange={(e) => setForm((p) => ({ ...p, purchaseDate: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, purchaseDate: e.target.value }))
+                  }
                   required
                 />
               </div>
@@ -227,7 +256,9 @@ export default function GoldPage() {
                 <Label>Notes</Label>
                 <Textarea
                   value={form.notes}
-                  onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, notes: e.target.value }))
+                  }
                   placeholder="Add certificate info or ETF ticker"
                 />
               </div>
@@ -244,14 +275,16 @@ export default function GoldPage() {
           <CardHeader>
             <CardTitle>Total Gold</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold">{totals.grams.toFixed(2)} g</CardContent>
+          <CardContent className="text-2xl font-bold">
+            {totals.grams.toFixed(2)} g
+          </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>Invested</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-bold">
-            {formatCurrency(totals.invested)}
+            {format(totals.invested)}
           </CardContent>
         </Card>
         <Card>
@@ -259,7 +292,7 @@ export default function GoldPage() {
             <CardTitle>Current Value</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-bold">
-            {formatCurrency(totals.current)}
+            {format(totals.current)}
           </CardContent>
         </Card>
         <Card>
@@ -271,7 +304,7 @@ export default function GoldPage() {
               totals.pnl >= 0 ? "text-green-600" : "text-red-600"
             }`}
           >
-            {formatCurrency(totals.pnl)}
+            {format(totals.pnl)}
           </CardContent>
         </Card>
       </div>
@@ -291,8 +324,10 @@ export default function GoldPage() {
             </p>
           ) : (
             holdings.map((holding) => {
-              const invested = holding.quantityGrams * holding.purchasePricePerGram;
-              const current = holding.quantityGrams * holding.currentPricePerGram;
+              const invested =
+                holding.quantityGrams * holding.purchasePricePerGram;
+              const current =
+                holding.quantityGrams * holding.currentPricePerGram;
               const pnl = current - invested;
               return (
                 <div
@@ -305,21 +340,24 @@ export default function GoldPage() {
                     </div>
                     <div>
                       <p className="font-semibold">{holding.name}</p>
-                      <p className="text-xs text-gray-500 capitalize">{holding.type}</p>
+                      <p className="text-xs text-gray-500 capitalize">
+                        {holding.type}
+                      </p>
                       <p className="text-xs text-gray-500">
-                        {holding.quantityGrams} g @ ₹{holding.currentPricePerGram.toFixed(2)} |{" "}
-                        {holding.purity}K
+                        {holding.quantityGrams} g @{" "}
+                        {format(holding.currentPricePerGram)} | {holding.purity}
+                        K
                       </p>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-6 text-sm">
                     <div>
                       <p className="text-gray-500">Invested</p>
-                      <p className="font-semibold">{formatCurrency(invested)}</p>
+                      <p className="font-semibold">{format(invested)}</p>
                     </div>
                     <div>
                       <p className="text-gray-500">Current</p>
-                      <p className="font-semibold">{formatCurrency(current)}</p>
+                      <p className="font-semibold">{format(current)}</p>
                     </div>
                     <div>
                       <p className="text-gray-500">P&amp;L</p>
@@ -328,12 +366,16 @@ export default function GoldPage() {
                           pnl >= 0 ? "text-green-600" : "text-red-600"
                         }`}
                       >
-                        {formatCurrency(pnl)}
+                        {format(pnl)}
                       </p>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => openEdit(holding)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEdit(holding)}
+                    >
                       <Edit3 className="h-4 w-4 mr-1" />
                       Edit
                     </Button>

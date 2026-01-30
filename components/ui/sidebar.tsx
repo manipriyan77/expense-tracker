@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -26,8 +26,11 @@ import {
   PiggyBank,
   Landmark,
   PieChart as PieChartIcon,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "./button";
+import { usePrivacyStore } from "@/store/privacy-store";
 
 interface SubItem {
   title: string;
@@ -165,6 +168,12 @@ export function Sidebar({ className }: SidebarProps) {
     "Wealth",
   ]);
   const pathname = usePathname();
+  const { amountsHidden, toggleAmountsHidden, hydrateFromStorage } =
+    usePrivacyStore();
+
+  useEffect(() => {
+    hydrateFromStorage();
+  }, [hydrateFromStorage]);
 
   const toggleExpand = (title: string) => {
     setExpandedItems((prev) =>
@@ -218,8 +227,21 @@ export function Sidebar({ className }: SidebarProps) {
         </div>
       </Link>
 
-      {/* Collapse Toggle Button */}
-      <div className="flex items-center justify-end px-4 py-2 border-b border-gray-200">
+      {/* Collapse + Privacy Toggle */}
+      <div className="flex items-center justify-end gap-1 px-4 py-2 border-b border-gray-200">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => toggleAmountsHidden()}
+          className="p-1 h-8 w-8 hover:bg-gray-100"
+          title={amountsHidden ? "Show amounts" : "Hide amounts"}
+        >
+          {amountsHidden ? (
+            <EyeOff className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
+        </Button>
         <Button
           variant="ghost"
           size="sm"

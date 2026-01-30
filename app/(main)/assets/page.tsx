@@ -24,12 +24,13 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { formatCurrency } from "@/lib/utils/currency";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { Loader2 } from "lucide-react";
 
 const COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#ec4899", "#8b5cf6"];
 
 export default function AssetsOverviewPage() {
+  const { format } = useFormatCurrency();
   const { holdings, load: loadGold, loading: goldLoading } = useGoldStore();
   const {
     deposits,
@@ -131,7 +132,7 @@ export default function AssetsOverviewPage() {
             <CardTitle>Total Assets</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-bold">
-            {formatCurrency(allocation.total + totalManualAssets)}
+            {format(allocation.total + totalManualAssets)}
           </CardContent>
         </Card>
         <Card>
@@ -149,7 +150,7 @@ export default function AssetsOverviewPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {formatCurrency(netWorth)}
+              {format(netWorth)}
             </div>
             <Link
               href="/net-worth"
@@ -165,7 +166,7 @@ export default function AssetsOverviewPage() {
             <CardTitle>Liabilities</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-bold text-red-600">
-            {formatCurrency(totalLiabilities)}
+            {format(totalLiabilities)}
           </CardContent>
         </Card>
       </div>
@@ -210,9 +211,7 @@ export default function AssetsOverviewPage() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value) =>
-                        formatCurrency((value ?? 0) as number)
-                      }
+                      formatter={(value) => format((value ?? 0) as number)}
                     />
                     <Legend />
                   </PieChart>
@@ -243,9 +242,7 @@ export default function AssetsOverviewPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">
-                          {formatCurrency(item.value)}
-                        </p>
+                        <p className="font-semibold">{format(item.value)}</p>
                       </div>
                     </div>
                   );
@@ -297,9 +294,7 @@ export default function AssetsOverviewPage() {
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(value) =>
-                          formatCurrency((value ?? 0) as number)
-                        }
+                        formatter={(value) => format((value ?? 0) as number)}
                       />
                       <Legend />
                     </PieChart>
@@ -323,9 +318,7 @@ export default function AssetsOverviewPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">
-                          {formatCurrency(item.value)}
-                        </p>
+                        <p className="font-semibold">{format(item.value)}</p>
                       </div>
                     </div>
                   ))}
@@ -375,9 +368,7 @@ export default function AssetsOverviewPage() {
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(value) =>
-                          formatCurrency((value ?? 0) as number)
-                        }
+                        formatter={(value) => format((value ?? 0) as number)}
                       />
                       <Legend />
                     </PieChart>
@@ -401,9 +392,7 @@ export default function AssetsOverviewPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">
-                          {formatCurrency(item.value)}
-                        </p>
+                        <p className="font-semibold">{format(item.value)}</p>
                       </div>
                     </div>
                   ))}

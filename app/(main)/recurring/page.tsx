@@ -49,9 +49,10 @@ import {
   type RecurringPattern,
 } from "@/store/recurring-patterns-store";
 import { useTransactionsStore } from "@/store/transactions-store";
-import { formatCurrency } from "@/lib/utils/currency";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 export default function RecurringPage() {
+  const { format } = useFormatCurrency();
   const {
     patterns,
     loading,
@@ -368,7 +369,7 @@ export default function RecurringPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(totalMonthlyIncome)}
+                {format(totalMonthlyIncome)}
               </div>
               <p className="text-xs text-muted-foreground">
                 From recurring sources
@@ -385,7 +386,7 @@ export default function RecurringPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {formatCurrency(totalMonthlyExpenses)}
+                {format(totalMonthlyExpenses)}
               </div>
               <p className="text-xs text-muted-foreground">
                 From recurring bills
@@ -400,7 +401,7 @@ export default function RecurringPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
-                {formatCurrency(totalMonthlyIncome - totalMonthlyExpenses)}
+                {format(totalMonthlyIncome - totalMonthlyExpenses)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Expected balance change
@@ -440,7 +441,7 @@ export default function RecurringPage() {
                         </span>
                       </div>
                       <p className="text-sm text-gray-600">
-                        {pattern.category} • {formatCurrency(pattern.amount)}
+                        {pattern.category} • {format(pattern.amount)}
                       </p>
                     </div>
                     <Button
@@ -486,8 +487,7 @@ export default function RecurringPage() {
                     <div className="flex-1">
                       <p className="font-semibold">{potential.description}</p>
                       <p className="text-sm text-gray-600">
-                        {potential.category} •{" "}
-                        {formatCurrency(potential.amount)} •{" "}
+                        {potential.category} • {format(potential.amount)} •{" "}
                         {potential.frequency} • Found {potential.count} times
                       </p>
                     </div>
@@ -838,7 +838,7 @@ export default function RecurringPage() {
                           }`}
                         >
                           {pattern.type === "income" ? "+" : "-"}
-                          {formatCurrency(pattern.amount)}
+                          {format(pattern.amount)}
                         </p>
                       </div>
 

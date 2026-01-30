@@ -20,6 +20,7 @@ import {
   DollarSign,
   Calendar,
 } from "lucide-react";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 interface Transaction {
   id: string;
@@ -45,6 +46,7 @@ export default function BudgetDetailsModal({
   onClose,
   onTransactionDeleted,
 }: BudgetDetailsModalProps) {
+  const { format } = useFormatCurrency();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export default function BudgetDetailsModal({
 
   const fetchTransactions = async () => {
     if (!budget) return;
-    
+
     setLoading(true);
     try {
       // Get current month transactions
@@ -74,7 +76,11 @@ export default function BudgetDetailsModal({
   };
 
   const handleDeleteTransaction = async (transactionId: string) => {
-    if (!confirm("Are you sure you want to delete this transaction? This will also update the budget spent amount.")) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this transaction? This will also update the budget spent amount.",
+      )
+    ) {
       return;
     }
 
@@ -125,7 +131,10 @@ export default function BudgetDetailsModal({
 
   // Calculate current month
   const currentDate = new Date();
-  const currentMonth = currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const currentMonth = currentDate.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -172,37 +181,51 @@ export default function BudgetDetailsModal({
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Period</p>
-                    <p className="text-lg font-semibold capitalize">{budget.period}</p>
+                    <p className="text-lg font-semibold capitalize">
+                      {budget.period}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Status</p>
                     <div className="flex items-center space-x-2">
                       {getStatusIcon(percentage)}
-                      <span className={`font-semibold ${
-                        percentage >= 100 ? "text-red-600" :
-                        percentage >= 80 ? "text-orange-500" : "text-green-600"
-                      }`}>
-                        {percentage >= 100 ? "Over Budget" :
-                         percentage >= 80 ? "Near Limit" : "On Track"}
+                      <span
+                        className={`font-semibold ${
+                          percentage >= 100
+                            ? "text-red-600"
+                            : percentage >= 80
+                              ? "text-orange-500"
+                              : "text-green-600"
+                        }`}
+                      >
+                        {percentage >= 100
+                          ? "Over Budget"
+                          : percentage >= 80
+                            ? "Near Limit"
+                            : "On Track"}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {percentage >= 80 && (
-                  <div className={`rounded p-3 ${
-                    percentage >= 100
-                      ? "bg-red-50 border border-red-200"
-                      : "bg-orange-50 border border-orange-200"
-                  }`}>
-                    <p className={`font-medium flex items-center space-x-2 ${
-                      percentage >= 100 ? "text-red-700" : "text-orange-700"
-                    }`}>
+                  <div
+                    className={`rounded p-3 ${
+                      percentage >= 100
+                        ? "bg-red-50 border border-red-200"
+                        : "bg-orange-50 border border-orange-200"
+                    }`}
+                  >
+                    <p
+                      className={`font-medium flex items-center space-x-2 ${
+                        percentage >= 100 ? "text-red-700" : "text-orange-700"
+                      }`}
+                    >
                       <AlertTriangle className="h-4 w-4" />
                       <span>
                         {percentage >= 100
-                          ? `Budget exceeded by ₹${Math.abs(remaining).toFixed(2)}`
-                          : `Approaching limit - ₹${remaining.toFixed(2)} remaining`}
+                          ? `Budget exceeded by ${format(Math.abs(remaining))}`
+                          : `Approaching limit - ${format(remaining)} remaining`}
                       </span>
                     </p>
                   </div>
@@ -222,21 +245,23 @@ export default function BudgetDetailsModal({
                   <div className="text-center p-4 bg-red-50 rounded-lg">
                     <p className="text-sm text-gray-600">Spent</p>
                     <p className="text-2xl font-bold text-red-600">
-                      ₹{spent.toLocaleString()}
+                      {format(spent)}
                     </p>
                   </div>
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
                     <p className="text-sm text-gray-600">Limit</p>
                     <p className="text-2xl font-bold text-blue-600">
-                      ₹{budget.limit_amount.toLocaleString()}
+                      {format(budget.limit_amount)}
                     </p>
                   </div>
                   <div className="text-center p-4 bg-green-50 rounded-lg">
                     <p className="text-sm text-gray-600">Remaining</p>
-                    <p className={`text-2xl font-bold ${
-                      remaining < 0 ? "text-red-600" : "text-green-600"
-                    }`}>
-                      ₹{Math.abs(remaining).toLocaleString()}
+                    <p
+                      className={`text-2xl font-bold ${
+                        remaining < 0 ? "text-red-600" : "text-green-600"
+                      }`}
+                    >
+                      {format(Math.abs(remaining))}
                       {remaining < 0 && " over"}
                     </p>
                   </div>
@@ -292,7 +317,8 @@ export default function BudgetDetailsModal({
                 </span>
               </div>
               <span className="text-xs text-blue-700">
-                {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+                {transactions.length} transaction
+                {transactions.length !== 1 ? "s" : ""}
               </span>
             </div>
 
@@ -311,17 +337,23 @@ export default function BudgetDetailsModal({
             ) : (
               <div className="space-y-2">
                 {transactions.map((transaction) => (
-                  <Card key={transaction.id} className="hover:shadow-md transition-shadow">
+                  <Card
+                    key={transaction.id}
+                    className="hover:shadow-md transition-shadow"
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-3">
                             <div className="w-2 h-2 rounded-full bg-red-500" />
                             <div>
-                              <p className="font-semibold">{transaction.description}</p>
+                              <p className="font-semibold">
+                                {transaction.description}
+                              </p>
                               <p className="text-sm text-gray-600">
                                 {transaction.category}
-                                {transaction.subtype && ` → ${transaction.subtype}`}
+                                {transaction.subtype &&
+                                  ` → ${transaction.subtype}`}
                               </p>
                             </div>
                           </div>
@@ -329,7 +361,9 @@ export default function BudgetDetailsModal({
                         <div className="flex items-center space-x-4">
                           <div className="text-right">
                             <p className="text-lg font-bold text-red-600">
-                              ₹{parseFloat(transaction.amount.toString()).toLocaleString()}
+                              {format(
+                                parseFloat(transaction.amount.toString()),
+                              )}
                             </p>
                             <p className="text-xs text-gray-500">
                               {new Date(transaction.date).toLocaleDateString()}
@@ -338,7 +372,9 @@ export default function BudgetDetailsModal({
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDeleteTransaction(transaction.id)}
+                            onClick={() =>
+                              handleDeleteTransaction(transaction.id)
+                            }
                             disabled={deleting === transaction.id}
                           >
                             {deleting === transaction.id ? (
@@ -355,11 +391,16 @@ export default function BudgetDetailsModal({
 
                 <div className="pt-4 border-t">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Total Spent This Month</span>
+                    <span className="text-sm text-gray-600">
+                      Total Spent This Month
+                    </span>
                     <span className="text-xl font-bold text-red-600">
-                      ₹{transactions
-                        .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0)
-                        .toLocaleString()}
+                      {format(
+                        transactions.reduce(
+                          (sum, t) => sum + parseFloat(t.amount.toString()),
+                          0,
+                        ),
+                      )}
                     </span>
                   </div>
                 </div>
@@ -371,4 +412,3 @@ export default function BudgetDetailsModal({
     </Dialog>
   );
 }
-

@@ -41,69 +41,208 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatCurrency } from "@/lib/utils/currency";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useBudgetTemplatesStore, type BudgetTemplate, calculateTotalBudget } from "@/store/budget-templates-store";
+import {
+  useBudgetTemplatesStore,
+  type BudgetTemplate,
+  calculateTotalBudget,
+} from "@/store/budget-templates-store";
 
 // System templates (read-only)
 const SYSTEM_TEMPLATES = [
-    {
-      id: "system-1",
-      name: "Student Budget",
-      description: "Budget template for college students",
-      is_public: true,
-      total_budget: 2000,
-      categories: [
-        { category: "Food", subtype: "Groceries", amount: 300, period: "monthly" },
-        { category: "Food", subtype: "Dining Out", amount: 150, period: "monthly" },
-        { category: "Transportation", subtype: "Public Transit", amount: 100, period: "monthly" },
-        { category: "Housing", subtype: "Rent", amount: 800, period: "monthly" },
-        { category: "Utilities", subtype: "Internet", amount: 50, period: "monthly" },
-        { category: "Entertainment", subtype: "Subscriptions", amount: 50, period: "monthly" },
-        { category: "Personal", subtype: "Clothing", amount: 100, period: "monthly" },
-        { category: "Education", subtype: "Books", amount: 150, period: "monthly" },
-        { category: "Healthcare", subtype: "Insurance", amount: 200, period: "monthly" },
-        { category: "Savings", subtype: "Emergency Fund", amount: 100, period: "monthly" },
-      ],
-    },
-    {
-      id: "system-2",
-      name: "Family Budget",
-      description: "Comprehensive budget for families with children",
-      is_public: true,
-      total_budget: 6500,
-      categories: [
-        { category: "Housing", subtype: "Mortgage", amount: 2000, period: "monthly" },
-        { category: "Housing", subtype: "Property Tax", amount: 300, period: "monthly" },
-        { category: "Utilities", subtype: "Electric & Gas", amount: 200, period: "monthly" },
-        { category: "Food", subtype: "Groceries", amount: 800, period: "monthly" },
-        { category: "Transportation", subtype: "Car Payment", amount: 500, period: "monthly" },
-        { category: "Transportation", subtype: "Gas", amount: 300, period: "monthly" },
-        { category: "Insurance", subtype: "Health", amount: 600, period: "monthly" },
-        { category: "Insurance", subtype: "Auto", amount: 200, period: "monthly" },
-        { category: "Children", subtype: "Childcare", amount: 1000, period: "monthly" },
-        { category: "Entertainment", subtype: "Family Activities", amount: 300, period: "monthly" },
-        { category: "Savings", subtype: "College Fund", amount: 300, period: "monthly" },
-      ],
-    },
-    {
-      id: "system-3",
-      name: "Freelancer Budget",
-      description: "Budget for self-employed professionals",
-      is_public: true,
-      total_budget: 4000,
-      categories: [
-        { category: "Housing", subtype: "Rent", amount: 1500, period: "monthly" },
-        { category: "Business", subtype: "Software", amount: 200, period: "monthly" },
-        { category: "Business", subtype: "Marketing", amount: 300, period: "monthly" },
-        { category: "Food", subtype: "Groceries", amount: 400, period: "monthly" },
-        { category: "Transportation", subtype: "Car", amount: 250, period: "monthly" },
-        { category: "Healthcare", subtype: "Insurance", amount: 500, period: "monthly" },
-        { category: "Taxes", subtype: "Quarterly Estimated", amount: 600, period: "monthly" },
-        { category: "Savings", subtype: "Retirement", amount: 250, period: "monthly" },
-      ],
-    },
-  ] as const;
+  {
+    id: "system-1",
+    name: "Student Budget",
+    description: "Budget template for college students",
+    is_public: true,
+    total_budget: 2000,
+    categories: [
+      {
+        category: "Food",
+        subtype: "Groceries",
+        amount: 300,
+        period: "monthly",
+      },
+      {
+        category: "Food",
+        subtype: "Dining Out",
+        amount: 150,
+        period: "monthly",
+      },
+      {
+        category: "Transportation",
+        subtype: "Public Transit",
+        amount: 100,
+        period: "monthly",
+      },
+      { category: "Housing", subtype: "Rent", amount: 800, period: "monthly" },
+      {
+        category: "Utilities",
+        subtype: "Internet",
+        amount: 50,
+        period: "monthly",
+      },
+      {
+        category: "Entertainment",
+        subtype: "Subscriptions",
+        amount: 50,
+        period: "monthly",
+      },
+      {
+        category: "Personal",
+        subtype: "Clothing",
+        amount: 100,
+        period: "monthly",
+      },
+      {
+        category: "Education",
+        subtype: "Books",
+        amount: 150,
+        period: "monthly",
+      },
+      {
+        category: "Healthcare",
+        subtype: "Insurance",
+        amount: 200,
+        period: "monthly",
+      },
+      {
+        category: "Savings",
+        subtype: "Emergency Fund",
+        amount: 100,
+        period: "monthly",
+      },
+    ],
+  },
+  {
+    id: "system-2",
+    name: "Family Budget",
+    description: "Comprehensive budget for families with children",
+    is_public: true,
+    total_budget: 6500,
+    categories: [
+      {
+        category: "Housing",
+        subtype: "Mortgage",
+        amount: 2000,
+        period: "monthly",
+      },
+      {
+        category: "Housing",
+        subtype: "Property Tax",
+        amount: 300,
+        period: "monthly",
+      },
+      {
+        category: "Utilities",
+        subtype: "Electric & Gas",
+        amount: 200,
+        period: "monthly",
+      },
+      {
+        category: "Food",
+        subtype: "Groceries",
+        amount: 800,
+        period: "monthly",
+      },
+      {
+        category: "Transportation",
+        subtype: "Car Payment",
+        amount: 500,
+        period: "monthly",
+      },
+      {
+        category: "Transportation",
+        subtype: "Gas",
+        amount: 300,
+        period: "monthly",
+      },
+      {
+        category: "Insurance",
+        subtype: "Health",
+        amount: 600,
+        period: "monthly",
+      },
+      {
+        category: "Insurance",
+        subtype: "Auto",
+        amount: 200,
+        period: "monthly",
+      },
+      {
+        category: "Children",
+        subtype: "Childcare",
+        amount: 1000,
+        period: "monthly",
+      },
+      {
+        category: "Entertainment",
+        subtype: "Family Activities",
+        amount: 300,
+        period: "monthly",
+      },
+      {
+        category: "Savings",
+        subtype: "College Fund",
+        amount: 300,
+        period: "monthly",
+      },
+    ],
+  },
+  {
+    id: "system-3",
+    name: "Freelancer Budget",
+    description: "Budget for self-employed professionals",
+    is_public: true,
+    total_budget: 4000,
+    categories: [
+      { category: "Housing", subtype: "Rent", amount: 1500, period: "monthly" },
+      {
+        category: "Business",
+        subtype: "Software",
+        amount: 200,
+        period: "monthly",
+      },
+      {
+        category: "Business",
+        subtype: "Marketing",
+        amount: 300,
+        period: "monthly",
+      },
+      {
+        category: "Food",
+        subtype: "Groceries",
+        amount: 400,
+        period: "monthly",
+      },
+      {
+        category: "Transportation",
+        subtype: "Car",
+        amount: 250,
+        period: "monthly",
+      },
+      {
+        category: "Healthcare",
+        subtype: "Insurance",
+        amount: 500,
+        period: "monthly",
+      },
+      {
+        category: "Taxes",
+        subtype: "Quarterly Estimated",
+        amount: 600,
+        period: "monthly",
+      },
+      {
+        category: "Savings",
+        subtype: "Retirement",
+        amount: 250,
+        period: "monthly",
+      },
+    ],
+  },
+] as const;
 
 // Default categories for budget templates
 const DEFAULT_CATEGORIES = [
@@ -130,19 +269,37 @@ const DEFAULT_CATEGORIES = [
 const DEFAULT_PERIODS = ["weekly", "monthly", "yearly"];
 
 export default function BudgetTemplatesPage() {
-  const { templates: userTemplates, loading, fetchTemplates, addTemplate, updateTemplate, deleteTemplate } = useBudgetTemplatesStore();
+  const { format } = useFormatCurrency();
+  const {
+    templates: userTemplates,
+    loading,
+    fetchTemplates,
+    addTemplate,
+    updateTemplate,
+    deleteTemplate,
+  } = useBudgetTemplatesStore();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<BudgetTemplate | null>(null);
-  const [selectedSystemTemplate, setSelectedSystemTemplate] = useState<typeof SYSTEM_TEMPLATES[number] | null>(null);
-  const [createMode, setCreateMode] = useState<"from-budgets" | "manual">("manual"); // Default to manual mode
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<BudgetTemplate | null>(null);
+  const [selectedSystemTemplate, setSelectedSystemTemplate] = useState<
+    (typeof SYSTEM_TEMPLATES)[number] | null
+  >(null);
+  const [createMode, setCreateMode] = useState<"from-budgets" | "manual">(
+    "manual",
+  ); // Default to manual mode
 
   // Form state
   const [templateForm, setTemplateForm] = useState({
     name: "",
     description: "",
-    categories: [] as Array<{ category: string; subtype: string; amount: number; period: string }>,
+    categories: [] as Array<{
+      category: string;
+      subtype: string;
+      amount: number;
+      period: string;
+    }>,
     is_public: false,
   });
 
@@ -155,9 +312,9 @@ export default function BudgetTemplatesPage() {
     try {
       const response = await fetch("/api/budgets");
       if (!response.ok) throw new Error("Failed to fetch budgets");
-      
+
       const budgets = await response.json();
-      
+
       if (budgets.length === 0) {
         toast.error("No budgets found. Create some budgets first!");
         return;
@@ -175,7 +332,7 @@ export default function BudgetTemplatesPage() {
         ...templateForm,
         categories,
       });
-      
+
       setCreateMode("from-budgets");
       toast.success(`Loaded ${categories.length} budget categories!`);
     } catch (error) {
@@ -217,12 +374,12 @@ export default function BudgetTemplatesPage() {
 
   const handleAddTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!templateForm.name || !templateForm.description) {
       toast.error("Please fill in all required fields");
       return;
     }
-    
+
     if (templateForm.categories.length === 0) {
       toast.error("Please add at least one category to your template");
       return;
@@ -230,14 +387,14 @@ export default function BudgetTemplatesPage() {
 
     // Validate that all categories have required fields
     const invalidCategories = templateForm.categories.filter(
-      (cat) => !cat.category || cat.amount <= 0
+      (cat) => !cat.category || cat.amount <= 0,
     );
-    
+
     if (invalidCategories.length > 0) {
       toast.error("Please fill in all category fields with valid amounts");
       return;
     }
-    
+
     try {
       console.log("Creating template:", templateForm);
       await addTemplate({
@@ -251,11 +408,14 @@ export default function BudgetTemplatesPage() {
       resetCreateForm();
     } catch (error) {
       console.error("Error creating template:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+
       // Show error with longer duration if it contains setup instructions
-      const isSetupError = errorMessage.includes("does not exist") || errorMessage.includes("migration");
-      
+      const isSetupError =
+        errorMessage.includes("does not exist") ||
+        errorMessage.includes("migration");
+
       toast.error(`Failed to create template: ${errorMessage}`, {
         duration: isSetupError ? 10000 : 4000, // 10 seconds for setup errors, 4 seconds for others
       });
@@ -308,7 +468,13 @@ export default function BudgetTemplatesPage() {
       const currentMonth = now.getMonth() + 1;
       const currentYear = now.getFullYear();
 
-      console.log("Applying template:", template.name, "with", template.categories.length, "categories");
+      console.log(
+        "Applying template:",
+        template.name,
+        "with",
+        template.categories.length,
+        "categories",
+      );
 
       // Create budgets for each category in the template
       const budgetPromises = template.categories.map(async (cat: any) => {
@@ -324,22 +490,28 @@ export default function BudgetTemplatesPage() {
             year: currentYear,
           }),
         });
-        
+
         if (!response.ok) {
           const error = await response.json();
           console.error("Failed to create budget:", cat.category, error);
-          throw new Error(`Failed to create budget for ${cat.category}: ${error.error || 'Unknown error'}`);
+          throw new Error(
+            `Failed to create budget for ${cat.category}: ${error.error || "Unknown error"}`,
+          );
         }
-        
+
         return response.json();
       });
 
       const results = await Promise.all(budgetPromises);
       console.log("Created budgets:", results);
-      toast.success(`Applied ${template.name}! Created ${template.categories.length} budgets for ${currentMonth}/${currentYear}.`);
+      toast.success(
+        `Applied ${template.name}! Created ${template.categories.length} budgets for ${currentMonth}/${currentYear}.`,
+      );
     } catch (error) {
       console.error("Error applying template:", error);
-      toast.error(`Failed to apply template: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(
+        `Failed to apply template: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   };
 
@@ -361,7 +533,9 @@ export default function BudgetTemplatesPage() {
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Budget Templates</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Budget Templates
+              </h1>
               <p className="text-sm text-gray-500 mt-1">
                 Start with pre-built templates or create your own
               </p>
@@ -371,10 +545,13 @@ export default function BudgetTemplatesPage() {
                 <Upload className="h-4 w-4 mr-2" />
                 Import
               </Button>
-              <Dialog open={isCreateOpen} onOpenChange={(open) => {
-                setIsCreateOpen(open);
-                if (!open) resetCreateForm();
-              }}>
+              <Dialog
+                open={isCreateOpen}
+                onOpenChange={(open) => {
+                  setIsCreateOpen(open);
+                  if (!open) resetCreateForm();
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
@@ -385,27 +562,42 @@ export default function BudgetTemplatesPage() {
                   <DialogHeader>
                     <DialogTitle>Create Budget Template</DialogTitle>
                     <DialogDescription>
-                      Create a reusable budget template from scratch or load from existing budgets
+                      Create a reusable budget template from scratch or load
+                      from existing budgets
                     </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleAddTemplate} className="space-y-6 py-4">
                     {/* Template Info */}
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label>Template Name <span className="text-red-500">*</span></Label>
-                        <Input 
-                          placeholder="e.g., My Monthly Budget" 
+                        <Label>
+                          Template Name <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          placeholder="e.g., My Monthly Budget"
                           value={templateForm.name}
-                          onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
+                          onChange={(e) =>
+                            setTemplateForm({
+                              ...templateForm,
+                              name: e.target.value,
+                            })
+                          }
                           required
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Description <span className="text-red-500">*</span></Label>
-                        <Input 
-                          placeholder="Brief description of this template" 
+                        <Label>
+                          Description <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          placeholder="Brief description of this template"
                           value={templateForm.description}
-                          onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })}
+                          onChange={(e) =>
+                            setTemplateForm({
+                              ...templateForm,
+                              description: e.target.value,
+                            })
+                          }
                           required
                         />
                       </div>
@@ -413,22 +605,32 @@ export default function BudgetTemplatesPage() {
 
                     {/* Load Source Options */}
                     <div className="space-y-2 pt-4 border-t">
-                      <Label className="text-base font-semibold">Budget Categories</Label>
-                      <p className="text-xs text-gray-500">Add categories manually or import from existing budgets</p>
+                      <Label className="text-base font-semibold">
+                        Budget Categories
+                      </Label>
+                      <p className="text-xs text-gray-500">
+                        Add categories manually or import from existing budgets
+                      </p>
                       <div className="flex gap-2">
-                        <Button 
-                          type="button" 
-                          variant={createMode === "from-budgets" ? "default" : "outline"}
-                          className="flex-1" 
+                        <Button
+                          type="button"
+                          variant={
+                            createMode === "from-budgets"
+                              ? "default"
+                              : "outline"
+                          }
+                          className="flex-1"
                           onClick={loadCurrentBudgets}
                         >
                           <Copy className="h-4 w-4 mr-2" />
                           Load From Current Budgets
                         </Button>
-                        <Button 
-                          type="button" 
-                          variant={createMode === "manual" ? "default" : "outline"}
-                          className="flex-1" 
+                        <Button
+                          type="button"
+                          variant={
+                            createMode === "manual" ? "default" : "outline"
+                          }
+                          className="flex-1"
                           onClick={() => {
                             setCreateMode("manual");
                             if (templateForm.categories.length === 0) {
@@ -446,10 +648,12 @@ export default function BudgetTemplatesPage() {
                     {createMode === "manual" && (
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <Label className="text-sm font-medium">Categories</Label>
-                          <Button 
-                            type="button" 
-                            size="sm" 
+                          <Label className="text-sm font-medium">
+                            Categories
+                          </Label>
+                          <Button
+                            type="button"
+                            size="sm"
                             variant="outline"
                             onClick={addCategoryRow}
                           >
@@ -460,10 +664,12 @@ export default function BudgetTemplatesPage() {
 
                         {templateForm.categories.length === 0 ? (
                           <div className="p-6 border-2 border-dashed rounded-lg text-center">
-                            <p className="text-sm text-gray-500 mb-3">No categories added yet</p>
-                            <Button 
-                              type="button" 
-                              size="sm" 
+                            <p className="text-sm text-gray-500 mb-3">
+                              No categories added yet
+                            </p>
+                            <Button
+                              type="button"
+                              size="sm"
                               onClick={addCategoryRow}
                             >
                               <Plus className="h-4 w-4 mr-2" />
@@ -473,21 +679,36 @@ export default function BudgetTemplatesPage() {
                         ) : (
                           <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                             {templateForm.categories.map((cat, index) => (
-                              <div key={index} className="p-4 border rounded-lg bg-gray-50 space-y-3">
+                              <div
+                                key={index}
+                                className="p-4 border rounded-lg bg-gray-50 space-y-3"
+                              >
                                 <div className="flex items-start gap-3">
                                   <div className="flex-1 grid grid-cols-2 gap-3">
                                     {/* Category */}
                                     <div className="space-y-1">
-                                      <Label className="text-xs">Category *</Label>
+                                      <Label className="text-xs">
+                                        Category *
+                                      </Label>
                                       <select
                                         className="w-full px-3 py-2 border rounded-md text-sm"
                                         value={cat.category}
-                                        onChange={(e) => updateCategoryRow(index, "category", e.target.value)}
+                                        onChange={(e) =>
+                                          updateCategoryRow(
+                                            index,
+                                            "category",
+                                            e.target.value,
+                                          )
+                                        }
                                         required
                                       >
-                                        <option value="">Select category</option>
+                                        <option value="">
+                                          Select category
+                                        </option>
                                         {DEFAULT_CATEGORIES.map((c) => (
-                                          <option key={c} value={c}>{c}</option>
+                                          <option key={c} value={c}>
+                                            {c}
+                                          </option>
                                         ))}
                                       </select>
                                     </div>
@@ -498,21 +719,35 @@ export default function BudgetTemplatesPage() {
                                       <Input
                                         placeholder="e.g., Groceries"
                                         value={cat.subtype}
-                                        onChange={(e) => updateCategoryRow(index, "subtype", e.target.value)}
+                                        onChange={(e) =>
+                                          updateCategoryRow(
+                                            index,
+                                            "subtype",
+                                            e.target.value,
+                                          )
+                                        }
                                         className="text-sm"
                                       />
                                     </div>
 
                                     {/* Amount */}
                                     <div className="space-y-1">
-                                      <Label className="text-xs">Amount * ($)</Label>
+                                      <Label className="text-xs">
+                                        Amount * ($)
+                                      </Label>
                                       <Input
                                         type="number"
                                         min="0"
                                         step="0.01"
                                         placeholder="0.00"
                                         value={cat.amount || ""}
-                                        onChange={(e) => updateCategoryRow(index, "amount", parseFloat(e.target.value) || 0)}
+                                        onChange={(e) =>
+                                          updateCategoryRow(
+                                            index,
+                                            "amount",
+                                            parseFloat(e.target.value) || 0,
+                                          )
+                                        }
                                         className="text-sm"
                                         required
                                       />
@@ -524,10 +759,19 @@ export default function BudgetTemplatesPage() {
                                       <select
                                         className="w-full px-3 py-2 border rounded-md text-sm"
                                         value={cat.period}
-                                        onChange={(e) => updateCategoryRow(index, "period", e.target.value)}
+                                        onChange={(e) =>
+                                          updateCategoryRow(
+                                            index,
+                                            "period",
+                                            e.target.value,
+                                          )
+                                        }
                                       >
                                         {DEFAULT_PERIODS.map((p) => (
-                                          <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                                          <option key={p} value={p}>
+                                            {p.charAt(0).toUpperCase() +
+                                              p.slice(1)}
+                                          </option>
                                         ))}
                                       </select>
                                     </div>
@@ -554,11 +798,17 @@ export default function BudgetTemplatesPage() {
                           <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                             <div className="flex justify-between items-center">
                               <div>
-                                <p className="text-sm font-medium text-blue-900">Total Budget</p>
-                                <p className="text-xs text-blue-700">{templateForm.categories.length} categories</p>
+                                <p className="text-sm font-medium text-blue-900">
+                                  Total Budget
+                                </p>
+                                <p className="text-xs text-blue-700">
+                                  {templateForm.categories.length} categories
+                                </p>
                               </div>
                               <p className="text-2xl font-bold text-blue-600">
-                                {formatCurrency(calculateTotalBudget(templateForm.categories))}
+                                {format(
+                                  calculateTotalBudget(templateForm.categories),
+                                )}
                               </p>
                             </div>
                           </div>
@@ -567,21 +817,33 @@ export default function BudgetTemplatesPage() {
                     )}
 
                     {/* From Budgets Mode Summary */}
-                    {createMode === "from-budgets" && templateForm.categories.length > 0 && (
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-sm text-green-700 font-medium">
-                          ✓ Loaded {templateForm.categories.length} categories with total budget of {formatCurrency(calculateTotalBudget(templateForm.categories))}
-                        </p>
-                      </div>
-                    )}
+                    {createMode === "from-budgets" &&
+                      templateForm.categories.length > 0 && (
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <p className="text-sm text-green-700 font-medium">
+                            ✓ Loaded {templateForm.categories.length} categories
+                            with total budget of{" "}
+                            {format(
+                              calculateTotalBudget(templateForm.categories),
+                            )}
+                          </p>
+                        </div>
+                      )}
 
                     {/* Submit Button */}
-                    <Button 
-                      type="submit" 
-                      className="w-full" 
-                      disabled={loading || !templateForm.name || !templateForm.description || templateForm.categories.length === 0}
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={
+                        loading ||
+                        !templateForm.name ||
+                        !templateForm.description ||
+                        templateForm.categories.length === 0
+                      }
                     >
-                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
                       Create Template
                     </Button>
                   </form>
@@ -608,79 +870,84 @@ export default function BudgetTemplatesPage() {
           <TabsContent value="public" className="space-y-4">
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {SYSTEM_TEMPLATES.map((template) => (
-                  <Card key={template.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <CardTitle className="text-lg">{template.name}</CardTitle>
-                          <CardDescription className="mt-1">
-                            {template.description}
-                          </CardDescription>
+                <Card
+                  key={template.id}
+                  className="hover:shadow-lg transition-shadow"
+                >
+                  <CardHeader>
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <CardTitle className="text-lg">
+                          {template.name}
+                        </CardTitle>
+                        <CardDescription className="mt-1">
+                          {template.description}
+                        </CardDescription>
+                      </div>
+                      <Badge variant="outline">
+                        <Globe className="h-3 w-3 mr-1" />
+                        System
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-gray-600 mb-1">Total Budget</p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {format(calculateTotalBudget(template.categories))}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {template.categories.length} categories
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-gray-700">
+                        Top Categories:
+                      </p>
+                      {template.categories.slice(0, 3).map((cat, idx) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between text-sm text-gray-600"
+                        >
+                          <span className="truncate">{cat.category}</span>
+                          <span className="font-medium">
+                            {format(cat.amount)}
+                          </span>
                         </div>
-                        <Badge variant="outline">
-                          <Globe className="h-3 w-3 mr-1" />
-                          System
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="p-4 bg-blue-50 rounded-lg">
-                        <p className="text-sm text-gray-600 mb-1">Total Budget</p>
-                        <p className="text-2xl font-bold text-blue-600">
-                          {formatCurrency(calculateTotalBudget(template.categories))}
+                      ))}
+                      {template.categories.length > 3 && (
+                        <p className="text-xs text-gray-400">
+                          +{template.categories.length - 3} more categories
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {template.categories.length} categories
-                        </p>
-                      </div>
+                      )}
+                    </div>
 
-                      <div className="space-y-2">
-                        <p className="text-sm font-semibold text-gray-700">
-                          Top Categories:
-                        </p>
-                        {template.categories.slice(0, 3).map((cat, idx) => (
-                          <div
-                            key={idx}
-                            className="flex justify-between text-sm text-gray-600"
-                          >
-                            <span className="truncate">{cat.category}</span>
-                            <span className="font-medium">
-                              {formatCurrency(cat.amount)}
-                            </span>
-                          </div>
-                        ))}
-                        {template.categories.length > 3 && (
-                          <p className="text-xs text-gray-400">
-                            +{template.categories.length - 3} more categories
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          className="flex-1"
-                          onClick={() => applyTemplate(template)}
-                        >
-                          Apply Template
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => setSelectedSystemTemplate(template)}
-                        >
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => exportTemplate(template)}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        className="flex-1"
+                        onClick={() => applyTemplate(template)}
+                      >
+                        Apply Template
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setSelectedSystemTemplate(template)}
+                      >
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => exportTemplate(template)}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </TabsContent>
 
@@ -696,11 +963,16 @@ export default function BudgetTemplatesPage() {
             ) : (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {userTemplates.map((template) => (
-                  <Card key={template.id} className="hover:shadow-lg transition-shadow">
+                  <Card
+                    key={template.id}
+                    className="hover:shadow-lg transition-shadow"
+                  >
                     <CardHeader>
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
-                          <CardTitle className="text-lg">{template.name}</CardTitle>
+                          <CardTitle className="text-lg">
+                            {template.name}
+                          </CardTitle>
                           <CardDescription className="mt-1">
                             {template.description}
                           </CardDescription>
@@ -717,11 +989,13 @@ export default function BudgetTemplatesPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openEditDialog(template)}>
+                              <DropdownMenuItem
+                                onClick={() => openEditDialog(template)}
+                              >
                                 <Edit className="h-4 w-4 mr-2" />
                                 Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => handleDeleteTemplate(template)}
                                 className="text-red-600"
                               >
@@ -735,9 +1009,11 @@ export default function BudgetTemplatesPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="p-4 bg-blue-50 rounded-lg">
-                        <p className="text-sm text-gray-600 mb-1">Total Budget</p>
+                        <p className="text-sm text-gray-600 mb-1">
+                          Total Budget
+                        </p>
                         <p className="text-2xl font-bold text-blue-600">
-                          {formatCurrency(calculateTotalBudget(template.categories))}
+                          {format(calculateTotalBudget(template.categories))}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
                           {template.categories.length} categories
@@ -755,7 +1031,7 @@ export default function BudgetTemplatesPage() {
                           >
                             <span className="truncate">{cat.category}</span>
                             <span className="font-medium">
-                              {formatCurrency(cat.amount)}
+                              {format(cat.amount)}
                             </span>
                           </div>
                         ))}
@@ -798,19 +1074,28 @@ export default function BudgetTemplatesPage() {
 
         {/* User Template Details Dialog */}
         {selectedTemplate && (
-          <Dialog open={!!selectedTemplate} onOpenChange={() => setSelectedTemplate(null)}>
+          <Dialog
+            open={!!selectedTemplate}
+            onOpenChange={() => setSelectedTemplate(null)}
+          >
             <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{selectedTemplate.name}</DialogTitle>
-                <DialogDescription>{selectedTemplate.description}</DialogDescription>
+                <DialogDescription>
+                  {selectedTemplate.description}
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-sm text-gray-600">Total Monthly Budget</p>
+                      <p className="text-sm text-gray-600">
+                        Total Monthly Budget
+                      </p>
                       <p className="text-2xl font-bold">
-                        {formatCurrency(calculateTotalBudget(selectedTemplate.categories))}
+                        {format(
+                          calculateTotalBudget(selectedTemplate.categories),
+                        )}
                       </p>
                     </div>
                     <Badge variant="outline">
@@ -822,7 +1107,9 @@ export default function BudgetTemplatesPage() {
                 <div className="space-y-3">
                   <h4 className="font-semibold">Budget Breakdown:</h4>
                   {selectedTemplate.categories.map((cat, idx) => {
-                    const totalBudget = calculateTotalBudget(selectedTemplate.categories);
+                    const totalBudget = calculateTotalBudget(
+                      selectedTemplate.categories,
+                    );
                     const percentage = (cat.amount / totalBudget) * 100;
                     return (
                       <div key={idx} className="space-y-1">
@@ -832,7 +1119,7 @@ export default function BudgetTemplatesPage() {
                             {cat.subtype && ` - ${cat.subtype}`}
                           </span>
                           <span className="font-semibold">
-                            {formatCurrency(cat.amount)}{" "}
+                            {format(cat.amount)}{" "}
                             <span className="text-gray-500">
                               ({percentage.toFixed(0)}%)
                             </span>
@@ -865,19 +1152,26 @@ export default function BudgetTemplatesPage() {
 
         {/* System Template Details Dialog */}
         {selectedSystemTemplate && (
-          <Dialog open={!!selectedSystemTemplate} onOpenChange={() => setSelectedSystemTemplate(null)}>
+          <Dialog
+            open={!!selectedSystemTemplate}
+            onOpenChange={() => setSelectedSystemTemplate(null)}
+          >
             <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{selectedSystemTemplate.name}</DialogTitle>
-                <DialogDescription>{selectedSystemTemplate.description}</DialogDescription>
+                <DialogDescription>
+                  {selectedSystemTemplate.description}
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-sm text-gray-600">Total Monthly Budget</p>
+                      <p className="text-sm text-gray-600">
+                        Total Monthly Budget
+                      </p>
                       <p className="text-2xl font-bold">
-                        {formatCurrency(selectedSystemTemplate.total_budget)}
+                        {format(selectedSystemTemplate.total_budget)}
                       </p>
                     </div>
                     <Badge variant="outline">
@@ -889,7 +1183,9 @@ export default function BudgetTemplatesPage() {
                 <div className="space-y-3">
                   <h4 className="font-semibold">Budget Breakdown:</h4>
                   {selectedSystemTemplate.categories.map((cat, idx) => {
-                    const totalBudget = calculateTotalBudget(selectedSystemTemplate.categories);
+                    const totalBudget = calculateTotalBudget(
+                      selectedSystemTemplate.categories,
+                    );
                     const percentage = (cat.amount / totalBudget) * 100;
                     return (
                       <div key={idx} className="space-y-1">
@@ -899,7 +1195,7 @@ export default function BudgetTemplatesPage() {
                             {cat.subtype && ` - ${cat.subtype}`}
                           </span>
                           <span className="font-semibold">
-                            {formatCurrency(cat.amount)}{" "}
+                            {format(cat.amount)}{" "}
                             <span className="text-gray-500">
                               ({percentage.toFixed(0)}%)
                             </span>
@@ -936,40 +1232,49 @@ export default function BudgetTemplatesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Template</DialogTitle>
-            <DialogDescription>
-              Update template information
-            </DialogDescription>
+            <DialogDescription>Update template information</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditTemplate} className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Template Name</Label>
-              <Input 
-                placeholder="e.g., My Monthly Budget" 
+              <Input
+                placeholder="e.g., My Monthly Budget"
                 value={templateForm.name}
-                onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
+                onChange={(e) =>
+                  setTemplateForm({ ...templateForm, name: e.target.value })
+                }
                 required
               />
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
-              <Input 
-                placeholder="Brief description of this template" 
+              <Input
+                placeholder="Brief description of this template"
                 value={templateForm.description}
-                onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })}
+                onChange={(e) =>
+                  setTemplateForm({
+                    ...templateForm,
+                    description: e.target.value,
+                  })
+                }
                 required
               />
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-600">Categories</p>
               <p className="text-sm text-gray-500 mt-1">
-                {templateForm.categories.length} categories with total budget of {formatCurrency(calculateTotalBudget(templateForm.categories))}
+                {templateForm.categories.length} categories with total budget of{" "}
+                {format(calculateTotalBudget(templateForm.categories))}
               </p>
               <p className="text-xs text-gray-400 mt-2">
-                Note: Category editing not yet implemented. To modify categories, create a new template.
+                Note: Category editing not yet implemented. To modify
+                categories, create a new template.
               </p>
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               Update Template
             </Button>
           </form>

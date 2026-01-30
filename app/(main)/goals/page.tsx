@@ -40,9 +40,10 @@ import { goalFormSchema, GoalFormData } from "@/lib/schemas/goal-form-schema";
 import GoalDetailsModal from "@/components/goals/GoalDetailsModal";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { toast, Toaster } from "sonner";
-import { formatCurrency } from "@/lib/utils/currency";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 export default function GoalsPage() {
+  const { format } = useFormatCurrency();
   const { goals, loading, error, fetchGoals, addGoal, updateGoal, deleteGoal } =
     useGoalsStore();
   const { transactions, fetchTransactions } = useTransactionsStore();
@@ -185,8 +186,8 @@ export default function GoalsPage() {
     const currentLabel = isPlannedOnly ? "planned" : "currently";
     const message =
       effectiveMonthly >= requiredMonthly
-        ? `On track! Saving ${formatCurrency(effectiveMonthly)}/month (need ${formatCurrency(requiredMonthly)})`
-        : `Need to save ${formatCurrency(requiredMonthly)}/month (${currentLabel} ${formatCurrency(effectiveMonthly)})`;
+        ? `On track! Saving ${format(effectiveMonthly)}/month (need ${format(requiredMonthly)})`
+        : `Need to save ${format(requiredMonthly)}/month (${currentLabel} ${format(effectiveMonthly)})`;
 
     return { probability, message, status };
   };
@@ -681,10 +682,10 @@ export default function GoalsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ₹{totalCurrentAmount.toLocaleString()}
+                {format(totalCurrentAmount)}
               </div>
               <p className="text-xs text-muted-foreground">
-                of ₹{totalTargetAmount.toLocaleString()} saved
+                of {format(totalTargetAmount)} saved
               </p>
             </CardContent>
           </Card>
@@ -766,8 +767,8 @@ export default function GoalsPage() {
                         <div className="flex items-center space-x-2">
                           <div className="text-right mr-4">
                             <p className="text-lg font-bold">
-                              {formatCurrency(goal.currentAmount)} /{" "}
-                              {formatCurrency(goal.targetAmount)}
+                              {format(goal.currentAmount)} /{" "}
+                              {format(goal.targetAmount)}
                             </p>
                             <p className="text-sm text-gray-500 flex items-center justify-end">
                               <Calendar className="h-3 w-3 mr-1" />

@@ -30,8 +30,15 @@ import {
   Loader2,
   Trash2,
 } from "lucide-react";
-import { useMutualFundsStore, type MutualFund } from "@/store/mutual-funds-store";
-import { mutualFundFormSchema, MutualFundFormData } from "@/lib/schemas/mutual-fund-form-schema";
+import {
+  useMutualFundsStore,
+  type MutualFund,
+} from "@/store/mutual-funds-store";
+import {
+  mutualFundFormSchema,
+  MutualFundFormData,
+} from "@/lib/schemas/mutual-fund-form-schema";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 const CATEGORY_OPTIONS: MutualFundFormData["category"][] = [
   "equity",
@@ -106,6 +113,7 @@ const formatLabel = (value: string) =>
   value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 export default function MutualFundsPage() {
+  const { format } = useFormatCurrency();
   const {
     mutualFunds,
     loading,
@@ -157,7 +165,10 @@ export default function MutualFundsPage() {
 
   useEffect(() => {
     if (!subCategoryOptions.includes(subCategory as any)) {
-      setValue("subCategory", subCategoryOptions[0] as MutualFundFormData["subCategory"]);
+      setValue(
+        "subCategory",
+        subCategoryOptions[0] as MutualFundFormData["subCategory"],
+      );
     }
   }, [subCategoryOptions, subCategory, setValue]);
 
@@ -228,10 +239,17 @@ export default function MutualFundsPage() {
     );
   }
 
-  const totalInvested = mutualFunds.reduce((sum, fund) => sum + fund.investedAmount, 0);
-  const totalCurrentValue = mutualFunds.reduce((sum, fund) => sum + fund.currentValue, 0);
+  const totalInvested = mutualFunds.reduce(
+    (sum, fund) => sum + fund.investedAmount,
+    0,
+  );
+  const totalCurrentValue = mutualFunds.reduce(
+    (sum, fund) => sum + fund.currentValue,
+    0,
+  );
   const totalGainLoss = totalCurrentValue - totalInvested;
-  const totalGainLossPercentage = totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0;
+  const totalGainLossPercentage =
+    totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -239,7 +257,9 @@ export default function MutualFundsPage() {
       <header className="bg-white shadow-sm border-b">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">Mutual Funds Tracker</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Mutual Funds Tracker
+            </h1>
             <Dialog
               open={isDialogOpen}
               onOpenChange={(open) => {
@@ -260,14 +280,19 @@ export default function MutualFundsPage() {
               </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>{editingFund ? "Edit Mutual Fund" : "Add Mutual Fund"}</DialogTitle>
+                  <DialogTitle>
+                    {editingFund ? "Edit Mutual Fund" : "Add Mutual Fund"}
+                  </DialogTitle>
                   <DialogDescription>
                     {editingFund
                       ? "Update this mutual fund's details."
                       : "Add a mutual fund to track its performance."}
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleSubmit(handleAddMutualFund)} className="space-y-4">
+                <form
+                  onSubmit={handleSubmit(handleAddMutualFund)}
+                  className="space-y-4"
+                >
                   <div className="space-y-2">
                     <Label htmlFor="name">Fund Name</Label>
                     <Input
@@ -276,7 +301,9 @@ export default function MutualFundsPage() {
                       {...register("name")}
                     />
                     {errors.name && (
-                      <p className="text-sm text-red-600">{errors.name.message}</p>
+                      <p className="text-sm text-red-600">
+                        {errors.name.message}
+                      </p>
                     )}
                   </div>
 
@@ -288,7 +315,9 @@ export default function MutualFundsPage() {
                       {...register("symbol")}
                     />
                     {errors.symbol && (
-                      <p className="text-sm text-red-600">{errors.symbol.message}</p>
+                      <p className="text-sm text-red-600">
+                        {errors.symbol.message}
+                      </p>
                     )}
                   </div>
 
@@ -302,7 +331,9 @@ export default function MutualFundsPage() {
                       {...register("investedAmount", { valueAsNumber: true })}
                     />
                     {errors.investedAmount && (
-                      <p className="text-sm text-red-600">{errors.investedAmount.message}</p>
+                      <p className="text-sm text-red-600">
+                        {errors.investedAmount.message}
+                      </p>
                     )}
                   </div>
 
@@ -317,7 +348,9 @@ export default function MutualFundsPage() {
                         {...register("units", { valueAsNumber: true })}
                       />
                       {errors.units && (
-                        <p className="text-sm text-red-600">{errors.units.message}</p>
+                        <p className="text-sm text-red-600">
+                          {errors.units.message}
+                        </p>
                       )}
                     </div>
 
@@ -331,7 +364,9 @@ export default function MutualFundsPage() {
                         {...register("purchaseNav", { valueAsNumber: true })}
                       />
                       {errors.purchaseNav && (
-                        <p className="text-sm text-red-600">{errors.purchaseNav.message}</p>
+                        <p className="text-sm text-red-600">
+                          {errors.purchaseNav.message}
+                        </p>
                       )}
                     </div>
                     <div className="space-y-2">
@@ -344,17 +379,19 @@ export default function MutualFundsPage() {
                         {...register("nav", { valueAsNumber: true })}
                       />
                       {errors.nav && (
-                        <p className="text-sm text-red-600">{errors.nav.message}</p>
+                        <p className="text-sm text-red-600">
+                          {errors.nav.message}
+                        </p>
                       )}
                     </div>
                   </div>
 
                   <div className="text-sm text-gray-600 space-y-1">
                     {units && purchaseNav ? (
-                      <div>Purchase Value: ₹{(units * purchaseNav).toFixed(2)}</div>
+                      <div>Purchase Value: {format(units * purchaseNav)}</div>
                     ) : null}
                     {units && nav ? (
-                      <div>Current Value: ₹{(units * nav).toFixed(2)}</div>
+                      <div>Current Value: {format(units * nav)}</div>
                     ) : null}
                   </div>
 
@@ -366,7 +403,9 @@ export default function MutualFundsPage() {
                       {...register("purchaseDate")}
                     />
                     {errors.purchaseDate && (
-                      <p className="text-sm text-red-600">{errors.purchaseDate.message}</p>
+                      <p className="text-sm text-red-600">
+                        {errors.purchaseDate.message}
+                      </p>
                     )}
                   </div>
 
@@ -385,7 +424,9 @@ export default function MutualFundsPage() {
                         ))}
                       </select>
                       {errors.category && (
-                        <p className="text-sm text-red-600">{errors.category.message}</p>
+                        <p className="text-sm text-red-600">
+                          {errors.category.message}
+                        </p>
                       )}
                     </div>
                     <div className="space-y-2">
@@ -402,19 +443,27 @@ export default function MutualFundsPage() {
                         ))}
                       </select>
                       {errors.subCategory && (
-                        <p className="text-sm text-red-600">{errors.subCategory.message}</p>
+                        <p className="text-sm text-red-600">
+                          {errors.subCategory.message}
+                        </p>
                       )}
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  >
                     {isSubmitting ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         {editingFund ? "Saving..." : "Adding Fund..."}
                       </>
+                    ) : editingFund ? (
+                      "Save Changes"
                     ) : (
-                      editingFund ? "Save Changes" : "Add Mutual Fund"
+                      "Add Mutual Fund"
                     )}
                   </Button>
                 </form>
@@ -429,25 +478,27 @@ export default function MutualFundsPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Invested</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Invested
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                ₹{totalInvested.toLocaleString()}
-              </div>
+              <div className="text-2xl font-bold">{format(totalInvested)}</div>
               <p className="text-xs text-muted-foreground">Across all funds</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Current Value</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Current Value
+              </CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ₹{totalCurrentValue.toLocaleString()}
+                {format(totalCurrentValue)}
               </div>
               <p className="text-xs text-muted-foreground">Portfolio value</p>
             </CardContent>
@@ -464,11 +515,12 @@ export default function MutualFundsPage() {
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ₹{
+                className={`text-2xl font-bold ${
                   totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
                 }`}
               >
-                {totalGainLoss >= 0 ? "+" : ""}₹{totalGainLoss.toLocaleString()}
+                {totalGainLoss >= 0 ? "+" : ""}
+                {format(totalGainLoss)}
               </div>
               <p className="text-xs text-muted-foreground">
                 {totalGainLossPercentage >= 0 ? "+" : ""}
@@ -484,7 +536,9 @@ export default function MutualFundsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{mutualFunds.length}</div>
-              <p className="text-xs text-muted-foreground">Active investments</p>
+              <p className="text-xs text-muted-foreground">
+                Active investments
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -493,7 +547,9 @@ export default function MutualFundsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Your Mutual Funds</CardTitle>
-            <CardDescription>Track your mutual fund investments and performance</CardDescription>
+            <CardDescription>
+              Track your mutual fund investments and performance
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -504,7 +560,8 @@ export default function MutualFundsPage() {
               ) : (
                 mutualFunds.map((fund) => {
                   const gainLoss = fund.currentValue - fund.investedAmount;
-                  const gainLossPercentage = (gainLoss / fund.investedAmount) * 100;
+                  const gainLossPercentage =
+                    (gainLoss / fund.investedAmount) * 100;
 
                   return (
                     <div
@@ -515,7 +572,8 @@ export default function MutualFundsPage() {
                         <div>
                           <h3 className="text-lg font-semibold">{fund.name}</h3>
                           <p className="text-sm text-gray-500">
-                            {fund.symbol} • {formatLabel(fund.category || "other")} •{" "}
+                            {fund.symbol} •{" "}
+                            {formatLabel(fund.category || "other")} •{" "}
                             {formatLabel(fund.subCategory || "other")}
                           </p>
                         </div>
@@ -534,8 +592,12 @@ export default function MutualFundsPage() {
                                 purchaseNav: fund.purchaseNav,
                                 currentValue: fund.currentValue,
                                 purchaseDate: fund.purchaseDate,
-                                category: (fund.category as MutualFundFormData["category"]) || "equity",
-                                subCategory: (fund.subCategory as MutualFundFormData["subCategory"]) || "large_cap",
+                                category:
+                                  (fund.category as MutualFundFormData["category"]) ||
+                                  "equity",
+                                subCategory:
+                                  (fund.subCategory as MutualFundFormData["subCategory"]) ||
+                                  "large_cap",
                               });
                               setIsDialogOpen(true);
                             }}
@@ -553,22 +615,25 @@ export default function MutualFundsPage() {
                             {deletingId === fund.id ? "Deleting..." : "Delete"}
                           </Button>
                           <div className="text-right">
-                          <div
-                            className={`text-lg font-bold flex items-center ₹{
-                              gainLoss >= 0 ? "text-green-600" : "text-red-600"
-                            }`}
-                          >
-                            {gainLoss >= 0 ? (
-                              <TrendingUp className="h-4 w-4 mr-1" />
-                            ) : (
-                              <TrendingDown className="h-4 w-4 mr-1" />
-                            )}
-                            {gainLoss >= 0 ? "+" : ""}₹{gainLoss.toLocaleString()}
-                          </div>
-                          <p className="text-sm text-gray-500">
-                            ({gainLossPercentage >= 0 ? "+" : ""}
-                            {gainLossPercentage.toFixed(2)}%)
-                          </p>
+                            <div
+                              className={`text-lg font-bold flex items-center ${
+                                gainLoss >= 0
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {gainLoss >= 0 ? (
+                                <TrendingUp className="h-4 w-4 mr-1" />
+                              ) : (
+                                <TrendingDown className="h-4 w-4 mr-1" />
+                              )}
+                              {gainLoss >= 0 ? "+" : ""}
+                              {format(gainLoss)}
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              ({gainLossPercentage >= 0 ? "+" : ""}
+                              {gainLossPercentage.toFixed(2)}%)
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -577,36 +642,39 @@ export default function MutualFundsPage() {
                         <div>
                           <p className="text-gray-500">Invested</p>
                           <p className="font-semibold">
-                            ₹{fund.investedAmount.toLocaleString()}
+                            {format(fund.investedAmount)}
                           </p>
                         </div>
                         <div>
                           <p className="text-gray-500">Current Value</p>
                           <p className="font-semibold">
-                            ₹{fund.currentValue.toLocaleString()}
+                            {format(fund.currentValue)}
                           </p>
                         </div>
                         <div>
                           <p className="text-gray-500">Units</p>
-                          <p className="font-semibold">{fund.units.toLocaleString()}</p>
+                          <p className="font-semibold">
+                            {fund.units.toLocaleString()}
+                          </p>
                         </div>
                         <div>
                           <p className="text-gray-500">Current NAV</p>
-                          <p className="font-semibold">₹{fund.nav.toFixed(2)}</p>
+                          <p className="font-semibold">{format(fund.nav)}</p>
                         </div>
                         <div>
                           <p className="text-gray-500">Purchase NAV</p>
                           <p className="font-semibold">
-                            ₹{fund.purchaseNav.toFixed(2)}
+                            {format(fund.purchaseNav)}
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between text-sm text-gray-500">
-                        <span>Purchased on {new Date(fund.purchaseDate).toLocaleDateString()}</span>
                         <span>
-                          Current Value: ₹{fund.currentValue.toLocaleString()}
+                          Purchased on{" "}
+                          {new Date(fund.purchaseDate).toLocaleDateString()}
                         </span>
+                        <span>Current Value: {format(fund.currentValue)}</span>
                       </div>
                     </div>
                   );
@@ -619,5 +687,3 @@ export default function MutualFundsPage() {
     </div>
   );
 }
-
-

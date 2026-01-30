@@ -14,42 +14,60 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TrendingUp, TrendingDown, Loader2, Target, AlertCircle, Plus, Trophy, Sparkles } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  TrendingUp,
+  TrendingDown,
+  Loader2,
+  Target,
+  AlertCircle,
+  Plus,
+  Trophy,
+  Sparkles,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
-const transactionFormSchema = z.object({
-  type: z.enum(["income", "expense"]),
-  amount: z
-    .string()
-    .min(1, "Amount is required")
-    .refine(
-      (val) => !isNaN(Number(val)) && Number(val) > 0,
-      "Amount must be a positive number"
-    ),
-  description: z.string().min(1, "Description is required"),
-  category: z.string().min(1, "Category is required"),
-  subtype: z.string().min(1, "Subtype is required"),
-  budgetId: z.string().optional(), // Optional - will auto-map based on category/subtype
-  goalId: z.string().optional(),
-  date: z.string().optional(),
-}).refine(
-  (data) => {
-    // If category is Savings, it must be an expense and goalId is required
-    if (data.category === "Savings") {
-      if (data.type !== "expense") {
-        return false;
+const transactionFormSchema = z
+  .object({
+    type: z.enum(["income", "expense"]),
+    amount: z
+      .string()
+      .min(1, "Amount is required")
+      .refine(
+        (val) => !isNaN(Number(val)) && Number(val) > 0,
+        "Amount must be a positive number",
+      ),
+    description: z.string().min(1, "Description is required"),
+    category: z.string().min(1, "Category is required"),
+    subtype: z.string().min(1, "Subtype is required"),
+    budgetId: z.string().optional(), // Optional - will auto-map based on category/subtype
+    goalId: z.string().optional(),
+    date: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // If category is Savings, it must be an expense and goalId is required
+      if (data.category === "Savings") {
+        if (data.type !== "expense") {
+          return false;
+        }
+        if (!data.goalId || data.goalId === "none") {
+          return false;
+        }
       }
-      if (!data.goalId || data.goalId === "none") {
-        return false;
-      }
-    }
-    return true;
-  },
-  {
-    message: "Goal selection is required for savings transactions",
-    path: ["goalId"],
-  }
-);
+      return true;
+    },
+    {
+      message: "Goal selection is required for savings transactions",
+      path: ["goalId"],
+    },
+  );
 
 type TransactionFormData = z.infer<typeof transactionFormSchema>;
 
@@ -86,7 +104,13 @@ interface AddTransactionFormProps {
   };
 }
 
-export default function AddTransactionForm({ onSuccess, onCancel, initialValues, contextInfo }: AddTransactionFormProps) {
+export default function AddTransactionForm({
+  onSuccess,
+  onCancel,
+  initialValues,
+  contextInfo,
+}: AddTransactionFormProps) {
+  const { format } = useFormatCurrency();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [budgetInfo, setBudgetInfo] = useState<{
@@ -104,7 +128,9 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newSubtypeName, setNewSubtypeName] = useState("");
   const [customCategories, setCustomCategories] = useState<string[]>([]);
-  const [customSubtypes, setCustomSubtypes] = useState<Record<string, string[]>>({});
+  const [customSubtypes, setCustomSubtypes] = useState<
+    Record<string, string[]>
+  >({});
 
   const {
     control,
@@ -146,7 +172,12 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
 
   // Check budget when expense details change
   useEffect(() => {
-    if (transactionType === "expense" && selectedCategory && selectedSubtype && amount) {
+    if (
+      transactionType === "expense" &&
+      selectedCategory &&
+      selectedSubtype &&
+      amount
+    ) {
       checkBudget();
     } else {
       setBudgetInfo(null);
@@ -173,13 +204,21 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
         const data = await response.json();
         const activeGoals = data
           .filter((g: { status: string }) => g.status === "active")
-          .map((g: { id: string; title: string; target_amount: string; current_amount: string; category: string }) => ({
-            id: g.id,
-            title: g.title,
-            targetAmount: parseFloat(g.target_amount),
-            currentAmount: parseFloat(g.current_amount),
-            category: g.category,
-          }));
+          .map(
+            (g: {
+              id: string;
+              title: string;
+              target_amount: string;
+              current_amount: string;
+              category: string;
+            }) => ({
+              id: g.id,
+              title: g.title,
+              targetAmount: parseFloat(g.target_amount),
+              currentAmount: parseFloat(g.current_amount),
+              category: g.category,
+            }),
+          );
         setGoals(activeGoals);
       }
     } catch (error) {
@@ -198,11 +237,15 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
           amount: parseFloat(amount),
         }),
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         // Only set budgetInfo if we have valid data with required properties
-        if (data && typeof data.budgetLimit !== 'undefined' && typeof data.totalSpent !== 'undefined') {
+        if (
+          data &&
+          typeof data.budgetLimit !== "undefined" &&
+          typeof data.totalSpent !== "undefined"
+        ) {
           setBudgetInfo(data);
         } else {
           setBudgetInfo(null);
@@ -228,7 +271,8 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
           description: data.description,
           category: data.category,
           subtype: data.subtype,
-          budgetId: data.budgetId && data.budgetId !== "auto" ? data.budgetId : null,
+          budgetId:
+            data.budgetId && data.budgetId !== "auto" ? data.budgetId : null,
           goalId: data.goalId && data.goalId !== "none" ? data.goalId : null,
           date: data.date || new Date().toISOString().split("T")[0],
         }),
@@ -251,10 +295,13 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
   // Filter budgets based on category and subtype
   const getMatchingBudgets = () => {
     if (!selectedCategory || !selectedSubtype) return [];
-    
+
     return budgets.filter((budget) => {
       // Exact match: same category and subtype
-      if (budget.category === selectedCategory && budget.subtype === selectedSubtype) {
+      if (
+        budget.category === selectedCategory &&
+        budget.subtype === selectedSubtype
+      ) {
         return true;
       }
       // Fallback match: same category, null subtype (category-level budget)
@@ -265,35 +312,107 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
     });
   };
 
-  const incomeCategories = ["Salary", "Freelance", "Investment", "Business", "Gift", "Other", ...customCategories.filter(cat => !["Salary", "Freelance", "Investment", "Business", "Gift", "Other"].includes(cat))];
-  const expenseCategories = ["Food", "Transportation", "Entertainment", "Bills", "Shopping", "Healthcare", "Savings", "Other", ...customCategories.filter(cat => !["Food", "Transportation", "Entertainment", "Bills", "Shopping", "Healthcare", "Savings", "Other"].includes(cat))];
-  
+  const incomeCategories = [
+    "Salary",
+    "Freelance",
+    "Investment",
+    "Business",
+    "Gift",
+    "Other",
+    ...customCategories.filter(
+      (cat) =>
+        ![
+          "Salary",
+          "Freelance",
+          "Investment",
+          "Business",
+          "Gift",
+          "Other",
+        ].includes(cat),
+    ),
+  ];
+  const expenseCategories = [
+    "Food",
+    "Transportation",
+    "Entertainment",
+    "Bills",
+    "Shopping",
+    "Healthcare",
+    "Savings",
+    "Other",
+    ...customCategories.filter(
+      (cat) =>
+        ![
+          "Food",
+          "Transportation",
+          "Entertainment",
+          "Bills",
+          "Shopping",
+          "Healthcare",
+          "Savings",
+          "Other",
+        ].includes(cat),
+    ),
+  ];
+
   const getSubtypes = (category: string, type: string) => {
-    const baseSubtypes = type === "income"
-      ? ["Salary", "Bonus", "Freelance", "Investment Returns", "Business Income", "Other"]
-      : category === "Bills"
-      ? ["Electricity", "Water", "Internet", "Phone", "Rent", "Other"]
-      : category === "Food"
-      ? ["Groceries", "Dining Out", "Snacks", "Other"]
-      : category === "Transportation"
-      ? ["Fuel", "Public Transport", "Parking", "Maintenance", "EMI", "Other"]
-      : category === "Shopping"
-      ? ["Clothing", "Electronics", "Home Items", "Personal Care", "Other"]
-      : category === "Savings"
-      ? ["Emergency Fund", "Investment", "Fixed Deposit", "Goal Savings", "Other"]
-      : ["EMI", "Bills", "Regular", "One-time", "Other"];
-    
+    const baseSubtypes =
+      type === "income"
+        ? [
+            "Salary",
+            "Bonus",
+            "Freelance",
+            "Investment Returns",
+            "Business Income",
+            "Other",
+          ]
+        : category === "Bills"
+          ? ["Electricity", "Water", "Internet", "Phone", "Rent", "Other"]
+          : category === "Food"
+            ? ["Groceries", "Dining Out", "Snacks", "Other"]
+            : category === "Transportation"
+              ? [
+                  "Fuel",
+                  "Public Transport",
+                  "Parking",
+                  "Maintenance",
+                  "EMI",
+                  "Other",
+                ]
+              : category === "Shopping"
+                ? [
+                    "Clothing",
+                    "Electronics",
+                    "Home Items",
+                    "Personal Care",
+                    "Other",
+                  ]
+                : category === "Savings"
+                  ? [
+                      "Emergency Fund",
+                      "Investment",
+                      "Fixed Deposit",
+                      "Goal Savings",
+                      "Other",
+                    ]
+                  : ["EMI", "Bills", "Regular", "One-time", "Other"];
+
     const customForCategory = customSubtypes[category] || [];
-    return [...baseSubtypes, ...customForCategory.filter(sub => !baseSubtypes.includes(sub))];
+    return [
+      ...baseSubtypes,
+      ...customForCategory.filter((sub) => !baseSubtypes.includes(sub)),
+    ];
   };
 
-  const showGoalMapping = transactionType === "expense" && selectedCategory === "Savings";
+  const showGoalMapping =
+    transactionType === "expense" && selectedCategory === "Savings";
   const isGoalRequired = selectedCategory === "Savings";
 
   const handleAddCustomCategory = () => {
     if (newCategoryName.trim()) {
       const trimmedName = newCategoryName.trim();
-      const allCategories = transactionType === "income" ? incomeCategories : expenseCategories;
+      const allCategories =
+        transactionType === "income" ? incomeCategories : expenseCategories;
       if (!allCategories.includes(trimmedName)) {
         setCustomCategories([...customCategories, trimmedName]);
         setValue("category", trimmedName);
@@ -326,12 +445,23 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
         <Card className="border-2 border-blue-500 bg-blue-50">
           <CardContent className="pt-4">
             <div className="flex items-center space-x-2">
-              {contextInfo.source === "budget" && <Target className="h-5 w-5 text-blue-600" />}
-              {contextInfo.source === "goal" && <Trophy className="h-5 w-5 text-blue-600" />}
-              {contextInfo.source === "savings-challenge" && <Sparkles className="h-5 w-5 text-blue-600" />}
+              {contextInfo.source === "budget" && (
+                <Target className="h-5 w-5 text-blue-600" />
+              )}
+              {contextInfo.source === "goal" && (
+                <Trophy className="h-5 w-5 text-blue-600" />
+              )}
+              {contextInfo.source === "savings-challenge" && (
+                <Sparkles className="h-5 w-5 text-blue-600" />
+              )}
               <div>
                 <p className="text-sm font-medium text-blue-900">
-                  Adding transaction for {contextInfo.source === "budget" ? "Budget" : contextInfo.source === "goal" ? "Goal" : "Savings Challenge"}
+                  Adding transaction for{" "}
+                  {contextInfo.source === "budget"
+                    ? "Budget"
+                    : contextInfo.source === "goal"
+                      ? "Goal"
+                      : "Savings Challenge"}
                 </p>
                 <p className="text-sm text-blue-700">
                   {contextInfo.sourceName}
@@ -341,7 +471,7 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
           </CardContent>
         </Card>
       )}
-      
+
       {/* Transaction Type */}
       <Card className="border-2">
         <CardHeader className="pb-3">
@@ -400,7 +530,9 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
               control={control}
               render={({ field }) => (
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                    ₹
+                  </span>
                   <Input
                     {...field}
                     id="amount"
@@ -432,7 +564,9 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
               )}
             />
             {errors.description && (
-              <p className="text-sm text-red-600">{errors.description.message}</p>
+              <p className="text-sm text-red-600">
+                {errors.description.message}
+              </p>
             )}
           </div>
 
@@ -442,9 +576,7 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
             <Controller
               name="date"
               control={control}
-              render={({ field }) => (
-                <Input {...field} id="date" type="date" />
-              )}
+              render={({ field }) => <Input {...field} id="date" type="date" />}
             />
           </div>
         </CardContent>
@@ -502,8 +634,8 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
                 name="category"
                 control={control}
                 render={({ field }) => (
-                  <Select 
-                    value={field.value} 
+                  <Select
+                    value={field.value}
                     onValueChange={(value) => {
                       if (value === "add_custom") {
                         setShowCategoryInput(true);
@@ -517,12 +649,18 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {(transactionType === "income" ? incomeCategories : expenseCategories).map((cat) => (
+                      {(transactionType === "income"
+                        ? incomeCategories
+                        : expenseCategories
+                      ).map((cat) => (
                         <SelectItem key={cat} value={cat}>
                           {cat}
                         </SelectItem>
                       ))}
-                      <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
+                      <SelectItem
+                        value="add_custom"
+                        className="text-blue-600 font-medium border-t mt-1 pt-2"
+                      >
                         <div className="flex items-center space-x-2">
                           <Plus className="h-4 w-4" />
                           <span>Add Category</span>
@@ -584,8 +722,8 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
                   name="subtype"
                   control={control}
                   render={({ field }) => (
-                    <Select 
-                      value={field.value} 
+                    <Select
+                      value={field.value}
                       onValueChange={(value) => {
                         if (value === "add_custom") {
                           setShowSubtypeInput(true);
@@ -598,12 +736,17 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
                         <SelectValue placeholder="Select subtype" />
                       </SelectTrigger>
                       <SelectContent>
-                        {getSubtypes(selectedCategory, transactionType).map((subtype) => (
-                          <SelectItem key={subtype} value={subtype}>
-                            {subtype}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
+                        {getSubtypes(selectedCategory, transactionType).map(
+                          (subtype) => (
+                            <SelectItem key={subtype} value={subtype}>
+                              {subtype}
+                            </SelectItem>
+                          ),
+                        )}
+                        <SelectItem
+                          value="add_custom"
+                          className="text-blue-600 font-medium border-t mt-1 pt-2"
+                        >
                           <div className="flex items-center space-x-2">
                             <Plus className="h-4 w-4" />
                             <span>Add Sub-category</span>
@@ -621,132 +764,163 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
           )}
 
           {/* Budget Selection - Optional, shows available budgets */}
-          {selectedCategory && selectedSubtype && getMatchingBudgets().length > 0 && (
-            <div className="space-y-2">
-              <Label htmlFor="budgetId" className="flex items-center space-x-1">
-                <span>Budget (Optional)</span>
-                <span className="text-xs text-gray-500">Auto-mapped if not selected</span>
-              </Label>
-              <Controller
-                name="budgetId"
-                control={control}
-                render={({ field }) => (
-                  <Select 
-                    value={field.value} 
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Auto-select matching budget" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="auto">Auto-select</SelectItem>
-                      {getMatchingBudgets().map((budget) => (
-                        <SelectItem key={budget.id} value={budget.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {budget.category}
-                              {budget.subtype && ` → ${budget.subtype}`}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              ₹{budget.limit_amount.toLocaleString()} / {budget.period}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              <p className="text-xs text-gray-600">
-                ℹ️ Transaction will be automatically linked to matching budget
-              </p>
-            </div>
-          )}
-          
-          {selectedCategory && selectedSubtype && getMatchingBudgets().length === 0 && (
-            <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded border border-blue-200">
-              ℹ️ No budget exists for {selectedCategory} → {selectedSubtype}. 
-              Transaction will be tracked without a budget.
-              <a href="/budgets" target="_blank" className="underline ml-1">
-                Create budget
-              </a>
-            </div>
-          )}
+          {selectedCategory &&
+            selectedSubtype &&
+            getMatchingBudgets().length > 0 && (
+              <div className="space-y-2">
+                <Label
+                  htmlFor="budgetId"
+                  className="flex items-center space-x-1"
+                >
+                  <span>Budget (Optional)</span>
+                  <span className="text-xs text-gray-500">
+                    Auto-mapped if not selected
+                  </span>
+                </Label>
+                <Controller
+                  name="budgetId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Auto-select matching budget" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">Auto-select</SelectItem>
+                        {getMatchingBudgets().map((budget) => (
+                          <SelectItem key={budget.id} value={budget.id}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                {budget.category}
+                                {budget.subtype && ` → ${budget.subtype}`}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {format(budget.limit_amount)} / {budget.period}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <p className="text-xs text-gray-600">
+                  ℹ️ Transaction will be automatically linked to matching budget
+                </p>
+              </div>
+            )}
+
+          {selectedCategory &&
+            selectedSubtype &&
+            getMatchingBudgets().length === 0 && (
+              <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded border border-blue-200">
+                ℹ️ No budget exists for {selectedCategory} → {selectedSubtype}.
+                Transaction will be tracked without a budget.
+                <a href="/budgets" target="_blank" className="underline ml-1">
+                  Create budget
+                </a>
+              </div>
+            )}
         </CardContent>
       </Card>
 
       {/* Budget Warning (for expenses) */}
-      {transactionType === "expense" && budgetInfo && budgetInfo.budgetLimit !== undefined && (
-        <Card className={`border-2 ${budgetInfo.isOverLimit ? "border-red-500 bg-red-50" : budgetInfo.isNearLimit ? "border-orange-500 bg-orange-50" : "border-blue-500 bg-blue-50"}`}>
-          <CardHeader className="pb-3">
-            <div className="flex items-center space-x-2">
-              <AlertCircle className={`h-5 w-5 ${budgetInfo.isOverLimit ? "text-red-600" : budgetInfo.isNearLimit ? "text-orange-600" : "text-blue-600"}`} />
-              <CardTitle className="text-base">Budget Status</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Budget Limit:</span>
-                <span className="font-semibold">₹{(budgetInfo.budgetLimit || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Current Spending:</span>
-                <span className="font-semibold">₹{(budgetInfo.totalSpent || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>After this transaction:</span>
-                <span className={`font-semibold ${budgetInfo.isOverLimit ? "text-red-600" : ""}`}>
-                  ₹{(budgetInfo.newTotal || 0).toFixed(2)}
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
-                <div
-                  className={`h-2 rounded-full transition-all ${
-                    budgetInfo.isOverLimit ? "bg-red-600" : budgetInfo.isNearLimit ? "bg-orange-500" : "bg-blue-600"
-                  }`}
-                  style={{ width: `${Math.min(budgetInfo.percentage || 0, 100)}%` }}
+      {transactionType === "expense" &&
+        budgetInfo &&
+        budgetInfo.budgetLimit !== undefined && (
+          <Card
+            className={`border-2 ${budgetInfo.isOverLimit ? "border-red-500 bg-red-50" : budgetInfo.isNearLimit ? "border-orange-500 bg-orange-50" : "border-blue-500 bg-blue-50"}`}
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-center space-x-2">
+                <AlertCircle
+                  className={`h-5 w-5 ${budgetInfo.isOverLimit ? "text-red-600" : budgetInfo.isNearLimit ? "text-orange-600" : "text-blue-600"}`}
                 />
+                <CardTitle className="text-base">Budget Status</CardTitle>
               </div>
-              <p className="text-sm text-center font-medium mt-2">
-                {(budgetInfo.percentage || 0).toFixed(1)}% of budget
-              </p>
-              {budgetInfo.isOverLimit && budgetInfo.remainingAmount !== undefined && (
-                <p className="text-sm text-red-600 font-medium text-center">
-                  ⚠️ This will exceed your budget by ₹{Math.abs(budgetInfo.remainingAmount).toFixed(2)}
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Budget Limit:</span>
+                  <span className="font-semibold">
+                    {format(budgetInfo.budgetLimit || 0)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Current Spending:</span>
+                  <span className="font-semibold">
+                    {format(budgetInfo.totalSpent || 0)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>After this transaction:</span>
+                  <span
+                    className={`font-semibold ${budgetInfo.isOverLimit ? "text-red-600" : ""}`}
+                  >
+                    {format(budgetInfo.newTotal || 0)}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
+                  <div
+                    className={`h-2 rounded-full transition-all ${
+                      budgetInfo.isOverLimit
+                        ? "bg-red-600"
+                        : budgetInfo.isNearLimit
+                          ? "bg-orange-500"
+                          : "bg-blue-600"
+                    }`}
+                    style={{
+                      width: `${Math.min(budgetInfo.percentage || 0, 100)}%`,
+                    }}
+                  />
+                </div>
+                <p className="text-sm text-center font-medium mt-2">
+                  {(budgetInfo.percentage || 0).toFixed(1)}% of budget
                 </p>
-              )}
-              {budgetInfo.isNearLimit && !budgetInfo.isOverLimit && budgetInfo.remainingAmount !== undefined && (
-                <p className="text-sm text-orange-600 font-medium text-center">
-                  ⚠️ Remaining: ₹{budgetInfo.remainingAmount.toFixed(2)}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                {budgetInfo.isOverLimit &&
+                  budgetInfo.remainingAmount !== undefined && (
+                    <p className="text-sm text-red-600 font-medium text-center">
+                      ⚠️ This will exceed your budget by{" "}
+                      {format(Math.abs(budgetInfo.remainingAmount))}
+                    </p>
+                  )}
+                {budgetInfo.isNearLimit &&
+                  !budgetInfo.isOverLimit &&
+                  budgetInfo.remainingAmount !== undefined && (
+                    <p className="text-sm text-orange-600 font-medium text-center">
+                      ⚠️ Remaining: {format(budgetInfo.remainingAmount)}
+                    </p>
+                  )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       {/* Goal Mapping (for income/savings) */}
       {showGoalMapping && (
-        <Card className={`border-2 ${isGoalRequired ? "border-red-500 bg-red-50" : "border-green-500 bg-green-50"}`}>
+        <Card
+          className={`border-2 ${isGoalRequired ? "border-red-500 bg-red-50" : "border-green-500 bg-green-50"}`}
+        >
           <CardHeader className="pb-3">
             <div className="flex items-center space-x-2">
-              <Target className={`h-5 w-5 ${isGoalRequired ? "text-red-600" : "text-green-600"}`} />
+              <Target
+                className={`h-5 w-5 ${isGoalRequired ? "text-red-600" : "text-green-600"}`}
+              />
               <CardTitle className="text-base">
                 Link to Goal {isGoalRequired ? "*" : "(Optional)"}
               </CardTitle>
             </div>
             <CardDescription>
-              {isGoalRequired 
+              {isGoalRequired
                 ? "Required for savings transactions - Select which goal this contributes to"
-                : "Contribute this savings to a financial goal"
-              }
+                : "Contribute this savings to a financial goal"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {goals.length === 0 ? (
               <div className="text-sm text-red-600 bg-white p-3 rounded border border-red-200">
-                ⚠️ No active goals found. 
+                ⚠️ No active goals found.
                 <a href="/goals" target="_blank" className="underline ml-1">
                   Create a goal first
                 </a>
@@ -758,17 +932,28 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className={errors.goalId ? "border-red-500" : ""}>
-                        <SelectValue placeholder={isGoalRequired ? "Select a goal *" : "Select a goal (optional)"} />
+                      <SelectTrigger
+                        className={errors.goalId ? "border-red-500" : ""}
+                      >
+                        <SelectValue
+                          placeholder={
+                            isGoalRequired
+                              ? "Select a goal *"
+                              : "Select a goal (optional)"
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
-                        {!isGoalRequired && <SelectItem value="none">No goal</SelectItem>}
+                        {!isGoalRequired && (
+                          <SelectItem value="none">No goal</SelectItem>
+                        )}
                         {goals.map((goal) => (
                           <SelectItem key={goal.id} value={goal.id}>
                             <div className="flex flex-col">
                               <span className="font-medium">{goal.title}</span>
                               <span className="text-xs text-gray-500">
-                                ₹{goal.currentAmount.toLocaleString()} / ₹{goal.targetAmount.toLocaleString()}
+                                {format(goal.currentAmount)} /{" "}
+                                {format(goal.targetAmount)}
                               </span>
                             </div>
                           </SelectItem>
@@ -778,7 +963,9 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
                   )}
                 />
                 {errors.goalId && (
-                  <p className="text-sm text-red-600 mt-2">{errors.goalId.message}</p>
+                  <p className="text-sm text-red-600 mt-2">
+                    {errors.goalId.message}
+                  </p>
                 )}
               </>
             )}
@@ -797,11 +984,7 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
         >
           Cancel
         </Button>
-        <Button
-          type="submit"
-          className="flex-1"
-          disabled={isSubmitting}
-        >
+        <Button type="submit" className="flex-1" disabled={isSubmitting}>
           {isSubmitting ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -812,8 +995,6 @@ export default function AddTransactionForm({ onSuccess, onCancel, initialValues,
           )}
         </Button>
       </div>
-
     </form>
   );
 }
-

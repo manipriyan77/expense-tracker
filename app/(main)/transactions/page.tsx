@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 import { MonthSelector } from "@/components/ui/month-selector";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
-import { formatCurrency } from "@/lib/utils/currency";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 interface Transaction {
   id: string;
@@ -68,6 +68,7 @@ interface TransactionFromDB {
 }
 
 export default function TransactionsPage() {
+  const { format } = useFormatCurrency();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -413,7 +414,7 @@ export default function TransactionsPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">₹{balance.toFixed(2)}</div>
+                <div className="text-2xl font-bold">{format(balance)}</div>
                 <p className="text-xs text-muted-foreground">
                   Income - Expenses
                 </p>
@@ -429,7 +430,7 @@ export default function TransactionsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">
-                  ₹{totalIncome.toFixed(2)}
+                  {format(totalIncome)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {selectedMonth.toLocaleDateString("en-US", {
@@ -449,7 +450,7 @@ export default function TransactionsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-red-600">
-                  ₹{totalExpenses.toFixed(2)}
+                  {format(totalExpenses)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {selectedMonth.toLocaleDateString("en-US", {
@@ -740,8 +741,8 @@ export default function TransactionsPage() {
                                     : "text-red-600"
                                 }`}
                               >
-                                {transaction.type === "income" ? "+" : "-"}₹
-                                {transaction.amount.toFixed(2)}
+                                {transaction.type === "income" ? "+" : "-"}
+                                {format(transaction.amount)}
                               </p>
                             </div>
                             <div className="flex items-center space-x-2">
@@ -823,7 +824,7 @@ export default function TransactionsPage() {
                           </div>
                           <div className="flex items-center space-x-4">
                             <p className="text-xl font-bold text-green-600">
-                              +₹{transaction.amount.toFixed(2)}
+                              +{format(transaction.amount)}
                             </p>
                             <Button
                               variant="outline"
@@ -902,7 +903,7 @@ export default function TransactionsPage() {
                           </div>
                           <div className="flex items-center space-x-4">
                             <p className="text-xl font-bold text-red-600">
-                              -₹{transaction.amount.toFixed(2)}
+                              -{format(transaction.amount)}
                             </p>
                             <Button
                               variant="outline"
@@ -999,8 +1000,8 @@ export default function TransactionsPage() {
                                     : "text-red-600"
                                 }`}
                               >
-                                {transaction.type === "income" ? "+" : "-"}₹
-                                {transaction.amount.toFixed(2)}
+                                {transaction.type === "income" ? "+" : "-"}
+                                {format(transaction.amount)}
                               </p>
                               <Button
                                 variant="outline"

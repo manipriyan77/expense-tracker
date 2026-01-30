@@ -46,7 +46,7 @@ import BudgetDetailsModal from "@/components/budgets/BudgetDetailsModal";
 import { MonthSelector } from "@/components/ui/month-selector";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { DollarSign } from "lucide-react";
-import { formatCurrency } from "@/lib/utils/currency";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 const budgetFormSchema = z.object({
   category: z.string().min(1, "Category is required"),
@@ -64,6 +64,7 @@ const budgetFormSchema = z.object({
 type BudgetFormData = z.infer<typeof budgetFormSchema>;
 
 export default function BudgetsPage() {
+  const { format } = useFormatCurrency();
   const {
     budgets,
     loading,
@@ -380,20 +381,18 @@ export default function BudgetsPage() {
               <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm text-gray-600">Total Budget</p>
-                  <p className="text-2xl font-bold">
-                    ₹{totalBudget.toFixed(2)}
-                  </p>
+                  <p className="text-2xl font-bold">{format(totalBudget)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Total Spent</p>
                   <p className="text-2xl font-bold text-red-600">
-                    ₹{totalSpent.toFixed(2)}
+                    {format(totalSpent)}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Remaining</p>
                   <p className="text-2xl font-bold text-green-600">
-                    ₹{(totalBudget - totalSpent).toFixed(2)}
+                    {format(totalBudget - totalSpent)}
                   </p>
                 </div>
               </div>
@@ -824,14 +823,12 @@ export default function BudgetsPage() {
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="text-sm text-gray-600">Spent</p>
-                      <p className="text-xl font-bold">
-                        {formatCurrency(spent)}
-                      </p>
+                      <p className="text-xl font-bold">{format(spent)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-600">Limit</p>
                       <p className="text-xl font-bold">
-                        {formatCurrency(budget.limit_amount)}
+                        {format(budget.limit_amount)}
                       </p>
                     </div>
                   </div>
@@ -847,15 +844,11 @@ export default function BudgetsPage() {
                           </p>
                           <p className="text-xs text-orange-700">
                             At current rate:{" "}
-                            {formatCurrency(projection.projectedMonthEnd)} by
-                            month-end
+                            {format(projection.projectedMonthEnd)} by month-end
                             {projection.projectedOverspend > 0 && (
                               <span className="font-semibold">
                                 {" "}
-                                ({formatCurrency(
-                                  projection.projectedOverspend,
-                                )}{" "}
-                                over)
+                                ({format(projection.projectedOverspend)} over)
                               </span>
                             )}
                           </p>
@@ -907,7 +900,7 @@ export default function BudgetsPage() {
                             remaining < 0 ? "text-red-600" : "text-green-600"
                           }`}
                         >
-                          {formatCurrency(Math.abs(remaining))}
+                          {format(Math.abs(remaining))}
                           {remaining < 0 && " over"}
                         </p>
                       </div>

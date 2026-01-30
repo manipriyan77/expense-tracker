@@ -46,12 +46,13 @@ import { QuickAddButton } from "@/components/QuickAddButton";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
 import { useKeyboardShortcuts } from "@/lib/hooks/useKeyboardShortcuts";
-import { formatCurrency } from "@/lib/utils/currency";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { StatsSkeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Lightbulb } from "lucide-react";
 
 export default function Dashboard() {
   const router = useRouter();
+  const { format } = useFormatCurrency();
   const { transactions, loading, error, fetchTransactions } =
     useTransactionsStore();
   const { goals, fetchGoals } = useGoalsStore();
@@ -388,7 +389,7 @@ export default function Dashboard() {
                         balance >= 0 ? "text-blue-600" : "text-red-600"
                       }`}
                     >
-                      {formatCurrency(balance)}
+                      {format(balance)}
                     </div>
                     <p className="text-xs text-gray-500">Income - Expenses</p>
                   </CardContent>
@@ -413,7 +414,7 @@ export default function Dashboard() {
                       : "text-red-600"
                   }`}
                 >
-                  {formatCurrency(projectedMonthEndBalance)}
+                  {format(projectedMonthEndBalance)}
                 </div>
                 <p className="text-xs text-gray-500">
                   Based on current spending rate
@@ -433,7 +434,7 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-green-600">
-                        {formatCurrency(totalIncome)}
+                        {format(totalIncome)}
                       </div>
                       <p className="text-xs text-gray-500 flex items-center">
                         All time
@@ -460,7 +461,7 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-red-600">
-                        {formatCurrency(totalExpenses)}
+                        {format(totalExpenses)}
                       </div>
                       <p className="text-xs text-gray-500 flex items-center">
                         All time
@@ -593,7 +594,7 @@ export default function Dashboard() {
                         <div className="flex justify-between text-xs text-gray-600">
                           <span>Remaining</span>
                           <span className="font-semibold">
-                            {formatCurrency(remaining)}
+                            {format(remaining)}
                           </span>
                         </div>
                         <div className="flex justify-between text-xs">

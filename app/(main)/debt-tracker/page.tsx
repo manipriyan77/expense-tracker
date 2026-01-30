@@ -58,11 +58,12 @@ import {
   BarChart,
   Bar,
 } from "recharts";
-import { formatCurrency } from "@/lib/utils/currency";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useDebtTrackerStore, type Debt } from "@/store/debt-tracker-store";
 
 export default function DebtTrackerPage() {
+  const { format } = useFormatCurrency();
   const {
     debts,
     payments,
@@ -536,7 +537,7 @@ export default function DebtTrackerPage() {
           payoffMonth: d.payoffMonth,
           interestPaid: d.interestPaid,
         })),
-        message: `Monthly payment must be at least ${formatCurrency(minRequired)} (current minimums)`,
+        message: `Monthly payment must be at least ${format(minRequired)} (current minimums)`,
       };
     }
 
@@ -954,7 +955,7 @@ export default function DebtTrackerPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {formatCurrency(totalDebt)}
+                {format(totalDebt)}
               </div>
               <p className="text-xs text-gray-500 mt-1">
                 Across {debts.length} accounts
@@ -969,7 +970,7 @@ export default function DebtTrackerPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {formatCurrency(totalMinPayment)}
+                {format(totalMinPayment)}
               </div>
               <p className="text-xs text-gray-500 mt-1">Per month</p>
             </CardContent>
@@ -1032,7 +1033,7 @@ export default function DebtTrackerPage() {
                 />
                 <Tooltip
                   formatter={(value: number | undefined) =>
-                    value !== undefined ? formatCurrency(value) : "$0.00"
+                    value !== undefined ? format(value) : "$0.00"
                   }
                 />
                 <Bar
@@ -1149,13 +1150,13 @@ export default function DebtTrackerPage() {
                               Current Balance
                             </p>
                             <p className="text-2xl font-bold text-red-600">
-                              {formatCurrency(debt.balance)}
+                              {format(debt.balance)}
                             </p>
                           </div>
                           <div className="text-right">
                             <p className="text-sm text-gray-500">Min Payment</p>
                             <p className="text-lg font-semibold">
-                              {formatCurrency(debt.minimum_payment)}
+                              {format(debt.minimum_payment)}
                             </p>
                           </div>
                         </div>
@@ -1281,14 +1282,13 @@ export default function DebtTrackerPage() {
                         <div>
                           <p className="font-semibold">{debt.name}</p>
                           <p className="text-sm text-gray-500">
-                            {formatCurrency(debt.balance)} @{" "}
-                            {debt.interest_rate}% APR
+                            {format(debt.balance)} @ {debt.interest_rate}% APR
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="font-semibold">
-                          {formatCurrency(debt.minimum_payment)}
+                          {format(debt.minimum_payment)}
                         </p>
                         <p className="text-xs text-gray-500">min payment</p>
                       </div>
@@ -1327,7 +1327,7 @@ export default function DebtTrackerPage() {
                       />
                       <p className="text-xs text-gray-500">
                         Minimum required across all debts:{" "}
-                        {formatCurrency(totalMinPayment)}
+                        {format(totalMinPayment)}
                       </p>
                     </div>
                     <div className="space-y-2">
@@ -1363,8 +1363,7 @@ export default function DebtTrackerPage() {
                         </SelectItem>
                         {debts.map((debt) => (
                           <SelectItem key={debt.id} value={debt.id}>
-                            {debt.name} — {formatCurrency(debt.minimum_payment)}{" "}
-                            min
+                            {debt.name} — {format(debt.minimum_payment)} min
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1440,13 +1439,13 @@ export default function DebtTrackerPage() {
                         <p className="text-sm text-gray-500">Interest Saved</p>
                         <p className="text-2xl font-bold text-green-600">
                           {calculatorResult.interestSaved !== null
-                            ? formatCurrency(calculatorResult.interestSaved)
-                            : formatCurrency(0)}
+                            ? format(calculatorResult.interestSaved)
+                            : format(0)}
                         </p>
                         {calculatorResult.totalInterest !== null ? (
                           <p className="text-xs text-gray-500 mt-1">
                             Interest with extra payments:{" "}
-                            {formatCurrency(calculatorResult.totalInterest)}
+                            {format(calculatorResult.totalInterest)}
                           </p>
                         ) : null}
                       </CardContent>
@@ -1485,7 +1484,7 @@ export default function DebtTrackerPage() {
                                 {detail.baselineInterestPaid !== null ? (
                                   <p className="text-sm text-gray-500">
                                     Interest saved on this debt:{" "}
-                                    {formatCurrency(
+                                    {format(
                                       Math.max(
                                         0,
                                         detail.baselineInterestPaid -
@@ -1523,7 +1522,7 @@ export default function DebtTrackerPage() {
                                   </td>
                                   <td className="py-2 pr-4">
                                     {detail.baselineInterestPaid !== null
-                                      ? formatCurrency(
+                                      ? format(
                                           Math.max(
                                             0,
                                             detail.baselineInterestPaid -

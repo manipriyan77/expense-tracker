@@ -26,12 +26,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Plus,
-  DollarSign,
-  TrendingDown,
-  Calendar,
-} from "lucide-react";
+import { Plus, DollarSign, TrendingDown, Calendar } from "lucide-react";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 interface Expense {
   id: string;
@@ -42,6 +38,7 @@ interface Expense {
 }
 
 export default function ExpensesPage() {
+  const { format } = useFormatCurrency();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showCategoryInput, setShowCategoryInput] = useState(false);
@@ -88,7 +85,16 @@ export default function ExpensesPage() {
   const handleAddCustomCategory = () => {
     if (newCategoryName.trim()) {
       const trimmedName = newCategoryName.trim();
-      const allCategories = ["Food", "Transportation", "Entertainment", "Bills", "Shopping", "Healthcare", "Other", ...customCategories];
+      const allCategories = [
+        "Food",
+        "Transportation",
+        "Entertainment",
+        "Bills",
+        "Shopping",
+        "Healthcare",
+        "Other",
+        ...customCategories,
+      ];
       if (!allCategories.includes(trimmedName)) {
         setCustomCategories([...customCategories, trimmedName]);
         setFormData({ ...formData, category: trimmedName });
@@ -114,8 +120,12 @@ export default function ExpensesPage() {
     setIsAddDialogOpen(false);
   };
 
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const monthlyAverage = expenses.length > 0 ? totalExpenses / expenses.length : 0;
+  const totalExpenses = expenses.reduce(
+    (sum, expense) => sum + expense.amount,
+    0,
+  );
+  const monthlyAverage =
+    expenses.length > 0 ? totalExpenses / expenses.length : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -140,7 +150,7 @@ export default function ExpensesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                ₹{totalExpenses.toFixed(2)}
+                {format(totalExpenses)}
               </div>
               <p className="text-xs text-muted-foreground">This month</p>
             </CardContent>
@@ -155,7 +165,7 @@ export default function ExpensesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                ₹{monthlyAverage.toFixed(2)}
+                {format(monthlyAverage)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Based on {expenses.length} transactions
@@ -262,8 +272,12 @@ export default function ExpensesPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Food">Food</SelectItem>
-                        <SelectItem value="Transportation">Transportation</SelectItem>
-                        <SelectItem value="Entertainment">Entertainment</SelectItem>
+                        <SelectItem value="Transportation">
+                          Transportation
+                        </SelectItem>
+                        <SelectItem value="Entertainment">
+                          Entertainment
+                        </SelectItem>
                         <SelectItem value="Bills">Bills</SelectItem>
                         <SelectItem value="Shopping">Shopping</SelectItem>
                         <SelectItem value="Healthcare">Healthcare</SelectItem>
@@ -273,7 +287,10 @@ export default function ExpensesPage() {
                             {cat}
                           </SelectItem>
                         ))}
-                        <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
+                        <SelectItem
+                          value="add_custom"
+                          className="text-blue-600 font-medium border-t mt-1 pt-2"
+                        >
                           <div className="flex items-center space-x-2">
                             <Plus className="h-4 w-4" />
                             <span>Add Category</span>
@@ -316,12 +333,14 @@ export default function ExpensesPage() {
                       </div>
                       <div>
                         <p className="font-medium">{expense.description}</p>
-                        <p className="text-sm text-gray-500">{expense.category}</p>
+                        <p className="text-sm text-gray-500">
+                          {expense.category}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-red-600">
-                        -₹{expense.amount.toFixed(2)}
+                        -{format(expense.amount)}
                       </p>
                       <p className="text-sm text-gray-500 flex items-center">
                         <Calendar className="h-3 w-3 mr-1" />

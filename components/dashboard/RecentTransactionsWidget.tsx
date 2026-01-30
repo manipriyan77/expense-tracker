@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useTransactionsStore } from "@/store/transactions-store";
 import { ArrowRight, TrendingDown, TrendingUp } from "lucide-react";
-import { formatCurrency } from "@/lib/utils/currency";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { TransactionSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DollarSign } from "lucide-react";
 
 export function RecentTransactionsWidget() {
+  const { format } = useFormatCurrency();
   const { transactions, loading } = useTransactionsStore();
 
   // Get the 5 most recent transactions
@@ -84,7 +85,7 @@ export function RecentTransactionsWidget() {
                     }`}
                   >
                     {transaction.type === "income" ? "+" : "-"}
-                    {formatCurrency(transaction.amount)}
+                    {format(transaction.amount)}
                   </p>
                   <p className="text-xs text-gray-500">
                     {new Date(transaction.date).toLocaleDateString("en-US", {

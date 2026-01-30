@@ -31,7 +31,10 @@ import {
   Trash2,
 } from "lucide-react";
 import { useStocksStore, type Stock } from "@/store/stocks-store";
-import { stockFormSchema, StockFormData } from "@/lib/schemas/stock-form-schema";
+import {
+  stockFormSchema,
+  StockFormData,
+} from "@/lib/schemas/stock-form-schema";
 import {
   Select,
   SelectContent,
@@ -39,10 +42,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 const SECTOR_OPTIONS: StockFormData["sector"][] = [
   "consumer_discretionary",
@@ -104,8 +112,16 @@ const defaultValues: DefaultValues<StockFormData> = {
 };
 
 export default function StocksPage() {
-  const { stocks, loading, error, fetchStocks, addStock, updateStock, deleteStock } =
-    useStocksStore();
+  const { format } = useFormatCurrency();
+  const {
+    stocks,
+    loading,
+    error,
+    fetchStocks,
+    addStock,
+    updateStock,
+    deleteStock,
+  } = useStocksStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStock, setEditingStock] = useState<Stock | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -132,7 +148,8 @@ export default function StocksPage() {
   const parsedPurchaseDate = purchaseDate ? new Date(purchaseDate) : undefined;
 
   const subSectorOptions = useMemo<StockFormData["subSector"][]>(() => {
-    if (sector === "consumer_discretionary") return CONSUMER_DISCRETIONARY_SUBSECTORS;
+    if (sector === "consumer_discretionary")
+      return CONSUMER_DISCRETIONARY_SUBSECTORS;
     return ["other"] as StockFormData["subSector"][];
   }, [sector]);
 
@@ -208,10 +225,17 @@ export default function StocksPage() {
     );
   }
 
-  const totalInvested = stocks.reduce((sum, stock) => sum + stock.investedAmount, 0);
-  const totalCurrentValue = stocks.reduce((sum, stock) => sum + stock.currentValue, 0);
+  const totalInvested = stocks.reduce(
+    (sum, stock) => sum + stock.investedAmount,
+    0,
+  );
+  const totalCurrentValue = stocks.reduce(
+    (sum, stock) => sum + stock.currentValue,
+    0,
+  );
   const totalGainLoss = totalCurrentValue - totalInvested;
-  const totalGainLossPercentage = totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0;
+  const totalGainLossPercentage =
+    totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -220,10 +244,13 @@ export default function StocksPage() {
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <h1 className="text-2xl font-bold text-gray-900">Stocks Tracker</h1>
-            <Dialog open={isDialogOpen} onOpenChange={(open) => {
-              setIsDialogOpen(open);
-              if (!open) setEditingStock(null);
-            }}>
+            <Dialog
+              open={isDialogOpen}
+              onOpenChange={(open) => {
+                setIsDialogOpen(open);
+                if (!open) setEditingStock(null);
+              }}
+            >
               <DialogTrigger asChild>
                 <Button
                   onClick={() => {
@@ -241,14 +268,19 @@ export default function StocksPage() {
               </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>{editingStock ? "Edit Stock" : "Add Stock"}</DialogTitle>
+                  <DialogTitle>
+                    {editingStock ? "Edit Stock" : "Add Stock"}
+                  </DialogTitle>
                   <DialogDescription>
                     {editingStock
                       ? "Update this stock's details."
                       : "Add a stock to track its performance."}
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleSubmit(handleUpsertStock)} className="space-y-4">
+                <form
+                  onSubmit={handleSubmit(handleUpsertStock)}
+                  className="space-y-4"
+                >
                   <div className="space-y-2">
                     <Label htmlFor="name">Company Name</Label>
                     <Input
@@ -257,7 +289,9 @@ export default function StocksPage() {
                       {...register("name")}
                     />
                     {errors.name && (
-                      <p className="text-sm text-red-600">{errors.name.message}</p>
+                      <p className="text-sm text-red-600">
+                        {errors.name.message}
+                      </p>
                     )}
                   </div>
 
@@ -269,7 +303,9 @@ export default function StocksPage() {
                       {...register("symbol")}
                     />
                     {errors.symbol && (
-                      <p className="text-sm text-red-600">{errors.symbol.message}</p>
+                      <p className="text-sm text-red-600">
+                        {errors.symbol.message}
+                      </p>
                     )}
                   </div>
 
@@ -284,21 +320,29 @@ export default function StocksPage() {
                         {...register("shares", { valueAsNumber: true })}
                       />
                       {errors.shares && (
-                        <p className="text-sm text-red-600">{errors.shares.message}</p>
+                        <p className="text-sm text-red-600">
+                          {errors.shares.message}
+                        </p>
                       )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="avgPurchasePrice">Avg Purchase Price</Label>
+                      <Label htmlFor="avgPurchasePrice">
+                        Avg Purchase Price
+                      </Label>
                       <Input
                         id="avgPurchasePrice"
                         type="number"
                         step="0.01"
                         placeholder="0.00"
-                        {...register("avgPurchasePrice", { valueAsNumber: true })}
+                        {...register("avgPurchasePrice", {
+                          valueAsNumber: true,
+                        })}
                       />
                       {errors.avgPurchasePrice && (
-                        <p className="text-sm text-red-600">{errors.avgPurchasePrice.message}</p>
+                        <p className="text-sm text-red-600">
+                          {errors.avgPurchasePrice.message}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -313,16 +357,27 @@ export default function StocksPage() {
                       {...register("currentPrice", { valueAsNumber: true })}
                     />
                     {errors.currentPrice && (
-                      <p className="text-sm text-red-600">{errors.currentPrice.message}</p>
+                      <p className="text-sm text-red-600">
+                        {errors.currentPrice.message}
+                      </p>
                     )}
                   </div>
 
                   {shares && avgPurchasePrice && currentPrice && (
                     <div className="text-sm text-gray-600 space-y-1">
-                      <div>Invested: ₹{(shares * avgPurchasePrice).toFixed(2)}</div>
-                      <div>Current Value: ₹{(shares * currentPrice).toFixed(2)}</div>
-                      <div className={shares * currentPrice - shares * avgPurchasePrice >= 0 ? "text-green-600" : "text-red-600"}>
-                        P&L: ₹{(shares * currentPrice - shares * avgPurchasePrice).toFixed(2)}
+                      <div>Invested: {format(shares * avgPurchasePrice)}</div>
+                      <div>Current Value: {format(shares * currentPrice)}</div>
+                      <div
+                        className={
+                          shares * currentPrice - shares * avgPurchasePrice >= 0
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }
+                      >
+                        P&L:{" "}
+                        {format(
+                          shares * currentPrice - shares * avgPurchasePrice,
+                        )}
                       </div>
                     </div>
                   )}
@@ -336,7 +391,7 @@ export default function StocksPage() {
                             variant="outline"
                             className={cn(
                               "w-full justify-start text-left font-normal",
-                              !parsedPurchaseDate && "text-muted-foreground"
+                              !parsedPurchaseDate && "text-muted-foreground",
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
@@ -353,7 +408,7 @@ export default function StocksPage() {
                               setValue(
                                 "purchaseDate",
                                 date ? date.toISOString().split("T")[0] : "",
-                                { shouldDirty: true, shouldTouch: true }
+                                { shouldDirty: true, shouldTouch: true },
                               )
                             }
                             initialFocus
@@ -361,74 +416,90 @@ export default function StocksPage() {
                         </PopoverContent>
                       </Popover>
                       {errors.purchaseDate && (
-                        <p className="text-sm text-red-600">{errors.purchaseDate.message}</p>
+                        <p className="text-sm text-red-600">
+                          {errors.purchaseDate.message}
+                        </p>
                       )}
                     </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="sector">Sector</Label>
-                      <Select
-                        value={sector}
-                        onValueChange={(val) =>
-                          setValue("sector", val as StockFormData["sector"], {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select sector" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SECTOR_OPTIONS.map((opt) => (
-                            <SelectItem key={opt} value={opt}>
-                              {formatLabel(opt)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.sector && (
-                        <p className="text-sm text-red-600">{errors.sector.message}</p>
-                      )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="sector">Sector</Label>
+                        <Select
+                          value={sector}
+                          onValueChange={(val) =>
+                            setValue("sector", val as StockFormData["sector"], {
+                              shouldDirty: true,
+                              shouldTouch: true,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select sector" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SECTOR_OPTIONS.map((opt) => (
+                              <SelectItem key={opt} value={opt}>
+                                {formatLabel(opt)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {errors.sector && (
+                          <p className="text-sm text-red-600">
+                            {errors.sector.message}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="subSector">Sub Sector</Label>
+                        <Select
+                          value={subSector}
+                          onValueChange={(val) =>
+                            setValue(
+                              "subSector",
+                              val as StockFormData["subSector"],
+                              {
+                                shouldDirty: true,
+                                shouldTouch: true,
+                              },
+                            )
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select sub sector" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {subSectorOptions.map((opt) => (
+                              <SelectItem key={opt} value={opt}>
+                                {formatLabel(opt)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {errors.subSector && (
+                          <p className="text-sm text-red-600">
+                            {errors.subSector.message}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="subSector">Sub Sector</Label>
-                      <Select
-                        value={subSector}
-                        onValueChange={(val) =>
-                          setValue("subSector", val as StockFormData["subSector"], {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select sub sector" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {subSectorOptions.map((opt) => (
-                            <SelectItem key={opt} value={opt}>
-                              {formatLabel(opt)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.subSector && (
-                        <p className="text-sm text-red-600">{errors.subSector.message}</p>
-                      )}
-                    </div>
-                  </div>
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  >
                     {isSubmitting ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         {editingStock ? "Saving..." : "Adding Stock..."}
                       </>
+                    ) : editingStock ? (
+                      "Save Changes"
                     ) : (
-                      editingStock ? "Save Changes" : "Add Stock"
+                      "Add Stock"
                     )}
                   </Button>
                 </form>
@@ -443,25 +514,27 @@ export default function StocksPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Invested</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Invested
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                ₹{totalInvested.toLocaleString()}
-              </div>
+              <div className="text-2xl font-bold">{format(totalInvested)}</div>
               <p className="text-xs text-muted-foreground">Across all stocks</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Current Value</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Current Value
+              </CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ₹{totalCurrentValue.toLocaleString()}
+                {format(totalCurrentValue)}
               </div>
               <p className="text-xs text-muted-foreground">Portfolio value</p>
             </CardContent>
@@ -478,11 +551,12 @@ export default function StocksPage() {
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ₹{
+                className={`text-2xl font-bold ${
                   totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
                 }`}
               >
-                {totalGainLoss >= 0 ? "+" : ""}₹{totalGainLoss.toLocaleString()}
+                {totalGainLoss >= 0 ? "+" : ""}
+                {format(totalGainLoss)}
               </div>
               <p className="text-xs text-muted-foreground">
                 {totalGainLossPercentage >= 0 ? "+" : ""}
@@ -493,7 +567,9 @@ export default function StocksPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Stocks Count</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Stocks Count
+              </CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -507,7 +583,9 @@ export default function StocksPage() {
         <Card>
           <CardHeader>
             <CardTitle>Your Stock Portfolio</CardTitle>
-            <CardDescription>Track your stock investments and performance</CardDescription>
+            <CardDescription>
+              Track your stock investments and performance
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -518,9 +596,12 @@ export default function StocksPage() {
               ) : (
                 stocks.map((stock) => {
                   const gainLoss = stock.currentValue - stock.investedAmount;
-                  const gainLossPercentage = (gainLoss / stock.investedAmount) * 100;
-                  const priceChange = stock.currentPrice - stock.avgPurchasePrice;
-                  const priceChangePercentage = (priceChange / stock.avgPurchasePrice) * 100;
+                  const gainLossPercentage =
+                    (gainLoss / stock.investedAmount) * 100;
+                  const priceChange =
+                    stock.currentPrice - stock.avgPurchasePrice;
+                  const priceChangePercentage =
+                    (priceChange / stock.avgPurchasePrice) * 100;
 
                   return (
                     <div
@@ -529,10 +610,13 @@ export default function StocksPage() {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="text-lg font-semibold">{stock.name}</h3>
+                          <h3 className="text-lg font-semibold">
+                            {stock.name}
+                          </h3>
                           <p className="text-sm text-gray-500">
                             {stock.symbol} • {formatLabel(stock.sector)} •{" "}
-                            {formatLabel(stock.subSector || "other")} • {formatLabel(stock.stockType)}
+                            {formatLabel(stock.subSector || "other")} •{" "}
+                            {formatLabel(stock.stockType)}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
@@ -544,16 +628,19 @@ export default function StocksPage() {
                               reset({
                                 name: stock.name,
                                 symbol: stock.symbol,
-                              stockType: stock.stockType ?? "other",
+                                stockType: stock.stockType ?? "other",
                                 shares: stock.shares,
                                 avgPurchasePrice: stock.avgPurchasePrice,
                                 currentPrice: stock.currentPrice,
                                 investedAmount: stock.investedAmount,
                                 currentValue: stock.currentValue,
                                 purchaseDate: stock.purchaseDate,
-                                sector: (stock.sector as StockFormData["sector"]) ?? "consumer_discretionary",
+                                sector:
+                                  (stock.sector as StockFormData["sector"]) ??
+                                  "consumer_discretionary",
                                 subSector:
-                                  (stock.subSector as StockFormData["subSector"]) ?? "auto_parts",
+                                  (stock.subSector as StockFormData["subSector"]) ??
+                                  "auto_parts",
                               });
                               setIsDialogOpen(true);
                             }}
@@ -571,22 +658,25 @@ export default function StocksPage() {
                             {deletingId === stock.id ? "Deleting..." : "Delete"}
                           </Button>
                           <div className="text-right">
-                          <div
-                            className={`text-lg font-bold flex items-center ₹{
-                              gainLoss >= 0 ? "text-green-600" : "text-red-600"
-                            }`}
-                          >
-                            {gainLoss >= 0 ? (
-                              <TrendingUp className="h-4 w-4 mr-1" />
-                            ) : (
-                              <TrendingDown className="h-4 w-4 mr-1" />
-                            )}
-                            {gainLoss >= 0 ? "+" : ""}₹{gainLoss.toLocaleString()}
-                          </div>
-                          <p className="text-sm text-gray-500">
-                            ({gainLossPercentage >= 0 ? "+" : ""}
-                            {gainLossPercentage.toFixed(2)}%)
-                          </p>
+                            <div
+                              className={`text-lg font-bold flex items-center ${
+                                gainLoss >= 0
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {gainLoss >= 0 ? (
+                                <TrendingUp className="h-4 w-4 mr-1" />
+                              ) : (
+                                <TrendingDown className="h-4 w-4 mr-1" />
+                              )}
+                              {gainLoss >= 0 ? "+" : ""}
+                              {format(gainLoss)}
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              ({gainLossPercentage >= 0 ? "+" : ""}
+                              {gainLossPercentage.toFixed(2)}%)
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -594,44 +684,54 @@ export default function StocksPage() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                           <p className="text-gray-500">Shares</p>
-                          <p className="font-semibold">{stock.shares.toLocaleString()}</p>
+                          <p className="font-semibold">
+                            {stock.shares.toLocaleString()}
+                          </p>
                         </div>
                         <div>
                           <p className="text-gray-500">Avg Price</p>
-                          <p className="font-semibold">₹{stock.avgPurchasePrice.toFixed(2)}</p>
+                          <p className="font-semibold">
+                            {format(stock.avgPurchasePrice)}
+                          </p>
                         </div>
                         <div>
                           <p className="text-gray-500">Current Price</p>
                           <p
-                            className={`font-semibold ₹{
-                              priceChange >= 0 ? "text-green-600" : "text-red-600"
+                            className={`font-semibold ${
+                              priceChange >= 0
+                                ? "text-green-600"
+                                : "text-red-600"
                             }`}
                           >
-                            ₹{stock.currentPrice.toFixed(2)}
+                            {format(stock.currentPrice)}
                           </p>
                         </div>
                         <div>
                           <p className="text-gray-500">Invested</p>
                           <p className="font-semibold">
-                            ₹{stock.investedAmount.toLocaleString()}
+                            {format(stock.investedAmount)}
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-500">
-                          Purchased on {new Date(stock.purchaseDate).toLocaleDateString()}
+                          Purchased on{" "}
+                          {new Date(stock.purchaseDate).toLocaleDateString()}
                         </span>
                         <div className="text-right">
                           <span className="font-semibold">
-                            Current Value: ₹{stock.currentValue.toLocaleString()}
+                            Current Value: {format(stock.currentValue)}
                           </span>
                           <span
-                            className={`ml-2 ₹{
-                              priceChange >= 0 ? "text-green-600" : "text-red-600"
+                            className={`ml-2 ${
+                              priceChange >= 0
+                                ? "text-green-600"
+                                : "text-red-600"
                             }`}
                           >
-                            ({priceChange >= 0 ? "+" : ""}₹{priceChange.toFixed(2)} /{" "}
+                            ({priceChange >= 0 ? "+" : ""}
+                            {format(priceChange)} /{" "}
                             {priceChangePercentage >= 0 ? "+" : ""}
                             {priceChangePercentage.toFixed(2)}%)
                           </span>
