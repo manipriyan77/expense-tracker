@@ -92,6 +92,18 @@ CREATE TABLE IF NOT EXISTS budgets (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(user_id, category, subtype, period)
 );
+-- Forex entries table
+CREATE TABLE IF NOT EXISTS forex_entries (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('deposit', 'withdrawal', 'pnl')),
+  month TEXT NOT NULL,
+  amount DECIMAL(12, 2) NOT NULL,
+  handler_share_percentage DECIMAL(5, 2) DEFAULT 0,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
 CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status);
@@ -102,12 +114,15 @@ CREATE INDEX IF NOT EXISTS idx_mutual_funds_user_id ON mutual_funds(user_id);
 CREATE INDEX IF NOT EXISTS idx_stocks_user_id ON stocks(user_id);
 CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets(user_id);
 CREATE INDEX IF NOT EXISTS idx_budgets_category ON budgets(category);
+CREATE INDEX IF NOT EXISTS idx_forex_entries_user_id ON forex_entries(user_id);
+CREATE INDEX IF NOT EXISTS idx_forex_entries_month ON forex_entries(month);
 -- Enable Row Level Security on all tables
 ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mutual_funds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE forex_entries ENABLE ROW LEVEL SECURITY;
 -- Create RLS policies (users can only access their own data)
 CREATE POLICY "Users can view their own goals" ON goals FOR
 SELECT USING (auth.uid() = user_id);
@@ -144,6 +159,13 @@ INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own budgets" ON budgets FOR
 UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own budgets" ON budgets FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Users can view their own forex entries" ON forex_entries FOR
+SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own forex entries" ON forex_entries FOR
+INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own forex entries" ON forex_entries FOR
+UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own forex entries" ON forex_entries FOR DELETE USING (auth.uid() = user_id);
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column() RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW();
 RETURN NEW;
@@ -160,6 +182,8 @@ CREATE TRIGGER update_stocks_updated_at BEFORE
 UPDATE ON stocks FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_budgets_updated_at BEFORE
 UPDATE ON budgets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_forex_entries_updated_at BEFORE
+UPDATE ON forex_entries FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 -- Add constraint to ensure budget_id is mandatory for expense transactions
 ALTER TABLE transactions
 ADD CONSTRAINT transactions_expense_budget_check CHECK (

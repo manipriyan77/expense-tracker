@@ -9,8 +9,6 @@ import {
   type Liability,
 } from "@/store/net-worth-store";
 import { useGoldStore } from "@/store/gold-store";
-import { useFixedDepositsStore } from "@/store/fixed-deposits-store";
-import { useProvidentFundStore } from "@/store/provident-fund-store";
 import { useMutualFundsStore } from "@/store/mutual-funds-store";
 import { useStocksStore } from "@/store/stocks-store";
 import {
@@ -60,8 +58,6 @@ import {
   MoreVertical,
   ExternalLink,
   Gem,
-  Landmark,
-  PiggyBank,
   Wallet,
   BarChart3,
 } from "lucide-react";
@@ -102,8 +98,6 @@ export default function NetWorthPage() {
 
   // Investment / asset modules from other parts of the app
   const { holdings, load: loadGold } = useGoldStore();
-  const { deposits, load: loadFDs } = useFixedDepositsStore();
-  const { funds, load: loadPF } = useProvidentFundStore();
   const { mutualFunds, fetchMutualFunds } = useMutualFundsStore();
   const { stocks, fetchStocks } = useStocksStore();
 
@@ -157,8 +151,6 @@ export default function NetWorthPage() {
     fetchSnapshots();
     // Load asset data from other modules so it's included in net worth
     loadGold();
-    loadFDs();
-    loadPF();
     fetchMutualFunds();
     fetchStocks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,19 +162,17 @@ export default function NetWorthPage() {
     [assets],
   );
 
-  // Assets tracked in dedicated modules (gold, FDs, PF, mutual funds, stocks)
+  // Assets tracked in dedicated modules (gold, mutual funds, stocks)
   const externalAssetsTotal = useMemo(() => {
     const goldValue = holdings.reduce(
       (sum, h) => sum + h.quantityGrams * h.currentPricePerGram,
       0,
     );
-    const fdValue = deposits.reduce((sum, d) => sum + d.principal, 0);
-    const pfValue = funds.reduce((sum, f) => sum + f.balance, 0);
     const mfValue = mutualFunds.reduce((sum, f) => sum + f.currentValue, 0);
     const stockValue = stocks.reduce((sum, s) => sum + s.currentValue, 0);
 
-    return goldValue + fdValue + pfValue + mfValue + stockValue;
-  }, [holdings, deposits, funds, mutualFunds, stocks]);
+    return goldValue + mfValue + stockValue;
+  }, [holdings, mutualFunds, stocks]);
 
   const totalAssets = totalManualAssets + externalAssetsTotal;
   const totalLiabilities = liabilities.reduce(
@@ -197,25 +187,11 @@ export default function NetWorthPage() {
       (sum, h) => sum + h.quantityGrams * h.currentPricePerGram,
       0,
     );
-    const fdValue = deposits.reduce((sum, d) => sum + d.principal, 0);
-    const pfValue = funds.reduce((sum, f) => sum + f.balance, 0);
     const mfValue = mutualFunds.reduce((sum, f) => sum + f.currentValue, 0);
     const stockValue = stocks.reduce((sum, s) => sum + s.currentValue, 0);
 
     return [
       { name: "Gold", value: goldValue, href: "/gold", icon: Gem },
-      {
-        name: "Fixed Deposits",
-        value: fdValue,
-        href: "/fixed-deposits",
-        icon: Landmark,
-      },
-      {
-        name: "Provident Fund",
-        value: pfValue,
-        href: "/provident-fund",
-        icon: PiggyBank,
-      },
       {
         name: "Mutual Funds",
         value: mfValue,
@@ -230,7 +206,7 @@ export default function NetWorthPage() {
         icon: DollarSign,
       },
     ].filter((item) => item.value > 0);
-  }, [holdings, deposits, funds, mutualFunds, stocks, totalManualAssets]);
+  }, [holdings, mutualFunds, stocks, totalManualAssets]);
 
   // Format snapshots for the chart
   const historicalData = snapshots.slice(-6).map((snapshot) => {

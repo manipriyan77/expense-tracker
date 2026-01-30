@@ -3,8 +3,6 @@
 import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useGoldStore } from "@/store/gold-store";
-import { useFixedDepositsStore } from "@/store/fixed-deposits-store";
-import { useProvidentFundStore } from "@/store/provident-fund-store";
 import { useMutualFundsStore } from "@/store/mutual-funds-store";
 import { useStocksStore } from "@/store/stocks-store";
 import { useNetWorthStore } from "@/store/net-worth-store";
@@ -33,12 +31,6 @@ export default function AssetsOverviewPage() {
   const { format } = useFormatCurrency();
   const { holdings, load: loadGold, loading: goldLoading } = useGoldStore();
   const {
-    deposits,
-    load: loadFDs,
-    loading: fdLoading,
-  } = useFixedDepositsStore();
-  const { funds, load: loadPF, loading: pfLoading } = useProvidentFundStore();
-  const {
     mutualFunds,
     fetchMutualFunds,
     loading: mfLoading,
@@ -49,8 +41,6 @@ export default function AssetsOverviewPage() {
 
   useEffect(() => {
     loadGold();
-    loadFDs();
-    loadPF();
     fetchMutualFunds();
     fetchStocks();
     fetchAssets();
@@ -63,22 +53,18 @@ export default function AssetsOverviewPage() {
       (sum, h) => sum + h.quantityGrams * h.currentPricePerGram,
       0,
     );
-    const fdValue = deposits.reduce((sum, d) => sum + d.principal, 0);
-    const pfValue = funds.reduce((sum, f) => sum + f.balance, 0);
     const mfValue = mutualFunds.reduce((sum, f) => sum + f.currentValue, 0);
     const stockValue = stocks.reduce((sum, s) => sum + s.currentValue, 0);
 
     const items = [
       { name: "Gold", value: goldValue },
-      { name: "Fixed Deposits", value: fdValue },
-      { name: "Provident Fund", value: pfValue },
       { name: "Mutual Funds", value: mfValue },
       { name: "Stocks", value: stockValue },
     ].filter((i) => i.value > 0);
 
     const total = items.reduce((sum, i) => sum + i.value, 0);
     return { items, total };
-  }, [holdings, deposits, funds, mutualFunds, stocks]);
+  }, [holdings, mutualFunds, stocks]);
 
   const mutualFundCategories = useMemo(() => {
     const totals = mutualFunds.reduce<Record<string, number>>((acc, fund) => {
@@ -113,16 +99,14 @@ export default function AssetsOverviewPage() {
   );
   const netWorth = allocation.total + totalManualAssets - totalLiabilities;
 
-  const isLoading =
-    goldLoading || fdLoading || pfLoading || mfLoading || stocksLoading;
+  const isLoading = goldLoading || mfLoading || stocksLoading;
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8 py-8">
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Asset Allocation</h1>
         <p className="text-sm text-gray-600">
-          Combined view of your assets across gold, FDs, PF, mutual funds, and
-          stocks.
+          Combined view of your assets across gold, mutual funds, and stocks.
         </p>
       </header>
 
@@ -183,7 +167,7 @@ export default function AssetsOverviewPage() {
             </div>
           ) : allocation.items.length === 0 ? (
             <p className="text-center text-gray-500 py-6 w-full">
-              No asset data yet. Add gold/FD/PF or fetch investments.
+              No asset data yet. Add gold or fetch investments.
             </p>
           ) : (
             <>
