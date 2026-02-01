@@ -507,10 +507,10 @@ export default function TransactionsPage() {
           </div>
 
           {/* Actions Bar */}
-          <div className="space-y-3 mb-4">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+          <div className="space-y-3 mb-4 min-w-0">
+            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 min-w-0">
               {/* Search */}
-              <div className="relative w-full md:w-96">
+              <div className="relative w-full md:w-96 min-w-0">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   type="text"
@@ -521,55 +521,59 @@ export default function TransactionsPage() {
                 />
               </div>
 
-              {/* Sort */}
-              <div className="flex items-center gap-2 shrink-0">
-                <ArrowUpDown className="h-4 w-4 text-gray-500" />
-                <Select
-                  value={sortBy}
-                  onValueChange={(v: "date" | "amount" | "description" | "category") => setSortBy(v)}
-                >
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="date">Date</SelectItem>
-                    <SelectItem value="amount">Amount</SelectItem>
-                    <SelectItem value="description">Description</SelectItem>
-                    <SelectItem value="category">Category</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={sortOrder}
-                  onValueChange={(v: "asc" | "desc") => setSortOrder(v)}
-                >
-                  <SelectTrigger className="w-[130px]">
-                    <SelectValue placeholder="Order" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="desc">
-                      {sortBy === "date" ? "Newest first" : sortBy === "amount" ? "High to low" : "Z → A"}
-                    </SelectItem>
-                    <SelectItem value="asc">
-                      {sortBy === "date" ? "Oldest first" : sortBy === "amount" ? "Low to high" : "A → Z"}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Sort + Buttons: wrap on mobile */}
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
+                {/* Sort */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <ArrowUpDown className="h-4 w-4 text-gray-500 shrink-0" />
+                  <Select
+                    value={sortBy}
+                    onValueChange={(v: "date" | "amount" | "description" | "category") => setSortBy(v)}
+                  >
+                    <SelectTrigger className="w-[120px] sm:w-[140px]">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="date">Date</SelectItem>
+                      <SelectItem value="amount">Amount</SelectItem>
+                      <SelectItem value="description">Description</SelectItem>
+                      <SelectItem value="category">Category</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={sortOrder}
+                    onValueChange={(v: "asc" | "desc") => setSortOrder(v)}
+                  >
+                    <SelectTrigger className="w-[110px] sm:w-[130px]">
+                      <SelectValue placeholder="Order" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="desc">
+                        {sortBy === "date" ? "Newest first" : sortBy === "amount" ? "High to low" : "Z → A"}
+                      </SelectItem>
+                      <SelectItem value="asc">
+                        {sortBy === "date" ? "Oldest first" : sortBy === "amount" ? "Low to high" : "A → Z"}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="flex gap-2 w-full md:w-auto">
+                {/* Buttons */}
+                <div className="flex flex-wrap gap-2 shrink-0">
                 {/* Filter Toggle */}
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => setShowFilters(!showFilters)}
-                  className={showFilters ? "bg-gray-100" : ""}
+                  className={`shrink-0 ${showFilters ? "bg-gray-100" : ""}`}
                 >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filters
+                  <Filter className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Filters</span>
                   {(filterCategory !== "all" ||
                     filterType !== "all" ||
                     minAmount ||
                     maxAmount) && (
-                    <span className="ml-2 px-1.5 py-0.5 text-xs bg-blue-500 text-white rounded-full">
+                    <span className="ml-1 sm:ml-2 px-1.5 py-0.5 text-xs bg-blue-500 text-white rounded-full">
                       {
                         [
                           filterCategory !== "all",
@@ -585,11 +589,13 @@ export default function TransactionsPage() {
                 {/* Export CSV */}
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={exportToCSV}
                   disabled={sortedTransactions.length === 0}
+                  className="shrink-0"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export CSV
+                  <Download className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Export CSV</span>
                 </Button>
 
                 {/* Add Transaction */}
@@ -598,9 +604,9 @@ export default function TransactionsPage() {
                   onOpenChange={setIsAddDialogOpen}
                 >
                   <DialogTrigger asChild>
-                    <Button className="w-full md:w-auto">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Transaction
+                    <Button size="sm" className="shrink-0">
+                      <Plus className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Add Transaction</span>
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -650,6 +656,7 @@ export default function TransactionsPage() {
                     )}
                   </DialogContent>
                 </Dialog>
+                </div>
               </div>
             </div>
 
@@ -749,9 +756,10 @@ export default function TransactionsPage() {
           </div>
 
           {/* Transactions Tabs */}
-          <Tabs defaultValue="all" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="all">
+          <Tabs defaultValue="all" className="space-y-4 min-w-0">
+            <div className="overflow-x-auto -mx-1 px-1">
+              <TabsList className="w-max min-w-0">
+                <TabsTrigger value="all">
                 All ({allTransactions.length})
               </TabsTrigger>
               <TabsTrigger value="income">
@@ -763,7 +771,8 @@ export default function TransactionsPage() {
               <TabsTrigger value="recurring">
                 Recurring ({recurringTransactions.length})
               </TabsTrigger>
-            </TabsList>
+              </TabsList>
+            </div>
 
             {/* All Transactions */}
             <TabsContent value="all" className="space-y-2">

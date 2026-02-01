@@ -633,9 +633,9 @@ export default function GoalsPage() {
         </DialogContent>
       </Dialog>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-4">
+      <main className="px-4 sm:px-6 lg:px-8 py-4 min-w-0 overflow-x-hidden">
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Total Goals</CardTitle>
@@ -699,8 +699,8 @@ export default function GoalsPage() {
               Track your progress towards financial goals
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-3">
-            <div className="space-y-4">
+          <CardContent className="p-3 min-w-0">
+            <div className="space-y-4 min-w-0">
               {goals.length === 0 ? (
                 <p className="text-center text-gray-500 py-4 text-sm">
                   No goals yet. Add your first goal above!
@@ -717,7 +717,7 @@ export default function GoalsPage() {
                   return (
                     <div
                       key={goal.id}
-                      className={`border rounded-lg p-4 space-y-3 hover:shadow-lg transition-shadow cursor-pointer ${
+                      className={`border rounded-lg p-4 space-y-3 hover:shadow-lg transition-shadow cursor-pointer min-w-0 ${
                         probability.status === "at-risk"
                           ? "border-orange-200 bg-orange-50"
                           : probability.status === "unlikely"
@@ -726,23 +726,24 @@ export default function GoalsPage() {
                       }`}
                       onClick={() => openDetailsModal(goal)}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
+                      {/* Top: icon + title/category (full width on mobile) */}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 min-w-0">
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
                           {isCompleted ? (
-                            <CheckCircle className="h-6 w-6 text-green-600" />
+                            <CheckCircle className="h-6 w-6 text-green-600 shrink-0" />
                           ) : (
-                            <Circle className="h-6 w-6 text-gray-400" />
+                            <Circle className="h-6 w-6 text-gray-400 shrink-0" />
                           )}
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-lg font-semibold">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="text-lg font-semibold truncate">
                                 {goal.title}
                               </h3>
                               {probability.status === "at-risk" && (
-                                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                                <AlertTriangle className="h-4 w-4 text-orange-600 shrink-0" />
                               )}
                               {probability.status === "unlikely" && (
-                                <AlertTriangle className="h-4 w-4 text-red-600" />
+                                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
                               )}
                             </div>
                             <p className="text-sm text-gray-500">
@@ -750,7 +751,7 @@ export default function GoalsPage() {
                             </p>
                             {!isCompleted && (
                               <p
-                                className={`text-xs mt-1 ${
+                                className={`text-xs mt-1 wrap-break-word ${
                                   probability.status === "on-track"
                                     ? "text-green-600"
                                     : probability.status === "at-risk"
@@ -764,49 +765,54 @@ export default function GoalsPage() {
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="text-right mr-4">
+                        {/* Amount, target date, and actions - wrap on mobile */}
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-0 sm:space-x-2 shrink-0">
+                          <div className="text-left sm:text-right w-full sm:w-auto sm:mr-4 sm:min-w-0">
                             <p className="text-lg font-bold">
                               {format(goal.currentAmount)} /{" "}
                               {format(goal.targetAmount)}
                             </p>
-                            <p className="text-sm text-gray-500 flex items-center justify-end">
-                              <Calendar className="h-3 w-3 mr-1" />
+                            <p className="text-sm text-gray-500 flex items-center sm:justify-end">
+                              <Calendar className="h-3 w-3 mr-1 shrink-0" />
                               Target:{" "}
                               {new Date(goal.targetDate).toLocaleDateString()}
                             </p>
                           </div>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openAddTransactionDialog(goal);
-                            }}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <DollarSign className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditDialog(goal);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteGoal(goal.id);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openAddTransactionDialog(goal);
+                              }}
+                              className="bg-green-600 hover:bg-green-700 shrink-0"
+                            >
+                              <DollarSign className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditDialog(goal);
+                              }}
+                              className="shrink-0"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteGoal(goal.id);
+                              }}
+                              className="shrink-0"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
 
