@@ -315,9 +315,9 @@ export default function SavingsChallengesPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+          <div className="flex justify-between items-center py-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-xl font-bold text-gray-900">
                 Savings Challenges
               </h1>
               <p className="text-sm text-gray-500 mt-1">
@@ -467,18 +467,18 @@ export default function SavingsChallengesPage() {
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-3 mb-8">
+        <div className="grid gap-3 md:grid-cols-3 mb-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Active Challenges
               </CardTitle>
               <Target className="h-4 w-4 text-blue-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold">
                 {challenges.filter((c) => c.status === "active").length}
               </div>
               <p className="text-xs text-gray-500 mt-1">In progress</p>
@@ -486,12 +486,12 @@ export default function SavingsChallengesPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Total Saved</CardTitle>
               <TrendingUp className="h-4 w-4 text-green-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-green-600">
                 {format(activeTotal)}
               </div>
               <p className="text-xs text-gray-500 mt-1">
@@ -501,12 +501,12 @@ export default function SavingsChallengesPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Completed</CardTitle>
               <Trophy className="h-4 w-4 text-amber-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-amber-600">
                 {completedChallenges}
               </div>
               <p className="text-xs text-gray-500 mt-1">Challenges finished</p>
@@ -525,9 +525,9 @@ export default function SavingsChallengesPage() {
         ) : (
           <>
             {/* Active Challenges */}
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold">Active Challenges</h3>
-              <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold">Active Challenges</h3>
+              <div className="grid gap-3 md:grid-cols-2">
                 {challenges
                   .filter((c) => c.status === "active")
                   .map((challenge) => {
@@ -541,7 +541,7 @@ export default function SavingsChallengesPage() {
                         key={challenge.id}
                         className="hover:shadow-lg transition-shadow"
                       >
-                        <CardHeader>
+                        <CardHeader className="p-3 pb-2">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center space-x-3">
                               <div className="p-2 bg-blue-100 rounded-full">
@@ -679,7 +679,7 @@ export default function SavingsChallengesPage() {
                   <Trophy className="h-5 w-5 text-amber-600" />
                   Completed Challenges
                 </h3>
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-3">
                   {challenges
                     .filter((c) => c.status === "completed")
                     .map((challenge) => (
@@ -687,7 +687,7 @@ export default function SavingsChallengesPage() {
                         key={challenge.id}
                         className="border-2 border-green-200 bg-green-50"
                       >
-                        <CardContent className="p-6">
+                        <CardContent className="p-4">
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="font-semibold">{challenge.name}</h4>
                             <div className="flex items-center gap-2">

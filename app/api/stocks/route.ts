@@ -5,7 +5,10 @@ export async function GET() {
   try {
     const supabase = await createSupabaseServerClient();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -22,7 +25,10 @@ export async function GET() {
 
     return NextResponse.json(data);
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -30,7 +36,10 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -57,7 +66,10 @@ export async function POST(request: NextRequest) {
       avgPurchasePrice === undefined ||
       currentPrice === undefined
     ) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
     }
 
     const sharesNum = Number(shares);
@@ -65,7 +77,10 @@ export async function POST(request: NextRequest) {
     const currentNum = Number(currentPrice);
 
     if ([sharesNum, avgNum, currentNum].some((n) => Number.isNaN(n) || n < 0)) {
-      return NextResponse.json({ error: "Invalid numeric values" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid numeric values" },
+        { status: 400 },
+      );
     }
 
     const computedInvested = sharesNum * avgNum;
@@ -80,13 +95,15 @@ export async function POST(request: NextRequest) {
         avg_purchase_price: avgNum,
         current_price: currentNum,
         invested_amount:
-          investedAmount !== undefined ? Number(investedAmount) : computedInvested,
+          investedAmount !== undefined
+            ? Number(investedAmount)
+            : computedInvested,
         current_value:
           currentValue !== undefined ? Number(currentValue) : computedCurrent,
         purchase_date: purchaseDate || new Date().toISOString().split("T")[0],
-        sector: sector || "General",
-        sub_sector: subSector || "other",
-        stock_type: stockType || "other",
+        sector: sector || null,
+        sub_sector: subSector || null,
+        stock_type: stockType || null,
         user_id: user.id,
       })
       .select()
@@ -98,6 +115,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

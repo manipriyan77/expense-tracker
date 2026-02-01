@@ -349,26 +349,26 @@ export default function RecurringPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">
+          <div className="flex justify-between items-center py-3">
+            <h1 className="text-xl font-bold text-gray-900">
               Recurring Transactions
             </h1>
           </div>
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Monthly Income
               </CardTitle>
               <TrendingUp className="h-4 w-4 text-green-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-green-600">
                 {format(totalMonthlyIncome)}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -378,14 +378,14 @@ export default function RecurringPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Monthly Expenses
               </CardTitle>
               <TrendingDown className="h-4 w-4 text-red-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-red-600">
                 {format(totalMonthlyExpenses)}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -395,12 +395,12 @@ export default function RecurringPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Net Monthly</CardTitle>
               <DollarSign className="h-4 w-4 text-blue-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-blue-600">
                 {format(totalMonthlyIncome - totalMonthlyExpenses)}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -412,9 +412,9 @@ export default function RecurringPage() {
 
         {/* Upcoming Recurring Transactions */}
         {upcomingRecurring.length > 0 && (
-          <Card className="mb-8 border-blue-200 bg-blue-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <Card className="mb-4 border-blue-200 bg-blue-50">
+            <CardHeader className="p-3 pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-blue-600" />
                 Upcoming This Week
               </CardTitle>
@@ -467,9 +467,9 @@ export default function RecurringPage() {
 
         {/* Smart Detection */}
         {potentialRecurring.length > 0 && (
-          <Card className="mb-8 border-yellow-200 bg-yellow-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <Card className="mb-4 border-yellow-200 bg-yellow-50">
+            <CardHeader className="p-3 pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
                 <Lightbulb className="h-5 w-5 text-yellow-600" />
                 Smart Detection
               </CardTitle>
@@ -779,7 +779,7 @@ export default function RecurringPage() {
                     : "opacity-60"
                 }
               >
-                <CardContent className="p-6">
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div
@@ -889,11 +889,11 @@ export default function RecurringPage() {
         {patterns.length === 0 && !loading && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <Repeat className="h-12 w-12 text-gray-400 mb-4" />
+              <Repeat className="h-10 w-10 text-gray-400 mb-2" />
               <p className="text-lg font-semibold text-gray-900 mb-2">
                 No recurring transactions
               </p>
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 mb-2 text-sm">
                 Add your first recurring income or expense
               </p>
             </CardContent>

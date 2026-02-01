@@ -211,8 +211,8 @@ export default function CalendarPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">
+          <div className="flex justify-between items-center py-3">
+            <h1 className="text-xl font-bold text-gray-900">
               Transaction Calendar
             </h1>
             <Button onClick={() => setIsAddDialogOpen(true)}>
@@ -223,44 +223,44 @@ export default function CalendarPage() {
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Monthly Stats */}
-        <div className="grid gap-4 md:grid-cols-3 mb-6">
+        <div className="grid gap-3 md:grid-cols-3 mb-4">
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="p-3 pb-0">
               <CardTitle className="text-sm font-medium text-gray-600">
                 Total Income
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-green-600">
                 {format(stats.income)}
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="p-3 pb-0">
               <CardTitle className="text-sm font-medium text-gray-600">
                 Total Expenses
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-red-600">
                 {format(stats.expenses)}
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="p-3 pb-0">
               <CardTitle className="text-sm font-medium text-gray-600">
                 Net Balance
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 pt-2">
               <div
-                className={`text-2xl font-bold ${stats.net >= 0 ? "text-blue-600" : "text-red-600"}`}
+                className={`text-xl font-bold ${stats.net >= 0 ? "text-blue-600" : "text-red-600"}`}
               >
                 {format(stats.net)}
               </div>
@@ -279,7 +279,7 @@ export default function CalendarPage() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-lg font-semibold">
                 {currentDate.toLocaleDateString("en-US", {
                   month: "long",
                   year: "numeric",
@@ -332,9 +332,9 @@ export default function CalendarPage() {
 
         {/* Selected Date Details */}
         {selectedDate && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>
+          <Card className="mt-4">
+            <CardHeader className="p-3 pb-2">
+              <CardTitle className="text-base">
                 Transactions on{" "}
                 {selectedDate.toLocaleDateString("en-US", {
                   weekday: "long",
@@ -346,7 +346,7 @@ export default function CalendarPage() {
             </CardHeader>
             <CardContent>
               {getTransactionsForDate(selectedDate).length === 0 ? (
-                <p className="text-gray-500 text-center py-8">
+                <p className="text-gray-500 text-center py-4 text-sm">
                   No transactions on this date
                 </p>
               ) : (

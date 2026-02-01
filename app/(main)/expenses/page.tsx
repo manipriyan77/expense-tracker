@@ -132,24 +132,24 @@ export default function ExpensesPage() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
+          <div className="flex justify-between items-center py-3">
+            <h1 className="text-xl font-bold text-gray-900">Expenses</h1>
           </div>
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Total Expenses
               </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-red-600">
                 {format(totalExpenses)}
               </div>
               <p className="text-xs text-muted-foreground">This month</p>
@@ -157,14 +157,14 @@ export default function ExpensesPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Average per Transaction
               </CardTitle>
               <TrendingDown className="h-4 w-4 text-red-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-red-600">
                 {format(monthlyAverage)}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -175,7 +175,7 @@ export default function ExpensesPage() {
         </div>
 
         {/* Add Expense Button */}
-        <div className="mb-8">
+        <div className="mb-4">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="w-full md:w-auto">
@@ -318,14 +318,14 @@ export default function ExpensesPage() {
           <CardContent>
             <div className="space-y-4">
               {expenses.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">
+                <p className="text-center text-gray-500 py-4 text-sm">
                   No expenses recorded yet. Add your first expense above!
                 </p>
               ) : (
                 expenses.map((expense) => (
                   <div
                     key={expense.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
+                    className="flex items-center justify-between p-3 border rounded-lg"
                   >
                     <div className="flex items-center space-x-4">
                       <div className="p-2 rounded-full bg-red-100 text-red-600">

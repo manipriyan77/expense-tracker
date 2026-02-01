@@ -29,6 +29,7 @@ import {
   BarChart3,
   Loader2,
   Trash2,
+  Upload,
 } from "lucide-react";
 import {
   useMutualFundsStore,
@@ -126,6 +127,7 @@ export default function MutualFundsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFund, setEditingFund] = useState<MutualFund | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const {
     register,
@@ -218,6 +220,176 @@ export default function MutualFundsPage() {
     }
   };
 
+  const handleCSVUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").filter((line) => line.trim());
+
+      // Find the header row (contains "Fund Name")
+      const headerIndex = lines.findIndex((line) => line.includes("Fund Name"));
+      if (headerIndex === -1) {
+        alert("Invalid CSV format. Could not find header row.");
+        return;
+      }
+
+      const headers = lines[headerIndex]
+        .split('","')
+        .map((h) => h.replace(/^"|"$/g, "").trim());
+
+      // Map column names to indices
+      const getIndex = (name: string) =>
+        headers.findIndex((h) => h.includes(name));
+      const fundNameIdx = getIndex("Fund Name");
+      const categoryIdx = getIndex("Category");
+      const subCategoryIdx = getIndex("Sub-Category");
+      const navIdx = getIndex("NAV");
+      const unitsIdx = getIndex("Units");
+      const investedIdx = getIndex("Invested Amt");
+      const currentValueIdx = getIndex("Current Value");
+      const purchaseDateIdx = getIndex("Invested Since");
+
+      // Process data rows (skip header and total row)
+      const dataLines = lines.slice(headerIndex + 1);
+      let successCount = 0;
+      let updatedCount = 0;
+      let failedCount = 0;
+      const failedFunds: string[] = [];
+
+      for (const line of dataLines) {
+        if (line.includes("Total") || line.includes("Visit:")) continue;
+
+        const values = line
+          .split('","')
+          .map((v) => v.replace(/^"|"$/g, "").trim());
+
+        const fundName = values[fundNameIdx];
+        if (!fundName || fundName === "") continue;
+
+        try {
+          // Parse category (map to our schema)
+          const categoryRaw = values[categoryIdx]?.toLowerCase() || "equity";
+          let category: MutualFundFormData["category"] = "equity";
+          if (categoryRaw.includes("debt")) category = "debt";
+          else if (categoryRaw.includes("hybrid")) category = "hybrid";
+          else if (categoryRaw.includes("index")) category = "index";
+
+          // Parse sub-category
+          const subCategoryRaw = values[subCategoryIdx]?.toLowerCase() || "";
+          let subCategory: MutualFundFormData["subCategory"] = "large_cap";
+
+          if (subCategoryRaw.includes("elss")) subCategory = "elss";
+          else if (subCategoryRaw.includes("flexi cap"))
+            subCategory = "flexi_cap";
+          else if (subCategoryRaw.includes("focused"))
+            subCategory = "focused_fund";
+          else if (subCategoryRaw.includes("contra"))
+            subCategory = "contra_fund";
+          else if (subCategoryRaw.includes("small cap"))
+            subCategory = "small_cap";
+          else if (subCategoryRaw.includes("mid cap")) subCategory = "mid_cap";
+          else if (subCategoryRaw.includes("multi cap"))
+            subCategory = "multi_cap";
+          else if (subCategoryRaw.includes("large & mid cap"))
+            subCategory = "large_mid_cap";
+          else if (subCategoryRaw.includes("thematic"))
+            subCategory = "thematic_fund";
+          else if (subCategoryRaw.includes("pharma"))
+            subCategory = "sectoral_pharma";
+          else if (subCategoryRaw.includes("consumption"))
+            subCategory = "sectoral_consumption";
+          else if (subCategoryRaw.includes("bank"))
+            subCategory = "sectoral_banks";
+          else if (subCategoryRaw.includes("conservative hybrid"))
+            subCategory = "conservative_hybrid";
+
+          const nav = parseFloat(values[navIdx]?.replace(/[₹,]/g, "") || "0");
+          const units = parseFloat(
+            values[unitsIdx]?.replace(/[,]/g, "") || "0",
+          );
+          const investedAmount = parseFloat(
+            values[investedIdx]?.replace(/[₹,]/g, "") || "0",
+          );
+          const currentValue = parseFloat(
+            values[currentValueIdx]?.replace(/[₹,]/g, "") || "0",
+          );
+          const purchaseDate =
+            values[purchaseDateIdx] || new Date().toISOString().split("T")[0];
+
+          // Skip if essential data is missing or invalid
+          if (nav <= 0 || units <= 0) {
+            console.warn(`Skipping ${fundName}: invalid NAV or units`);
+            continue;
+          }
+
+          const purchaseNav = units > 0 ? investedAmount / units : nav;
+
+          // Generate a symbol from the fund name if not available
+          const generateSymbol = (name: string) => {
+            return name
+              .split(" ")
+              .filter((word) => word.length > 0)
+              .map((word) => word[0])
+              .join("")
+              .toUpperCase()
+              .substring(0, 10);
+          };
+
+          // Check if fund already exists and delete it
+          const existingFund = mutualFunds.find(
+            (f) => f.name.toLowerCase() === fundName.toLowerCase(),
+          );
+          if (existingFund) {
+            await deleteMutualFund(existingFund.id);
+            updatedCount++;
+          }
+
+          await addMutualFund({
+            name: fundName,
+            symbol: generateSymbol(fundName),
+            investedAmount,
+            currentValue,
+            units,
+            nav,
+            purchaseNav,
+            purchaseDate,
+            category,
+            subCategory,
+          });
+
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to import ${fundName}:`, error);
+          failedCount++;
+          failedFunds.push(fundName);
+        }
+      }
+
+      let message = `Import complete!\n\n`;
+      message += `✓ New funds added: ${successCount - updatedCount}\n`;
+      if (updatedCount > 0) {
+        message += `✓ Existing funds updated: ${updatedCount}\n`;
+      }
+      message += `✓ Total processed: ${successCount}`;
+
+      if (failedCount > 0) {
+        message += `\n\n✗ Failed to import ${failedCount} funds:\n${failedFunds.join("\n")}`;
+      }
+      alert(message);
+      event.target.value = ""; // Reset file input
+    } catch (error) {
+      console.error("Error parsing CSV:", error);
+      alert("Failed to parse CSV file. Please check the format.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -256,248 +428,272 @@ export default function MutualFundsPage() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">
+          <div className="flex justify-between items-center py-3">
+            <h1 className="text-xl font-bold text-gray-900">
               Mutual Funds Tracker
             </h1>
-            <Dialog
-              open={isDialogOpen}
-              onOpenChange={(open) => {
-                setIsDialogOpen(open);
-                if (!open) setEditingFund(null);
-              }}
-            >
-              <DialogTrigger asChild>
+            <div className="flex gap-2">
+              <label htmlFor="csv-upload">
                 <Button
-                  onClick={() => {
-                    setEditingFund(null);
-                    reset();
-                  }}
+                  type="button"
+                  variant="outline"
+                  disabled={isUploading || loading}
+                  onClick={() => document.getElementById("csv-upload")?.click()}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Fund
+                  {isUploading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4 mr-2" />
+                  )}
+                  Import CSV
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingFund ? "Edit Mutual Fund" : "Add Mutual Fund"}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {editingFund
-                      ? "Update this mutual fund's details."
-                      : "Add a mutual fund to track its performance."}
-                  </DialogDescription>
-                </DialogHeader>
-                <form
-                  onSubmit={handleSubmit(handleAddMutualFund)}
-                  className="space-y-4"
-                >
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Fund Name</Label>
-                    <Input
-                      id="name"
-                      placeholder="e.g., SBI Bluechip Fund"
-                      {...register("name")}
-                    />
-                    {errors.name && (
-                      <p className="text-sm text-red-600">
-                        {errors.name.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="symbol">Symbol/Code</Label>
-                    <Input
-                      id="symbol"
-                      placeholder="e.g., SBIBLU"
-                      {...register("symbol")}
-                    />
-                    {errors.symbol && (
-                      <p className="text-sm text-red-600">
-                        {errors.symbol.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="investedAmount">Invested Amount</Label>
-                    <Input
-                      id="investedAmount"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      {...register("investedAmount", { valueAsNumber: true })}
-                    />
-                    {errors.investedAmount && (
-                      <p className="text-sm text-red-600">
-                        {errors.investedAmount.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="units">Units</Label>
-                      <Input
-                        id="units"
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        {...register("units", { valueAsNumber: true })}
-                      />
-                      {errors.units && (
-                        <p className="text-sm text-red-600">
-                          {errors.units.message}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="purchaseNav">Purchase NAV</Label>
-                      <Input
-                        id="purchaseNav"
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        {...register("purchaseNav", { valueAsNumber: true })}
-                      />
-                      {errors.purchaseNav && (
-                        <p className="text-sm text-red-600">
-                          {errors.purchaseNav.message}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="nav">Current NAV</Label>
-                      <Input
-                        id="nav"
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        {...register("nav", { valueAsNumber: true })}
-                      />
-                      {errors.nav && (
-                        <p className="text-sm text-red-600">
-                          {errors.nav.message}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="text-sm text-gray-600 space-y-1">
-                    {units && purchaseNav ? (
-                      <div>Purchase Value: {format(units * purchaseNav)}</div>
-                    ) : null}
-                    {units && nav ? (
-                      <div>Current Value: {format(units * nav)}</div>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="purchaseDate">Purchase Date</Label>
-                    <Input
-                      id="purchaseDate"
-                      type="date"
-                      {...register("purchaseDate")}
-                    />
-                    {errors.purchaseDate && (
-                      <p className="text-sm text-red-600">
-                        {errors.purchaseDate.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Category</Label>
-                      <select
-                        id="category"
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
-                        {...register("category")}
-                      >
-                        {CATEGORY_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {formatLabel(opt)}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.category && (
-                        <p className="text-sm text-red-600">
-                          {errors.category.message}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="subCategory">Sub Sector</Label>
-                      <select
-                        id="subCategory"
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
-                        {...register("subCategory")}
-                      >
-                        {subCategoryOptions.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {formatLabel(opt)}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.subCategory && (
-                        <p className="text-sm text-red-600">
-                          {errors.subCategory.message}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
+              </label>
+              <input
+                id="csv-upload"
+                type="file"
+                accept=".csv"
+                onChange={handleCSVUpload}
+                className="hidden"
+              />
+              <Dialog
+                open={isDialogOpen}
+                onOpenChange={(open) => {
+                  setIsDialogOpen(open);
+                  if (!open) setEditingFund(null);
+                }}
+              >
+                <DialogTrigger asChild>
                   <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isSubmitting}
+                    onClick={() => {
+                      setEditingFund(null);
+                      reset();
+                    }}
                   >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        {editingFund ? "Saving..." : "Adding Fund..."}
-                      </>
-                    ) : editingFund ? (
-                      "Save Changes"
-                    ) : (
-                      "Add Mutual Fund"
-                    )}
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Fund
                   </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingFund ? "Edit Mutual Fund" : "Add Mutual Fund"}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {editingFund
+                        ? "Update this mutual fund's details."
+                        : "Add a mutual fund to track its performance."}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form
+                    onSubmit={handleSubmit(handleAddMutualFund)}
+                    className="space-y-4"
+                  >
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Fund Name</Label>
+                      <Input
+                        id="name"
+                        placeholder="e.g., SBI Bluechip Fund"
+                        {...register("name")}
+                      />
+                      {errors.name && (
+                        <p className="text-sm text-red-600">
+                          {errors.name.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="symbol">Symbol/Code</Label>
+                      <Input
+                        id="symbol"
+                        placeholder="e.g., SBIBLU"
+                        {...register("symbol")}
+                      />
+                      {errors.symbol && (
+                        <p className="text-sm text-red-600">
+                          {errors.symbol.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="investedAmount">Invested Amount</Label>
+                      <Input
+                        id="investedAmount"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...register("investedAmount", { valueAsNumber: true })}
+                      />
+                      {errors.investedAmount && (
+                        <p className="text-sm text-red-600">
+                          {errors.investedAmount.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="units">Units</Label>
+                        <Input
+                          id="units"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...register("units", { valueAsNumber: true })}
+                        />
+                        {errors.units && (
+                          <p className="text-sm text-red-600">
+                            {errors.units.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="purchaseNav">Purchase NAV</Label>
+                        <Input
+                          id="purchaseNav"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...register("purchaseNav", { valueAsNumber: true })}
+                        />
+                        {errors.purchaseNav && (
+                          <p className="text-sm text-red-600">
+                            {errors.purchaseNav.message}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="nav">Current NAV</Label>
+                        <Input
+                          id="nav"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...register("nav", { valueAsNumber: true })}
+                        />
+                        {errors.nav && (
+                          <p className="text-sm text-red-600">
+                            {errors.nav.message}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-sm text-gray-600 space-y-1">
+                      {units && purchaseNav ? (
+                        <div>Purchase Value: {format(units * purchaseNav)}</div>
+                      ) : null}
+                      {units && nav ? (
+                        <div>Current Value: {format(units * nav)}</div>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="purchaseDate">Purchase Date</Label>
+                      <Input
+                        id="purchaseDate"
+                        type="date"
+                        {...register("purchaseDate")}
+                      />
+                      {errors.purchaseDate && (
+                        <p className="text-sm text-red-600">
+                          {errors.purchaseDate.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="category">Category</Label>
+                        <select
+                          id="category"
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                          {...register("category")}
+                        >
+                          {CATEGORY_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {formatLabel(opt)}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.category && (
+                          <p className="text-sm text-red-600">
+                            {errors.category.message}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="subCategory">Sub Sector</Label>
+                        <select
+                          id="subCategory"
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                          {...register("subCategory")}
+                        >
+                          {subCategoryOptions.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {formatLabel(opt)}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.subCategory && (
+                          <p className="text-sm text-red-600">
+                            {errors.subCategory.message}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          {editingFund ? "Saving..." : "Adding Fund..."}
+                        </>
+                      ) : editingFund ? (
+                        "Save Changes"
+                      ) : (
+                        "Add Mutual Fund"
+                      )}
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Total Invested
               </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{format(totalInvested)}</div>
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold">{format(totalInvested)}</div>
               <p className="text-xs text-muted-foreground">Across all funds</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Current Value
               </CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold">
                 {format(totalCurrentValue)}
               </div>
               <p className="text-xs text-muted-foreground">Portfolio value</p>
@@ -505,7 +701,7 @@ export default function MutualFundsPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Total P&L</CardTitle>
               {totalGainLoss >= 0 ? (
                 <TrendingUp className="h-4 w-4 text-green-600" />
@@ -513,9 +709,9 @@ export default function MutualFundsPage() {
                 <TrendingDown className="h-4 w-4 text-red-600" />
               )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 pt-2">
               <div
-                className={`text-2xl font-bold ${
+                className={`text-xl font-bold ${
                   totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
                 }`}
               >
@@ -530,12 +726,12 @@ export default function MutualFundsPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Funds Count</CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{mutualFunds.length}</div>
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold">{mutualFunds.length}</div>
               <p className="text-xs text-muted-foreground">
                 Active investments
               </p>
@@ -551,10 +747,10 @@ export default function MutualFundsPage() {
               Track your mutual fund investments and performance
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="p-3">
+            <div className="space-y-3">
               {mutualFunds.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">
+                <p className="text-center text-gray-500 py-4 text-sm">
                   No mutual funds yet. Add your first fund above!
                 </p>
               ) : (
@@ -566,7 +762,7 @@ export default function MutualFundsPage() {
                   return (
                     <div
                       key={fund.id}
-                      className="border rounded-lg p-6 space-y-4"
+                      className="border rounded-lg p-4 space-y-3"
                     >
                       <div className="flex items-center justify-between">
                         <div>
@@ -638,7 +834,7 @@ export default function MutualFundsPage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
                         <div>
                           <p className="text-gray-500">Invested</p>
                           <p className="font-semibold">

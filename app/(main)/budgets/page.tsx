@@ -343,17 +343,17 @@ export default function BudgetsPage() {
       <Toaster position="top-right" />
       <header className="bg-white shadow-sm border-b">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">
+          <div className="flex justify-between items-center py-3">
+            <h1 className="text-xl font-bold text-gray-900">
               Budget Management
             </h1>
           </div>
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Month Selector */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <MonthSelector
             selectedMonth={selectedMonth}
             onMonthChange={setSelectedMonth}
@@ -365,9 +365,9 @@ export default function BudgetsPage() {
         </div>
 
         {/* Overall Budget Summary */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Overall Budget Status</CardTitle>
+        <Card className="mb-4">
+          <CardHeader className="p-3 pb-2">
+            <CardTitle className="text-base">Overall Budget Status</CardTitle>
             <CardDescription>
               Your total budget across all categories for{" "}
               {selectedMonth.toLocaleDateString("en-US", {
@@ -381,17 +381,17 @@ export default function BudgetsPage() {
               <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm text-gray-600">Total Budget</p>
-                  <p className="text-2xl font-bold">{format(totalBudget)}</p>
+                  <p className="text-xl font-bold">{format(totalBudget)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Total Spent</p>
-                  <p className="text-2xl font-bold text-red-600">
+                  <p className="text-xl font-bold text-red-600">
                     {format(totalSpent)}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Remaining</p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-xl font-bold text-green-600">
                     {format(totalBudget - totalSpent)}
                   </p>
                 </div>
@@ -408,7 +408,7 @@ export default function BudgetsPage() {
         </Card>
 
         {/* Add Budget Button */}
-        <div className="mb-6">
+        <div className="mb-4">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="w-full md:w-auto">
@@ -965,11 +965,11 @@ export default function BudgetsPage() {
         {budgets.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <TrendingDown className="h-12 w-12 text-gray-400 mb-4" />
+              <TrendingDown className="h-10 w-10 text-gray-400 mb-2" />
               <p className="text-lg font-semibold text-gray-900 mb-2">
                 No budgets created yet
               </p>
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 mb-2 text-sm">
                 Start by creating your first budget to track spending
               </p>
             </CardContent>

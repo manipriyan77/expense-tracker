@@ -11,6 +11,7 @@ import {
 import { useGoldStore } from "@/store/gold-store";
 import { useMutualFundsStore } from "@/store/mutual-funds-store";
 import { useStocksStore } from "@/store/stocks-store";
+import { useForexStore } from "@/store/forex-store";
 import {
   Card,
   CardContent,
@@ -60,6 +61,7 @@ import {
   Gem,
   Wallet,
   BarChart3,
+  Globe,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -70,8 +72,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  AreaChart,
-  Area,
+  ReferenceLine,
 } from "recharts";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -100,6 +101,7 @@ export default function NetWorthPage() {
   const { holdings, load: loadGold } = useGoldStore();
   const { mutualFunds, fetchMutualFunds } = useMutualFundsStore();
   const { stocks, fetchStocks } = useStocksStore();
+  const { entries: forexEntries, load: loadForex } = useForexStore();
 
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
   const [isEditAssetOpen, setIsEditAssetOpen] = useState(false);
@@ -153,6 +155,7 @@ export default function NetWorthPage() {
     loadGold();
     fetchMutualFunds();
     fetchStocks();
+    loadForex();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -162,7 +165,7 @@ export default function NetWorthPage() {
     [assets],
   );
 
-  // Assets tracked in dedicated modules (gold, mutual funds, stocks)
+  // Assets tracked in dedicated modules (gold, mutual funds, stocks, forex)
   const externalAssetsTotal = useMemo(() => {
     const goldValue = holdings.reduce(
       (sum, h) => sum + h.quantityGrams * h.currentPricePerGram,
@@ -171,8 +174,20 @@ export default function NetWorthPage() {
     const mfValue = mutualFunds.reduce((sum, f) => sum + f.currentValue, 0);
     const stockValue = stocks.reduce((sum, s) => sum + s.currentValue, 0);
 
-    return goldValue + mfValue + stockValue;
-  }, [holdings, mutualFunds, stocks]);
+    // Forex value: deposits - withdrawals + P&L
+    const forexValue = forexEntries.reduce((sum, entry) => {
+      if (entry.type === "deposit") {
+        return sum + entry.amount;
+      } else if (entry.type === "withdrawal") {
+        return sum - entry.amount;
+      } else if (entry.type === "pnl") {
+        return sum + entry.amount; // P&L can be positive or negative
+      }
+      return sum;
+    }, 0);
+
+    return goldValue + mfValue + stockValue + forexValue;
+  }, [holdings, mutualFunds, stocks, forexEntries]);
 
   const totalAssets = totalManualAssets + externalAssetsTotal;
   const totalLiabilities = liabilities.reduce(
@@ -190,6 +205,18 @@ export default function NetWorthPage() {
     const mfValue = mutualFunds.reduce((sum, f) => sum + f.currentValue, 0);
     const stockValue = stocks.reduce((sum, s) => sum + s.currentValue, 0);
 
+    // Forex value: deposits - withdrawals + P&L
+    const forexValue = forexEntries.reduce((sum, entry) => {
+      if (entry.type === "deposit") {
+        return sum + entry.amount;
+      } else if (entry.type === "withdrawal") {
+        return sum - entry.amount;
+      } else if (entry.type === "pnl") {
+        return sum + entry.amount;
+      }
+      return sum;
+    }, 0);
+
     return [
       { name: "Gold", value: goldValue, href: "/gold", icon: Gem },
       {
@@ -199,6 +226,7 @@ export default function NetWorthPage() {
         icon: Wallet,
       },
       { name: "Stocks", value: stockValue, href: "/stocks", icon: BarChart3 },
+      { name: "Forex", value: forexValue, href: "/forex", icon: Globe },
       {
         name: "Other Assets",
         value: totalManualAssets,
@@ -206,18 +234,79 @@ export default function NetWorthPage() {
         icon: DollarSign,
       },
     ].filter((item) => item.value > 0);
-  }, [holdings, mutualFunds, stocks, totalManualAssets]);
+  }, [holdings, mutualFunds, stocks, forexEntries, totalManualAssets]);
 
-  // Format snapshots for the chart
-  const historicalData = snapshots.slice(-6).map((snapshot) => {
-    const date = new Date(snapshot.date);
-    return {
-      month: date.toLocaleDateString("en-US", { month: "short" }),
-      netWorth: snapshot.net_worth,
-      assets: snapshot.total_assets,
-      liabilities: snapshot.total_liabilities,
-    };
-  });
+  // Net worth trend: from Jan 2026 only, up to 6 months (snapshot or current net worth)
+  const NET_WORTH_START_YEAR = 2026;
+  const NET_WORTH_START_MONTH = 0; // January
+
+  const historicalData = useMemo(() => {
+    const now = new Date();
+    const startDate = new Date(NET_WORTH_START_YEAR, NET_WORTH_START_MONTH, 1);
+    const months: {
+      month: string;
+      monthKey: string;
+      netWorth: number;
+      sourceLabel: string;
+    }[] = [];
+    const sortedSnapshots = [...snapshots].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    );
+
+    const endDate = now >= startDate ? now : new Date(2026, 5, 1);
+    const monthCount =
+      (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+      (endDate.getMonth() - startDate.getMonth()) +
+      1;
+    const fromMonth = Math.max(0, monthCount - 6);
+
+    for (let i = fromMonth; i < monthCount && months.length < 6; i++) {
+      const d = new Date(
+        startDate.getFullYear(),
+        startDate.getMonth() + i,
+        1,
+      );
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const monthLabel = d.toLocaleDateString("en-US", {
+        month: "short",
+        year: "2-digit",
+      });
+
+      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      const snapshotInMonth = sortedSnapshots.find((s) => {
+        const sDate = new Date(s.date);
+        return sDate >= d && sDate <= endOfMonth;
+      });
+      const lastSnapshotBefore = sortedSnapshots.filter(
+        (s) => new Date(s.date) <= endOfMonth,
+      );
+      const latestBefore = lastSnapshotBefore[lastSnapshotBefore.length - 1];
+      const isCurrentMonth =
+        d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+
+      let value: number;
+      let sourceLabel: string;
+      if (snapshotInMonth) {
+        value = snapshotInMonth.net_worth;
+        const snapDate = new Date(snapshotInMonth.date);
+        sourceLabel = `Snapshot on ${snapDate.toLocaleDateString("en-US", { dateStyle: "medium" })}`;
+      } else if (isCurrentMonth) {
+        value = netWorth;
+        sourceLabel = "Current net worth (Assets − Liabilities today)";
+      } else if (latestBefore) {
+        value = latestBefore.net_worth;
+        const snapDate = new Date(latestBefore.date);
+        sourceLabel = `Carried from snapshot on ${snapDate.toLocaleDateString("en-US", { dateStyle: "medium" })}`;
+      } else {
+        value = netWorth;
+        sourceLabel = "Current net worth (no snapshot yet)";
+      }
+
+      months.push({ month: monthLabel, monthKey, netWorth: value, sourceLabel });
+    }
+
+    return months;
+  }, [snapshots, netWorth]);
 
   const handleAddAsset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -381,26 +470,26 @@ export default function NetWorthPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">
+          <div className="flex justify-between items-center py-3">
+            <h1 className="text-xl font-bold text-gray-900">
               Net Worth Tracking
             </h1>
           </div>
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-3 mb-8">
+        <div className="grid gap-3 md:grid-cols-3 mb-4">
           <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Total Assets
               </CardTitle>
               <ArrowUpCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-green-600">
                 {format(totalAssets)}
               </div>
               <Link
@@ -414,14 +503,14 @@ export default function NetWorthPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Total Liabilities
               </CardTitle>
               <ArrowDownCircle className="h-4 w-4 text-red-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-red-600">
                 {format(totalLiabilities)}
               </div>
               <p className="text-xs text-gray-500 mt-1">
@@ -431,12 +520,12 @@ export default function NetWorthPage() {
           </Card>
 
           <Card className="border-2 border-blue-200 bg-blue-50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
               <TrendingUp className="h-4 w-4 text-blue-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-blue-600">
                 {format(netWorth)}
               </div>
               <p className="text-xs text-gray-500 mt-1">
@@ -447,21 +536,21 @@ export default function NetWorthPage() {
         </div>
 
         {/* Asset Breakdown by Category */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Asset Breakdown</CardTitle>
+        <Card className="mb-4">
+          <CardHeader className="p-3 pb-2">
+            <CardTitle className="text-base">Asset Breakdown</CardTitle>
             <CardDescription>
               Your assets by category - click to view details
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3">
             {assetBreakdown.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">
+              <p className="text-center text-gray-500 py-3 text-sm">
                 No assets tracked yet. Add investments or manual assets to get
                 started.
               </p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {assetBreakdown.map((item) => {
                   const percentage =
                     totalAssets > 0 ? (item.value / totalAssets) * 100 : 0;
@@ -473,7 +562,7 @@ export default function NetWorthPage() {
                         item.href ? "cursor-pointer" : ""
                       }`}
                     >
-                      <CardContent className="p-4">
+                      <CardContent className="p-3">
                         {item.href ? (
                           <Link href={item.href} className="block">
                             <div className="flex items-center justify-between mb-2">
@@ -532,45 +621,79 @@ export default function NetWorthPage() {
         </Card>
 
         {/* Net Worth Trend Chart */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Net Worth Trend</CardTitle>
+        <Card className="mb-4">
+          <CardHeader className="p-3 pb-2">
+            <CardTitle className="text-base">Net Worth Trend</CardTitle>
             <CardDescription>
-              Your net worth over the past 6 months
+              From Jan 2026 — up to 6 months from your snapshots and current net worth
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={historicalData}>
-                <defs>
-                  <linearGradient
-                    id="colorNetWorth"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+              <LineChart data={historicalData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={(value) => `$${value / 1000}k`} />
-                <Tooltip
-                  formatter={(value: number | undefined) =>
-                    value !== undefined ? format(value) : "$0.00"
-                  }
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value: number) => {
+                    const abs = Math.abs(value);
+                    const sign = value < 0 ? "-" : "";
+                    if (abs >= 1e6) return `${sign}₹${(abs / 1e6).toFixed(1)}M`;
+                    if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(0)}L`;
+                    if (abs >= 1000) return `${sign}₹${(abs / 1000).toFixed(0)}k`;
+                    return `${sign}₹${Math.round(abs)}`;
+                  }}
                 />
-                <Area
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const p = payload[0].payload as {
+                      month: string;
+                      netWorth: number;
+                      sourceLabel: string;
+                    };
+                    return (
+                      <div className="rounded-lg border bg-white px-3 py-2 shadow-md">
+                        <p className="font-semibold text-gray-900">{p.month}</p>
+                        <p className="text-indigo-600 font-medium">
+                          Net worth: {format(p.netWorth)}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500 max-w-[220px]">
+                          {p.sourceLabel}
+                        </p>
+                      </div>
+                    );
+                  }}
+                />
+                <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="2 2" />
+                <Line
                   type="monotone"
                   dataKey="netWorth"
                   stroke="#3b82f6"
-                  fillOpacity={1}
-                  fill="url(#colorNetWorth)"
+                  strokeWidth={2}
+                  dot={{ fill: "#3b82f6", r: 4 }}
+                  activeDot={{ r: 6 }}
+                  name="Net worth"
                 />
-              </AreaChart>
+              </LineChart>
             </ResponsiveContainer>
+            {snapshots.length > 0 && (
+              <div className="mt-3 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                <span className="font-medium text-gray-700">Chart values come from: </span>
+                Either a snapshot on that month, or carried from the last snapshot, or current net worth. Recent snapshots:{" "}
+                {[...snapshots]
+                  .sort(
+                    (a, b) =>
+                      new Date(b.date).getTime() - new Date(a.date).getTime(),
+                  )
+                  .slice(0, 5)
+                  .map((s) => {
+                    const d = new Date(s.date);
+                    return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} → ${format(s.net_worth)}`;
+                  })
+                  .join("; ")}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -658,13 +781,13 @@ export default function NetWorthPage() {
               </Dialog>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               {assets.map((asset) => (
                 <Card
                   key={asset.id}
                   className="hover:shadow-md transition-shadow"
                 >
-                  <CardContent className="p-6">
+                  <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
                         <div className="p-3 bg-green-100 rounded-full">
@@ -834,13 +957,13 @@ export default function NetWorthPage() {
               </Dialog>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               {liabilities.map((liability) => (
                 <Card
                   key={liability.id}
                   className="hover:shadow-md transition-shadow border-red-100"
                 >
-                  <CardContent className="p-6">
+                  <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
                         <div className="p-3 bg-red-100 rounded-full">
@@ -923,14 +1046,16 @@ export default function NetWorthPage() {
                         {format(totalAssets)}
                       </span>
                     </div>
+                    {/* Manual Assets */}
                     {assets.map((asset) => {
-                      const percentage = (asset.value / totalAssets) * 100;
+                      const percentage =
+                        totalAssets > 0 ? (asset.value / totalAssets) * 100 : 0;
                       return (
                         <div key={asset.id} className="mb-3">
                           <div className="flex justify-between text-sm mb-1">
                             <span>{asset.name}</span>
                             <span className="text-gray-600">
-                              {percentage.toFixed(1)}%
+                              {format(asset.value)} ({percentage.toFixed(1)}%)
                             </span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
@@ -942,6 +1067,31 @@ export default function NetWorthPage() {
                         </div>
                       );
                     })}
+                    {/* External Assets */}
+                    {assetBreakdown
+                      .filter((item) => item.href !== null)
+                      .map((item) => {
+                        const percentage =
+                          totalAssets > 0
+                            ? (item.value / totalAssets) * 100
+                            : 0;
+                        return (
+                          <div key={item.name} className="mb-3">
+                            <div className="flex justify-between text-sm mb-1">
+                              <span>{item.name}</span>
+                              <span className="text-gray-600">
+                                {format(item.value)} ({percentage.toFixed(1)}%)
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-green-600 h-2 rounded-full"
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                   </div>
 
                   <div className="pt-4 border-t">

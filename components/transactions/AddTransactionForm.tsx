@@ -35,37 +35,24 @@ import {
 } from "@/components/ui/card";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
-const transactionFormSchema = z
-  .object({
-    type: z.enum(["income", "expense"]),
-    amount: z
-      .string()
-      .min(1, "Amount is required")
-      .refine(
-        (val) => !isNaN(Number(val)) && Number(val) > 0,
-        "Amount must be a positive number",
-      ),
-    description: z.string().min(1, "Description is required"),
-    category: z.string().min(1, "Category is required"),
-    subtype: z.string().min(1, "Subtype is required"),
-    budgetId: z.string().optional(),
-    goalId: z.string().optional(),
-    debtId: z.string().optional(),
-    savingsChallengeId: z.string().optional(),
-    date: z.string().optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.category === "Savings" && data.type === "expense") {
-        if (!data.goalId || data.goalId === "none") return false;
-      }
-      return true;
-    },
-    {
-      message: "Goal selection is required for savings transactions",
-      path: ["goalId"],
-    },
-  );
+const transactionFormSchema = z.object({
+  type: z.enum(["income", "expense"]),
+  amount: z
+    .string()
+    .min(1, "Amount is required")
+    .refine(
+      (val) => !isNaN(Number(val)) && Number(val) > 0,
+      "Amount must be a positive number",
+    ),
+  description: z.string().min(1, "Description is required"),
+  category: z.string().min(1, "Category is required"),
+  subtype: z.string().min(1, "Subtype is required"),
+  budgetId: z.string().optional(),
+  goalId: z.string().optional(),
+  debtId: z.string().optional(),
+  savingsChallengeId: z.string().optional(),
+  date: z.string().optional(),
+});
 
 type TransactionFormData = z.infer<typeof transactionFormSchema>;
 
@@ -103,8 +90,10 @@ interface SavingsChallenge {
 interface AddTransactionFormProps {
   onSuccess: () => void;
   onCancel: () => void;
+  transactionId?: string;
   initialValues?: {
     type?: "income" | "expense";
+    amount?: string;
     category?: string;
     subtype?: string;
     budgetId?: string;
@@ -112,6 +101,7 @@ interface AddTransactionFormProps {
     debtId?: string;
     savingsChallengeId?: string;
     description?: string;
+    date?: string;
   };
   contextInfo?: {
     source?: "budget" | "goal" | "savings-challenge";
@@ -122,6 +112,7 @@ interface AddTransactionFormProps {
 export default function AddTransactionForm({
   onSuccess,
   onCancel,
+  transactionId,
   initialValues,
   contextInfo,
 }: AddTransactionFormProps) {
@@ -162,7 +153,7 @@ export default function AddTransactionForm({
     resolver: zodResolver(transactionFormSchema),
     defaultValues: {
       type: initialValues?.type || "expense",
-      amount: "",
+      amount: initialValues?.amount ?? "",
       description: initialValues?.description || "",
       category: initialValues?.category || "",
       subtype: initialValues?.subtype || "",
@@ -170,7 +161,7 @@ export default function AddTransactionForm({
       goalId: initialValues?.goalId || "",
       debtId: initialValues?.debtId || "",
       savingsChallengeId: initialValues?.savingsChallengeId || "",
-      date: new Date().toISOString().split("T")[0],
+      date: initialValues?.date ?? new Date().toISOString().split("T")[0],
     },
   });
 
@@ -342,21 +333,38 @@ export default function AddTransactionForm({
     setIsSubmitting(true);
     const txDate = data.date || new Date().toISOString().split("T")[0];
     const amount = parseFloat(data.amount);
+    const payload = {
+      amount,
+      type: data.type,
+      description: data.description,
+      category: data.category,
+      subtype: data.subtype,
+      budgetId:
+        data.budgetId && data.budgetId !== "auto" ? data.budgetId : null,
+      goalId: data.goalId && data.goalId !== "none" ? data.goalId : null,
+      date: txDate,
+    };
+
     try {
+      if (transactionId) {
+        const response = await fetch(`/api/transactions/${transactionId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error || "Failed to update transaction");
+        }
+        reset();
+        onSuccess();
+        return;
+      }
+
       const response = await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount,
-          type: data.type,
-          description: data.description,
-          category: data.category,
-          subtype: data.subtype,
-          budgetId:
-            data.budgetId && data.budgetId !== "auto" ? data.budgetId : null,
-          goalId: data.goalId && data.goalId !== "none" ? data.goalId : null,
-          date: txDate,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -414,36 +422,37 @@ export default function AddTransactionForm({
       reset();
       onSuccess();
     } catch (error) {
-      console.error("Error adding transaction:", error);
+      console.error(transactionId ? "Error updating transaction:" : "Error adding transaction:", error);
       alert(
         error instanceof Error
           ? error.message
-          : "Failed to add transaction. Please try again.",
+          : transactionId
+            ? "Failed to update transaction. Please try again."
+            : "Failed to add transaction. Please try again.",
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Filter budgets based on category and subtype
+  // Filter budgets that match current category + subtype (for "matching" highlight)
   const getMatchingBudgets = () => {
     if (!selectedCategory || !selectedSubtype) return [];
 
+    const norm = (s: string | null | undefined) => (s ?? "").trim();
+
     return budgets.filter((budget) => {
-      // Exact match: same category and subtype
-      if (
-        budget.category === selectedCategory &&
-        budget.subtype === selectedSubtype
-      ) {
-        return true;
-      }
-      // Fallback match: same category, null subtype (category-level budget)
-      if (budget.category === selectedCategory && !budget.subtype) {
-        return true;
-      }
+      if (budget.category !== selectedCategory) return false;
+      const budgetSub = norm(budget.subtype);
+      const selectedSub = norm(selectedSubtype);
+      if (budgetSub === selectedSub) return true;
+      if (!budgetSub) return true; // category-level budget matches any subtype
       return false;
     });
   };
+
+  // All budgets for expense type (so user can always assign to any budget)
+  const allBudgetsForExpense = budgets;
 
   const incomeCategories = [
     "Salary",
@@ -895,31 +904,50 @@ export default function AddTransactionForm({
             </div>
           )}
 
-          {/* Budget Selection - Optional, shows available budgets */}
-          {selectedCategory &&
-            selectedSubtype &&
-            getMatchingBudgets().length > 0 && (
-              <div className="space-y-2">
-                <Label
-                  htmlFor="budgetId"
-                  className="flex items-center space-x-1"
-                >
-                  <span>Budget (Optional)</span>
-                  <span className="text-xs text-gray-500">
-                    Auto-mapped if not selected
-                  </span>
-                </Label>
-                <Controller
-                  name="budgetId"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Auto-select matching budget" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="auto">Auto-select</SelectItem>
-                        {getMatchingBudgets().map((budget) => (
+          {/* Budget Selection - Optional, for expenses */}
+          {transactionType === "expense" && selectedCategory && selectedSubtype && (
+            <div className="space-y-2">
+              <Label
+                htmlFor="budgetId"
+                className="flex items-center space-x-1"
+              >
+                <span>Link to budget (Optional)</span>
+              </Label>
+              <Controller
+                name="budgetId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value || "none"}
+                    onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a budget" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Don't link to a budget</SelectItem>
+                      <SelectItem value="auto">Auto-select matching budget</SelectItem>
+                      {getMatchingBudgets().length > 0 && (
+                        <>
+                          {getMatchingBudgets().map((budget) => (
+                            <SelectItem key={budget.id} value={budget.id}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">
+                                  {budget.category}
+                                  {budget.subtype && ` → ${budget.subtype}`}
+                                  <span className="text-xs text-green-600 ml-1">(matches)</span>
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {format(budget.limit_amount)} / {budget.period}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {allBudgetsForExpense
+                        .filter((b) => !getMatchingBudgets().some((m) => m.id === b.id))
+                        .map((budget) => (
                           <SelectItem key={budget.id} value={budget.id}>
                             <div className="flex flex-col">
                               <span className="font-medium">
@@ -932,27 +960,21 @@ export default function AddTransactionForm({
                             </div>
                           </SelectItem>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                <p className="text-xs text-gray-600">
-                  ℹ️ Transaction will be automatically linked to matching budget
-                </p>
-              </div>
-            )}
-
-          {selectedCategory &&
-            selectedSubtype &&
-            getMatchingBudgets().length === 0 && (
-              <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded border border-blue-200">
-                ℹ️ No budget exists for {selectedCategory} → {selectedSubtype}.
-                Transaction will be tracked without a budget.
-                <a href="/budgets" target="_blank" className="underline ml-1">
-                  Create budget
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <p className="text-xs text-gray-600">
+                {getMatchingBudgets().length > 0
+                  ? "Choose a budget to link this expense to, or use Auto-select to match by category."
+                  : "Choose a budget to link this expense to, or create one in Budgets."}
+                {" "}
+                <a href="/budgets" target="_blank" rel="noreferrer" className="underline">
+                  Budgets
                 </a>
-              </div>
-            )}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

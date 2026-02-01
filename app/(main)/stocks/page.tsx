@@ -29,6 +29,7 @@ import {
   BarChart3,
   Loader2,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { useStocksStore, type Stock } from "@/store/stocks-store";
 import {
@@ -125,6 +126,7 @@ export default function StocksPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStock, setEditingStock] = useState<Stock | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const {
     register,
@@ -204,6 +206,178 @@ export default function StocksPage() {
     }
   };
 
+  const handleCSVUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").filter((line) => line.trim());
+
+      // Find the header row (contains "Symbol" or "Company Name" or "Security")
+      const headerIndex = lines.findIndex(
+        (line) =>
+          line.includes("Symbol") ||
+          line.includes("Company") ||
+          line.includes("Security"),
+      );
+      if (headerIndex === -1) {
+        alert("Invalid CSV format. Could not find header row.");
+        return;
+      }
+
+      const headers = lines[headerIndex]
+        .split(",")
+        .map((h) => h.replace(/^"|"$/g, "").trim());
+
+      // Map column names to indices - adapt based on the CSV structure
+      const getIndex = (name: string) =>
+        headers.findIndex((h) => h.toLowerCase().includes(name.toLowerCase()));
+
+      const symbolIdx =
+        getIndex("Symbol") >= 0 ? getIndex("Symbol") : getIndex("Security");
+      const nameIdx =
+        getIndex("Name") >= 0 ? getIndex("Name") : getIndex("Company");
+      const sharesIdx =
+        getIndex("Quantity") >= 0
+          ? getIndex("Quantity")
+          : getIndex("Shares") >= 0
+            ? getIndex("Shares")
+            : getIndex("Qty");
+      const avgPriceIdx =
+        getIndex("Average Cost") >= 0
+          ? getIndex("Average Cost")
+          : getIndex("Avg") >= 0
+            ? getIndex("Avg")
+            : getIndex("Purchase Price");
+      const currentPriceIdx =
+        getIndex("LTP") >= 0 ? getIndex("LTP") : getIndex("Current Price");
+      const investedIdx =
+        getIndex("Invested Value") >= 0
+          ? getIndex("Invested Value")
+          : getIndex("Invested") >= 0
+            ? getIndex("Invested")
+            : getIndex("Invest Value");
+      const currentValueIdx =
+        getIndex("Current Value") >= 0
+          ? getIndex("Current Value")
+          : getIndex("Current") >= 0
+            ? getIndex("Current")
+            : getIndex("Cur. val");
+      const purchaseDateIdx = getIndex("Date") >= 0 ? getIndex("Date") : -1;
+
+      // Process data rows
+      const dataLines = lines.slice(headerIndex + 1);
+      let successCount = 0;
+      let updatedCount = 0;
+      let failedCount = 0;
+      const failedStocks: string[] = [];
+
+      for (const line of dataLines) {
+        // Skip empty lines, total rows, smallcases section, or other non-stock rows
+        if (
+          !line.trim() ||
+          line.includes("Total") ||
+          line.includes("Visit:") ||
+          line.includes("Smallcases") ||
+          line.includes("Equity &") ||
+          line.includes("Asset Allocation")
+        )
+          continue;
+
+        // Parse CSV line - handle both comma-separated and quoted formats
+        const values = line.includes('","')
+          ? line.split('","').map((v) => v.replace(/^"|"$/g, "").trim())
+          : line.split(",").map((v) => v.trim());
+
+        const symbol = values[symbolIdx];
+        if (!symbol || symbol === "" || symbol === "-") continue;
+
+        try {
+          const name =
+            nameIdx >= 0 && values[nameIdx] ? values[nameIdx] : symbol;
+          const shares = parseFloat(
+            values[sharesIdx]?.replace(/[,]/g, "") || "0",
+          );
+          const avgPrice = parseFloat(
+            values[avgPriceIdx]?.replace(/[₹,]/g, "") || "0",
+          );
+          const currentPrice = parseFloat(
+            values[currentPriceIdx]?.replace(/[₹,]/g, "") ||
+              avgPrice.toString(),
+          );
+          const investedAmount =
+            investedIdx >= 0
+              ? parseFloat(values[investedIdx]?.replace(/[₹,]/g, "") || "0")
+              : shares * avgPrice;
+          const currentValue =
+            currentValueIdx >= 0
+              ? parseFloat(values[currentValueIdx]?.replace(/[₹,]/g, "") || "0")
+              : shares * currentPrice;
+          const purchaseDate =
+            purchaseDateIdx >= 0 && values[purchaseDateIdx]
+              ? values[purchaseDateIdx]
+              : new Date().toISOString().split("T")[0];
+
+          // Skip if essential data is missing or invalid
+          if (shares <= 0 || avgPrice <= 0) {
+            console.warn(`Skipping ${symbol}: invalid shares or price`);
+            continue;
+          }
+
+          // Check if stock already exists and delete it
+          const existingStock = stocks.find(
+            (s) =>
+              s.symbol.toLowerCase() === symbol.toLowerCase() ||
+              s.name.toLowerCase() === name.toLowerCase(),
+          );
+          if (existingStock) {
+            await deleteStock(existingStock.id);
+            updatedCount++;
+          }
+
+          await addStock({
+            name,
+            symbol,
+            shares,
+            avgPurchasePrice: avgPrice,
+            currentPrice,
+            investedAmount,
+            currentValue,
+            purchaseDate,
+          });
+
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to import ${symbol}:`, error);
+          failedCount++;
+          failedStocks.push(symbol);
+        }
+      }
+
+      let message = `Import complete!\n\n`;
+      message += `✓ New stocks added: ${successCount - updatedCount}\n`;
+      if (updatedCount > 0) {
+        message += `✓ Existing stocks updated: ${updatedCount}\n`;
+      }
+      message += `✓ Total processed: ${successCount}`;
+
+      if (failedCount > 0) {
+        message += `\n\n✗ Failed to import ${failedCount} stocks:\n${failedStocks.join("\n")}`;
+      }
+      alert(message);
+      event.target.value = ""; // Reset file input
+    } catch (error) {
+      console.error("Error parsing CSV:", error);
+      alert("Failed to parse CSV file. Please check the format.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -242,298 +416,331 @@ export default function StocksPage() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">Stocks Tracker</h1>
-            <Dialog
-              open={isDialogOpen}
-              onOpenChange={(open) => {
-                setIsDialogOpen(open);
-                if (!open) setEditingStock(null);
-              }}
-            >
-              <DialogTrigger asChild>
+          <div className="flex justify-between items-center py-3">
+            <h1 className="text-xl font-bold text-gray-900">Stocks Tracker</h1>
+            <div className="flex gap-2">
+              <label htmlFor="csv-upload-stocks">
                 <Button
-                  onClick={() => {
-                    setEditingStock(null);
-                    reset({
-                      stockType: "large_cap",
-                      sector: "consumer_discretionary",
-                      subSector: "auto_parts",
-                    });
-                  }}
+                  type="button"
+                  variant="outline"
+                  disabled={isUploading || loading}
+                  onClick={() =>
+                    document.getElementById("csv-upload-stocks")?.click()
+                  }
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Stock
+                  {isUploading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4 mr-2" />
+                  )}
+                  Import CSV
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingStock ? "Edit Stock" : "Add Stock"}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {editingStock
-                      ? "Update this stock's details."
-                      : "Add a stock to track its performance."}
-                  </DialogDescription>
-                </DialogHeader>
-                <form
-                  onSubmit={handleSubmit(handleUpsertStock)}
-                  className="space-y-4"
-                >
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Company Name</Label>
-                    <Input
-                      id="name"
-                      placeholder="e.g., Apple Inc."
-                      {...register("name")}
-                    />
-                    {errors.name && (
-                      <p className="text-sm text-red-600">
-                        {errors.name.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="symbol">Symbol</Label>
-                    <Input
-                      id="symbol"
-                      placeholder="e.g., AAPL"
-                      {...register("symbol")}
-                    />
-                    {errors.symbol && (
-                      <p className="text-sm text-red-600">
-                        {errors.symbol.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+              </label>
+              <input
+                id="csv-upload-stocks"
+                type="file"
+                accept=".csv"
+                onChange={handleCSVUpload}
+                className="hidden"
+              />
+              <Dialog
+                open={isDialogOpen}
+                onOpenChange={(open) => {
+                  setIsDialogOpen(open);
+                  if (!open) setEditingStock(null);
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button
+                    onClick={() => {
+                      setEditingStock(null);
+                      reset({
+                        stockType: "large_cap",
+                        sector: "consumer_discretionary",
+                        subSector: "auto_parts",
+                      });
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Stock
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingStock ? "Edit Stock" : "Add Stock"}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {editingStock
+                        ? "Update this stock's details."
+                        : "Add a stock to track its performance."}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form
+                    onSubmit={handleSubmit(handleUpsertStock)}
+                    className="space-y-4"
+                  >
                     <div className="space-y-2">
-                      <Label htmlFor="shares">Shares</Label>
+                      <Label htmlFor="name">Company Name</Label>
                       <Input
-                        id="shares"
-                        type="number"
-                        step="0.01"
-                        placeholder="0"
-                        {...register("shares", { valueAsNumber: true })}
+                        id="name"
+                        placeholder="e.g., Apple Inc."
+                        {...register("name")}
                       />
-                      {errors.shares && (
+                      {errors.name && (
                         <p className="text-sm text-red-600">
-                          {errors.shares.message}
+                          {errors.name.message}
                         </p>
                       )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="avgPurchasePrice">
-                        Avg Purchase Price
-                      </Label>
+                      <Label htmlFor="symbol">Symbol</Label>
                       <Input
-                        id="avgPurchasePrice"
+                        id="symbol"
+                        placeholder="e.g., AAPL"
+                        {...register("symbol")}
+                      />
+                      {errors.symbol && (
+                        <p className="text-sm text-red-600">
+                          {errors.symbol.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="shares">Shares</Label>
+                        <Input
+                          id="shares"
+                          type="number"
+                          step="0.01"
+                          placeholder="0"
+                          {...register("shares", { valueAsNumber: true })}
+                        />
+                        {errors.shares && (
+                          <p className="text-sm text-red-600">
+                            {errors.shares.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="avgPurchasePrice">
+                          Avg Purchase Price
+                        </Label>
+                        <Input
+                          id="avgPurchasePrice"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...register("avgPurchasePrice", {
+                            valueAsNumber: true,
+                          })}
+                        />
+                        {errors.avgPurchasePrice && (
+                          <p className="text-sm text-red-600">
+                            {errors.avgPurchasePrice.message}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="currentPrice">Current Price</Label>
+                      <Input
+                        id="currentPrice"
                         type="number"
                         step="0.01"
                         placeholder="0.00"
-                        {...register("avgPurchasePrice", {
-                          valueAsNumber: true,
-                        })}
+                        {...register("currentPrice", { valueAsNumber: true })}
                       />
-                      {errors.avgPurchasePrice && (
+                      {errors.currentPrice && (
                         <p className="text-sm text-red-600">
-                          {errors.avgPurchasePrice.message}
+                          {errors.currentPrice.message}
                         </p>
                       )}
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="currentPrice">Current Price</Label>
-                    <Input
-                      id="currentPrice"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      {...register("currentPrice", { valueAsNumber: true })}
-                    />
-                    {errors.currentPrice && (
-                      <p className="text-sm text-red-600">
-                        {errors.currentPrice.message}
-                      </p>
+                    {shares && avgPurchasePrice && currentPrice && (
+                      <div className="text-sm text-gray-600 space-y-1">
+                        <div>Invested: {format(shares * avgPurchasePrice)}</div>
+                        <div>
+                          Current Value: {format(shares * currentPrice)}
+                        </div>
+                        <div
+                          className={
+                            shares * currentPrice - shares * avgPurchasePrice >=
+                            0
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }
+                        >
+                          P&L:{" "}
+                          {format(
+                            shares * currentPrice - shares * avgPurchasePrice,
+                          )}
+                        </div>
+                      </div>
                     )}
-                  </div>
 
-                  {shares && avgPurchasePrice && currentPrice && (
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <div>Invested: {format(shares * avgPurchasePrice)}</div>
-                      <div>Current Value: {format(shares * currentPrice)}</div>
-                      <div
-                        className={
-                          shares * currentPrice - shares * avgPurchasePrice >= 0
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }
-                      >
-                        P&L:{" "}
-                        {format(
-                          shares * currentPrice - shares * avgPurchasePrice,
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="purchaseDate">Purchase Date</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !parsedPurchaseDate && "text-muted-foreground",
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {parsedPurchaseDate
+                                ? parsedPurchaseDate.toLocaleDateString()
+                                : "Pick a date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={parsedPurchaseDate}
+                              onSelect={(date) =>
+                                setValue(
+                                  "purchaseDate",
+                                  date ? date.toISOString().split("T")[0] : "",
+                                  { shouldDirty: true, shouldTouch: true },
+                                )
+                              }
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        {errors.purchaseDate && (
+                          <p className="text-sm text-red-600">
+                            {errors.purchaseDate.message}
+                          </p>
                         )}
                       </div>
-                    </div>
-                  )}
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="purchaseDate">Purchase Date</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !parsedPurchaseDate && "text-muted-foreground",
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {parsedPurchaseDate
-                              ? parsedPurchaseDate.toLocaleDateString()
-                              : "Pick a date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={parsedPurchaseDate}
-                            onSelect={(date) =>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="sector">Sector</Label>
+                          <Select
+                            value={sector}
+                            onValueChange={(val) =>
                               setValue(
-                                "purchaseDate",
-                                date ? date.toISOString().split("T")[0] : "",
-                                { shouldDirty: true, shouldTouch: true },
+                                "sector",
+                                val as StockFormData["sector"],
+                                {
+                                  shouldDirty: true,
+                                  shouldTouch: true,
+                                },
                               )
                             }
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      {errors.purchaseDate && (
-                        <p className="text-sm text-red-600">
-                          {errors.purchaseDate.message}
-                        </p>
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select sector" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SECTOR_OPTIONS.map((opt) => (
+                                <SelectItem key={opt} value={opt}>
+                                  {formatLabel(opt)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {errors.sector && (
+                            <p className="text-sm text-red-600">
+                              {errors.sector.message}
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="subSector">Sub Sector</Label>
+                          <Select
+                            value={subSector}
+                            onValueChange={(val) =>
+                              setValue(
+                                "subSector",
+                                val as StockFormData["subSector"],
+                                {
+                                  shouldDirty: true,
+                                  shouldTouch: true,
+                                },
+                              )
+                            }
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select sub sector" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {subSectorOptions.map((opt) => (
+                                <SelectItem key={opt} value={opt}>
+                                  {formatLabel(opt)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {errors.subSector && (
+                            <p className="text-sm text-red-600">
+                              {errors.subSector.message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          {editingStock ? "Saving..." : "Adding Stock..."}
+                        </>
+                      ) : editingStock ? (
+                        "Save Changes"
+                      ) : (
+                        "Add Stock"
                       )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="sector">Sector</Label>
-                        <Select
-                          value={sector}
-                          onValueChange={(val) =>
-                            setValue("sector", val as StockFormData["sector"], {
-                              shouldDirty: true,
-                              shouldTouch: true,
-                            })
-                          }
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select sector" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {SECTOR_OPTIONS.map((opt) => (
-                              <SelectItem key={opt} value={opt}>
-                                {formatLabel(opt)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {errors.sector && (
-                          <p className="text-sm text-red-600">
-                            {errors.sector.message}
-                          </p>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="subSector">Sub Sector</Label>
-                        <Select
-                          value={subSector}
-                          onValueChange={(val) =>
-                            setValue(
-                              "subSector",
-                              val as StockFormData["subSector"],
-                              {
-                                shouldDirty: true,
-                                shouldTouch: true,
-                              },
-                            )
-                          }
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select sub sector" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {subSectorOptions.map((opt) => (
-                              <SelectItem key={opt} value={opt}>
-                                {formatLabel(opt)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {errors.subSector && (
-                          <p className="text-sm text-red-600">
-                            {errors.subSector.message}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        {editingStock ? "Saving..." : "Adding Stock..."}
-                      </>
-                    ) : editingStock ? (
-                      "Save Changes"
-                    ) : (
-                      "Add Stock"
-                    )}
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Total Invested
               </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{format(totalInvested)}</div>
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold">{format(totalInvested)}</div>
               <p className="text-xs text-muted-foreground">Across all stocks</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Current Value
               </CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold">
                 {format(totalCurrentValue)}
               </div>
               <p className="text-xs text-muted-foreground">Portfolio value</p>
@@ -541,7 +748,7 @@ export default function StocksPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Total P&L</CardTitle>
               {totalGainLoss >= 0 ? (
                 <TrendingUp className="h-4 w-4 text-green-600" />
@@ -549,9 +756,9 @@ export default function StocksPage() {
                 <TrendingDown className="h-4 w-4 text-red-600" />
               )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 pt-2">
               <div
-                className={`text-2xl font-bold ${
+                className={`text-xl font-bold ${
                   totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
                 }`}
               >
@@ -566,14 +773,14 @@ export default function StocksPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Stocks Count
               </CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stocks.length}</div>
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold">{stocks.length}</div>
               <p className="text-xs text-muted-foreground">Active holdings</p>
             </CardContent>
           </Card>
@@ -588,9 +795,9 @@ export default function StocksPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {stocks.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">
+                <p className="text-center text-gray-500 py-4 text-sm">
                   No stocks yet. Add your first stock above!
                 </p>
               ) : (
@@ -606,7 +813,7 @@ export default function StocksPage() {
                   return (
                     <div
                       key={stock.id}
-                      className="border rounded-lg p-6 space-y-4"
+                      className="border rounded-lg p-4 space-y-3"
                     >
                       <div className="flex items-center justify-between">
                         <div>
@@ -614,9 +821,12 @@ export default function StocksPage() {
                             {stock.name}
                           </h3>
                           <p className="text-sm text-gray-500">
-                            {stock.symbol} • {formatLabel(stock.sector)} •{" "}
-                            {formatLabel(stock.subSector || "other")} •{" "}
-                            {formatLabel(stock.stockType)}
+                            {stock.symbol}
+                            {stock.sector && ` • ${formatLabel(stock.sector)}`}
+                            {stock.subSector &&
+                              ` • ${formatLabel(stock.subSector)}`}
+                            {stock.stockType &&
+                              ` • ${formatLabel(stock.stockType)}`}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
@@ -681,7 +891,7 @@ export default function StocksPage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                         <div>
                           <p className="text-gray-500">Shares</p>
                           <p className="font-semibold">

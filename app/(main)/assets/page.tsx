@@ -6,6 +6,7 @@ import { useGoldStore } from "@/store/gold-store";
 import { useMutualFundsStore } from "@/store/mutual-funds-store";
 import { useStocksStore } from "@/store/stocks-store";
 import { useNetWorthStore } from "@/store/net-worth-store";
+import { useForexStore } from "@/store/forex-store";
 import { ExternalLink, TrendingUp } from "lucide-react";
 import {
   Card,
@@ -38,6 +39,11 @@ export default function AssetsOverviewPage() {
   const { stocks, fetchStocks, loading: stocksLoading } = useStocksStore();
   const { assets, liabilities, fetchAssets, fetchLiabilities } =
     useNetWorthStore();
+  const {
+    entries: forexEntries,
+    load: loadForex,
+    loading: forexLoading,
+  } = useForexStore();
 
   useEffect(() => {
     loadGold();
@@ -45,6 +51,7 @@ export default function AssetsOverviewPage() {
     fetchStocks();
     fetchAssets();
     fetchLiabilities();
+    loadForex();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -56,15 +63,28 @@ export default function AssetsOverviewPage() {
     const mfValue = mutualFunds.reduce((sum, f) => sum + f.currentValue, 0);
     const stockValue = stocks.reduce((sum, s) => sum + s.currentValue, 0);
 
+    // Forex value: deposits - withdrawals + P&L
+    const forexValue = forexEntries.reduce((sum, entry) => {
+      if (entry.type === "deposit") {
+        return sum + entry.amount;
+      } else if (entry.type === "withdrawal") {
+        return sum - entry.amount;
+      } else if (entry.type === "pnl") {
+        return sum + entry.amount;
+      }
+      return sum;
+    }, 0);
+
     const items = [
       { name: "Gold", value: goldValue },
       { name: "Mutual Funds", value: mfValue },
       { name: "Stocks", value: stockValue },
+      { name: "Forex", value: forexValue },
     ].filter((i) => i.value > 0);
 
     const total = items.reduce((sum, i) => sum + i.value, 0);
     return { items, total };
-  }, [holdings, mutualFunds, stocks]);
+  }, [holdings, mutualFunds, stocks, forexEntries]);
 
   const mutualFundCategories = useMemo(() => {
     const totals = mutualFunds.reduce<Record<string, number>>((acc, fund) => {
@@ -99,41 +119,42 @@ export default function AssetsOverviewPage() {
   );
   const netWorth = allocation.total + totalManualAssets - totalLiabilities;
 
-  const isLoading = goldLoading || mfLoading || stocksLoading;
+  const isLoading = goldLoading || mfLoading || stocksLoading || forexLoading;
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8 py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Asset Allocation</h1>
-        <p className="text-sm text-gray-600">
-          Combined view of your assets across gold, mutual funds, and stocks.
+    <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8 py-4">
+      <header className="mb-4">
+        <h1 className="text-xl font-bold text-gray-900">Asset Allocation</h1>
+        <p className="text-xs text-gray-600">
+          Combined view of your assets across gold, mutual funds, stocks, and
+          forex.
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
         <Card>
-          <CardHeader>
-            <CardTitle>Total Assets</CardTitle>
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-sm">Total Assets</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold">
+          <CardContent className="p-3 pt-2 text-xl font-bold">
             {format(allocation.total + totalManualAssets)}
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Categories</CardTitle>
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-sm">Categories</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold">
+          <CardContent className="p-3 pt-2 text-xl font-bold">
             {allocation.items.length}
           </CardContent>
         </Card>
         <Card className="border-2 border-blue-200 bg-blue-50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
             <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
             <TrendingUp className="h-4 w-4 text-blue-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+          <CardContent className="p-3 pt-2">
+            <div className="text-xl font-bold text-blue-600">
               {format(netWorth)}
             </div>
             <Link
@@ -146,10 +167,10 @@ export default function AssetsOverviewPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Liabilities</CardTitle>
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-sm">Liabilities</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold text-red-600">
+          <CardContent className="p-3 pt-2 text-xl font-bold text-red-600">
             {format(totalLiabilities)}
           </CardContent>
         </Card>
@@ -160,9 +181,9 @@ export default function AssetsOverviewPage() {
           <CardTitle>Allocation</CardTitle>
           <CardDescription>Distribution by current value</CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+        <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center p-3">
           {isLoading ? (
-            <div className="flex items-center justify-center py-8 w-full">
+            <div className="flex items-center justify-center py-4 w-full">
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : allocation.items.length === 0 ? (
@@ -237,7 +258,7 @@ export default function AssetsOverviewPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Card>
           <CardHeader>
             <CardTitle>Mutual Funds by Category</CardTitle>
@@ -245,7 +266,7 @@ export default function AssetsOverviewPage() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex items-center justify-center py-8">
+              <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
             ) : mutualFundCategories.length === 0 ? (
@@ -319,7 +340,7 @@ export default function AssetsOverviewPage() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex items-center justify-center py-8">
+              <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
             ) : stockCategories.length === 0 ? (

@@ -21,8 +21,8 @@ export function RecentTransactionsWidget() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg font-semibold">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2">
+        <CardTitle className="text-base font-semibold">
           Recent Transactions
         </CardTitle>
         <Link href="/transactions">
@@ -32,7 +32,7 @@ export function RecentTransactionsWidget() {
           </Button>
         </Link>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-3 pt-0">
         {loading ? (
           <div className="space-y-2">
             <TransactionSkeleton />
@@ -46,11 +46,11 @@ export function RecentTransactionsWidget() {
             description="Start by adding your first transaction"
           />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-1">
             {recentTransactions.map((transaction) => (
               <div
                 key={transaction.id}
-                className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center space-x-3">
                   <div

@@ -340,35 +340,53 @@ export function ensembleForecast(
   };
 }
 
+export interface PrepareMonthlyDataOptions {
+  /** End history at this month (YYYY-MM). Forecast will start the month after. */
+  endBeforeMonth?: string;
+}
+
 /**
  * Prepare monthly data from transactions
  */
 export function prepareMonthlyData(
   transactions: Array<{ date: string; amount: number; type: "income" | "expense" }>,
   type: "income" | "expense",
-  months: number = 12
+  months: number = 12,
+  options?: PrepareMonthlyDataOptions
 ): DataPoint[] {
-  const now = new Date();
   const monthlyData: Record<string, number> = {};
-  
-  // Initialize last N months
+  let endYear: number;
+  let endMonth: number;
+
+  if (options?.endBeforeMonth) {
+    // [YYYY, MM] e.g. "2025-12" -> end at Dec 2025, so we build months ending at 2025-12
+    const [y, m] = options.endBeforeMonth.split("-").map(Number);
+    endYear = y;
+    endMonth = m - 1; // 0-indexed
+  } else {
+    const now = new Date();
+    endYear = now.getFullYear();
+    endMonth = now.getMonth();
+  }
+
+  // Initialize last N months ending at endYear/endMonth
   for (let i = months - 1; i >= 0; i--) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const date = new Date(endYear, endMonth - i, 1);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     monthlyData[key] = 0;
   }
-  
+
   // Aggregate transactions by month
   transactions
-    .filter(t => t.type === type)
-    .forEach(t => {
+    .filter((t) => t.type === type)
+    .forEach((t) => {
       const date = new Date(t.date);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       if (key in monthlyData) {
         monthlyData[key] += t.amount;
       }
     });
-  
+
   // Convert to DataPoint array
   return Object.entries(monthlyData)
     .sort(([a], [b]) => a.localeCompare(b))

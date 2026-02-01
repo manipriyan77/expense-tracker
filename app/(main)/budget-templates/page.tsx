@@ -531,9 +531,9 @@ export default function BudgetTemplatesPage() {
       <Toaster position="top-right" />
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+          <div className="flex justify-between items-center py-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-xl font-bold text-gray-900">
                 Budget Templates
               </h1>
               <p className="text-sm text-gray-500 mt-1">
@@ -854,8 +854,8 @@ export default function BudgetTemplatesPage() {
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs defaultValue="public" className="space-y-6">
+      <main className="px-4 sm:px-6 lg:px-8 py-4">
+        <Tabs defaultValue="public" className="space-y-4">
           <TabsList>
             <TabsTrigger value="public">
               <Globe className="h-4 w-4 mr-2" />
@@ -868,16 +868,16 @@ export default function BudgetTemplatesPage() {
           </TabsList>
 
           <TabsContent value="public" className="space-y-4">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {SYSTEM_TEMPLATES.map((template) => (
                 <Card
                   key={template.id}
                   className="hover:shadow-lg transition-shadow"
                 >
-                  <CardHeader>
+                  <CardHeader className="p-3 pb-2">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <CardTitle className="text-lg">
+                        <CardTitle className="text-base">
                           {template.name}
                         </CardTitle>
                         <CardDescription className="mt-1">
@@ -890,10 +890,10 @@ export default function BudgetTemplatesPage() {
                       </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-gray-600 mb-1">Total Budget</p>
-                      <p className="text-2xl font-bold text-blue-600">
+                  <CardContent className="p-3 space-y-3">
+                    <div className="p-3 bg-blue-50 rounded-lg">
+                      <p className="text-xs text-gray-600 mb-1">Total Budget</p>
+                      <p className="text-xl font-bold text-blue-600">
                         {format(calculateTotalBudget(template.categories))}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
@@ -961,7 +961,7 @@ export default function BudgetTemplatesPage() {
                 onAction={() => setIsCreateOpen(true)}
               />
             ) : (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {userTemplates.map((template) => (
                   <Card
                     key={template.id}

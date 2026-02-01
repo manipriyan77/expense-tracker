@@ -38,6 +38,7 @@ import {
   PolarRadiusAxis,
   Radar,
   ComposedChart,
+  ReferenceLine,
 } from "recharts";
 import {
   TrendingUp,
@@ -324,7 +325,7 @@ export default function AnalyticsPage() {
     });
   }, [budgets]);
 
-  // Goal Progress Analysis
+  // Goal Progress Analysis (includes percentage for chart so small-value goals are visible)
   const goalAnalysis = useMemo(() => {
     return goals
       .filter((g) => g.status === "active")
@@ -339,6 +340,9 @@ export default function AnalyticsPage() {
           remaining,
           percentage,
           category: goal.category,
+          // For chart: use 0–100% scale so goals with small amounts (e.g. gold) are visible
+          currentPct: Math.min(percentage, 100),
+          targetPct: 100,
         };
       });
   }, [goals]);
@@ -401,7 +405,7 @@ export default function AnalyticsPage() {
     ...Array.from(new Set(transactions.map((t) => t.category))),
   ];
 
-  // Compute forecasts
+  // Compute forecasts (use last 12 months from today so we include your real data)
   const forecastData = useMemo(() => {
     if (transactions.length < 3) return null;
 
@@ -425,8 +429,8 @@ export default function AnalyticsPage() {
         break;
     }
 
-    // Combine historical and forecast data for chart
-    const historicalData = monthlyData.map((d) => ({
+    // Historical: only actuals (no predicted/lower/upper)
+    const historicalChartData = monthlyData.map((d) => ({
       date: new Date(d.date).toLocaleDateString("en-US", {
         month: "short",
         year: "2-digit",
@@ -437,6 +441,7 @@ export default function AnalyticsPage() {
       upper: null as number | null,
     }));
 
+    // Forecast: Jan 2026 onwards (predicted + confidence)
     const forecastChartData = forecast.forecasts.map((f) => ({
       date: new Date(f.date).toLocaleDateString("en-US", {
         month: "short",
@@ -450,7 +455,7 @@ export default function AnalyticsPage() {
 
     return {
       ...forecast,
-      chartData: [...historicalData, ...forecastChartData],
+      chartData: [...historicalChartData, ...forecastChartData],
       historicalData: monthlyData,
     };
   }, [transactions, forecastMethod, forecastPeriods, forecastType]);
@@ -467,9 +472,9 @@ export default function AnalyticsPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+          <div className="flex justify-between items-center py-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-xl font-bold text-gray-900">
                 Advanced Analytics
               </h1>
               <p className="text-sm text-gray-500 mt-1">
@@ -514,18 +519,18 @@ export default function AnalyticsPage() {
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Total Income
               </CardTitle>
               <TrendingUp className="h-4 w-4 text-green-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-green-600">
                 {format(statistics.income)}
               </div>
               <div className="flex items-center text-xs text-gray-600 mt-1">
@@ -549,14 +554,14 @@ export default function AnalyticsPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Total Expenses
               </CardTitle>
               <TrendingDown className="h-4 w-4 text-red-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-red-600">
                 {format(statistics.expenses)}
               </div>
               <div className="flex items-center text-xs text-gray-600 mt-1">
@@ -580,13 +585,13 @@ export default function AnalyticsPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Net Balance</CardTitle>
               <DollarSign className="h-4 w-4 text-blue-600" />
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 pt-2">
               <div
-                className={`text-2xl font-bold ${statistics.net >= 0 ? "text-green-600" : "text-red-600"}`}
+                className={`text-xl font-bold ${statistics.net >= 0 ? "text-green-600" : "text-red-600"}`}
               >
                 {format(statistics.net)}
               </div>
@@ -597,14 +602,14 @@ export default function AnalyticsPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Savings Rate
               </CardTitle>
               <Target className="h-4 w-4 text-purple-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-purple-600">
                 {statistics.savingsRate.toFixed(1)}%
               </div>
               <Progress
@@ -615,7 +620,7 @@ export default function AnalyticsPage() {
           </Card>
         </div>
 
-        <Tabs defaultValue="overview" className="space-y-6">
+        <Tabs defaultValue="overview" className="space-y-4">
           <TabsList className="grid w-full grid-cols-6 lg:w-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="trends">Trends</TabsTrigger>
@@ -626,8 +631,8 @@ export default function AnalyticsPage() {
           </TabsList>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <TabsContent value="overview" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Income vs Expenses Trend */}
               <Card>
                 <CardHeader>
@@ -848,7 +853,7 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
@@ -935,7 +940,7 @@ export default function AnalyticsPage() {
 
           {/* Categories Tab */}
           <TabsContent value="categories" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Expense Categories</CardTitle>
@@ -1012,7 +1017,7 @@ export default function AnalyticsPage() {
           <TabsContent value="budgets" className="space-y-6">
             {budgetAnalysis.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {budgetAnalysis.map((budget, idx) => (
                     <Card
                       key={idx}
@@ -1133,11 +1138,11 @@ export default function AnalyticsPage() {
             ) : (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <PieChartIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <PieChartIcon className="h-10 w-10 text-gray-400 mx-auto mb-2" />
                   <p className="text-lg font-semibold text-gray-900 mb-2">
                     No Budgets Set
                   </p>
-                  <p className="text-gray-600 mb-4">
+                  <p className="text-gray-600 mb-2 text-sm">
                     Create budgets to track your spending limits
                   </p>
                 </CardContent>
@@ -1149,7 +1154,7 @@ export default function AnalyticsPage() {
           <TabsContent value="goals" className="space-y-6">
             {goalAnalysis.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {goalAnalysis.map((goal, idx) => (
                     <Card key={idx}>
                       <CardHeader>
@@ -1200,7 +1205,12 @@ export default function AnalyticsPage() {
                     <ResponsiveContainer width="100%" height={350}>
                       <BarChart data={goalAnalysis} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis type="number" tick={{ fontSize: 12 }} />
+                        <XAxis
+                          type="number"
+                          domain={[0, 100]}
+                          tick={{ fontSize: 12 }}
+                          tickFormatter={(v) => `${v}%`}
+                        />
                         <YAxis
                           dataKey="title"
                           type="category"
@@ -1208,19 +1218,24 @@ export default function AnalyticsPage() {
                           tick={{ fontSize: 11 }}
                         />
                         <Tooltip
-                          formatter={(value: number | undefined) =>
-                            value !== undefined ? format(value) : format(0)
-                          }
+                          formatter={(value: number | undefined, name: string | undefined, props: { payload?: { current: number; target: number } }) => {
+                            const p = props.payload;
+                            const label = name ?? "";
+                            if (!p) return [value != null ? `${value.toFixed(1)}%` : "0%", label];
+                            if (name === "Current") return [`${format(p.current)} (${(value ?? 0).toFixed(1)}%)`, label];
+                            if (name === "Target") return [`${format(p.target)} (100%)`, label];
+                            return [value != null ? `${value.toFixed(1)}%` : "0%", label];
+                          }}
                         />
                         <Legend />
                         <Bar
-                          dataKey="current"
+                          dataKey="currentPct"
                           fill="#3b82f6"
                           name="Current"
                           radius={[0, 8, 8, 0]}
                         />
                         <Bar
-                          dataKey="target"
+                          dataKey="targetPct"
                           fill="#e5e7eb"
                           name="Target"
                           radius={[0, 8, 8, 0]}
@@ -1233,11 +1248,11 @@ export default function AnalyticsPage() {
             ) : (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <Target className="h-10 w-10 text-gray-400 mx-auto mb-2" />
                   <p className="text-lg font-semibold text-gray-900 mb-2">
                     No Active Goals
                   </p>
-                  <p className="text-gray-600 mb-4">
+                  <p className="text-gray-600 mb-2 text-sm">
                     Set financial goals to track your progress
                   </p>
                 </CardContent>
@@ -1259,7 +1274,7 @@ export default function AnalyticsPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Forecast Controls */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Forecast Type</Label>
                     <Select
@@ -1329,7 +1344,7 @@ export default function AnalyticsPage() {
                 {forecastData ? (
                   <>
                     {/* Forecast Insights */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <Card className="border-2">
                         <CardContent className="pt-6">
                           <div className="flex items-center justify-between">
@@ -1400,70 +1415,107 @@ export default function AnalyticsPage() {
                       </Card>
                     </div>
 
+                    {/* How to read the chart & table */}
+                    <Card className="border-2 border-slate-200 bg-slate-50">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">How to read this</CardTitle>
+                        <CardDescription className="text-sm space-y-2">
+                          <span className="block">
+                            <strong className="text-slate-700">Historical</strong> — Your real past {forecastType === "expense" ? "expenses" : "income"} (what actually happened). Shown as the blue solid line on the chart.
+                          </span>
+                          <span className="block">
+                            <strong className="text-slate-700">Forecast</strong> — What the model thinks will happen in future months. Shown as the orange dashed line.
+                          </span>
+                          <span className="block">
+                            <strong className="text-slate-700">Predicted</strong> — The single best guess for that month (e.g. we expect about ₹1,50,000).
+                          </span>
+                          <span className="block">
+                            <strong className="text-slate-700">Lower bound</strong> — The minimum we expect (worst case). <strong className="text-slate-700">Upper bound</strong> — The maximum we expect (high case). The shaded orange band on the chart is this range.
+                          </span>
+                          <span className="block">
+                            <strong className="text-slate-700">Range</strong> — How wide that band is (± value). Bigger range = more uncertainty.
+                          </span>
+                        </CardDescription>
+                      </CardHeader>
+                    </Card>
+
                     {/* Forecast Chart */}
                     <Card>
                       <CardHeader>
                         <CardTitle>Historical Data & Forecast</CardTitle>
                         <CardDescription>
-                          Blue line shows historical data, orange shows
-                          predictions with confidence intervals
+                          Blue line = your real past data. Orange dashed line = predicted future. Shaded band = lower to upper bound.
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
                         <ResponsiveContainer width="100%" height={400}>
                           <ComposedChart data={forecastData.chartData}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="date" />
-                            <YAxis />
+                            <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                            <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v))} />
                             <Tooltip
-                              formatter={(value: any) =>
-                                value != null ? format(value) : "N/A"
+                              formatter={(value: unknown) =>
+                                value != null && typeof value === "number" ? format(value) : "N/A"
                               }
                               contentStyle={{
                                 backgroundColor: "white",
-                                border: "1px solid #ccc",
+                                border: "1px solid #e5e7eb",
                               }}
+                              labelStyle={{ fontWeight: 600 }}
                             />
                             <Legend />
 
-                            {/* Confidence interval area */}
+                            {/* Confidence band: upper fill first, then lower with background to show only band between lower–upper */}
                             <Area
                               type="monotone"
                               dataKey="upper"
                               stroke="none"
                               fill="#fbbf24"
-                              fillOpacity={0.2}
+                              fillOpacity={0.25}
                               name="Upper Bound"
                             />
                             <Area
                               type="monotone"
                               dataKey="lower"
                               stroke="none"
-                              fill="#fbbf24"
-                              fillOpacity={0.2}
+                              fill="#f9fafb"
+                              fillOpacity={1}
                               name="Lower Bound"
                             />
 
-                            {/* Historical data */}
+                            {/* Historical data (blue) */}
                             <Line
                               type="monotone"
                               dataKey="actual"
                               stroke="#3b82f6"
-                              strokeWidth={3}
-                              dot={{ fill: "#3b82f6", r: 4 }}
+                              strokeWidth={2}
+                              dot={{ fill: "#3b82f6", r: 3 }}
+                              connectNulls={false}
                               name="Historical"
                             />
 
-                            {/* Forecast */}
+                            {/* Forecast (orange) */}
                             <Line
                               type="monotone"
                               dataKey="predicted"
                               stroke="#f97316"
-                              strokeWidth={3}
+                              strokeWidth={2}
                               strokeDasharray="5 5"
-                              dot={{ fill: "#f97316", r: 4 }}
+                              dot={{ fill: "#f97316", r: 3 }}
+                              connectNulls={false}
                               name="Forecast"
                             />
+
+                            {/* Vertical line at forecast start */}
+                            {forecastData.historicalData.length > 0 &&
+                              forecastData.chartData[forecastData.historicalData.length] && (
+                                <ReferenceLine
+                                  x={forecastData.chartData[forecastData.historicalData.length].date}
+                                  stroke="#94a3b8"
+                                  strokeDasharray="3 3"
+                                  label={{ value: "Forecast start", position: "top", fontSize: 11 }}
+                                />
+                              )}
                           </ComposedChart>
                         </ResponsiveContainer>
                       </CardContent>
@@ -1473,6 +1525,9 @@ export default function AnalyticsPage() {
                     <Card>
                       <CardHeader>
                         <CardTitle>Detailed Forecast</CardTitle>
+                        <CardDescription>
+                          Month-by-month numbers: predicted value, then the low–high band (lower and upper bound), then the range (±).
+                        </CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="overflow-x-auto">
@@ -1480,16 +1535,18 @@ export default function AnalyticsPage() {
                             <thead>
                               <tr className="border-b">
                                 <th className="text-left py-3 px-4">Month</th>
-                                <th className="text-right py-3 px-4">
+                                <th className="text-right py-3 px-4" title="Most likely forecast for that month">
                                   Predicted
                                 </th>
-                                <th className="text-right py-3 px-4">
+                                <th className="text-right py-3 px-4" title="Minimum expected value in the confidence interval">
                                   Lower Bound
                                 </th>
-                                <th className="text-right py-3 px-4">
+                                <th className="text-right py-3 px-4" title="Maximum expected value in the confidence interval">
                                   Upper Bound
                                 </th>
-                                <th className="text-right py-3 px-4">Range</th>
+                                <th className="text-right py-3 px-4" title="Half the width of the confidence interval (± around predicted)">
+                                  Range
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1613,7 +1670,7 @@ export default function AnalyticsPage() {
                 ) : (
                   <Card>
                     <CardContent className="py-12 text-center">
-                      <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <AlertCircle className="h-10 w-10 text-gray-400 mx-auto mb-2" />
                       <p className="text-lg font-semibold text-gray-900 mb-2">
                         Insufficient Data
                       </p>

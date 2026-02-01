@@ -36,6 +36,8 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Pencil,
+  ArrowUpDown,
 } from "lucide-react";
 import { MonthSelector } from "@/components/ui/month-selector";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
@@ -52,6 +54,8 @@ interface Transaction {
   isRecurring: boolean;
   frequency?: "daily" | "weekly" | "monthly" | "yearly";
   nextDate?: string;
+  budgetId?: string | null;
+  goalId?: string | null;
 }
 
 interface TransactionFromDB {
@@ -71,6 +75,7 @@ export default function TransactionsPage() {
   const { format } = useFormatCurrency();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
@@ -88,6 +93,10 @@ export default function TransactionsPage() {
   const [maxAmount, setMaxAmount] = useState<string>("");
   const [showFilters, setShowFilters] = useState(false);
 
+  // Sort options
+  const [sortBy, setSortBy] = useState<"date" | "amount" | "description" | "category">("date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
   useEffect(() => {
     loadTransactions();
   }, []);
@@ -104,7 +113,7 @@ export default function TransactionsPage() {
 
       // Transform the data to match the Transaction interface
       const transformedTransactions: Transaction[] = data.map(
-        (t: TransactionFromDB) => ({
+        (t: TransactionFromDB & { budget_id?: string | null; goal_id?: string | null }) => ({
           id: t.id,
           type: t.type,
           amount: t.amount,
@@ -115,6 +124,8 @@ export default function TransactionsPage() {
           isRecurring: t.is_recurring || false,
           frequency: t.frequency,
           nextDate: t.next_date,
+          budgetId: t.budget_id ?? undefined,
+          goalId: t.goal_id ?? undefined,
         }),
       );
 
@@ -128,6 +139,11 @@ export default function TransactionsPage() {
   const handleTransactionSuccess = () => {
     loadTransactions();
     setIsAddDialogOpen(false);
+    setEditingTransaction(null);
+  };
+
+  const handleEditTransaction = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
   };
 
   const handleDeleteTransaction = async (transactionId: string) => {
@@ -209,14 +225,38 @@ export default function TransactionsPage() {
     maxAmount,
   ]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  // Sorted transactions (applies sort to filtered list)
+  const sortedTransactions = useMemo(() => {
+    const list = [...filteredTransactions];
+    const mult = sortOrder === "asc" ? 1 : -1;
+    list.sort((a, b) => {
+      if (sortBy === "date") {
+        return mult * (new Date(a.date).getTime() - new Date(b.date).getTime());
+      }
+      if (sortBy === "amount") {
+        return mult * (Math.abs(a.amount) - Math.abs(b.amount));
+      }
+      if (sortBy === "description") {
+        return mult * (a.description.localeCompare(b.description, undefined, { sensitivity: "base" }));
+      }
+      if (sortBy === "category") {
+        const catCompare = (a.category || "").localeCompare(b.category || "", undefined, { sensitivity: "base" });
+        if (catCompare !== 0) return mult * catCompare;
+        return mult * (a.subtype || "").localeCompare(b.subtype || "", undefined, { sensitivity: "base" });
+      }
+      return 0;
+    });
+    return list;
+  }, [filteredTransactions, sortBy, sortOrder]);
+
+  // Pagination (based on sorted list)
+  const totalPages = Math.ceil(sortedTransactions.length / itemsPerPage);
   const paginatedTransactions = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredTransactions, currentPage, itemsPerPage]);
+    return sortedTransactions.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedTransactions, currentPage, itemsPerPage]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when filters or sort change
   useEffect(() => {
     setCurrentPage(1);
   }, [
@@ -226,6 +266,8 @@ export default function TransactionsPage() {
     filterType,
     minAmount,
     maxAmount,
+    sortBy,
+    sortOrder,
   ]);
 
   // CSV Export function
@@ -238,7 +280,7 @@ export default function TransactionsPage() {
       "Subtype",
       "Amount",
     ];
-    const rows = filteredTransactions.map((t) => [
+    const rows = sortedTransactions.map((t) => [
       new Date(t.date).toLocaleDateString(),
       t.type,
       t.description,
@@ -267,14 +309,14 @@ export default function TransactionsPage() {
     toast.success("Transactions exported to CSV!");
   };
 
-  const allTransactions = filteredTransactions;
-  const incomeTransactions = filteredTransactions.filter(
+  const allTransactions = sortedTransactions;
+  const incomeTransactions = sortedTransactions.filter(
     (t) => t.type === "income",
   );
-  const expenseTransactions = filteredTransactions.filter(
+  const expenseTransactions = sortedTransactions.filter(
     (t) => t.type === "expense",
   );
-  const recurringTransactions = filteredTransactions.filter(
+  const recurringTransactions = sortedTransactions.filter(
     (t) => t.isRecurring,
   );
 
@@ -385,15 +427,15 @@ export default function TransactionsPage() {
       <div className="min-h-screen bg-gray-50">
         <header className="bg-white shadow-sm border-b">
           <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
-              <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
+            <div className="flex justify-between items-center py-3">
+              <h1 className="text-xl font-bold text-gray-900">Transactions</h1>
             </div>
           </div>
         </header>
 
-        <main className="px-4 sm:px-6 lg:px-8 py-8">
+        <main className="px-4 sm:px-6 lg:px-8 py-4">
           {/* Month Selector */}
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-4 flex items-center justify-between">
             <MonthSelector
               selectedMonth={selectedMonth}
               onMonthChange={setSelectedMonth}
@@ -405,16 +447,16 @@ export default function TransactionsPage() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
                 <CardTitle className="text-sm font-medium">
                   Total Balance
                 </CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{format(balance)}</div>
+              <CardContent className="p-3 pt-2">
+                <div className="text-xl font-bold">{format(balance)}</div>
                 <p className="text-xs text-muted-foreground">
                   Income - Expenses
                 </p>
@@ -422,14 +464,14 @@ export default function TransactionsPage() {
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
                 <CardTitle className="text-sm font-medium">
                   Total Income
                 </CardTitle>
                 <TrendingUp className="h-4 w-4 text-green-600" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
+              <CardContent className="p-3 pt-2">
+                <div className="text-xl font-bold text-green-600">
                   {format(totalIncome)}
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -442,14 +484,14 @@ export default function TransactionsPage() {
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
                 <CardTitle className="text-sm font-medium">
                   Total Expenses
                 </CardTitle>
                 <TrendingDown className="h-4 w-4 text-red-600" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">
+              <CardContent className="p-3 pt-2">
+                <div className="text-xl font-bold text-red-600">
                   {format(totalExpenses)}
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -463,8 +505,8 @@ export default function TransactionsPage() {
           </div>
 
           {/* Actions Bar */}
-          <div className="space-y-4 mb-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="space-y-3 mb-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
               {/* Search */}
               <div className="relative w-full md:w-96">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -475,6 +517,41 @@ export default function TransactionsPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
+              </div>
+
+              {/* Sort */}
+              <div className="flex items-center gap-2 shrink-0">
+                <ArrowUpDown className="h-4 w-4 text-gray-500" />
+                <Select
+                  value={sortBy}
+                  onValueChange={(v: "date" | "amount" | "description" | "category") => setSortBy(v)}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date">Date</SelectItem>
+                    <SelectItem value="amount">Amount</SelectItem>
+                    <SelectItem value="description">Description</SelectItem>
+                    <SelectItem value="category">Category</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={sortOrder}
+                  onValueChange={(v: "asc" | "desc") => setSortOrder(v)}
+                >
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="Order" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="desc">
+                      {sortBy === "date" ? "Newest first" : sortBy === "amount" ? "High to low" : "Z → A"}
+                    </SelectItem>
+                    <SelectItem value="asc">
+                      {sortBy === "date" ? "Oldest first" : sortBy === "amount" ? "Low to high" : "A → Z"}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex gap-2 w-full md:w-auto">
@@ -507,7 +584,7 @@ export default function TransactionsPage() {
                 <Button
                   variant="outline"
                   onClick={exportToCSV}
-                  disabled={filteredTransactions.length === 0}
+                  disabled={sortedTransactions.length === 0}
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Export CSV
@@ -539,13 +616,45 @@ export default function TransactionsPage() {
                     )}
                   </DialogContent>
                 </Dialog>
+
+                {/* Edit Transaction */}
+                <Dialog
+                  open={!!editingTransaction}
+                  onOpenChange={(open) => !open && setEditingTransaction(null)}
+                >
+                  <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Edit Transaction</DialogTitle>
+                      <DialogDescription>
+                        Update this transaction
+                      </DialogDescription>
+                    </DialogHeader>
+                    {editingTransaction && (
+                      <AddTransactionForm
+                        transactionId={editingTransaction.id}
+                        onSuccess={handleTransactionSuccess}
+                        onCancel={() => setEditingTransaction(null)}
+                        initialValues={{
+                          type: editingTransaction.type,
+                          amount: String(editingTransaction.amount),
+                          description: editingTransaction.description,
+                          category: editingTransaction.category,
+                          subtype: editingTransaction.subtype ?? "",
+                          budgetId: editingTransaction.budgetId ?? "",
+                          goalId: editingTransaction.goalId ?? "",
+                          date: editingTransaction.date,
+                        }}
+                      />
+                    )}
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
 
             {/* Advanced Filters */}
             {showFilters && (
-              <Card className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="p-3">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <div>
                     <label className="text-sm font-medium mb-2 block">
                       Category
@@ -655,15 +764,15 @@ export default function TransactionsPage() {
             </TabsList>
 
             {/* All Transactions */}
-            <TabsContent value="all" className="space-y-4">
+            <TabsContent value="all" className="space-y-2">
               {paginatedTransactions.length === 0 ? (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12">
-                    <DollarSign className="h-12 w-12 text-gray-400 mb-4" />
+                    <DollarSign className="h-10 w-10 text-gray-400 mb-2" />
                     <p className="text-lg font-semibold text-gray-900 mb-2">
                       No transactions yet
                     </p>
-                    <p className="text-gray-600 mb-4">
+                    <p className="text-gray-600 mb-2 text-sm">
                       Start by adding your first transaction
                     </p>
                   </CardContent>
@@ -672,92 +781,90 @@ export default function TransactionsPage() {
                 <>
                   {paginatedTransactions.map((transaction) => (
                     <Card key={transaction.id}>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
+                      <CardContent className="p-3 py-2.5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
                             <div
-                              className={`p-3 rounded-full ${
+                              className={`shrink-0 p-2 rounded-full ${
                                 transaction.type === "income"
                                   ? "bg-green-100 text-green-600"
                                   : "bg-red-100 text-red-600"
                               }`}
                             >
                               {transaction.type === "income" ? (
-                                <TrendingUp className="h-5 w-5" />
+                                <TrendingUp className="h-4 w-4" />
                               ) : (
-                                <TrendingDown className="h-5 w-5" />
+                                <TrendingDown className="h-4 w-4" />
                               )}
                             </div>
-                            <div>
-                              <div className="flex items-center space-x-2">
-                                <p className="font-semibold text-lg">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-base truncate">
                                   {transaction.description}
                                 </p>
                                 {transaction.isRecurring && (
-                                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center space-x-1">
+                                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
                                     <Repeat className="h-3 w-3" />
                                     <span>{transaction.frequency}</span>
                                   </span>
                                 )}
                               </div>
-                              <p className="text-sm text-gray-500">
-                                {transaction.category}
-                                {transaction.subtype && (
-                                  <span className="ml-2 px-2 py-1 text-xs bg-gray-100 rounded-full">
-                                    {transaction.subtype}
+                              <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
+                                <span>
+                                  {transaction.category}
+                                  {transaction.subtype && (
+                                    <span className="ml-1 px-1.5 py-0.5 bg-gray-100 rounded-full">
+                                      {transaction.subtype}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {new Date(transaction.date).toLocaleDateString()}
+                                </span>
+                                {transaction.isRecurring && transaction.nextDate && (
+                                  <span className="text-blue-600">
+                                    Next: {new Date(transaction.nextDate).toLocaleDateString()}
                                   </span>
                                 )}
-                              </p>
-                              <div className="flex items-center space-x-4 mt-1">
-                                <div className="flex items-center space-x-1 text-xs text-gray-500">
-                                  <Calendar className="h-3 w-3" />
-                                  <span>
-                                    {new Date(
-                                      transaction.date,
-                                    ).toLocaleDateString()}
-                                  </span>
-                                </div>
-                                {transaction.isRecurring &&
-                                  transaction.nextDate && (
-                                    <div className="flex items-center space-x-1 text-xs text-blue-600">
-                                      <span>
-                                        Next:{" "}
-                                        {new Date(
-                                          transaction.nextDate,
-                                        ).toLocaleDateString()}
-                                      </span>
-                                    </div>
-                                  )}
                               </div>
                             </div>
                           </div>
-
-                          <div className="flex items-center space-x-4">
-                            <div className="text-right">
-                              <p
-                                className={`text-xl font-bold ${
-                                  transaction.type === "income"
-                                    ? "text-green-600"
-                                    : "text-red-600"
-                                }`}
-                              >
-                                {transaction.type === "income" ? "+" : "-"}
-                                {format(transaction.amount)}
-                              </p>
-                            </div>
-                            <div className="flex items-center space-x-2">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <p
+                              className={`text-base font-bold ${
+                                transaction.type === "income"
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {transaction.type === "income" ? "+" : "-"}
+                              {format(transaction.amount)}
+                            </p>
+                            <div className="flex items-center gap-1">
                               <Button
-                                variant="outline"
-                                size="sm"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-gray-500 hover:text-gray-700"
+                                onClick={() => handleEditTransaction(transaction)}
+                                title="Edit"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                                 onClick={() =>
                                   handleDeleteTransaction(transaction.id)
                                 }
                                 disabled={deleting === transaction.id}
+                                title="Delete"
                               >
                                 {deleting === transaction.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
-                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                  <Trash2 className="h-4 w-4" />
                                 )}
                               </Button>
                             </div>
@@ -768,14 +875,14 @@ export default function TransactionsPage() {
                   ))}
                   <PaginationControls
                     totalPages={totalPages}
-                    dataLength={filteredTransactions.length}
+                    dataLength={sortedTransactions.length}
                   />
                 </>
               )}
             </TabsContent>
 
             {/* Income Only */}
-            <TabsContent value="income" className="space-y-4">
+            <TabsContent value="income" className="space-y-2">
               {incomeTransactions.length === 0 ? (
                 <Card>
                   <CardContent className="py-12 text-center text-gray-500">
@@ -786,60 +893,71 @@ export default function TransactionsPage() {
                 <>
                   {getPaginatedData(incomeTransactions).map((transaction) => (
                     <Card key={transaction.id}>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <div className="p-3 rounded-full bg-green-100 text-green-600">
-                              <TrendingUp className="h-5 w-5" />
+                      <CardContent className="p-3 py-2.5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="shrink-0 p-2 rounded-full bg-green-100 text-green-600">
+                              <TrendingUp className="h-4 w-4" />
                             </div>
-                            <div>
-                              <div className="flex items-center space-x-2">
-                                <p className="font-semibold text-lg">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-base truncate">
                                   {transaction.description}
                                 </p>
                                 {transaction.isRecurring && (
-                                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center space-x-1">
+                                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
                                     <Repeat className="h-3 w-3" />
                                     <span>{transaction.frequency}</span>
                                   </span>
                                 )}
                               </div>
-                              <p className="text-sm text-gray-500">
-                                {transaction.category}
-                                {transaction.subtype && (
-                                  <span className="ml-2 px-2 py-1 text-xs bg-gray-100 rounded-full">
-                                    {transaction.subtype}
-                                  </span>
-                                )}
-                              </p>
-                              <div className="flex items-center space-x-1 text-xs text-gray-500 mt-1">
-                                <Calendar className="h-3 w-3" />
+                              <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
                                 <span>
-                                  {new Date(
-                                    transaction.date,
-                                  ).toLocaleDateString()}
+                                  {transaction.category}
+                                  {transaction.subtype && (
+                                    <span className="ml-1 px-1.5 py-0.5 bg-gray-100 rounded-full">
+                                      {transaction.subtype}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {new Date(transaction.date).toLocaleDateString()}
                                 </span>
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-4">
-                            <p className="text-xl font-bold text-green-600">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <p className="text-base font-bold text-green-600">
                               +{format(transaction.amount)}
                             </p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                handleDeleteTransaction(transaction.id)
-                              }
-                              disabled={deleting === transaction.id}
-                            >
-                              {deleting === transaction.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4 text-red-600" />
-                              )}
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-gray-500 hover:text-gray-700"
+                                onClick={() => handleEditTransaction(transaction)}
+                                title="Edit"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() =>
+                                  handleDeleteTransaction(transaction.id)
+                                }
+                                disabled={deleting === transaction.id}
+                                title="Delete"
+                              >
+                                {deleting === transaction.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </CardContent>
@@ -854,7 +972,7 @@ export default function TransactionsPage() {
             </TabsContent>
 
             {/* Expenses Only */}
-            <TabsContent value="expense" className="space-y-4">
+            <TabsContent value="expense" className="space-y-2">
               {expenseTransactions.length === 0 ? (
                 <Card>
                   <CardContent className="py-12 text-center text-gray-500">
@@ -865,60 +983,71 @@ export default function TransactionsPage() {
                 <>
                   {getPaginatedData(expenseTransactions).map((transaction) => (
                     <Card key={transaction.id}>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <div className="p-3 rounded-full bg-red-100 text-red-600">
-                              <TrendingDown className="h-5 w-5" />
+                      <CardContent className="p-3 py-2.5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="shrink-0 p-2 rounded-full bg-red-100 text-red-600">
+                              <TrendingDown className="h-4 w-4" />
                             </div>
-                            <div>
-                              <div className="flex items-center space-x-2">
-                                <p className="font-semibold text-lg">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-base truncate">
                                   {transaction.description}
                                 </p>
                                 {transaction.isRecurring && (
-                                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center space-x-1">
+                                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
                                     <Repeat className="h-3 w-3" />
                                     <span>{transaction.frequency}</span>
                                   </span>
                                 )}
                               </div>
-                              <p className="text-sm text-gray-500">
-                                {transaction.category}
-                                {transaction.subtype && (
-                                  <span className="ml-2 px-2 py-1 text-xs bg-gray-100 rounded-full">
-                                    {transaction.subtype}
-                                  </span>
-                                )}
-                              </p>
-                              <div className="flex items-center space-x-1 text-xs text-gray-500 mt-1">
-                                <Calendar className="h-3 w-3" />
+                              <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
                                 <span>
-                                  {new Date(
-                                    transaction.date,
-                                  ).toLocaleDateString()}
+                                  {transaction.category}
+                                  {transaction.subtype && (
+                                    <span className="ml-1 px-1.5 py-0.5 bg-gray-100 rounded-full">
+                                      {transaction.subtype}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {new Date(transaction.date).toLocaleDateString()}
                                 </span>
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-4">
-                            <p className="text-xl font-bold text-red-600">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <p className="text-base font-bold text-red-600">
                               -{format(transaction.amount)}
                             </p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                handleDeleteTransaction(transaction.id)
-                              }
-                              disabled={deleting === transaction.id}
-                            >
-                              {deleting === transaction.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4 text-red-600" />
-                              )}
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-gray-500 hover:text-gray-700"
+                                onClick={() => handleEditTransaction(transaction)}
+                                title="Edit"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() =>
+                                  handleDeleteTransaction(transaction.id)
+                                }
+                                disabled={deleting === transaction.id}
+                                title="Delete"
+                              >
+                                {deleting === transaction.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </CardContent>
@@ -933,7 +1062,7 @@ export default function TransactionsPage() {
             </TabsContent>
 
             {/* Recurring Only */}
-            <TabsContent value="recurring" className="space-y-4">
+            <TabsContent value="recurring" className="space-y-2">
               {recurringTransactions.length === 0 ? (
                 <Card>
                   <CardContent className="py-12 text-center text-gray-500">
@@ -945,56 +1074,56 @@ export default function TransactionsPage() {
                   {getPaginatedData(recurringTransactions).map(
                     (transaction) => (
                       <Card key={transaction.id} className="border-blue-200">
-                        <CardContent className="p-6">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
+                        <CardContent className="p-3 py-2.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
                               <div
-                                className={`p-3 rounded-full ${
+                                className={`shrink-0 p-2 rounded-full ${
                                   transaction.type === "income"
                                     ? "bg-green-100 text-green-600"
                                     : "bg-red-100 text-red-600"
                                 }`}
                               >
                                 {transaction.type === "income" ? (
-                                  <TrendingUp className="h-5 w-5" />
+                                  <TrendingUp className="h-4 w-4" />
                                 ) : (
-                                  <TrendingDown className="h-5 w-5" />
+                                  <TrendingDown className="h-4 w-4" />
                                 )}
                               </div>
-                              <div>
-                                <div className="flex items-center space-x-2">
-                                  <p className="font-semibold text-lg">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-semibold text-base truncate">
                                     {transaction.description}
                                   </p>
-                                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center space-x-1">
+                                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
                                     <Repeat className="h-3 w-3" />
                                     <span>{transaction.frequency}</span>
                                   </span>
                                 </div>
-                                <p className="text-sm text-gray-500">
-                                  {transaction.category}
-                                  {transaction.subtype && (
-                                    <span className="ml-2 px-2 py-1 text-xs bg-gray-100 rounded-full">
-                                      {transaction.subtype}
-                                    </span>
-                                  )}
-                                </p>
-                                {transaction.nextDate && (
-                                  <div className="flex items-center space-x-1 text-xs text-blue-600 mt-1">
-                                    <Calendar className="h-3 w-3" />
-                                    <span>
+                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
+                                  <span>
+                                    {transaction.category}
+                                    {transaction.subtype && (
+                                      <span className="ml-1 px-1.5 py-0.5 bg-gray-100 rounded-full">
+                                        {transaction.subtype}
+                                      </span>
+                                    )}
+                                  </span>
+                                  {transaction.nextDate && (
+                                    <span className="text-blue-600 flex items-center gap-1">
+                                      <Calendar className="h-3 w-3" />
                                       Next:{" "}
                                       {new Date(
                                         transaction.nextDate,
                                       ).toLocaleDateString()}
                                     </span>
-                                  </div>
-                                )}
+                                  )}
+                                </div>
                               </div>
                             </div>
-                            <div className="flex items-center space-x-4">
+                            <div className="flex items-center gap-2 shrink-0">
                               <p
-                                className={`text-xl font-bold ${
+                                className={`text-base font-bold ${
                                   transaction.type === "income"
                                     ? "text-green-600"
                                     : "text-red-600"
@@ -1003,20 +1132,33 @@ export default function TransactionsPage() {
                                 {transaction.type === "income" ? "+" : "-"}
                                 {format(transaction.amount)}
                               </p>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  handleDeleteTransaction(transaction.id)
-                                }
-                                disabled={deleting === transaction.id}
-                              >
-                                {deleting === transaction.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4 text-red-600" />
-                                )}
-                              </Button>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-gray-500 hover:text-gray-700"
+                                  onClick={() => handleEditTransaction(transaction)}
+                                  title="Edit"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() =>
+                                    handleDeleteTransaction(transaction.id)
+                                  }
+                                  disabled={deleting === transaction.id}
+                                  title="Delete"
+                                >
+                                  {deleting === transaction.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </CardContent>

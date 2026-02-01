@@ -744,10 +744,10 @@ export default function DebtTrackerPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+          <div className="flex justify-between items-center py-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Debt Tracker</h1>
-              <p className="text-sm text-gray-500 mt-1">
+              <h1 className="text-xl font-bold text-gray-900">Debt Tracker</h1>
+              <p className="text-xs text-gray-500 mt-1">
                 Manage and pay off your debts strategically
               </p>
             </div>
@@ -945,16 +945,16 @@ export default function DebtTrackerPage() {
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-4 mb-8">
+        <div className="grid gap-3 md:grid-cols-4 mb-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Total Debt</CardTitle>
               <AlertCircle className="h-4 w-4 text-red-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-red-600">
                 {format(totalDebt)}
               </div>
               <p className="text-xs text-gray-500 mt-1">
@@ -964,12 +964,12 @@ export default function DebtTrackerPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Min Payment</CardTitle>
               <Calendar className="h-4 w-4 text-gray-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold">
                 {format(totalMinPayment)}
               </div>
               <p className="text-xs text-gray-500 mt-1">Per month</p>
@@ -977,14 +977,14 @@ export default function DebtTrackerPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Avg Interest Rate
               </CardTitle>
               <TrendingDown className="h-4 w-4 text-amber-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold">
                 {avgInterestRate.toFixed(1)}%
               </div>
               <p className="text-xs text-gray-500 mt-1">
@@ -994,14 +994,14 @@ export default function DebtTrackerPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Debt-Free In
               </CardTitle>
               <Target className="h-4 w-4 text-blue-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">48 months</div>
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-blue-600">48 months</div>
               <p className="text-xs text-gray-500 mt-1">
                 With current payments
               </p>
@@ -1010,9 +1010,9 @@ export default function DebtTrackerPage() {
         </div>
 
         {/* Payoff Progress Chart */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Debt Payoff Progress</CardTitle>
+        <Card className="mb-4">
+          <CardHeader className="p-3 pb-2">
+            <CardTitle className="text-base">Debt Payoff Progress</CardTitle>
             <CardDescription>
               Your debt reduction over the past 6 months
             </CardDescription>

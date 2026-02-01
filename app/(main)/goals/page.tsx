@@ -360,8 +360,8 @@ export default function GoalsPage() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">Goals Tracker</h1>
+          <div className="flex justify-between items-center py-3">
+            <h1 className="text-xl font-bold text-gray-900">Goals Tracker</h1>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -633,29 +633,29 @@ export default function GoalsPage() {
         </DialogContent>
       </Dialog>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Total Goals</CardTitle>
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalGoals}</div>
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold">{totalGoals}</div>
               <p className="text-xs text-muted-foreground">All goals</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">
                 Active Goals
               </CardTitle>
               <Circle className="h-4 w-4 text-blue-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-blue-600">
                 {activeGoals}
               </div>
               <p className="text-xs text-muted-foreground">In progress</p>
@@ -663,12 +663,12 @@ export default function GoalsPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Completed</CardTitle>
               <CheckCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-green-600">
                 {completedGoals}
               </div>
               <p className="text-xs text-muted-foreground">Achieved</p>
@@ -676,12 +676,12 @@ export default function GoalsPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Progress</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold">
                 {format(totalCurrentAmount)}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -693,16 +693,16 @@ export default function GoalsPage() {
 
         {/* Goals List */}
         <Card>
-          <CardHeader>
-            <CardTitle>Your Goals</CardTitle>
-            <CardDescription>
+          <CardHeader className="p-3 pb-2">
+            <CardTitle className="text-base">Your Goals</CardTitle>
+            <CardDescription className="text-sm">
               Track your progress towards financial goals
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
+          <CardContent className="p-3">
+            <div className="space-y-4">
               {goals.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">
+                <p className="text-center text-gray-500 py-4 text-sm">
                   No goals yet. Add your first goal above!
                 </p>
               ) : (
@@ -717,7 +717,7 @@ export default function GoalsPage() {
                   return (
                     <div
                       key={goal.id}
-                      className={`border rounded-lg p-6 space-y-4 hover:shadow-lg transition-shadow cursor-pointer ${
+                      className={`border rounded-lg p-4 space-y-3 hover:shadow-lg transition-shadow cursor-pointer ${
                         probability.status === "at-risk"
                           ? "border-orange-200 bg-orange-50"
                           : probability.status === "unlikely"

@@ -90,12 +90,17 @@ export default function ForexPage() {
         totalPnl += e.amount;
       }
     }
+
+    // Calculate total balance: deposits + P&L - withdrawals
+    const totalBalance = totalDeposits + totalPnl - totalProfitWithdrawn;
+
     return {
       totalDeposits,
       totalProfitWithdrawn,
       totalHandlerShare,
       totalNetWithdrawals: totalProfitWithdrawn - totalHandlerShare,
       totalPnl,
+      totalBalance,
     };
   }, [entries]);
 
@@ -166,11 +171,11 @@ export default function ForexPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8 py-8">
-      <header className="mb-6 flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8 py-4">
+      <header className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Forex</h1>
-          <p className="text-sm text-gray-600">
+          <h1 className="text-xl font-bold text-gray-900">Forex</h1>
+          <p className="text-xs text-gray-600">
             Track deposits, monthly profit/loss, withdrawals, and the share paid
             to your account handler.
           </p>
@@ -315,29 +320,41 @@ export default function ForexPage() {
         </Dialog>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Total Deposits</CardTitle>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 mb-4">
+        <Card className="border-2 border-blue-200 bg-blue-50">
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-sm text-blue-900">Current Balance</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold text-green-600">
+          <CardContent
+            className={`p-3 pt-2 text-xl font-bold ${
+              totals.totalBalance >= 0 ? "text-green-600" : "text-red-600"
+            }`}
+          >
+            {format(totals.totalBalance)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-sm">Total Deposits</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 pt-2 text-xl font-bold text-green-600">
             {format(totals.totalDeposits)}
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Total Profit Withdrawn</CardTitle>
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-sm">Total Profit Withdrawn</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold text-blue-600">
+          <CardContent className="p-3 pt-2 text-xl font-bold text-blue-600">
             {format(totals.totalProfitWithdrawn)}
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Total P&amp;L</CardTitle>
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-sm">Total P&amp;L</CardTitle>
           </CardHeader>
           <CardContent
-            className={`text-2xl font-bold ${
+            className={`p-3 pt-2 text-xl font-bold ${
               totals.totalPnl >= 0 ? "text-green-600" : "text-red-600"
             }`}
           >
@@ -345,33 +362,33 @@ export default function ForexPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Handler Share</CardTitle>
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-sm">Handler Share</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold text-amber-600">
+          <CardContent className="p-3 pt-2 text-xl font-bold text-amber-600">
             {format(totals.totalHandlerShare)}
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Your Net (Withdrawals)</CardTitle>
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-sm">Your Net (Withdrawals)</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold text-indigo-600">
+          <CardContent className="p-3 pt-2 text-xl font-bold text-indigo-600">
             {format(totals.totalNetWithdrawals)}
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>History</CardTitle>
-          <p className="text-sm text-gray-500">
+        <CardHeader className="p-3 pb-2">
+          <CardTitle className="text-base">History</CardTitle>
+          <p className="text-xs text-gray-500">
             Deposits, profit/loss, and withdrawals with handler share breakdown
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3">
           {loading ? (
-            <div className="flex justify-center py-12">
+            <div className="flex justify-center py-6">
               <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
             </div>
           ) : sortedEntries.length === 0 ? (

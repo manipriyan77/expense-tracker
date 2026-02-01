@@ -110,11 +110,11 @@ export default function GoldPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8 py-8">
-      <header className="mb-6 flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8 py-4">
+      <header className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gold Holdings</h1>
-          <p className="text-sm text-gray-600">
+          <h1 className="text-xl font-bold text-gray-900">Gold Holdings</h1>
+          <p className="text-xs text-gray-600">
             Track physical gold, ETFs, or sovereign gold bonds. Values persist
             locally in your browser.
           </p>
@@ -270,7 +270,7 @@ export default function GoldPage() {
         </Dialog>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
         <Card>
           <CardHeader>
             <CardTitle>Total Gold</CardTitle>
@@ -315,7 +315,7 @@ export default function GoldPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-4">
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : holdings.length === 0 ? (
@@ -332,7 +332,7 @@ export default function GoldPage() {
               return (
                 <div
                   key={holding.id}
-                  className="border rounded-lg p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                  className="border rounded-lg p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
                 >
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-full bg-amber-100 text-amber-700">
@@ -350,7 +350,7 @@ export default function GoldPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-6 text-sm">
+                  <div className="flex flex-wrap gap-3 text-sm">
                     <div>
                       <p className="text-gray-500">Invested</p>
                       <p className="font-semibold">{format(invested)}</p>

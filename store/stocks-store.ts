@@ -4,15 +4,15 @@ export interface Stock {
   id: string;
   name: string;
   symbol: string;
-  stockType: "large_cap" | "mid_cap" | "small_cap" | "etf" | "other";
+  stockType?: "large_cap" | "mid_cap" | "small_cap" | "etf" | "other" | null;
   shares: number;
   avgPurchasePrice: number;
   currentPrice: number;
   investedAmount: number;
   currentValue: number;
   purchaseDate: string;
-  sector: string;
-  subSector?: string;
+  sector?: string | null;
+  subSector?: string | null;
   user_id: string;
   created_at: string;
   updated_at: string;
@@ -23,7 +23,9 @@ interface StocksState {
   loading: boolean;
   error: string | null;
   fetchStocks: () => Promise<void>;
-  addStock: (stock: Omit<Stock, "id" | "user_id" | "created_at" | "updated_at">) => Promise<void>;
+  addStock: (
+    stock: Omit<Stock, "id" | "user_id" | "created_at" | "updated_at">,
+  ) => Promise<void>;
   updateStock: (id: string, updates: Partial<Stock>) => Promise<void>;
   deleteStock: (id: string) => Promise<void>;
 }
@@ -43,7 +45,7 @@ export const useStocksStore = create<StocksState>((set) => ({
       }
 
       const data = await response.json();
-      
+
       // Transform snake_case to camelCase
       const transformedStocks = data.map((stock: any) => ({
         id: stock.id,
@@ -62,11 +64,15 @@ export const useStocksStore = create<StocksState>((set) => ({
         created_at: stock.created_at,
         updated_at: stock.updated_at,
       }));
-      
+
       set({ stocks: transformedStocks, loading: false });
     } catch (error) {
       console.error("Error fetching stocks:", error);
-      set({ error: error instanceof Error ? error.message : "Failed to fetch stocks", loading: false });
+      set({
+        error:
+          error instanceof Error ? error.message : "Failed to fetch stocks",
+        loading: false,
+      });
     }
   },
 
@@ -87,7 +93,7 @@ export const useStocksStore = create<StocksState>((set) => ({
       }
 
       const data = await response.json();
-      
+
       // Transform snake_case to camelCase
       const transformedStock = {
         id: data.id,
@@ -106,14 +112,17 @@ export const useStocksStore = create<StocksState>((set) => ({
         created_at: data.created_at,
         updated_at: data.updated_at,
       };
-      
+
       set((state) => ({
         stocks: [transformedStock, ...state.stocks],
         loading: false,
       }));
     } catch (error) {
       console.error("Error adding stock:", error);
-      set({ error: error instanceof Error ? error.message : "Failed to add stock", loading: false });
+      set({
+        error: error instanceof Error ? error.message : "Failed to add stock",
+        loading: false,
+      });
     }
   },
 
@@ -134,7 +143,7 @@ export const useStocksStore = create<StocksState>((set) => ({
       }
 
       const data = await response.json();
-      
+
       // Transform snake_case to camelCase
       const transformedStock = {
         id: data.id,
@@ -153,16 +162,20 @@ export const useStocksStore = create<StocksState>((set) => ({
         created_at: data.created_at,
         updated_at: data.updated_at,
       };
-      
+
       set((state) => ({
         stocks: state.stocks.map((stock) =>
-          stock.id === id ? transformedStock : stock
+          stock.id === id ? transformedStock : stock,
         ),
         loading: false,
       }));
     } catch (error) {
       console.error("Error updating stock:", error);
-      set({ error: error instanceof Error ? error.message : "Failed to update stock", loading: false });
+      set({
+        error:
+          error instanceof Error ? error.message : "Failed to update stock",
+        loading: false,
+      });
     }
   },
 
@@ -184,7 +197,11 @@ export const useStocksStore = create<StocksState>((set) => ({
       }));
     } catch (error) {
       console.error("Error deleting stock:", error);
-      set({ error: error instanceof Error ? error.message : "Failed to delete stock", loading: false });
+      set({
+        error:
+          error instanceof Error ? error.message : "Failed to delete stock",
+        loading: false,
+      });
     }
   },
 }));

@@ -184,12 +184,4 @@ CREATE TRIGGER update_budgets_updated_at BEFORE
 UPDATE ON budgets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_forex_entries_updated_at BEFORE
 UPDATE ON forex_entries FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
--- Add constraint to ensure budget_id is mandatory for expense transactions
-ALTER TABLE transactions
-ADD CONSTRAINT transactions_expense_budget_check CHECK (
-    type = 'income'
-    OR (
-      type = 'expense'
-      AND budget_id IS NOT NULL
-    )
-  );
+-- budget_id is optional for expense transactions (allows one-off expenses, Loan EMI, etc.)

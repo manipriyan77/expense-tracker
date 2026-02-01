@@ -36,10 +36,14 @@ import {
   Trophy,
   CreditCard,
   CalendarDays,
+  Wallet,
+  PieChart,
 } from "lucide-react";
 import { useTransactionsStore } from "@/store/transactions-store";
 import { useGoalsStore } from "@/store/goals-store";
 import { useBudgetsStore } from "@/store/budgets-store";
+import { useNetWorthStore } from "@/store/net-worth-store";
+import { useDebtTrackerStore } from "@/store/debt-tracker-store";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { RecentTransactionsWidget } from "@/components/dashboard/RecentTransactionsWidget";
 import { QuickAddButton } from "@/components/QuickAddButton";
@@ -57,6 +61,8 @@ export default function Dashboard() {
     useTransactionsStore();
   const { goals, fetchGoals } = useGoalsStore();
   const { budgets, fetchBudgets } = useBudgetsStore();
+  const { assets, fetchAssets, fetchLiabilities } = useNetWorthStore();
+  const { debts, fetchDebts } = useDebtTrackerStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -64,6 +70,9 @@ export default function Dashboard() {
     fetchTransactions();
     fetchGoals();
     fetchBudgets();
+    fetchAssets();
+    fetchLiabilities();
+    fetchDebts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -91,11 +100,39 @@ export default function Dashboard() {
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
 
-  // Projected month-end balance
-  const dailyAvgExpense =
-    daysPassed > 0 ? currentMonthExpenses / daysPassed : 0;
+  // Daily spending totals (per calendar day) for current month
+  const dailyExpenseTotals = useMemo(() => {
+    const expenseTx = currentMonthTransactions.filter(
+      (t) => t.type === "expense",
+    );
+    const byDay: Record<string, number> = {};
+    expenseTx.forEach((t) => {
+      const day = t.date;
+      byDay[day] = (byDay[day] ?? 0) + t.amount;
+    });
+    return Object.values(byDay);
+  }, [currentMonthTransactions]);
+
+  // Median of daily totals (robust to single-day spikes like split expenses)
+  const median = (arr: number[]) => {
+    if (arr.length === 0) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0
+      ? sorted[mid]!
+      : (sorted[mid - 1]! + sorted[mid]!) / 2;
+  };
+
+  const typicalDailySpend =
+    dailyExpenseTotals.length >= 2
+      ? median(dailyExpenseTotals)
+      : daysPassed > 0
+      ? currentMonthExpenses / daysPassed
+      : 0;
+
+  // Projected month-end balance (use typical daily spend to avoid spike days skewing)
   const projectedMonthEndExpenses =
-    currentMonthExpenses + dailyAvgExpense * daysRemaining;
+    currentMonthExpenses + typicalDailySpend * daysRemaining;
   const projectedMonthEndBalance =
     currentMonthIncome - projectedMonthEndExpenses;
 
@@ -126,7 +163,11 @@ export default function Dashboard() {
       if (Math.abs(expenseChange) > 15) {
         insightsList.push({
           type: expenseChange > 0 ? "warning" : "success",
-          message: `You&apos;ve ${expenseChange > 0 ? "spent" : "saved"} ${Math.abs(expenseChange).toFixed(0)}% ${expenseChange > 0 ? "more" : "less"} this month compared to last month`,
+          message: `You&apos;ve ${
+            expenseChange > 0 ? "spent" : "saved"
+          } ${Math.abs(expenseChange).toFixed(0)}% ${
+            expenseChange > 0 ? "more" : "less"
+          } this month compared to last month`,
           link: "/analytics",
         });
       }
@@ -143,7 +184,9 @@ export default function Dashboard() {
     if (overspendingBudgets.length > 0) {
       insightsList.push({
         type: "warning",
-        message: `${overspendingBudgets.length} budget${overspendingBudgets.length > 1 ? "s" : ""} approaching limit`,
+        message: `${overspendingBudgets.length} budget${
+          overspendingBudgets.length > 1 ? "s" : ""
+        } approaching limit`,
         link: "/budgets",
       });
     }
@@ -158,14 +201,16 @@ export default function Dashboard() {
     if (nearCompletionGoals.length > 0) {
       insightsList.push({
         type: "success",
-        message: `${nearCompletionGoals.length} goal${nearCompletionGoals.length > 1 ? "s" : ""} nearly complete!`,
+        message: `${nearCompletionGoals.length} goal${
+          nearCompletionGoals.length > 1 ? "s" : ""
+        } nearly complete!`,
         link: "/goals",
       });
     }
 
-    // Spending rate warning
-    if (daysPassed > 0 && dailyAvgExpense > 0) {
-      const projectedMonthly = dailyAvgExpense * daysInMonth;
+    // Spending rate warning (uses typical daily spend so one-off big days don't skew)
+    if (daysPassed > 0 && typicalDailySpend > 0) {
+      const projectedMonthly = typicalDailySpend * daysInMonth;
       if (projectedMonthly > currentMonthIncome * 1.1) {
         insightsList.push({
           type: "warning",
@@ -186,7 +231,7 @@ export default function Dashboard() {
     currentMonthIncome,
     daysPassed,
     daysInMonth,
-    dailyAvgExpense,
+    typicalDailySpend,
     currentMonth,
     currentYear,
   ]);
@@ -286,11 +331,11 @@ export default function Dashboard() {
         {/* Header */}
         <header className="bg-white shadow-sm border-b sticky top-0 z-10">
           <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
+            <div className="flex justify-between items-center py-3">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-                <p className="text-sm text-gray-500">
-                  Welcome back! Here's your financial overview
+                <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
+                <p className="text-xs text-gray-500">
+                  Welcome back! Here&apos;s your financial overview
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -321,27 +366,27 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <main className="px-4 sm:px-6 lg:px-8 py-8">
+        <main className="px-4 sm:px-6 lg:px-8 py-4">
           {/* Insights Section */}
           {insights.length > 0 && (
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Lightbulb className="h-5 w-5 text-yellow-500" />
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-yellow-500" />
                 Insights
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {insights.map((insight, idx) => (
                   <Card
                     key={idx}
-                    className={`${
+                    className={`py-1 ${
                       insight.type === "warning"
                         ? "border-orange-200 bg-orange-50"
                         : insight.type === "success"
-                          ? "border-green-200 bg-green-50"
-                          : "border-blue-200 bg-blue-50"
+                        ? "border-green-200 bg-green-50"
+                        : "border-blue-200 bg-blue-50"
                     }`}
                   >
-                    <CardContent className="p-4">
+                    <CardContent className="p-3">
                       <div className="flex items-start gap-3">
                         {insight.type === "warning" ? (
                           <AlertCircle className="h-5 w-5 text-orange-600 shrink-0 mt-0.5" />
@@ -373,19 +418,19 @@ export default function Dashboard() {
           )}
 
           {/* Financial Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Card className="py-2 hover:shadow-md transition-shadow cursor-pointer">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
                     <CardTitle className="text-sm font-medium">
                       Total Balance
                     </CardTitle>
                     <DollarSign className="h-4 w-4 text-blue-600" />
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-3 pt-2">
                     <div
-                      className={`text-2xl font-bold ${
+                      className={`text-xl font-bold ${
                         balance >= 0 ? "text-blue-600" : "text-red-600"
                       }`}
                     >
@@ -398,42 +443,44 @@ export default function Dashboard() {
               <TooltipContent>Your net balance for all time</TooltipContent>
             </Tooltip>
 
-            {/* Projected Month-End Balance */}
-            <Card className="border-2 border-purple-200 bg-purple-50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Projected Month-End
-                </CardTitle>
-                <CalendarIcon className="h-4 w-4 text-purple-600" />
-              </CardHeader>
-              <CardContent>
-                <div
-                  className={`text-2xl font-bold ${
-                    projectedMonthEndBalance >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }`}
-                >
-                  {format(projectedMonthEndBalance)}
-                </div>
-                <p className="text-xs text-gray-500">
-                  Based on current spending rate
-                </p>
-              </CardContent>
-            </Card>
+            {/* Projected Month-End Balance - hidden for now */}
+            {false && (
+              <Card className="py-2 border-2 border-purple-200 bg-purple-50">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Projected Month-End
+                  </CardTitle>
+                  <CalendarIcon className="h-4 w-4 text-purple-600" />
+                </CardHeader>
+                <CardContent>
+                  <div
+                    className={`text-2xl font-bold ${
+                      projectedMonthEndBalance >= 0
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {format(projectedMonthEndBalance)}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Based on typical daily spend (ignores one-off spike days)
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <Card className="py-2 cursor-pointer hover:shadow-md transition-shadow">
                   <Link href="/transactions">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
                       <CardTitle className="text-sm font-medium">
                         Total Income
                       </CardTitle>
                       <TrendingUp className="h-4 w-4 text-green-600" />
                     </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-green-600">
+                    <CardContent className="p-3 pt-2">
+                      <div className="text-xl font-bold text-green-600">
                         {format(totalIncome)}
                       </div>
                       <p className="text-xs text-gray-500 flex items-center">
@@ -451,16 +498,16 @@ export default function Dashboard() {
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <Card className="cursor-pointer py-2 hover:shadow-md transition-shadow">
                   <Link href="/transactions">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
                       <CardTitle className="text-sm font-medium">
                         Total Expenses
                       </CardTitle>
                       <TrendingDown className="h-4 w-4 text-red-600" />
                     </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-red-600">
+                    <CardContent className="p-3 pt-2">
+                      <div className="text-xl font-bold text-red-600">
                         {format(totalExpenses)}
                       </div>
                       <p className="text-xs text-gray-500 flex items-center">
@@ -480,14 +527,14 @@ export default function Dashboard() {
               <TooltipTrigger asChild>
                 <Card className="cursor-pointer hover:shadow-md transition-shadow">
                   <Link href="/transactions">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
                       <CardTitle className="text-sm font-medium">
                         Transactions
                       </CardTitle>
                       <CalendarIcon className="h-4 w-4 text-purple-600" />
                     </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-purple-600">
+                    <CardContent className="p-3 pt-2">
+                      <div className="text-xl font-bold text-purple-600">
                         {transactions.length}
                       </div>
                       <p className="text-xs text-gray-500 flex items-center">
@@ -503,16 +550,16 @@ export default function Dashboard() {
           </div>
 
           {/* Quick Access Section */}
-          <div className="mb-8">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
               Quick Access
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <Link href="/goals">
-                <Card className="cursor-pointer hover:shadow-md transition-shadow">
-                  <CardContent className="flex items-center space-x-4 p-6">
-                    <div className="p-3 rounded-full bg-blue-100">
-                      <TargetIcon className="h-6 w-6 text-blue-600" />
+                <Card className="py-2 cursor-pointer hover:shadow-md transition-shadow">
+                  <CardContent className="flex items-center space-x-3 p-4">
+                    <div className="p-2 rounded-full bg-blue-100">
+                      <TargetIcon className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
                       <h4 className="font-semibold">Goals</h4>
@@ -525,10 +572,10 @@ export default function Dashboard() {
               </Link>
 
               <Link href="/budgets">
-                <Card className="cursor-pointer hover:shadow-md transition-shadow">
-                  <CardContent className="flex items-center space-x-4 p-6">
-                    <div className="p-3 rounded-full bg-purple-100">
-                      <CreditCard className="h-6 w-6 text-purple-600" />
+                <Card className="cursor-pointer py-2 hover:shadow-md transition-shadow">
+                  <CardContent className="flex items-center space-x-3 p-4">
+                    <div className="p-2 rounded-full bg-purple-100">
+                      <CreditCard className="h-5 w-5 text-purple-600" />
                     </div>
                     <div>
                       <h4 className="font-semibold">Budgets</h4>
@@ -541,10 +588,10 @@ export default function Dashboard() {
               </Link>
 
               <Link href="/savings-challenges">
-                <Card className="cursor-pointer hover:shadow-md transition-shadow">
-                  <CardContent className="flex items-center space-x-4 p-6">
-                    <div className="p-3 rounded-full bg-green-100">
-                      <Trophy className="h-6 w-6 text-green-600" />
+                <Card className="cursor-pointer py-2 hover:shadow-md transition-shadow">
+                  <CardContent className="flex items-center space-x-3 p-4">
+                    <div className="p-2 rounded-full bg-green-100">
+                      <Trophy className="h-5 w-5 text-green-600" />
                     </div>
                     <div>
                       <h4 className="font-semibold">Challenges</h4>
@@ -555,10 +602,10 @@ export default function Dashboard() {
               </Link>
 
               <Link href="/calendar">
-                <Card className="cursor-pointer hover:shadow-md transition-shadow">
-                  <CardContent className="flex items-center space-x-4 p-6">
-                    <div className="p-3 rounded-full bg-orange-100">
-                      <CalendarDays className="h-6 w-6 text-orange-600" />
+                <Card className="cursor-pointer py-2 hover:shadow-md transition-shadow">
+                  <CardContent className="flex items-center space-x-3 p-4">
+                    <div className="p-2 rounded-full bg-orange-100">
+                      <CalendarDays className="h-5 w-5 text-orange-600" />
                     </div>
                     <div>
                       <h4 className="font-semibold">Calendar</h4>
@@ -572,18 +619,18 @@ export default function Dashboard() {
 
           {/* Goal ETAs */}
           {goalETAs.length > 0 && (
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <TargetIcon className="h-5 w-5 text-blue-600" />
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <TargetIcon className="h-4 w-4 text-blue-600" />
                 Goal Completion Estimates
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {goalETAs.map(({ goal, monthsRemaining, remaining }) => (
                   <Card
                     key={goal.id}
                     className="hover:shadow-md transition-shadow"
                   >
-                    <CardContent className="p-4">
+                    <CardContent className="p-3">
                       <div className="flex items-start justify-between mb-2">
                         <h4 className="font-semibold text-sm">{goal.title}</h4>
                         <Link href="/goals">
@@ -624,8 +671,188 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Assets */}
+          {assets.length > 0 && (
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-green-600" />
+                Assets
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {assets.slice(0, 6).map((asset) => (
+                  <Link key={asset.id} href="/net-worth">
+                    <Card className="hover:shadow-md transition-shadow h-full">
+                      <CardContent className="p-3">
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-semibold text-sm">
+                            {asset.name}
+                          </h4>
+                          <ArrowRight className="h-4 w-4 text-gray-400 hover:text-green-600 shrink-0" />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs text-gray-600">
+                            <span>Current value</span>
+                            <span className="font-semibold text-green-600">
+                              {format(asset.value)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-600 capitalize">
+                              {asset.type.replace("_", " ")}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                            <div
+                              className="bg-green-600 h-2 rounded-full transition-all"
+                              style={{ width: "100%" }}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Debts */}
+          {debts.length > 0 && (
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-red-600" />
+                Debts
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {debts.slice(0, 6).map((debt) => {
+                  const paidOffPct =
+                    debt.original_amount > 0
+                      ? Math.min(
+                          100,
+                          ((debt.original_amount - debt.balance) /
+                            debt.original_amount) *
+                            100,
+                        )
+                      : 0;
+                  return (
+                    <Link key={debt.id} href="/debt-tracker">
+                      <Card className="hover:shadow-md transition-shadow h-full">
+                        <CardContent className="p-3">
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-semibold text-sm">
+                              {debt.name}
+                            </h4>
+                            <ArrowRight className="h-4 w-4 text-gray-400 hover:text-red-600 shrink-0" />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs text-gray-600">
+                              <span>Remaining</span>
+                              <span className="font-semibold text-red-600">
+                                {format(debt.balance)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-600">Est. payoff</span>
+                              <span className="font-semibold text-blue-600">
+                                {debt.months_remaining != null
+                                  ? debt.months_remaining === 1
+                                    ? "This month"
+                                    : `${debt.months_remaining} months`
+                                  : "—"}
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                              <div
+                                className="bg-red-600 h-2 rounded-full transition-all"
+                                style={{
+                                  width: `${paidOffPct}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Budgets */}
+          {budgets.length > 0 && (
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <PieChart className="h-4 w-4 text-amber-600" />
+                Budgets
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {budgets.slice(0, 6).map((budget) => {
+                  const limit = Number(budget.limit_amount) || 1;
+                  const spent = Number(budget.spent_amount) || 0;
+                  const pct = Math.min(100, (spent / limit) * 100);
+                  const remaining = Math.max(0, limit - spent);
+                  return (
+                    <Link key={budget.id} href="/budgets">
+                      <Card className="hover:shadow-md transition-shadow h-full">
+                        <CardContent className="p-3">
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-semibold text-sm">
+                              {budget.category}
+                              {budget.subtype && (
+                                <span className="text-gray-500 font-normal">
+                                  {" "}
+                                  → {budget.subtype}
+                                </span>
+                              )}
+                            </h4>
+                            <ArrowRight className="h-4 w-4 text-gray-400 hover:text-amber-600 shrink-0" />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs text-gray-600">
+                              <span>Remaining</span>
+                              <span className="font-semibold">
+                                {format(remaining)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-600">Used</span>
+                              <span
+                                className={`font-semibold ${
+                                  pct >= 100
+                                    ? "text-red-600"
+                                    : pct >= 80
+                                    ? "text-amber-600"
+                                    : "text-blue-600"
+                                }`}
+                              >
+                                {pct.toFixed(0)}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                              <div
+                                className={`h-2 rounded-full transition-all ${
+                                  pct >= 100
+                                    ? "bg-red-600"
+                                    : pct >= 80
+                                    ? "bg-amber-600"
+                                    : "bg-amber-500"
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Recent Transactions Widget */}
-          <div className="mb-8">
+          <div className="mb-4">
             <RecentTransactionsWidget />
           </div>
         </main>
