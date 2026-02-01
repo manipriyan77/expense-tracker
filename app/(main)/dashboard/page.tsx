@@ -330,20 +330,21 @@ export default function Dashboard() {
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <header className="bg-white shadow-sm border-b sticky top-0 z-10">
-          <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-3">
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
-                <p className="text-xs text-gray-500">
+          <div className="px-3 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-3 gap-2 min-w-0">
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">Dashboard</h1>
+                <p className="text-xs text-gray-500 hidden sm:block">
                   Welcome back! Here&apos;s your financial overview
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-8 w-8 sm:h-9 sm:w-9"
                       onClick={() => setShowShortcuts(true)}
                     >
                       <span className="text-lg">?</span>
@@ -352,11 +353,11 @@ export default function Dashboard() {
                   <TooltipContent>Keyboard Shortcuts</TooltipContent>
                 </Tooltip>
                 <NotificationCenter />
-                <div className="flex items-center space-x-2 pl-2 border-l">
-                  <UserIcon className="h-5 w-5 text-gray-500" />
-                  <div className="text-sm text-gray-700">
-                    <div>Welcome, User</div>
-                    <div className="text-xs text-gray-500">
+                <div className="hidden sm:flex items-center space-x-2 pl-2 border-l">
+                  <UserIcon className="h-5 w-5 text-gray-500 shrink-0" />
+                  <div className="text-sm text-gray-700 min-w-0">
+                    <div className="truncate">Welcome, User</div>
+                    <div className="text-xs text-gray-500 truncate max-w-[120px] lg:max-w-none">
                       user@example.com
                     </div>
                   </div>
@@ -366,7 +367,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <main className="px-4 sm:px-6 lg:px-8 py-4">
+        <main className="px-3 sm:px-6 lg:px-8 py-4">
           {/* Insights Section */}
           {insights.length > 0 && (
             <div className="mb-4">

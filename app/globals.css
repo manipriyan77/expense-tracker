@@ -122,4 +122,8 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Mobile: allow smooth scrolling and prevent horizontal overflow */
+  html {
+    overflow-x: hidden;
+  }
 }

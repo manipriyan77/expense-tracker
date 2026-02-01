@@ -28,6 +28,7 @@ import {
   Calendar,
   Repeat,
   DollarSign,
+  IndianRupee,
   Search,
   Trash2,
   Loader2,
@@ -435,14 +436,15 @@ export default function TransactionsPage() {
 
         <main className="px-4 sm:px-6 lg:px-8 py-4">
           {/* Month Selector */}
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <MonthSelector
               selectedMonth={selectedMonth}
               onMonthChange={setSelectedMonth}
               monthsToShow={7}
             />
-            <div className="text-sm text-gray-600">
-              {filteredTransactions.length} transaction(s)
+            <div className="text-sm text-gray-600 shrink-0" title={`${filteredTransactions.length} transactions`}>
+              <span className="sm:hidden">{filteredTransactions.length}</span>
+              <span className="hidden sm:inline">{filteredTransactions.length} transaction(s)</span>
             </div>
           </div>
 
@@ -453,7 +455,7 @@ export default function TransactionsPage() {
                 <CardTitle className="text-sm font-medium">
                   Total Balance
                 </CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <IndianRupee className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="p-3 pt-2">
                 <div className="text-xl font-bold">{format(balance)}</div>
@@ -768,7 +770,7 @@ export default function TransactionsPage() {
               {paginatedTransactions.length === 0 ? (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12">
-                    <DollarSign className="h-10 w-10 text-gray-400 mb-2" />
+                    <IndianRupee className="h-10 w-10 text-gray-400 mb-2" />
                     <p className="text-lg font-semibold text-gray-900 mb-2">
                       No transactions yet
                     </p>

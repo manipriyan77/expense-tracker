@@ -15,6 +15,7 @@ import {
   BarChart3,
   Wallet,
   Menu,
+  X,
   PieChart,
   CreditCard,
   Bell,
@@ -152,9 +153,15 @@ const sidebarItems: SidebarItem[] = [
 
 interface SidebarProps {
   className?: string;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({
+  className,
+  mobileOpen = false,
+  onMobileClose,
+}: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([
     "Overview",
@@ -174,17 +181,38 @@ export function Sidebar({ className }: SidebarProps) {
     );
   };
 
+  const handleLinkClick = () => {
+    onMobileClose?.();
+  };
+
   return (
     <div
       className={cn(
         "relative flex flex-col bg-white border-r border-gray-200 transition-all duration-300",
-        isCollapsed ? "w-16" : "w-64",
+        "fixed left-0 top-0 z-50 h-full -translate-x-full md:relative md:translate-x-0 md:z-auto",
+        mobileOpen && "translate-x-0",
+        "w-64",
+        isCollapsed && "md:w-16",
         className,
       )}
     >
+      {/* Close button on mobile */}
+      {onMobileClose && (
+        <div className="flex justify-end p-2 border-b border-gray-200 md:hidden">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onMobileClose}
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+      )}
       {/* Logo Header - Acts as Home Button */}
       <Link
         href="/dashboard"
+        onClick={handleLinkClick}
         className="flex items-center justify-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors group"
         title="Go to Dashboard"
       >
@@ -220,8 +248,8 @@ export function Sidebar({ className }: SidebarProps) {
         </div>
       </Link>
 
-      {/* Collapse + Privacy Toggle */}
-      <div className="flex items-center justify-end gap-1 px-4 py-2 border-b border-gray-200">
+      {/* Collapse + Privacy Toggle (desktop only) */}
+      <div className="hidden md:flex items-center justify-end gap-1 px-4 py-2 border-b border-gray-200">
         <Button
           variant="ghost"
           size="sm"
@@ -299,6 +327,7 @@ export function Sidebar({ className }: SidebarProps) {
                         <Link
                           key={subItem.href}
                           href={subItem.href}
+                          onClick={handleLinkClick}
                           className={cn(
                             "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100",
                             isSubActive &&
@@ -322,6 +351,7 @@ export function Sidebar({ className }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href!}
+              onClick={handleLinkClick}
               className={cn(
                 "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100",
                 isActive && "bg-gray-100 text-gray-900",
@@ -337,17 +367,6 @@ export function Sidebar({ className }: SidebarProps) {
         })}
       </nav>
 
-      {/* Mobile Menu Toggle (shown on small screens) */}
-      <div className="md:hidden absolute -right-12 top-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="h-8 w-8 p-0"
-        >
-          <Menu className="h-4 w-4" />
-        </Button>
-      </div>
     </div>
   );
 }

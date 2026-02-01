@@ -353,14 +353,15 @@ export default function BudgetsPage() {
 
       <main className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Month Selector */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <MonthSelector
             selectedMonth={selectedMonth}
             onMonthChange={setSelectedMonth}
             monthsToShow={7}
           />
-          <div className="text-sm text-gray-600">
-            {budgets.length} budget(s)
+          <div className="text-sm text-gray-600 shrink-0" title={`${budgets.length} budgets`}>
+            <span className="sm:hidden">{budgets.length}</span>
+            <span className="hidden sm:inline">{budgets.length} budget(s)</span>
           </div>
         </div>
 
@@ -378,7 +379,7 @@ export default function BudgetsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-4">
                 <div>
                   <p className="text-sm text-gray-600">Total Budget</p>
                   <p className="text-xl font-bold">{format(totalBudget)}</p>
@@ -798,28 +799,28 @@ export default function BudgetsPage() {
                 }`}
                 onClick={() => openDetailsModal(budget)}
               >
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center space-x-2">
-                      <CardTitle className="text-lg">
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-start gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <CardTitle className="text-lg truncate">
                         {budget.category}
                         {budget.subtype && (
-                          <span className="text-sm font-normal text-gray-500 ml-2">
+                          <span className="text-sm font-normal text-gray-500 ml-1">
                             → {budget.subtype}
                           </span>
                         )}
                       </CardTitle>
                       {projection.isLikelyToOverspend && (
-                        <AlertTriangle className="h-4 w-4 text-orange-600" />
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-orange-600" />
                       )}
                     </div>
-                    {getStatusIcon(percentage)}
+                    <div className="shrink-0">{getStatusIcon(percentage)}</div>
                   </div>
                   <CardDescription className="capitalize">
                     {budget.period} budget
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 pb-4">
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="text-sm text-gray-600">Spent</p>
@@ -837,12 +838,12 @@ export default function BudgetsPage() {
                   {projection.isLikelyToOverspend && (
                     <div className="p-3 bg-orange-100 border border-orange-200 rounded-lg">
                       <div className="flex items-start gap-2">
-                        <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5" />
-                        <div className="flex-1">
+                        <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold text-orange-800">
                             Projected Overspend
                           </p>
-                          <p className="text-xs text-orange-700">
+                          <p className="text-xs text-orange-700 wrap-break-word">
                             At current rate:{" "}
                             {format(projection.projectedMonthEnd)} by month-end
                             {projection.projectedOverspend > 0 && (
