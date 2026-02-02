@@ -65,8 +65,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -217,6 +217,7 @@ export default function NetWorthPage() {
       return sum;
     }, 0);
 
+    // Always include all categories so Gold and others appear in the breakdown even when 0
     return [
       { name: "Gold", value: goldValue, href: "/gold", icon: Gem },
       {
@@ -233,7 +234,7 @@ export default function NetWorthPage() {
         href: null,
         icon: DollarSign,
       },
-    ].filter((item) => item.value > 0);
+    ];
   }, [holdings, mutualFunds, stocks, forexEntries, totalManualAssets]);
 
   // Net worth trend: from Jan 2026 only, up to 6 months (snapshot or current net worth)
@@ -261,12 +262,11 @@ export default function NetWorthPage() {
     const fromMonth = Math.max(0, monthCount - 6);
 
     for (let i = fromMonth; i < monthCount && months.length < 6; i++) {
-      const d = new Date(
-        startDate.getFullYear(),
-        startDate.getMonth() + i,
-        1,
-      );
-      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const d = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+        2,
+        "0",
+      )}`;
       const monthLabel = d.toLocaleDateString("en-US", {
         month: "short",
         year: "2-digit",
@@ -282,32 +282,43 @@ export default function NetWorthPage() {
       );
       const latestBefore = lastSnapshotBefore[lastSnapshotBefore.length - 1];
       const isCurrentMonth =
-        d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear();
 
       let value: number;
       let sourceLabel: string;
-      if (snapshotInMonth) {
-        value = snapshotInMonth.net_worth;
-        const snapDate = new Date(snapshotInMonth.date);
-        sourceLabel = `Snapshot on ${snapDate.toLocaleDateString("en-US", { dateStyle: "medium" })}`;
-      } else if (isCurrentMonth) {
+      // Current month always uses live net worth (today's calculation)
+      if (isCurrentMonth) {
         value = netWorth;
         sourceLabel = "Current net worth (Assets − Liabilities today)";
+      } else if (snapshotInMonth) {
+        value = snapshotInMonth.net_worth;
+        const snapDate = new Date(snapshotInMonth.date);
+        sourceLabel = `Snapshot on ${snapDate.toLocaleDateString("en-US", {
+          dateStyle: "medium",
+        })}`;
       } else if (latestBefore) {
         value = latestBefore.net_worth;
         const snapDate = new Date(latestBefore.date);
-        sourceLabel = `Carried from snapshot on ${snapDate.toLocaleDateString("en-US", { dateStyle: "medium" })}`;
+        sourceLabel = `Carried from snapshot on ${snapDate.toLocaleDateString(
+          "en-US",
+          { dateStyle: "medium" },
+        )}`;
       } else {
         value = netWorth;
         sourceLabel = "Current net worth (no snapshot yet)";
       }
 
-      months.push({ month: monthLabel, monthKey, netWorth: value, sourceLabel });
+      months.push({
+        month: monthLabel,
+        monthKey,
+        netWorth: value,
+        sourceLabel,
+      });
     }
 
     return months;
   }, [snapshots, netWorth]);
-
   const handleAddAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -544,77 +555,81 @@ export default function NetWorthPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-3">
-            {assetBreakdown.length === 0 ? (
+            {totalAssets === 0 ? (
               <p className="text-center text-gray-500 py-3 text-sm">
                 No assets tracked yet. Add investments or manual assets to get
                 started.
               </p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {assetBreakdown.map((item) => {
-                  const percentage =
-                    totalAssets > 0 ? (item.value / totalAssets) * 100 : 0;
-                  const Icon = item.icon;
-                  return (
-                    <Card
-                      key={item.name}
-                      className={`hover:shadow-md transition-shadow ${
-                        item.href ? "cursor-pointer" : ""
-                      }`}
-                    >
-                      <CardContent className="p-3">
-                        {item.href ? (
-                          <Link href={item.href} className="block">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <Icon className="h-5 w-5 text-blue-600" />
+                {assetBreakdown
+                  .filter((item) => item.value > 0)
+                  .map((item) => {
+                    const percentage =
+                      totalAssets > 0 ? (item.value / totalAssets) * 100 : 0;
+                    const Icon = item.icon;
+                    return (
+                      <Card
+                        key={item.name}
+                        className={`hover:shadow-md transition-shadow ${
+                          item.href ? "cursor-pointer" : ""
+                        }`}
+                      >
+                        <CardContent className="p-3">
+                          {item.href ? (
+                            <Link href={item.href} className="block">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <Icon className="h-5 w-5 text-blue-600" />
+                                  <span className="font-semibold">
+                                    {item.name}
+                                  </span>
+                                </div>
+                                <ExternalLink className="h-4 w-4 text-gray-400" />
+                              </div>
+                              <div className="text-xl font-bold text-green-600">
+                                {format(item.value)}
+                              </div>
+                              <div className="mt-2">
+                                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                  <span>{percentage.toFixed(1)}% of total</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-green-600 h-2 rounded-full transition-all"
+                                    style={{ width: `${percentage}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </Link>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2 mb-2">
+                                <Icon className="h-5 w-5 text-gray-600" />
                                 <span className="font-semibold">
                                   {item.name}
                                 </span>
                               </div>
-                              <ExternalLink className="h-4 w-4 text-gray-400" />
-                            </div>
-                            <div className="text-xl font-bold text-green-600">
-                              {format(item.value)}
-                            </div>
-                            <div className="mt-2">
-                              <div className="flex justify-between text-xs text-gray-600 mb-1">
-                                <span>{percentage.toFixed(1)}% of total</span>
+                              <div className="text-xl font-bold text-green-600">
+                                {format(item.value)}
                               </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="bg-green-600 h-2 rounded-full transition-all"
-                                  style={{ width: `${percentage}%` }}
-                                />
+                              <div className="mt-2">
+                                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                  <span>{percentage.toFixed(1)}% of total</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-gray-600 h-2 rounded-full transition-all"
+                                    style={{ width: `${percentage}%` }}
+                                  />
+                                </div>
                               </div>
-                            </div>
-                          </Link>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Icon className="h-5 w-5 text-gray-600" />
-                              <span className="font-semibold">{item.name}</span>
-                            </div>
-                            <div className="text-xl font-bold text-green-600">
-                              {format(item.value)}
-                            </div>
-                            <div className="mt-2">
-                              <div className="flex justify-between text-xs text-gray-600 mb-1">
-                                <span>{percentage.toFixed(1)}% of total</span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="bg-gray-600 h-2 rounded-full transition-all"
-                                  style={{ width: `${percentage}%` }}
-                                />
-                              </div>
-                            </div>
-                          </>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                            </>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
               </div>
             )}
           </CardContent>
@@ -625,12 +640,18 @@ export default function NetWorthPage() {
           <CardHeader className="p-3 pb-2">
             <CardTitle className="text-base">Net Worth Trend</CardTitle>
             <CardDescription>
-              From Jan 2026 — up to 6 months from your snapshots and current net worth
+              From Jan 2026 — up to 6 months. Each point comes from: a snapshot
+              saved that month (e.g. &quot;Snapshot on Jan 10, 2026&quot;),
+              current net worth for the current month, or the last snapshot
+              carried forward. Hover a point to see its source.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={historicalData}>
+              <BarChart
+                data={historicalData}
+                margin={{ top: 8, right: 8, left: 8, bottom: 8 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                 <YAxis
@@ -640,7 +661,8 @@ export default function NetWorthPage() {
                     const sign = value < 0 ? "-" : "";
                     if (abs >= 1e6) return `${sign}₹${(abs / 1e6).toFixed(1)}M`;
                     if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(0)}L`;
-                    if (abs >= 1000) return `${sign}₹${(abs / 1000).toFixed(0)}k`;
+                    if (abs >= 1000)
+                      return `${sign}₹${(abs / 1000).toFixed(0)}k`;
                     return `${sign}₹${Math.round(abs)}`;
                   }}
                 />
@@ -666,21 +688,21 @@ export default function NetWorthPage() {
                   }}
                 />
                 <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="2 2" />
-                <Line
-                  type="monotone"
+                <Bar
                   dataKey="netWorth"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ fill: "#3b82f6", r: 4 }}
-                  activeDot={{ r: 6 }}
+                  fill="#3b82f6"
+                  radius={[4, 4, 0, 0]}
                   name="Net worth"
                 />
-              </LineChart>
+              </BarChart>
             </ResponsiveContainer>
             {snapshots.length > 0 && (
               <div className="mt-3 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                <span className="font-medium text-gray-700">Chart values come from: </span>
-                Either a snapshot on that month, or carried from the last snapshot, or current net worth. Recent snapshots:{" "}
+                <span className="font-medium text-gray-700">
+                  Chart values come from:{" "}
+                </span>
+                Either a snapshot on that month, or carried from the last
+                snapshot, or current net worth. Recent snapshots:{" "}
                 {[...snapshots]
                   .sort(
                     (a, b) =>
@@ -689,7 +711,11 @@ export default function NetWorthPage() {
                   .slice(0, 5)
                   .map((s) => {
                     const d = new Date(s.date);
-                    return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} → ${format(s.net_worth)}`;
+                    return `${d.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })} → ${format(s.net_worth)}`;
                   })
                   .join("; ")}
               </div>

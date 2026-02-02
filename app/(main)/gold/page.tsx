@@ -115,8 +115,8 @@ export default function GoldPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Gold Holdings</h1>
           <p className="text-xs text-gray-600">
-            Track physical gold, ETFs, or sovereign gold bonds. Values persist
-            locally in your browser.
+            Track physical gold, ETFs, or sovereign gold bonds. Values are saved
+            to your account.
           </p>
         </div>
         <Dialog

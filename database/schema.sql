@@ -104,6 +104,21 @@ CREATE TABLE IF NOT EXISTS forex_entries (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+-- Gold holdings table (physical gold, ETF, sovereign gold bonds, etc.)
+CREATE TABLE IF NOT EXISTS gold_holdings (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('physical', 'etf', 'sov', 'other')),
+  quantity_grams DECIMAL(12, 2) NOT NULL,
+  purity DECIMAL(5, 2) NOT NULL,
+  purchase_price_per_gram DECIMAL(12, 2) NOT NULL,
+  current_price_per_gram DECIMAL(12, 2) NOT NULL,
+  purchase_date DATE NOT NULL,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
 CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status);
@@ -116,6 +131,7 @@ CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets(user_id);
 CREATE INDEX IF NOT EXISTS idx_budgets_category ON budgets(category);
 CREATE INDEX IF NOT EXISTS idx_forex_entries_user_id ON forex_entries(user_id);
 CREATE INDEX IF NOT EXISTS idx_forex_entries_month ON forex_entries(month);
+CREATE INDEX IF NOT EXISTS idx_gold_holdings_user_id ON gold_holdings(user_id);
 -- Enable Row Level Security on all tables
 ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
@@ -123,6 +139,7 @@ ALTER TABLE mutual_funds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE forex_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE gold_holdings ENABLE ROW LEVEL SECURITY;
 -- Create RLS policies (users can only access their own data)
 CREATE POLICY "Users can view their own goals" ON goals FOR
 SELECT USING (auth.uid() = user_id);
@@ -166,6 +183,14 @@ INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own forex entries" ON forex_entries FOR
 UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own forex entries" ON forex_entries FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Users can view their own gold holdings" ON gold_holdings FOR
+  SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own gold holdings" ON gold_holdings FOR
+  INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own gold holdings" ON gold_holdings FOR
+  UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own gold holdings" ON gold_holdings FOR
+  DELETE USING (auth.uid() = user_id);
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column() RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW();
 RETURN NEW;
@@ -184,4 +209,6 @@ CREATE TRIGGER update_budgets_updated_at BEFORE
 UPDATE ON budgets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_forex_entries_updated_at BEFORE
 UPDATE ON forex_entries FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_gold_holdings_updated_at BEFORE
+UPDATE ON gold_holdings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 -- budget_id is optional for expense transactions (allows one-off expenses, Loan EMI, etc.)
