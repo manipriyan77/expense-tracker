@@ -110,7 +110,7 @@ export default function GoldPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8 py-4">
+    <div className="min-h-screen bg-background px-4 sm:px-6 lg:px-8 py-4">
       <header className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Gold Holdings</h1>

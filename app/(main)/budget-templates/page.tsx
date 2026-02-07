@@ -396,7 +396,6 @@ export default function BudgetTemplatesPage() {
     }
 
     try {
-      console.log("Creating template:", templateForm);
       await addTemplate({
         name: templateForm.name,
         description: templateForm.description,
@@ -468,14 +467,6 @@ export default function BudgetTemplatesPage() {
       const currentMonth = now.getMonth() + 1;
       const currentYear = now.getFullYear();
 
-      console.log(
-        "Applying template:",
-        template.name,
-        "with",
-        template.categories.length,
-        "categories",
-      );
-
       // Create budgets for each category in the template
       const budgetPromises = template.categories.map(async (cat: any) => {
         const response = await fetch("/api/budgets", {
@@ -503,7 +494,6 @@ export default function BudgetTemplatesPage() {
       });
 
       const results = await Promise.all(budgetPromises);
-      console.log("Created budgets:", results);
       toast.success(
         `Applied ${template.name}! Created ${template.categories.length} budgets for ${currentMonth}/${currentYear}.`,
       );
@@ -527,9 +517,9 @@ export default function BudgetTemplatesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Toaster position="top-right" />
-      <header className="bg-white shadow-sm border-b sticky top-0 z-10">
+      <header className="bg-card shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
             <div>

@@ -39,6 +39,7 @@ import {
   Wallet,
   PieChart,
 } from "lucide-react";
+import { useAuthStore } from "@/store/auth-store";
 import { useTransactionsStore } from "@/store/transactions-store";
 import { useGoalsStore } from "@/store/goals-store";
 import { useBudgetsStore } from "@/store/budgets-store";
@@ -57,6 +58,7 @@ import { AlertCircle, Lightbulb } from "lucide-react";
 export default function Dashboard() {
   const router = useRouter();
   const { format } = useFormatCurrency();
+  const { user } = useAuthStore();
   const { transactions, loading, error, fetchTransactions } =
     useTransactionsStore();
   const { goals, fetchGoals } = useGoalsStore();
@@ -81,7 +83,6 @@ export default function Dashboard() {
   const currentYear = new Date().getFullYear();
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const daysPassed = new Date().getDate();
-  const daysRemaining = daysInMonth - daysPassed;
 
   // Current month transactions
   const currentMonthTransactions = useMemo(() => {
@@ -127,14 +128,8 @@ export default function Dashboard() {
     dailyExpenseTotals.length >= 2
       ? median(dailyExpenseTotals)
       : daysPassed > 0
-      ? currentMonthExpenses / daysPassed
-      : 0;
-
-  // Projected month-end balance (use typical daily spend to avoid spike days skewing)
-  const projectedMonthEndExpenses =
-    currentMonthExpenses + typicalDailySpend * daysRemaining;
-  const projectedMonthEndBalance =
-    currentMonthIncome - projectedMonthEndExpenses;
+        ? currentMonthExpenses / daysPassed
+        : 0;
 
   // Top insights
   const insights = useMemo(() => {
@@ -306,7 +301,7 @@ export default function Dashboard() {
 
   if (loading && transactions.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-background p-8">
         <StatsSkeleton />
       </div>
     );
@@ -316,7 +311,7 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-destructive mb-4">{error}</p>
           <Button onClick={fetchTransactions} variant="outline">
             Try Again
           </Button>
@@ -327,14 +322,14 @@ export default function Dashboard() {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b sticky top-0 z-10">
+        <header className="bg-card shadow-sm border-b sticky top-0 z-10">
           <div className="px-3 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-3 gap-2 min-w-0">
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">Dashboard</h1>
-                <p className="text-xs text-gray-500 hidden sm:block">
+                <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Dashboard</h1>
+                <p className="text-xs text-muted-foreground hidden sm:block">
                   Welcome back! Here&apos;s your financial overview
                 </p>
               </div>
@@ -354,11 +349,13 @@ export default function Dashboard() {
                 </Tooltip>
                 <NotificationCenter />
                 <div className="hidden sm:flex items-center space-x-2 pl-2 border-l">
-                  <UserIcon className="h-5 w-5 text-gray-500 shrink-0" />
-                  <div className="text-sm text-gray-700 min-w-0">
-                    <div className="truncate">Welcome, User</div>
-                    <div className="text-xs text-gray-500 truncate max-w-[120px] lg:max-w-none">
-                      user@example.com
+                  <UserIcon className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <div className="text-sm text-foreground min-w-0">
+                    <div className="truncate">
+                      Welcome, {(user?.user_metadata?.full_name as string) || (user?.user_metadata?.name as string) || "User"}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate max-w-[120px] lg:max-w-none">
+                      {user?.email ?? "—"}
                     </div>
                   </div>
                 </div>
@@ -371,8 +368,8 @@ export default function Dashboard() {
           {/* Insights Section */}
           {insights.length > 0 && (
             <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                <Lightbulb className="h-4 w-4 text-yellow-500" />
+              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-amber-500 dark:text-amber-400" />
                 Insights
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -381,29 +378,29 @@ export default function Dashboard() {
                     key={idx}
                     className={`py-1 ${
                       insight.type === "warning"
-                        ? "border-orange-200 bg-orange-50"
+                        ? "border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/50"
                         : insight.type === "success"
-                        ? "border-green-200 bg-green-50"
-                        : "border-blue-200 bg-blue-50"
+                          ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/50"
+                          : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/50"
                     }`}
                   >
                     <CardContent className="p-3">
                       <div className="flex items-start gap-3">
                         {insight.type === "warning" ? (
-                          <AlertCircle className="h-5 w-5 text-orange-600 shrink-0 mt-0.5" />
+                          <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
                         ) : insight.type === "success" ? (
-                          <TargetIcon className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                          <TargetIcon className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
                         ) : (
-                          <Lightbulb className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                          <Lightbulb className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                         )}
                         <div className="flex-1">
-                          <p className="text-sm font-medium">
+                          <p className="text-sm font-medium text-foreground">
                             {insight.message}
                           </p>
                           {insight.link && (
                             <Link
                               href={insight.link}
-                              className="text-xs text-blue-600 hover:underline mt-1 inline-flex items-center gap-1"
+                              className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1"
                             >
                               View details
                               <ArrowRight className="h-3 w-3" />
@@ -427,48 +424,22 @@ export default function Dashboard() {
                     <CardTitle className="text-sm font-medium">
                       Total Balance
                     </CardTitle>
-                    <DollarSign className="h-4 w-4 text-blue-600" />
+                    <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   </CardHeader>
                   <CardContent className="p-3 pt-2">
                     <div
                       className={`text-xl font-bold ${
-                        balance >= 0 ? "text-blue-600" : "text-red-600"
+                        balance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
                       }`}
                     >
                       {format(balance)}
                     </div>
-                    <p className="text-xs text-gray-500">Income - Expenses</p>
+                    <p className="text-xs text-muted-foreground">Income - Expenses</p>
                   </CardContent>
                 </Card>
               </TooltipTrigger>
               <TooltipContent>Your net balance for all time</TooltipContent>
             </Tooltip>
-
-            {/* Projected Month-End Balance - hidden for now */}
-            {false && (
-              <Card className="py-2 border-2 border-purple-200 bg-purple-50">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Projected Month-End
-                  </CardTitle>
-                  <CalendarIcon className="h-4 w-4 text-purple-600" />
-                </CardHeader>
-                <CardContent>
-                  <div
-                    className={`text-2xl font-bold ${
-                      projectedMonthEndBalance >= 0
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {format(projectedMonthEndBalance)}
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Based on typical daily spend (ignores one-off spike days)
-                  </p>
-                </CardContent>
-              </Card>
-            )}
 
             <Tooltip>
               <TooltipTrigger asChild>
@@ -478,13 +449,13 @@ export default function Dashboard() {
                       <CardTitle className="text-sm font-medium">
                         Total Income
                       </CardTitle>
-                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
                     </CardHeader>
                     <CardContent className="p-3 pt-2">
-                      <div className="text-xl font-bold text-green-600">
+                      <div className="text-xl font-bold text-green-600 dark:text-green-400">
                         {format(totalIncome)}
                       </div>
-                      <p className="text-xs text-gray-500 flex items-center">
+                      <p className="text-xs text-muted-foreground flex items-center">
                         All time
                         <ArrowRight className="h-3 w-3 ml-1" />
                       </p>
@@ -505,13 +476,13 @@ export default function Dashboard() {
                       <CardTitle className="text-sm font-medium">
                         Total Expenses
                       </CardTitle>
-                      <TrendingDown className="h-4 w-4 text-red-600" />
+                      <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
                     </CardHeader>
                     <CardContent className="p-3 pt-2">
-                      <div className="text-xl font-bold text-red-600">
+                      <div className="text-xl font-bold text-red-600 dark:text-red-400">
                         {format(totalExpenses)}
                       </div>
-                      <p className="text-xs text-gray-500 flex items-center">
+                      <p className="text-xs text-muted-foreground flex items-center">
                         All time
                         <ArrowRight className="h-3 w-3 ml-1" />
                       </p>
@@ -532,13 +503,13 @@ export default function Dashboard() {
                       <CardTitle className="text-sm font-medium">
                         Transactions
                       </CardTitle>
-                      <CalendarIcon className="h-4 w-4 text-purple-600" />
+                      <CalendarIcon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                     </CardHeader>
                     <CardContent className="p-3 pt-2">
-                      <div className="text-xl font-bold text-purple-600">
+                      <div className="text-xl font-bold text-purple-600 dark:text-purple-400">
                         {transactions.length}
                       </div>
-                      <p className="text-xs text-gray-500 flex items-center">
+                      <p className="text-xs text-muted-foreground flex items-center">
                         Total recorded
                         <ArrowRight className="h-3 w-3 ml-1" />
                       </p>
@@ -552,19 +523,19 @@ export default function Dashboard() {
 
           {/* Quick Access Section */}
           <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 className="text-lg font-semibold text-foreground mb-2">
               Quick Access
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <Link href="/goals">
                 <Card className="py-2 cursor-pointer hover:shadow-md transition-shadow">
                   <CardContent className="flex items-center space-x-3 p-4">
-                    <div className="p-2 rounded-full bg-blue-100">
-                      <TargetIcon className="h-5 w-5 text-blue-600" />
+                    <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-950/60">
+                      <TargetIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <h4 className="font-semibold">Goals</h4>
-                      <p className="text-sm text-gray-500">
+                      <h4 className="font-semibold text-foreground">Goals</h4>
+                      <p className="text-sm text-muted-foreground">
                         {activeGoals} active
                       </p>
                     </div>
@@ -575,12 +546,12 @@ export default function Dashboard() {
               <Link href="/budgets">
                 <Card className="cursor-pointer py-2 hover:shadow-md transition-shadow">
                   <CardContent className="flex items-center space-x-3 p-4">
-                    <div className="p-2 rounded-full bg-purple-100">
-                      <CreditCard className="h-5 w-5 text-purple-600" />
+                    <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-950/60">
+                      <CreditCard className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                      <h4 className="font-semibold">Budgets</h4>
-                      <p className="text-sm text-gray-500">
+                      <h4 className="font-semibold text-foreground">Budgets</h4>
+                      <p className="text-sm text-muted-foreground">
                         {activeBudgets} set
                       </p>
                     </div>
@@ -591,12 +562,12 @@ export default function Dashboard() {
               <Link href="/savings-challenges">
                 <Card className="cursor-pointer py-2 hover:shadow-md transition-shadow">
                   <CardContent className="flex items-center space-x-3 p-4">
-                    <div className="p-2 rounded-full bg-green-100">
-                      <Trophy className="h-5 w-5 text-green-600" />
+                    <div className="p-2 rounded-full bg-green-100 dark:bg-green-950/60">
+                      <Trophy className="h-5 w-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <h4 className="font-semibold">Challenges</h4>
-                      <p className="text-sm text-gray-500">Save more</p>
+                      <h4 className="font-semibold text-foreground">Challenges</h4>
+                      <p className="text-sm text-muted-foreground">Save more</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -605,12 +576,12 @@ export default function Dashboard() {
               <Link href="/calendar">
                 <Card className="cursor-pointer py-2 hover:shadow-md transition-shadow">
                   <CardContent className="flex items-center space-x-3 p-4">
-                    <div className="p-2 rounded-full bg-orange-100">
-                      <CalendarDays className="h-5 w-5 text-orange-600" />
+                    <div className="p-2 rounded-full bg-orange-100 dark:bg-orange-950/60">
+                      <CalendarDays className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                     </div>
                     <div>
-                      <h4 className="font-semibold">Calendar</h4>
-                      <p className="text-sm text-gray-500">View timeline</p>
+                      <h4 className="font-semibold text-foreground">Calendar</h4>
+                      <p className="text-sm text-muted-foreground">View timeline</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -621,8 +592,8 @@ export default function Dashboard() {
           {/* Goal ETAs */}
           {goalETAs.length > 0 && (
             <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                <TargetIcon className="h-4 w-4 text-blue-600" />
+              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
+                <TargetIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 Goal Completion Estimates
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -633,29 +604,29 @@ export default function Dashboard() {
                   >
                     <CardContent className="p-3">
                       <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-semibold text-sm">{goal.title}</h4>
+                        <h4 className="font-semibold text-sm text-foreground">{goal.title}</h4>
                         <Link href="/goals">
-                          <ArrowRight className="h-4 w-4 text-gray-400 hover:text-blue-600" />
+                          <ArrowRight className="h-4 w-4 text-muted-foreground hover:text-primary" />
                         </Link>
                       </div>
                       <div className="space-y-2">
-                        <div className="flex justify-between text-xs text-gray-600">
+                        <div className="flex justify-between text-xs text-muted-foreground">
                           <span>Remaining</span>
-                          <span className="font-semibold">
+                          <span className="font-semibold text-foreground">
                             {format(remaining)}
                           </span>
                         </div>
                         <div className="flex justify-between text-xs">
-                          <span className="text-gray-600">Est. completion</span>
-                          <span className="font-semibold text-blue-600">
+                          <span className="text-muted-foreground">Est. completion</span>
+                          <span className="font-semibold text-blue-600 dark:text-blue-400">
                             {monthsRemaining === 1
                               ? "This month"
                               : `${monthsRemaining} months`}
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                        <div className="w-full bg-muted rounded-full h-2 mt-2">
                           <div
-                            className="bg-blue-600 h-2 rounded-full transition-all"
+                            className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all"
                             style={{
                               width: `${Math.min(
                                 100,
@@ -675,8 +646,8 @@ export default function Dashboard() {
           {/* Assets */}
           {assets.length > 0 && (
             <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-green-600" />
+              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-green-600 dark:text-green-400" />
                 Assets
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -685,26 +656,26 @@ export default function Dashboard() {
                     <Card className="hover:shadow-md transition-shadow h-full">
                       <CardContent className="p-3">
                         <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-semibold text-sm">
+                          <h4 className="font-semibold text-sm text-foreground">
                             {asset.name}
                           </h4>
-                          <ArrowRight className="h-4 w-4 text-gray-400 hover:text-green-600 shrink-0" />
+                          <ArrowRight className="h-4 w-4 text-muted-foreground hover:text-green-600 dark:hover:text-green-400 shrink-0" />
                         </div>
                         <div className="space-y-2">
-                          <div className="flex justify-between text-xs text-gray-600">
+                          <div className="flex justify-between text-xs text-muted-foreground">
                             <span>Current value</span>
-                            <span className="font-semibold text-green-600">
+                            <span className="font-semibold text-green-600 dark:text-green-400">
                               {format(asset.value)}
                             </span>
                           </div>
                           <div className="flex justify-between text-xs">
-                            <span className="text-gray-600 capitalize">
+                            <span className="text-muted-foreground capitalize">
                               {asset.type.replace("_", " ")}
                             </span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                          <div className="w-full bg-muted rounded-full h-2 mt-2">
                             <div
-                              className="bg-green-600 h-2 rounded-full transition-all"
+                              className="bg-green-600 dark:bg-green-500 h-2 rounded-full transition-all"
                               style={{ width: "100%" }}
                             />
                           </div>
@@ -720,8 +691,8 @@ export default function Dashboard() {
           {/* Debts */}
           {debts.length > 0 && (
             <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-red-600" />
+              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-red-600 dark:text-red-400" />
                 Debts
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -740,21 +711,21 @@ export default function Dashboard() {
                       <Card className="hover:shadow-md transition-shadow h-full">
                         <CardContent className="p-3">
                           <div className="flex items-start justify-between mb-2">
-                            <h4 className="font-semibold text-sm">
+                            <h4 className="font-semibold text-sm text-foreground">
                               {debt.name}
                             </h4>
-                            <ArrowRight className="h-4 w-4 text-gray-400 hover:text-red-600 shrink-0" />
+                            <ArrowRight className="h-4 w-4 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 shrink-0" />
                           </div>
                           <div className="space-y-2">
-                            <div className="flex justify-between text-xs text-gray-600">
+                            <div className="flex justify-between text-xs text-muted-foreground">
                               <span>Remaining</span>
-                              <span className="font-semibold text-red-600">
+                              <span className="font-semibold text-red-600 dark:text-red-400">
                                 {format(debt.balance)}
                               </span>
                             </div>
                             <div className="flex justify-between text-xs">
-                              <span className="text-gray-600">Est. payoff</span>
-                              <span className="font-semibold text-blue-600">
+                              <span className="text-muted-foreground">Est. payoff</span>
+                              <span className="font-semibold text-blue-600 dark:text-blue-400">
                                 {debt.months_remaining != null
                                   ? debt.months_remaining === 1
                                     ? "This month"
@@ -762,9 +733,9 @@ export default function Dashboard() {
                                   : "—"}
                               </span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                            <div className="w-full bg-muted rounded-full h-2 mt-2">
                               <div
-                                className="bg-red-600 h-2 rounded-full transition-all"
+                                className="bg-red-600 dark:bg-red-500 h-2 rounded-full transition-all"
                                 style={{
                                   width: `${paidOffPct}%`,
                                 }}
@@ -783,8 +754,8 @@ export default function Dashboard() {
           {/* Budgets */}
           {budgets.length > 0 && (
             <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                <PieChart className="h-4 w-4 text-amber-600" />
+              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
+                <PieChart className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                 Budgets
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -798,46 +769,46 @@ export default function Dashboard() {
                       <Card className="hover:shadow-md transition-shadow h-full">
                         <CardContent className="p-3">
                           <div className="flex items-start justify-between mb-2">
-                            <h4 className="font-semibold text-sm">
+                            <h4 className="font-semibold text-sm text-foreground">
                               {budget.category}
                               {budget.subtype && (
-                                <span className="text-gray-500 font-normal">
+                                <span className="text-muted-foreground font-normal">
                                   {" "}
                                   → {budget.subtype}
                                 </span>
                               )}
                             </h4>
-                            <ArrowRight className="h-4 w-4 text-gray-400 hover:text-amber-600 shrink-0" />
+                            <ArrowRight className="h-4 w-4 text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400 shrink-0" />
                           </div>
                           <div className="space-y-2">
-                            <div className="flex justify-between text-xs text-gray-600">
+                            <div className="flex justify-between text-xs text-muted-foreground">
                               <span>Remaining</span>
-                              <span className="font-semibold">
+                              <span className="font-semibold text-foreground">
                                 {format(remaining)}
                               </span>
                             </div>
                             <div className="flex justify-between text-xs">
-                              <span className="text-gray-600">Used</span>
+                              <span className="text-muted-foreground">Used</span>
                               <span
                                 className={`font-semibold ${
                                   pct >= 100
-                                    ? "text-red-600"
+                                    ? "text-red-600 dark:text-red-400"
                                     : pct >= 80
-                                    ? "text-amber-600"
-                                    : "text-blue-600"
+                                      ? "text-amber-600 dark:text-amber-400"
+                                      : "text-blue-600 dark:text-blue-400"
                                 }`}
                               >
                                 {pct.toFixed(0)}%
                               </span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                            <div className="w-full bg-muted rounded-full h-2 mt-2">
                               <div
                                 className={`h-2 rounded-full transition-all ${
                                   pct >= 100
-                                    ? "bg-red-600"
+                                    ? "bg-red-600 dark:bg-red-500"
                                     : pct >= 80
-                                    ? "bg-amber-600"
-                                    : "bg-amber-500"
+                                      ? "bg-amber-600 dark:bg-amber-500"
+                                      : "bg-amber-500 dark:bg-amber-600"
                                 }`}
                                 style={{ width: `${pct}%` }}
                               />

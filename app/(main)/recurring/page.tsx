@@ -346,8 +346,8 @@ export default function RecurringPage() {
     }, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card shadow-sm border-b">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
             <h1 className="text-xl font-bold text-gray-900">

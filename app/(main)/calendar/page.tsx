@@ -35,6 +35,7 @@ export default function CalendarPage() {
   const { transactions, loading, fetchTransactions } = useTransactionsStore();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isDayModalOpen, setIsDayModalOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -50,8 +51,15 @@ export default function CalendarPage() {
     return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
   };
 
+  const toDateString = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
   const getTransactionsForDate = (date: Date): DayTransaction[] => {
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = toDateString(date);
     return transactions
       .filter((t) => t.date === dateStr)
       .map((t) => ({
@@ -61,6 +69,11 @@ export default function CalendarPage() {
         description: t.description,
         category: t.category,
       }));
+  };
+
+  const handleDayClick = (date: Date) => {
+    setSelectedDate(date);
+    setIsDayModalOpen(true);
   };
 
   const getDayTotal = (date: Date) => {
@@ -129,16 +142,16 @@ export default function CalendarPage() {
         <div
           key={day}
           className={`p-2 border min-h-[120px] cursor-pointer transition-colors ${
-            isToday(date) ? "bg-blue-50 border-blue-300" : ""
-          } ${isSelected(date) ? "ring-2 ring-blue-500" : ""} ${
-            hasTransactions ? "hover:bg-gray-50" : ""
+            isToday(date) ? "bg-primary/10 dark:bg-primary/20 border-primary/30" : ""
+          } ${isSelected(date) ? "ring-2 ring-primary ring-inset" : ""} ${
+            hasTransactions ? "hover:bg-muted/50" : ""
           }`}
-          onClick={() => setSelectedDate(date)}
+          onClick={() => handleDayClick(date)}
         >
           <div className="flex justify-between items-start mb-1">
             <span
               className={`text-sm font-medium ${
-                isToday(date) ? "text-blue-600 font-bold" : "text-gray-700"
+                isToday(date) ? "text-primary font-bold" : "text-foreground"
               }`}
             >
               {day}
@@ -208,8 +221,8 @@ export default function CalendarPage() {
   const stats = monthlyStats();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b sticky top-0 z-10">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
             <h1 className="text-xl font-bold text-gray-900">
@@ -330,54 +343,75 @@ export default function CalendarPage() {
           </CardContent>
         </Card>
 
-        {/* Selected Date Details */}
-        {selectedDate && (
-          <Card className="mt-4">
-            <CardHeader className="p-3 pb-2">
-              <CardTitle className="text-base">
-                Transactions on{" "}
-                {selectedDate.toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {getTransactionsForDate(selectedDate).length === 0 ? (
-                <p className="text-gray-500 text-center py-4 text-sm">
-                  No transactions on this date
-                </p>
-              ) : (
-                <div className="space-y-3">
+      </main>
+
+      {/* Day transactions modal */}
+      <Dialog
+        open={isDayModalOpen}
+        onOpenChange={(open) => {
+          setIsDayModalOpen(open);
+          if (!open) setSelectedDate(null);
+        }}
+      >
+        <DialogContent className="max-w-md max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">
+              {selectedDate
+                ? selectedDate.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
+                : "Transactions"}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              {selectedDate
+                ? `${getTransactionsForDate(selectedDate).length} transaction(s) on this day`
+                : "Transactions made on this day"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 min-h-0 -mx-6 px-6">
+            {selectedDate && getTransactionsForDate(selectedDate).length === 0 ? (
+              <p className="text-muted-foreground text-center py-8 text-sm">
+                No transactions on this date
+              </p>
+            ) : (
+              selectedDate && (
+                <div className="space-y-2">
                   {getTransactionsForDate(selectedDate).map((t) => (
                     <div
                       key={t.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
+                      className="flex items-center justify-between p-3 border rounded-lg bg-card"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`p-2 rounded-full ${
-                            t.type === "income" ? "bg-green-100" : "bg-red-100"
+                          className={`p-2 rounded-full shrink-0 ${
+                            t.type === "income"
+                              ? "bg-green-100 dark:bg-green-950/60"
+                              : "bg-red-100 dark:bg-red-950/60"
                           }`}
                         >
                           {t.type === "income" ? (
-                            <TrendingUp className="h-4 w-4 text-green-600" />
+                            <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
                           ) : (
-                            <TrendingDown className="h-4 w-4 text-red-600" />
+                            <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
                           )}
                         </div>
-                        <div>
-                          <p className="font-medium">{t.description}</p>
-                          <p className="text-sm text-gray-500">{t.category}</p>
+                        <div className="min-w-0">
+                          <p className="font-medium text-foreground truncate">
+                            {t.description}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {t.category}
+                          </p>
                         </div>
                       </div>
                       <p
-                        className={`font-semibold ${
+                        className={`font-semibold shrink-0 ml-2 ${
                           t.type === "income"
-                            ? "text-green-600"
-                            : "text-red-600"
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
                         }`}
                       >
                         {t.type === "income" ? "+" : "-"}
@@ -386,11 +420,11 @@ export default function CalendarPage() {
                     </div>
                   ))}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-      </main>
+              )
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Transaction Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>

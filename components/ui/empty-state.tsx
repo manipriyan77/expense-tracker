@@ -53,8 +53,8 @@ export function AnimatedEmptyState({
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
       <div className="text-8xl mb-6 animate-bounce">{illustration}</div>
-      <h3 className="text-2xl font-bold text-gray-900 mb-3">{title}</h3>
-      <p className="text-gray-500 mb-8 max-w-md">{description}</p>
+      <h3 className="text-2xl font-bold text-foreground mb-3">{title}</h3>
+      <p className="text-muted-foreground mb-8 max-w-md">{description}</p>
       {actionLabel && onAction && (
         <Button onClick={onAction} size="lg">
           {actionLabel}

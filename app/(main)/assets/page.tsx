@@ -122,10 +122,10 @@ export default function AssetsOverviewPage() {
   const isLoading = goldLoading || mfLoading || stocksLoading || forexLoading;
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8 py-4">
+    <div className="min-h-screen bg-background px-4 sm:px-6 lg:px-8 py-4">
       <header className="mb-4">
-        <h1 className="text-xl font-bold text-gray-900">Asset Allocation</h1>
-        <p className="text-xs text-gray-600">
+        <h1 className="text-xl font-bold text-foreground">Asset Allocation</h1>
+        <p className="text-xs text-muted-foreground">
           Combined view of your assets across gold, mutual funds, stocks, and
           forex.
         </p>
@@ -134,32 +134,32 @@ export default function AssetsOverviewPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
         <Card>
           <CardHeader className="p-3 pb-0">
-            <CardTitle className="text-sm">Total Assets</CardTitle>
+            <CardTitle className="text-sm text-foreground">Total Assets</CardTitle>
           </CardHeader>
-          <CardContent className="p-3 pt-2 text-xl font-bold">
+          <CardContent className="p-3 pt-2 text-xl font-bold text-foreground">
             {format(allocation.total + totalManualAssets)}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="p-3 pb-0">
-            <CardTitle className="text-sm">Categories</CardTitle>
+            <CardTitle className="text-sm text-foreground">Categories</CardTitle>
           </CardHeader>
-          <CardContent className="p-3 pt-2 text-xl font-bold">
+          <CardContent className="p-3 pt-2 text-xl font-bold text-foreground">
             {allocation.items.length}
           </CardContent>
         </Card>
-        <Card className="border-2 border-blue-200 bg-blue-50">
+        <Card className="border-2 border-primary/30 bg-primary/5 dark:border-primary/40 dark:bg-primary/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-            <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
-            <TrendingUp className="h-4 w-4 text-blue-600" />
+            <CardTitle className="text-sm font-medium text-foreground">Net Worth</CardTitle>
+            <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent className="p-3 pt-2">
-            <div className="text-xl font-bold text-blue-600">
+            <div className="text-xl font-bold text-primary">
               {format(netWorth)}
             </div>
             <Link
               href="/net-worth"
-              className="text-xs text-blue-600 hover:underline mt-1 flex items-center gap-1"
+              className="text-xs text-primary hover:underline mt-1 flex items-center gap-1"
             >
               View Full Details
               <ExternalLink className="h-3 w-3" />
@@ -168,9 +168,9 @@ export default function AssetsOverviewPage() {
         </Card>
         <Card>
           <CardHeader className="p-3 pb-0">
-            <CardTitle className="text-sm">Liabilities</CardTitle>
+            <CardTitle className="text-sm text-foreground">Liabilities</CardTitle>
           </CardHeader>
-          <CardContent className="p-3 pt-2 text-xl font-bold text-red-600">
+          <CardContent className="p-3 pt-2 text-xl font-bold text-red-600 dark:text-red-400">
             {format(totalLiabilities)}
           </CardContent>
         </Card>
@@ -178,16 +178,16 @@ export default function AssetsOverviewPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Allocation</CardTitle>
-          <CardDescription>Distribution by current value</CardDescription>
+          <CardTitle className="text-foreground">Allocation</CardTitle>
+          <CardDescription className="text-muted-foreground">Distribution by current value</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center p-3">
           {isLoading ? (
             <div className="flex items-center justify-center py-4 w-full">
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : allocation.items.length === 0 ? (
-            <p className="text-center text-gray-500 py-6 w-full">
+            <p className="text-center text-muted-foreground py-6 w-full">
               No asset data yet. Add gold or fetch investments.
             </p>
           ) : (
@@ -234,20 +234,20 @@ export default function AssetsOverviewPage() {
                     >
                       <div className="flex items-center gap-3">
                         <span
-                          className="h-3 w-3 rounded-full"
+                          className="h-3 w-3 rounded-full shrink-0"
                           style={{
                             backgroundColor: COLORS[idx % COLORS.length],
                           }}
                         />
                         <div>
-                          <p className="font-semibold">{item.name}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="font-semibold text-foreground">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">
                             {share}% of assets
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">{format(item.value)}</p>
+                        <p className="font-semibold text-foreground">{format(item.value)}</p>
                       </div>
                     </div>
                   );
@@ -261,8 +261,8 @@ export default function AssetsOverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Card>
           <CardHeader>
-            <CardTitle>Mutual Funds by Category</CardTitle>
-            <CardDescription>Breakdown of MF current value</CardDescription>
+            <CardTitle className="text-foreground">Mutual Funds by Category</CardTitle>
+            <CardDescription className="text-muted-foreground">Breakdown of MF current value</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -270,7 +270,7 @@ export default function AssetsOverviewPage() {
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
             ) : mutualFundCategories.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">
+              <p className="text-center text-muted-foreground py-4">
                 No mutual fund data yet.
               </p>
             ) : (
@@ -313,17 +313,17 @@ export default function AssetsOverviewPage() {
                     >
                       <div className="flex items-center gap-3">
                         <span
-                          className="h-3 w-3 rounded-full"
+                          className="h-3 w-3 rounded-full shrink-0"
                           style={{
                             backgroundColor: COLORS[idx % COLORS.length],
                           }}
                         />
                         <div>
-                          <p className="font-semibold">{item.name}</p>
+                          <p className="font-semibold text-foreground">{item.name}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">{format(item.value)}</p>
+                        <p className="font-semibold text-foreground">{format(item.value)}</p>
                       </div>
                     </div>
                   ))}
@@ -335,8 +335,8 @@ export default function AssetsOverviewPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Stocks by Sector</CardTitle>
-            <CardDescription>Breakdown of stock current value</CardDescription>
+            <CardTitle className="text-foreground">Stocks by Sector</CardTitle>
+            <CardDescription className="text-muted-foreground">Breakdown of stock current value</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -344,7 +344,7 @@ export default function AssetsOverviewPage() {
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
             ) : stockCategories.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">
+              <p className="text-center text-muted-foreground py-4">
                 No stock data yet.
               </p>
             ) : (
@@ -387,17 +387,17 @@ export default function AssetsOverviewPage() {
                     >
                       <div className="flex items-center gap-3">
                         <span
-                          className="h-3 w-3 rounded-full"
+                          className="h-3 w-3 rounded-full shrink-0"
                           style={{
                             backgroundColor: COLORS[idx % COLORS.length],
                           }}
                         />
                         <div>
-                          <p className="font-semibold">{item.name}</p>
+                          <p className="font-semibold text-foreground">{item.name}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">{format(item.value)}</p>
+                        <p className="font-semibold text-foreground">{format(item.value)}</p>
                       </div>
                     </div>
                   ))}

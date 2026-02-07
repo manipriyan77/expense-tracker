@@ -14,7 +14,6 @@ import {
   Target,
   BarChart3,
   Wallet,
-  Menu,
   X,
   PieChart,
   CreditCard,
@@ -177,7 +176,7 @@ export function Sidebar({
 
   const toggleExpand = (title: string) => {
     setExpandedItems((prev) =>
-      prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title],
+      prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title]
     );
   };
 
@@ -188,22 +187,24 @@ export function Sidebar({
   return (
     <div
       className={cn(
-        "relative flex flex-col bg-white border-r border-gray-200 transition-all duration-300",
+        "relative flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 text-sidebar-foreground shrink-0",
         "fixed left-0 top-0 z-50 h-full -translate-x-full md:relative md:translate-x-0 md:z-auto",
         mobileOpen && "translate-x-0",
         "w-64",
         isCollapsed && "md:w-16",
-        className,
+        "min-h-full",
+        className
       )}
     >
       {/* Close button on mobile */}
       {onMobileClose && (
-        <div className="flex justify-end p-2 border-b border-gray-200 md:hidden">
+        <div className="flex justify-end p-2 border-b border-sidebar-border md:hidden">
           <Button
             variant="ghost"
             size="sm"
             onClick={onMobileClose}
             aria-label="Close menu"
+            className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           >
             <X className="h-5 w-5" />
           </Button>
@@ -213,13 +214,13 @@ export function Sidebar({
       <Link
         href="/dashboard"
         onClick={handleLinkClick}
-        className="flex items-center justify-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors group"
+        className="flex items-center justify-center p-4 border-b border-sidebar-border hover:bg-sidebar-accent transition-colors group"
         title="Go to Dashboard"
       >
         <div
           className={cn(
             "flex items-center gap-3 transition-all duration-300",
-            isCollapsed ? "justify-center" : "justify-start w-full",
+            isCollapsed ? "justify-center" : "justify-start w-full"
           )}
         >
           {/* Logo */}
@@ -237,10 +238,10 @@ export function Sidebar({
           {/* App Name */}
           {!isCollapsed && (
             <div className="flex flex-col">
-              <span className="text-base font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="text-base font-bold text-sidebar-foreground">
                 Expense Tracker
               </span>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-muted-foreground">
                 Manage Your Finances
               </span>
             </div>
@@ -249,12 +250,12 @@ export function Sidebar({
       </Link>
 
       {/* Collapse + Privacy Toggle (desktop only) */}
-      <div className="hidden md:flex items-center justify-end gap-1 px-4 py-2 border-b border-gray-200">
+      <div className="hidden md:flex items-center justify-end gap-1 px-4 py-2 border-b border-sidebar-border">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => toggleAmountsHidden()}
-          className="p-1 h-8 w-8 hover:bg-gray-100"
+          className="p-1 h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           title={amountsHidden ? "Show amounts" : "Hide amounts"}
         >
           {amountsHidden ? (
@@ -267,7 +268,7 @@ export function Sidebar({
           variant="ghost"
           size="sm"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1 h-8 w-8 hover:bg-gray-100"
+          className="p-1 h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {isCollapsed ? (
@@ -294,9 +295,10 @@ export function Sidebar({
                 <button
                   onClick={() => !isCollapsed && toggleExpand(item.title)}
                   className={cn(
-                    "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors hover:bg-gray-100",
-                    (hasActiveChild || isExpanded) && "bg-gray-100",
-                    isCollapsed && "justify-center px-2",
+                    "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    (hasActiveChild || isExpanded) &&
+                      "bg-sidebar-accent text-sidebar-accent-foreground",
+                    isCollapsed && "justify-center px-2"
                   )}
                 >
                   <div className="flex items-center space-x-3">
@@ -318,7 +320,7 @@ export function Sidebar({
 
                 {/* Sub Items */}
                 {isExpanded && !isCollapsed && item.subItems && (
-                  <div className="ml-4 space-y-1 border-l-2 border-gray-200 pl-4">
+                  <div className="ml-4 space-y-1 border-l-2 border-sidebar-border pl-4">
                     {item.subItems.map((subItem) => {
                       const SubIcon = subItem.icon;
                       const isSubActive = pathname === subItem.href;
@@ -329,9 +331,9 @@ export function Sidebar({
                           href={subItem.href}
                           onClick={handleLinkClick}
                           className={cn(
-                            "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100",
+                            "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                             isSubActive &&
-                              "bg-blue-50 text-blue-700 hover:bg-blue-100",
+                              "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:opacity-90"
                           )}
                         >
                           <SubIcon className="h-4 w-4 flex-shrink-0" />
@@ -353,9 +355,10 @@ export function Sidebar({
               href={item.href!}
               onClick={handleLinkClick}
               className={cn(
-                "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100",
-                isActive && "bg-gray-100 text-gray-900",
-                isCollapsed && "justify-center px-2",
+                "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                isActive &&
+                  "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
+                isCollapsed && "justify-center px-2"
               )}
             >
               <Icon className="h-5 w-5 flex-shrink-0" />
@@ -366,7 +369,6 @@ export function Sidebar({
           );
         })}
       </nav>
-
     </div>
   );
 }

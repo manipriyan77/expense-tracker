@@ -84,12 +84,8 @@ export function formatCurrency(
       : integerPart;
 
   if (config.format === "code") {
-    console.log("formattedNumber", `${sign}${config.code} ${formattedNumber}`);
-
     return `${sign}${config.code} ${formattedNumber}`;
   } else {
-    console.log("formattedNumber", `${sign}${config.code} `);
-
     return `${sign}${config.symbol}${formattedNumber}`;
   }
 }

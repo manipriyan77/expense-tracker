@@ -218,7 +218,6 @@ export default function DebtTrackerPage() {
   // Fetch payments after debts are loaded
   useEffect(() => {
     if (debts.length > 0) {
-      console.log("Debts loaded, fetching payments...");
       fetchAllPayments();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -361,11 +360,6 @@ export default function DebtTrackerPage() {
 
   // Calculate payment history from actual data
   const paymentHistory = React.useMemo(() => {
-    console.log(
-      "Calculating payment history. Total payments:",
-      payments.length,
-    );
-
     // If no debts yet, return empty data
     if (debts.length === 0) {
       const result = [];
@@ -431,7 +425,6 @@ export default function DebtTrackerPage() {
       });
     }
 
-    console.log("Payment history calculated:", result);
     return result;
   }, [payments, totalDebt, debts.length]);
 
@@ -741,8 +734,8 @@ export default function DebtTrackerPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b sticky top-0 z-10">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
             <div>
@@ -969,9 +962,7 @@ export default function DebtTrackerPage() {
               <Calendar className="h-4 w-4 text-gray-600" />
             </CardHeader>
             <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold">
-                {format(totalMinPayment)}
-              </div>
+              <div className="text-xl font-bold">{format(totalMinPayment)}</div>
               <p className="text-xs text-gray-500 mt-1">Per month</p>
             </CardContent>
           </Card>

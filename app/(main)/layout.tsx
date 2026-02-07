@@ -29,8 +29,8 @@ export default function MainLayout({
 
   if (!initialized || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
       </div>
     );
   }
@@ -40,7 +40,13 @@ export default function MainLayout({
   }
 
   return (
-    <div className="flex min-h-screen min-w-0">
+    <div className="flex min-h-screen w-full min-w-0">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        Skip to main content
+      </a>
       <Sidebar
         mobileOpen={mobileMenuOpen}
         onMobileClose={() => setMobileMenuOpen(false)}
@@ -54,7 +60,7 @@ export default function MainLayout({
         />
       )}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="flex items-center gap-2 px-3 py-2 border-b bg-white shrink-0 md:hidden sticky top-0 z-30">
+        <header className="flex items-center gap-2 px-3 py-2 border-b bg-card shrink-0 md:hidden sticky top-0 z-30">
           <Button
             variant="ghost"
             size="icon"
@@ -66,12 +72,12 @@ export default function MainLayout({
           </Button>
           <Link
             href="/dashboard"
-            className="font-semibold text-gray-900 truncate"
+            className="font-semibold text-foreground truncate"
           >
             Expense Tracker
           </Link>
         </header>
-        <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
+        <main id="main-content" className="flex-1 min-w-0 overflow-x-hidden" tabIndex={-1}>{children}</main>
       </div>
     </div>
   );

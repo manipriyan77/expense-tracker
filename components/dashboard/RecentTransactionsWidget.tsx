@@ -50,27 +50,27 @@ export function RecentTransactionsWidget() {
             {recentTransactions.map((transaction) => (
               <div
                 key={transaction.id}
-                className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-center space-x-3">
                   <div
                     className={`p-2 rounded-full ${
                       transaction.type === "income"
-                        ? "bg-green-100"
-                        : "bg-red-100"
+                        ? "bg-green-100 dark:bg-green-950/60"
+                        : "bg-red-100 dark:bg-red-950/60"
                     }`}
                   >
                     {transaction.type === "income" ? (
-                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
                     ) : (
-                      <TrendingDown className="h-4 w-4 text-red-600" />
+                      <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
                     )}
                   </div>
                   <div>
-                    <p className="font-medium text-sm">
+                    <p className="font-medium text-sm text-foreground">
                       {transaction.description}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {transaction.category}
                       {transaction.subtype && ` • ${transaction.subtype}`}
                     </p>
@@ -80,14 +80,14 @@ export function RecentTransactionsWidget() {
                   <p
                     className={`font-semibold text-sm ${
                       transaction.type === "income"
-                        ? "text-green-600"
-                        : "text-red-600"
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-red-600 dark:text-red-400"
                     }`}
                   >
                     {transaction.type === "income" ? "+" : "-"}
                     {format(transaction.amount)}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     {new Date(transaction.date).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",

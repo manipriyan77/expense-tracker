@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/components/theme-provider";
+import { useAuthStore } from "@/store/auth-store";
 import {
   Card,
   CardContent,
@@ -32,13 +34,19 @@ import {
 } from "lucide-react";
 
 export default function SettingsPage() {
-  const [darkMode, setDarkMode] = useState(false);
+  const { user } = useAuthStore();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [notifications, setNotifications] = useState(true);
   const [baseCurrency, setBaseCurrency] = useState("INR");
+  const displayName =
+    (user?.user_metadata?.full_name as string) ||
+    (user?.user_metadata?.name as string) ||
+    "User";
+  const displayEmail = user?.email ?? "";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card shadow-sm border-b">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
             <h1 className="text-xl font-bold text-gray-900">Settings</h1>
@@ -72,7 +80,7 @@ export default function SettingsPage() {
                   <Input
                     id="name"
                     placeholder="Your name"
-                    defaultValue="User"
+                    defaultValue={displayName}
                   />
                 </div>
                 <div className="space-y-2">
@@ -81,7 +89,7 @@ export default function SettingsPage() {
                     id="email"
                     type="email"
                     placeholder="your@email.com"
-                    defaultValue="user@example.com"
+                    defaultValue={displayEmail}
                     disabled
                   />
                 </div>
@@ -135,28 +143,26 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Moon className="h-5 w-5 text-gray-600" />
-                    <div>
-                      <p className="font-medium">Dark Mode</p>
-                      <p className="text-sm text-gray-500">Enable dark theme</p>
-                    </div>
-                  </div>
-                  <Switch checked={darkMode} onCheckedChange={setDarkMode} />
-                </div>
-                <div className="pt-4 border-t">
-                  <Label htmlFor="theme">Theme Preference</Label>
-                  <Select defaultValue="system">
-                    <SelectTrigger className="w-full mt-2">
+                <div className="pt-2">
+                  <Label htmlFor="theme">Theme</Label>
+                  <Select
+                    value={theme}
+                    onValueChange={(value: "light" | "dark" | "system") =>
+                      setTheme(value)
+                    }
+                  >
+                    <SelectTrigger id="theme" className="w-full mt-2">
                       <SelectValue placeholder="Select theme" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="light">Light</SelectItem>
                       <SelectItem value="dark">Dark</SelectItem>
-                      <SelectItem value="system">System</SelectItem>
+                      <SelectItem value="system">System (follow device)</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Current: {resolvedTheme}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -179,14 +185,12 @@ export default function SettingsPage() {
                       <SelectValue placeholder="Select currency" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="INR">INR - US Dollar</SelectItem>
+                      <SelectItem value="USD">USD - US Dollar</SelectItem>
+                      <SelectItem value="INR">INR - Indian Rupee</SelectItem>
                       <SelectItem value="EUR">EUR - Euro</SelectItem>
                       <SelectItem value="GBP">GBP - British Pound</SelectItem>
                       <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
-                      <SelectItem value="INR">INR - Indian Rupee</SelectItem>
-                      <SelectItem value="AUD">
-                        AUD - Australian Dollar
-                      </SelectItem>
+                      <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
                       <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
                     </SelectContent>
                   </Select>

@@ -171,7 +171,7 @@ export default function ForexPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8 py-4">
+    <div className="min-h-screen bg-background px-4 sm:px-6 lg:px-8 py-4">
       <header className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Forex</h1>
@@ -323,7 +323,9 @@ export default function ForexPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 mb-4">
         <Card className="border-2 border-blue-200 bg-blue-50">
           <CardHeader className="p-3 pb-0">
-            <CardTitle className="text-sm text-blue-900">Current Balance</CardTitle>
+            <CardTitle className="text-sm text-blue-900">
+              Current Balance
+            </CardTitle>
           </CardHeader>
           <CardContent
             className={`p-3 pt-2 text-xl font-bold ${
