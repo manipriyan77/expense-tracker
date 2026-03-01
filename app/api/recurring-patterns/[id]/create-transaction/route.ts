@@ -39,6 +39,20 @@ export async function POST(
       );
     }
 
+    // Respect end_date: don't create if next_date is past the end date
+    const endDate = pattern.end_date ? new Date(pattern.end_date) : null;
+    const nextDateForCheck = new Date(pattern.next_date);
+    if (endDate && nextDateForCheck > endDate) {
+      await supabase
+        .from("recurring_patterns")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      return NextResponse.json(
+        { error: "Recurrence has ended (past end date)" },
+        { status: 400 },
+      );
+    }
+
     // Create the transaction
     const { data: transaction, error: transactionError } = await supabase
       .from("transactions")
@@ -75,9 +89,15 @@ export async function POST(
       case "biweekly":
         nextDate.setDate(nextDate.getDate() + 14);
         break;
-      case "monthly":
+      case "monthly": {
         nextDate.setMonth(nextDate.getMonth() + 1);
+        const dayOfMonth = pattern.day_of_month;
+        if (dayOfMonth != null && dayOfMonth >= 1 && dayOfMonth <= 31) {
+          const lastDay = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate();
+          nextDate.setDate(Math.min(dayOfMonth, lastDay));
+        }
         break;
+      }
       case "quarterly":
         nextDate.setMonth(nextDate.getMonth() + 3);
         break;
@@ -86,13 +106,18 @@ export async function POST(
         break;
     }
 
-    // Update the recurring pattern's next_date
+    // If we have an end_date and the new next_date is past it, deactivate the pattern
+    const updates: { next_date: string; updated_at: string; is_active?: boolean } = {
+      next_date: nextDate.toISOString().split("T")[0],
+      updated_at: new Date().toISOString(),
+    };
+    if (endDate && nextDate > endDate) {
+      updates.is_active = false;
+    }
+
     const { error: updateError } = await supabase
       .from("recurring_patterns")
-      .update({
-        next_date: nextDate.toISOString().split("T")[0],
-        updated_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq("id", id);
 
     if (updateError) {

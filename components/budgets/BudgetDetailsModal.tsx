@@ -273,7 +273,7 @@ export default function BudgetDetailsModal({
                     <span className="font-bold">{percentage.toFixed(1)}%</span>
                   </div>
                   <div className="relative">
-                    <div className="w-full bg-gray-200 rounded-full h-4" />
+                    <div className="w-full bg-muted rounded-full h-4" />
                     <div
                       className={`absolute top-0 left-0 h-4 ${getProgressColor(percentage)} rounded-full transition-all`}
                       style={{ width: `${Math.min(percentage, 100)}%` }}

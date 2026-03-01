@@ -36,11 +36,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, type, amount, description, category, subtype, frequency, start_date, end_date, next_date, is_active, auto_create, tags, notes } = body;
+    const { name, type, amount, description, category, subtype, frequency, day_of_month, start_date, end_date, next_date, is_active, auto_create, tags, notes } = body;
 
     if (!name || !type || !amount || !description || !category || !subtype || !frequency || !start_date || !next_date) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    const parsed = parseInt(String(day_of_month ?? ""), 10);
+    const dayOfMonth =
+      Number.isNaN(parsed) || parsed < 1 || parsed > 31 ? null : parsed;
 
     const { data, error } = await supabase
       .from("recurring_patterns")
@@ -53,6 +57,7 @@ export async function POST(request: NextRequest) {
         category,
         subtype,
         frequency,
+        day_of_month: dayOfMonth,
         start_date,
         end_date: end_date || null,
         next_date,

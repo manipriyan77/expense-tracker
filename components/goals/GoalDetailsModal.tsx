@@ -239,7 +239,7 @@ export default function GoalDetailsModal({
                     <span className="font-medium">Progress</span>
                     <span className="font-bold">{progress.toFixed(1)}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-4">
+                  <div className="w-full bg-muted rounded-full h-4">
                     <div
                       className={`h-4 rounded-full transition-all duration-300 ${
                         isCompleted

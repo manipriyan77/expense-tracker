@@ -51,7 +51,19 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   PieChart as PieChartIcon,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { Label } from "@/components/ui/label";
 import { useTransactionsStore } from "@/store/transactions-store";
 import { useBudgetsStore } from "@/store/budgets-store";
@@ -67,6 +79,8 @@ import {
   type ForecastResult,
 } from "@/lib/utils/forecasting";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
+import { MonthlyReportDownloadButton } from "@/components/monthly-report-template";
+import { useAuthStore } from "@/store/auth-store";
 
 // Color palette for categories
 const CATEGORY_COLORS: Record<string, string> = {
@@ -97,8 +111,17 @@ interface Transaction {
   date: string;
 }
 
+interface DayTransaction {
+  id: string;
+  type: "income" | "expense";
+  amount: number;
+  description: string;
+  category: string;
+}
+
 export default function AnalyticsPage() {
   const { format } = useFormatCurrency();
+  const { user } = useAuthStore();
   const {
     transactions,
     loading: transLoading,
@@ -111,6 +134,12 @@ export default function AnalyticsPage() {
     "1M" | "3M" | "6M" | "1Y" | "ALL"
   >("6M");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+
+  // Calendar state
+  const [calCurrentDate, setCalCurrentDate] = useState(new Date());
+  const [calSelectedDate, setCalSelectedDate] = useState<Date | null>(null);
+  const [isDayModalOpen, setIsDayModalOpen] = useState(false);
+  const [isAddCalDialogOpen, setIsAddCalDialogOpen] = useState(false);
 
   // Forecasting state
   const [forecastMethod, setForecastMethod] = useState<
@@ -460,6 +489,172 @@ export default function AnalyticsPage() {
     };
   }, [transactions, forecastMethod, forecastPeriods, forecastType]);
 
+  // Calendar helpers
+  const calGetDaysInMonth = (date: Date) =>
+    new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+
+  const calGetFirstDayOfMonth = (date: Date) =>
+    new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+
+  const calToDateString = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
+  const calGetTransactionsForDate = (date: Date): DayTransaction[] =>
+    transactions
+      .filter((t) => t.date === calToDateString(date))
+      .map((t) => ({
+        id: t.id,
+        type: t.type,
+        amount: t.amount,
+        description: t.description,
+        category: t.category,
+      }));
+
+  const calHandleDayClick = (date: Date) => {
+    setCalSelectedDate(date);
+    setIsDayModalOpen(true);
+  };
+
+  const calGetDayTotal = (date: Date) => {
+    const dayTxns = calGetTransactionsForDate(date);
+    const income = dayTxns
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + t.amount, 0);
+    const expenses = dayTxns
+      .filter((t) => t.type === "expense")
+      .reduce((sum, t) => sum + t.amount, 0);
+    return { income, expenses, net: income - expenses };
+  };
+
+  const calNavigateMonth = (direction: "prev" | "next") => {
+    setCalCurrentDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setMonth(newDate.getMonth() + (direction === "next" ? 1 : -1));
+      return newDate;
+    });
+  };
+
+  const calIsToday = (date: Date) => {
+    const today = new Date();
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
+  };
+
+  const calIsSelected = (date: Date) => {
+    if (!calSelectedDate) return false;
+    return (
+      date.getDate() === calSelectedDate.getDate() &&
+      date.getMonth() === calSelectedDate.getMonth() &&
+      date.getFullYear() === calSelectedDate.getFullYear()
+    );
+  };
+
+  const calRenderDays = () => {
+    const daysInMonth = calGetDaysInMonth(calCurrentDate);
+    const firstDay = calGetFirstDayOfMonth(calCurrentDate);
+    const days = [];
+
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="p-2 border" />);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(
+        calCurrentDate.getFullYear(),
+        calCurrentDate.getMonth(),
+        day,
+      );
+      const dayTxns = calGetTransactionsForDate(date);
+      const { income, expenses } = calGetDayTotal(date);
+      const hasTxns = dayTxns.length > 0;
+
+      days.push(
+        <div
+          key={day}
+          className={`p-2 border min-h-[100px] cursor-pointer transition-colors ${
+            calIsToday(date)
+              ? "bg-primary/10 dark:bg-primary/20 border-primary/30"
+              : ""
+          } ${calIsSelected(date) ? "ring-2 ring-primary ring-inset" : ""} ${
+            hasTxns ? "hover:bg-muted/50" : ""
+          }`}
+          onClick={() => calHandleDayClick(date)}
+        >
+          <div className="flex justify-between items-start mb-1">
+            <span
+              className={`text-sm font-medium ${
+                calIsToday(date)
+                  ? "text-primary font-bold"
+                  : "text-foreground"
+              }`}
+            >
+              {day}
+            </span>
+            {dayTxns.length > 0 && (
+              <Badge variant="outline" className="text-xs px-1 py-0">
+                {dayTxns.length}
+              </Badge>
+            )}
+          </div>
+          {hasTxns && (
+            <div className="space-y-1">
+              {income > 0 && (
+                <div className="flex items-center gap-1 text-xs text-green-600">
+                  <TrendingUp className="h-3 w-3" />
+                  <span>{format(income)}</span>
+                </div>
+              )}
+              {expenses > 0 && (
+                <div className="flex items-center gap-1 text-xs text-red-600">
+                  <TrendingDown className="h-3 w-3" />
+                  <span>{format(expenses)}</span>
+                </div>
+              )}
+              {dayTxns.slice(0, 2).map((t) => (
+                <div
+                  key={t.id}
+                  className="text-xs text-muted-foreground truncate"
+                  title={t.description}
+                >
+                  • {t.description}
+                </div>
+              ))}
+              {dayTxns.length > 2 && (
+                <div className="text-xs text-muted-foreground">
+                  +{dayTxns.length - 2} more
+                </div>
+              )}
+            </div>
+          )}
+        </div>,
+      );
+    }
+    return days;
+  };
+
+  const calMonthlyStats = () => {
+    const year = calCurrentDate.getFullYear();
+    const month = calCurrentDate.getMonth();
+    const monthTxns = transactions.filter((t) => {
+      const d = new Date(t.date);
+      return d.getFullYear() === year && d.getMonth() === month;
+    });
+    const income = monthTxns
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + t.amount, 0);
+    const expenses = monthTxns
+      .filter((t) => t.type === "expense")
+      .reduce((sum, t) => sum + t.amount, 0);
+    return { income, expenses, net: income - expenses };
+  };
+
   if (loading && transactions.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -474,14 +669,21 @@ export default function AnalyticsPage() {
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">
+              <h1 className="text-xl font-bold text-foreground">
                 Advanced Analytics
               </h1>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Comprehensive insights into your financial data
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-center flex-wrap">
+              <MonthlyReportDownloadButton
+                month={new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                transactions={filteredTransactions}
+                budgets={budgets}
+                goals={goals}
+                userName={(user?.user_metadata?.full_name as string) || user?.email}
+              />
               <Select
                 value={selectedCategory}
                 onValueChange={setSelectedCategory}
@@ -533,7 +735,7 @@ export default function AnalyticsPage() {
               <div className="text-xl font-bold text-green-600">
                 {format(statistics.income)}
               </div>
-              <div className="flex items-center text-xs text-gray-600 mt-1">
+              <div className="flex items-center text-xs text-muted-foreground mt-1">
                 {statistics.incomeTrend >= 0 ? (
                   <ArrowUpRight className="h-3 w-3 text-green-600 mr-1" />
                 ) : (
@@ -564,7 +766,7 @@ export default function AnalyticsPage() {
               <div className="text-xl font-bold text-red-600">
                 {format(statistics.expenses)}
               </div>
-              <div className="flex items-center text-xs text-gray-600 mt-1">
+              <div className="flex items-center text-xs text-muted-foreground mt-1">
                 {statistics.expenseTrend >= 0 ? (
                   <ArrowUpRight className="h-3 w-3 text-red-600 mr-1" />
                 ) : (
@@ -595,7 +797,7 @@ export default function AnalyticsPage() {
               >
                 {format(statistics.net)}
               </div>
-              <p className="text-xs text-gray-600 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {statistics.transactionCount} transactions
               </p>
             </CardContent>
@@ -621,13 +823,14 @@ export default function AnalyticsPage() {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="trends">Trends</TabsTrigger>
             <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="budgets">Budget Analysis</TabsTrigger>
             <TabsTrigger value="goals">Goal Tracking</TabsTrigger>
             <TabsTrigger value="forecast">Forecast</TabsTrigger>
+            <TabsTrigger value="calendar">Calendar</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -804,7 +1007,7 @@ export default function AnalyticsPage() {
                           <div className="font-semibold">
                             {format(category.value)}
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-muted-foreground">
                             {category.percentage.toFixed(1)}%
                           </div>
                         </div>
@@ -865,7 +1068,7 @@ export default function AnalyticsPage() {
                   <div className="text-2xl font-bold text-green-600">
                     {format(statistics.avgMonthlyIncome)}
                   </div>
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Based on {monthlyData.length} months
                   </p>
                 </CardContent>
@@ -882,7 +1085,7 @@ export default function AnalyticsPage() {
                   <div className="text-2xl font-bold text-red-600">
                     {format(statistics.avgMonthlyExpenses)}
                   </div>
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Based on {monthlyData.length} months
                   </p>
                 </CardContent>
@@ -899,7 +1102,7 @@ export default function AnalyticsPage() {
                   <div className="text-2xl font-bold text-blue-600">
                     {format(statistics.avgTransactionAmount)}
                   </div>
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Per transaction average
                   </p>
                 </CardContent>
@@ -1072,7 +1275,7 @@ export default function AnalyticsPage() {
                                 ? "text-red-600 font-semibold"
                                 : budget.status === "warning"
                                   ? "text-orange-600 font-semibold"
-                                  : "text-gray-600"
+                                  : "text-muted-foreground"
                             }
                           >
                             {budget.percentage.toFixed(1)}% used
@@ -1081,7 +1284,7 @@ export default function AnalyticsPage() {
                             className={
                               budget.remaining < 0
                                 ? "text-red-600 font-semibold"
-                                : "text-gray-600"
+                                : "text-muted-foreground"
                             }
                           >
                             {format(Math.abs(budget.remaining))}{" "}
@@ -1138,11 +1341,11 @@ export default function AnalyticsPage() {
             ) : (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <PieChartIcon className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                  <p className="text-lg font-semibold text-gray-900 mb-2">
+                  <PieChartIcon className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-lg font-semibold text-foreground mb-2">
                     No Budgets Set
                   </p>
-                  <p className="text-gray-600 mb-2 text-sm">
+                  <p className="text-muted-foreground mb-2 text-sm">
                     Create budgets to track your spending limits
                   </p>
                 </CardContent>
@@ -1184,7 +1387,7 @@ export default function AnalyticsPage() {
                             value={Math.min(goal.percentage, 100)}
                             className="h-3"
                           />
-                          <div className="flex justify-between text-xs text-gray-600">
+                          <div className="flex justify-between text-xs text-muted-foreground">
                             <span>{goal.percentage.toFixed(1)}% complete</span>
                             <span>{format(goal.remaining)} to go</span>
                           </div>
@@ -1248,11 +1451,11 @@ export default function AnalyticsPage() {
             ) : (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <Target className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                  <p className="text-lg font-semibold text-gray-900 mb-2">
+                  <Target className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-lg font-semibold text-foreground mb-2">
                     No Active Goals
                   </p>
-                  <p className="text-gray-600 mb-2 text-sm">
+                  <p className="text-muted-foreground mb-2 text-sm">
                     Set financial goals to track your progress
                   </p>
                 </CardContent>
@@ -1274,7 +1477,7 @@ export default function AnalyticsPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Forecast Controls */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-muted/50 rounded-lg">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Forecast Type</Label>
                     <Select
@@ -1349,7 +1552,7 @@ export default function AnalyticsPage() {
                         <CardContent className="pt-6">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-muted-foreground">
                                 Trend Direction
                               </p>
                               <p className="text-2xl font-bold capitalize flex items-center space-x-2">
@@ -1365,7 +1568,7 @@ export default function AnalyticsPage() {
                                       ? "text-red-600"
                                       : forecastData.trend === "decreasing"
                                         ? "text-green-600"
-                                        : "text-gray-600"
+                                        : "text-muted-foreground"
                                   }
                                 >
                                   {forecastData.trend}
@@ -1379,13 +1582,13 @@ export default function AnalyticsPage() {
                       <Card className="border-2">
                         <CardContent className="pt-6">
                           <div>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-muted-foreground">
                               Forecasting Model
                             </p>
                             <p className="text-lg font-bold">
                               {forecastData.method}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               {forecastData.seasonality
                                 ? "Seasonality detected"
                                 : "No seasonality"}
@@ -1397,7 +1600,7 @@ export default function AnalyticsPage() {
                       <Card className="border-2">
                         <CardContent className="pt-6">
                           <div>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-muted-foreground">
                               Next Month Prediction
                             </p>
                             <p className="text-2xl font-bold text-indigo-600">
@@ -1405,7 +1608,7 @@ export default function AnalyticsPage() {
                                 forecastData.forecasts[0]?.predicted ?? 0,
                               )}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               Range:{" "}
                               {format(forecastData.forecasts[0]?.lower ?? 0)} -{" "}
                               {format(forecastData.forecasts[0]?.upper ?? 0)}
@@ -1416,24 +1619,24 @@ export default function AnalyticsPage() {
                     </div>
 
                     {/* How to read the chart & table */}
-                    <Card className="border-2 border-slate-200 bg-slate-50">
+                    <Card className="border-2 border-border bg-muted/50">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-base">How to read this</CardTitle>
                         <CardDescription className="text-sm space-y-2">
                           <span className="block">
-                            <strong className="text-slate-700">Historical</strong> — Your real past {forecastType === "expense" ? "expenses" : "income"} (what actually happened). Shown as the blue solid line on the chart.
+                            <strong className="text-foreground">Historical</strong> — Your real past {forecastType === "expense" ? "expenses" : "income"} (what actually happened). Shown as the blue solid line on the chart.
                           </span>
                           <span className="block">
-                            <strong className="text-slate-700">Forecast</strong> — What the model thinks will happen in future months. Shown as the orange dashed line.
+                            <strong className="text-foreground">Forecast</strong> — What the model thinks will happen in future months. Shown as the orange dashed line.
                           </span>
                           <span className="block">
-                            <strong className="text-slate-700">Predicted</strong> — The single best guess for that month (e.g. we expect about ₹1,50,000).
+                            <strong className="text-foreground">Predicted</strong> — The single best guess for that month (e.g. we expect about ₹1,50,000).
                           </span>
                           <span className="block">
-                            <strong className="text-slate-700">Lower bound</strong> — The minimum we expect (worst case). <strong className="text-slate-700">Upper bound</strong> — The maximum we expect (high case). The shaded orange band on the chart is this range.
+                            <strong className="text-foreground">Lower bound</strong> — The minimum we expect (worst case). <strong className="text-foreground">Upper bound</strong> — The maximum we expect (high case). The shaded orange band on the chart is this range.
                           </span>
                           <span className="block">
-                            <strong className="text-slate-700">Range</strong> — How wide that band is (± value). Bigger range = more uncertainty.
+                            <strong className="text-foreground">Range</strong> — How wide that band is (± value). Bigger range = more uncertainty.
                           </span>
                         </CardDescription>
                       </CardHeader>
@@ -1553,7 +1756,7 @@ export default function AnalyticsPage() {
                               {forecastData.forecasts.map((forecast, idx) => (
                                 <tr
                                   key={idx}
-                                  className="border-b hover:bg-gray-50"
+                                  className="border-b hover:bg-muted/50"
                                 >
                                   <td className="py-3 px-4">
                                     {new Date(forecast.date).toLocaleDateString(
@@ -1564,13 +1767,13 @@ export default function AnalyticsPage() {
                                   <td className="text-right py-3 px-4 font-semibold text-indigo-600">
                                     {format(forecast.predicted)}
                                   </td>
-                                  <td className="text-right py-3 px-4 text-gray-600">
+                                  <td className="text-right py-3 px-4 text-muted-foreground">
                                     {format(forecast.lower)}
                                   </td>
-                                  <td className="text-right py-3 px-4 text-gray-600">
+                                  <td className="text-right py-3 px-4 text-muted-foreground">
                                     {format(forecast.upper)}
                                   </td>
-                                  <td className="text-right py-3 px-4 text-sm text-gray-500">
+                                  <td className="text-right py-3 px-4 text-sm text-muted-foreground">
                                     ±
                                     {format(
                                       (forecast.upper - forecast.lower) / 2,
@@ -1600,10 +1803,10 @@ export default function AnalyticsPage() {
                                 <TrendingUp className="h-4 w-4 text-red-600" />
                               </div>
                               <div>
-                                <p className="font-medium text-gray-900">
+                                <p className="font-medium text-foreground">
                                   Rising Expenses Detected
                                 </p>
-                                <p className="text-sm text-gray-600">
+                                <p className="text-sm text-muted-foreground">
                                   Your expenses are trending upward. Consider
                                   reviewing your budget and identifying areas to
                                   cut back.
@@ -1619,10 +1822,10 @@ export default function AnalyticsPage() {
                                 <TrendingDown className="h-4 w-4 text-green-600" />
                               </div>
                               <div>
-                                <p className="font-medium text-gray-900">
+                                <p className="font-medium text-foreground">
                                   Great Progress!
                                 </p>
-                                <p className="text-sm text-gray-600">
+                                <p className="text-sm text-muted-foreground">
                                   Your expenses are trending downward. Keep up
                                   the good work with your spending habits!
                                 </p>
@@ -1636,10 +1839,10 @@ export default function AnalyticsPage() {
                               <Calendar className="h-4 w-4 text-blue-600" />
                             </div>
                             <div>
-                              <p className="font-medium text-gray-900">
+                              <p className="font-medium text-foreground">
                                 Seasonal Pattern Found
                               </p>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-muted-foreground">
                                 Your {forecastType} shows seasonal variations.
                                 Plan ahead for months with higher predicted
                                 values.
@@ -1653,10 +1856,10 @@ export default function AnalyticsPage() {
                             <Target className="h-4 w-4 text-indigo-600" />
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">
+                            <p className="font-medium text-foreground">
                               Forecast Confidence
                             </p>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-muted-foreground">
                               The {forecastData.method.toLowerCase()} model
                               provides predictions with 95% confidence
                               intervals. Wider ranges indicate higher
@@ -1670,11 +1873,11 @@ export default function AnalyticsPage() {
                 ) : (
                   <Card>
                     <CardContent className="py-12 text-center">
-                      <AlertCircle className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                      <p className="text-lg font-semibold text-gray-900 mb-2">
+                      <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-lg font-semibold text-foreground mb-2">
                         Insufficient Data
                       </p>
-                      <p className="text-gray-600">
+                      <p className="text-muted-foreground">
                         Need at least 3 months of transaction data to generate
                         forecasts
                       </p>
@@ -1684,8 +1887,227 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Calendar Tab */}
+          <TabsContent value="calendar" className="space-y-4 mt-0">
+            {/* Monthly Stats */}
+            {(() => {
+              const calStats = calMonthlyStats();
+              return (
+                <div className="grid gap-3 md:grid-cols-3">
+                  <Card>
+                    <CardHeader className="p-3 pb-0">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Total Income
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 pt-2">
+                      <div className="text-xl font-bold text-green-600">
+                        {format(calStats.income)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="p-3 pb-0">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Total Expenses
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 pt-2">
+                      <div className="text-xl font-bold text-red-600">
+                        {format(calStats.expenses)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="p-3 pb-0">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Net Balance
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 pt-2">
+                      <div
+                        className={`text-xl font-bold ${calStats.net >= 0 ? "text-blue-600" : "text-red-600"}`}
+                      >
+                        {format(calStats.net)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
+
+            {/* Calendar */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => calNavigateMonth("prev")}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <h2 className="text-lg font-semibold">
+                    {calCurrentDate.toLocaleDateString("en-US", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsAddCalDialogOpen(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => calNavigateMonth("next")}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-7 mb-2">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
+                    (day) => (
+                      <div
+                        key={day}
+                        className="p-2 text-center text-sm font-semibold text-muted-foreground"
+                      >
+                        {day}
+                      </div>
+                    ),
+                  )}
+                </div>
+                <div className="grid grid-cols-7 gap-0 border-t border-l">
+                  {calRenderDays()}
+                </div>
+                <div className="flex items-center justify-center gap-6 mt-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-primary/10 border border-primary/30 rounded" />
+                    <span>Today</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-green-600" />
+                    <span>Income</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <TrendingDown className="h-4 w-4 text-red-600" />
+                    <span>Expense</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </main>
+
+      {/* Day transactions modal */}
+      <Dialog
+        open={isDayModalOpen}
+        onOpenChange={(open) => {
+          setIsDayModalOpen(open);
+          if (!open) setCalSelectedDate(null);
+        }}
+      >
+        <DialogContent className="max-w-md max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">
+              {calSelectedDate
+                ? calSelectedDate.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
+                : "Transactions"}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              {calSelectedDate
+                ? `${calGetTransactionsForDate(calSelectedDate).length} transaction(s) on this day`
+                : "Transactions made on this day"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 min-h-0 -mx-6 px-6">
+            {calSelectedDate &&
+            calGetTransactionsForDate(calSelectedDate).length === 0 ? (
+              <p className="text-muted-foreground text-center py-8 text-sm">
+                No transactions on this date
+              </p>
+            ) : (
+              calSelectedDate && (
+                <div className="space-y-2">
+                  {calGetTransactionsForDate(calSelectedDate).map((t) => (
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`p-2 rounded-full shrink-0 ${
+                            t.type === "income"
+                              ? "bg-green-100 dark:bg-green-950/60"
+                              : "bg-red-100 dark:bg-red-950/60"
+                          }`}
+                        >
+                          {t.type === "income" ? (
+                            <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          ) : (
+                            <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-foreground truncate">
+                            {t.description}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {t.category}
+                          </p>
+                        </div>
+                      </div>
+                      <p
+                        className={`font-semibold shrink-0 ml-2 ${
+                          t.type === "income"
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
+                        }`}
+                      >
+                        {t.type === "income" ? "+" : "-"}
+                        {format(t.amount)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Transaction Dialog */}
+      <Dialog open={isAddCalDialogOpen} onOpenChange={setIsAddCalDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Transaction</DialogTitle>
+            <DialogDescription>
+              Add a new income or expense transaction
+            </DialogDescription>
+          </DialogHeader>
+          {isAddCalDialogOpen && (
+            <AddTransactionForm
+              onSuccess={() => setIsAddCalDialogOpen(false)}
+              onCancel={() => setIsAddCalDialogOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

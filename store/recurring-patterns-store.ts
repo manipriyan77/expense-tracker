@@ -10,6 +10,7 @@ export interface RecurringPattern {
   category: string;
   subtype: string;
   frequency: "daily" | "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly";
+  day_of_month?: number | null; // For monthly: run on this day each month (1-31)
   start_date: string;
   end_date?: string | null;
   next_date: string;
@@ -57,11 +58,16 @@ export const useRecurringPatternsStore = create<RecurringPatternsState>((set, ge
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patternData),
       });
-      if (!response.ok) throw new Error("Failed to add recurring pattern");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const message = body?.error || response.statusText || "Failed to add recurring pattern";
+        throw new Error(message);
+      }
       const newPattern = await response.json();
       set({ patterns: [...get().patterns, newPattern], loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
+      throw error;
     }
   },
 

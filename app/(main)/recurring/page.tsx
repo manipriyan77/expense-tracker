@@ -28,6 +28,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Plus,
   Repeat,
@@ -42,6 +45,9 @@ import {
   Lightbulb,
   CheckCircle2,
   Loader2,
+  Receipt,
+  AlertCircle,
+  Clock,
 } from "lucide-react";
 import type { Transaction } from "@/store/transactions-store";
 import {
@@ -85,6 +91,7 @@ export default function RecurringPage() {
       | "monthly"
       | "quarterly"
       | "yearly",
+    day_of_month: "" as string | number, // 1-31 for monthly; empty = use start date day
     start_date: new Date().toISOString().split("T")[0],
     end_date: "",
     auto_create: false,
@@ -199,6 +206,21 @@ export default function RecurringPage() {
     }
   };
 
+  // First occurrence for monthly + day_of_month: that day in start month or next month
+  const getFirstMonthlyNextDate = (startDateStr: string, dayOfMonth: number) => {
+    const d = new Date(startDateStr + "T12:00:00");
+    const startDay = d.getDate();
+    if (startDay <= dayOfMonth) {
+      const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      d.setDate(Math.min(dayOfMonth, lastDay));
+    } else {
+      d.setMonth(d.getMonth() + 1);
+      const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      d.setDate(Math.min(dayOfMonth, lastDay));
+    }
+    return d.toISOString().split("T")[0];
+  };
+
   const handleAddTransaction = async () => {
     if (
       !formData.amount ||
@@ -210,8 +232,16 @@ export default function RecurringPage() {
       return;
     }
 
+    const dayOfMonth =
+      formData.frequency === "monthly" && formData.day_of_month !== ""
+        ? Math.min(31, Math.max(1, Number(formData.day_of_month) || 0))
+        : null;
+    const nextDateStr =
+      formData.frequency === "monthly" && dayOfMonth != null
+        ? getFirstMonthlyNextDate(formData.start_date, dayOfMonth)
+        : new Date(formData.start_date).toISOString().split("T")[0];
+
     try {
-      const nextDate = new Date(formData.start_date);
       await addPattern({
         name: formData.name,
         type: formData.type,
@@ -220,9 +250,10 @@ export default function RecurringPage() {
         category: formData.category,
         subtype: formData.subtype || "Other",
         frequency: formData.frequency,
+        day_of_month: dayOfMonth,
         start_date: formData.start_date,
         end_date: formData.end_date || null,
-        next_date: nextDate.toISOString().split("T")[0],
+        next_date: nextDateStr,
         is_active: true,
         auto_create: formData.auto_create,
         tags: [],
@@ -237,13 +268,14 @@ export default function RecurringPage() {
         category: "",
         subtype: "",
         frequency: "monthly",
+        day_of_month: "",
         start_date: new Date().toISOString().split("T")[0],
         end_date: "",
         auto_create: false,
       });
       setIsAddDialogOpen(false);
-    } catch {
-      toast.error("Failed to add recurring pattern");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add recurring pattern");
     }
   };
 
@@ -323,6 +355,83 @@ export default function RecurringPage() {
     }
   };
 
+  // Bills tab logic
+  const bills = useMemo(
+    () => patterns.filter((p) => p.type === "expense" && p.is_active),
+    [patterns],
+  );
+  const [payingId, setPayingId] = useState<string | null>(null);
+
+  const billsToday = new Date();
+  billsToday.setHours(0, 0, 0, 0);
+  const billsSevenDaysLater = new Date(billsToday);
+  billsSevenDaysLater.setDate(billsToday.getDate() + 7);
+
+  const overdueBills = bills.filter(
+    (b) => b.next_date && new Date(b.next_date) < billsToday,
+  );
+  const upcomingBills = bills.filter((b) => {
+    if (!b.next_date) return false;
+    const d = new Date(b.next_date);
+    return d >= billsToday && d <= billsSevenDaysLater;
+  });
+  const allBills = [...bills].sort((a, b) =>
+    (a.next_date || "").localeCompare(b.next_date || ""),
+  );
+
+  const monthlyBillsTotal = useMemo(() => {
+    return bills.reduce((sum, b) => {
+      switch (b.frequency) {
+        case "daily": return sum + b.amount * 30;
+        case "weekly": return sum + b.amount * 4.33;
+        case "biweekly": return sum + b.amount * 2.17;
+        case "monthly": return sum + b.amount;
+        case "quarterly": return sum + b.amount / 3;
+        case "yearly": return sum + b.amount / 12;
+        default: return sum + b.amount;
+      }
+    }, 0);
+  }, [bills]);
+
+  const paidThisMonth = useMemo(() => {
+    const now = new Date();
+    return bills.filter((b) => {
+      if (!b.next_date) return false;
+      const d = new Date(b.next_date);
+      return d.getMonth() > now.getMonth() || d.getFullYear() > now.getFullYear();
+    }).length;
+  }, [bills]);
+
+  const handlePayNow = async (id: string, name: string) => {
+    setPayingId(id);
+    try {
+      await createTransaction(id);
+      toast.success(`${name} marked as paid!`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to record payment");
+    } finally {
+      setPayingId(null);
+    }
+  };
+
+  const getDaysLabel = (nextDate: string) => {
+    const d = new Date(nextDate);
+    const diff = Math.ceil((d.getTime() - billsToday.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return { label: `${Math.abs(diff)}d overdue`, color: "text-red-600" };
+    if (diff === 0) return { label: "Due today", color: "text-orange-600" };
+    if (diff <= 7) return { label: `Due in ${diff}d`, color: "text-amber-600" };
+    return { label: `Due in ${diff}d`, color: "text-muted-foreground" };
+  };
+
+  const frequencyLabel: Record<string, string> = {
+    daily: "Daily",
+    weekly: "Weekly",
+    biweekly: "Bi-weekly",
+    monthly: "Monthly",
+    quarterly: "Quarterly",
+    yearly: "Yearly",
+  };
+
   const activePatterns = patterns.filter((p) => p.is_active);
   const totalMonthlyIncome = activePatterns
     .filter(
@@ -347,17 +456,36 @@ export default function RecurringPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card shadow-sm border-b">
+      <header className="bg-card shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
-            <h1 className="text-xl font-bold text-gray-900">
-              Recurring Transactions
-            </h1>
+            <div>
+              <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <Repeat className="h-5 w-5" /> Recurring & Bills
+              </h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Manage recurring patterns and track upcoming bills
+              </p>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4">
+        <Tabs defaultValue="recurring" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="recurring">Recurring Patterns</TabsTrigger>
+            <TabsTrigger value="bills">
+              Bills & Subscriptions
+              {overdueBills.length > 0 && (
+                <span className="ml-1.5 rounded-full bg-red-500 text-white text-[10px] px-1.5 py-0.5 leading-none">
+                  {overdueBills.length}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="recurring" className="space-y-4 mt-0">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
           <Card>
@@ -427,12 +555,12 @@ export default function RecurringPage() {
                 {upcomingRecurring.map((pattern) => (
                   <div
                     key={pattern.id}
-                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200"
+                    className="flex items-center justify-between p-3 bg-background rounded-lg border border-blue-200"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <p className="font-semibold">{pattern.description}</p>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted-foreground">
                           {pattern.daysUntil === 0
                             ? "Due today"
                             : pattern.daysUntil === 1
@@ -440,7 +568,7 @@ export default function RecurringPage() {
                               : `Due in ${pattern.daysUntil} days`}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         {pattern.category} • {format(pattern.amount)}
                       </p>
                     </div>
@@ -482,11 +610,11 @@ export default function RecurringPage() {
                 {potentialRecurring.map((potential, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-yellow-200"
+                    className="flex items-center justify-between p-3 bg-background rounded-lg border border-yellow-200"
                   >
                     <div className="flex-1">
                       <p className="font-semibold">{potential.description}</p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         {potential.category} • {format(potential.amount)} •{" "}
                         {potential.frequency} • Found {potential.count} times
                       </p>
@@ -519,7 +647,8 @@ export default function RecurringPage() {
               <DialogHeader>
                 <DialogTitle>Add Recurring Transaction</DialogTitle>
                 <DialogDescription>
-                  Set up automatic income or expense tracking
+                  Set up automatic income or expense tracking. You can set an
+                  end date so it repeats until a specific date.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -595,7 +724,7 @@ export default function RecurringPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category">Category *</Label>
                   {showCategoryInput ? (
                     <div className="flex space-x-2">
                       <Input
@@ -709,6 +838,46 @@ export default function RecurringPage() {
                   </Select>
                 </div>
 
+                {formData.frequency === "monthly" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="day_of_month">
+                      Day of month (e.g. 15 = every 15th)
+                    </Label>
+                    <Select
+                      value={formData.day_of_month === "" ? "same" : String(formData.day_of_month)}
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          day_of_month: value === "same" ? "" : Number(value),
+                        })
+                      }
+                    >
+                      <SelectTrigger id="day_of_month">
+                        <SelectValue placeholder="Pick a day" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="same">Same as start date</SelectItem>
+                        {Array.from({ length: 31 }, (_, i) => {
+                          const d = i + 1;
+                          const ord =
+                            d === 1 || d === 21 || d === 31
+                              ? "st"
+                              : d === 2 || d === 22
+                                ? "nd"
+                                : d === 3 || d === 23
+                                  ? "rd"
+                                  : "th";
+                          return (
+                            <SelectItem key={d} value={String(d)}>
+                              {d}{ord}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="start_date">Start Date</Label>
                   <Input
@@ -722,7 +891,7 @@ export default function RecurringPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="end_date">End Date (Optional)</Label>
+                  <Label htmlFor="end_date">End Date (optional – repeats until this date)</Label>
                   <Input
                     id="end_date"
                     type="date"
@@ -730,6 +899,7 @@ export default function RecurringPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, end_date: e.target.value })
                     }
+                    min={formData.start_date}
                   />
                 </div>
 
@@ -801,7 +971,10 @@ export default function RecurringPage() {
                             {pattern.name}
                           </p>
                           <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
-                            {pattern.frequency}
+                            {pattern.frequency === "monthly" &&
+                            pattern.day_of_month != null
+                              ? `monthly (${pattern.day_of_month}${pattern.day_of_month === 1 || pattern.day_of_month === 21 || pattern.day_of_month === 31 ? "st" : pattern.day_of_month === 2 || pattern.day_of_month === 22 ? "nd" : pattern.day_of_month === 3 || pattern.day_of_month === 23 ? "rd" : "th"})`
+                              : pattern.frequency}
                           </span>
                           {pattern.auto_create && (
                             <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700">
@@ -814,10 +987,10 @@ export default function RecurringPage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           {pattern.description} • {pattern.category}
                         </p>
-                        <div className="flex items-center space-x-1 text-xs text-gray-500 mt-1">
+                        <div className="flex items-center space-x-1 text-xs text-muted-foreground mt-1">
                           <Calendar className="h-3 w-3" />
                           <span>
                             Next: {nextDate.toLocaleDateString()}
@@ -886,19 +1059,196 @@ export default function RecurringPage() {
           })}
         </div>
 
-        {patterns.length === 0 && !loading && (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Repeat className="h-10 w-10 text-gray-400 mb-2" />
-              <p className="text-lg font-semibold text-gray-900 mb-2">
-                No recurring transactions
-              </p>
-              <p className="text-gray-600 mb-2 text-sm">
-                Add your first recurring income or expense
-              </p>
-            </CardContent>
-          </Card>
-        )}
+          {patterns.length === 0 && !loading && (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Repeat className="h-10 w-10 text-muted-foreground mb-2" />
+                <p className="text-lg font-semibold text-foreground mb-2">
+                  No recurring transactions
+                </p>
+                <p className="text-muted-foreground mb-2 text-sm">
+                  Add your first recurring income or expense
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          </TabsContent>
+
+          {/* Bills Tab */}
+          <TabsContent value="bills" className="space-y-4 mt-0">
+            {/* Summary cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
+                  <CardTitle className="text-sm font-medium">Monthly Cost</CardTitle>
+                  <TrendingDown className="h-4 w-4 text-red-500" />
+                </CardHeader>
+                <CardContent className="p-3 pt-2">
+                  <div className="text-xl font-bold text-red-600">{format(monthlyBillsTotal)}</div>
+                  <p className="text-xs text-muted-foreground">Across {bills.length} bills</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
+                  <CardTitle className="text-sm font-medium">Overdue</CardTitle>
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                </CardHeader>
+                <CardContent className="p-3 pt-2">
+                  <div className={`text-xl font-bold ${overdueBills.length > 0 ? "text-red-600" : "text-green-600"}`}>
+                    {overdueBills.length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Bills past due date</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
+                  <CardTitle className="text-sm font-medium">Paid This Month</CardTitle>
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                </CardHeader>
+                <CardContent className="p-3 pt-2">
+                  <div className="text-xl font-bold text-green-600">{paidThisMonth}</div>
+                  <p className="text-xs text-muted-foreground">of {bills.length} bills</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Overdue alert */}
+            {overdueBills.length > 0 && (
+              <Card className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+                <CardHeader className="p-3 pb-1">
+                  <CardTitle className="text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" /> Overdue Bills
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-2">
+                  {overdueBills.map((bill) => (
+                    <div key={bill.id} className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium text-sm">{bill.name}</span>
+                        <span className="text-xs text-red-600 dark:text-red-400 ml-2">
+                          {getDaysLabel(bill.next_date).label}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{format(bill.amount)}</span>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handlePayNow(bill.id, bill.name)}
+                          disabled={payingId === bill.id}
+                        >
+                          {payingId === bill.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Pay Now"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Upcoming this week */}
+            {upcomingBills.length > 0 && (
+              <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20">
+                <CardHeader className="p-3 pb-1">
+                  <CardTitle className="text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                    <Clock className="h-4 w-4" /> Due This Week
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-2">
+                  {upcomingBills.map((bill) => {
+                    const { label, color } = getDaysLabel(bill.next_date);
+                    return (
+                      <div key={bill.id} className="flex items-center justify-between">
+                        <div>
+                          <span className="font-medium text-sm">{bill.name}</span>
+                          <span className={`text-xs ml-2 ${color}`}>{label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm">{format(bill.amount)}</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePayNow(bill.id, bill.name)}
+                            disabled={payingId === bill.id}
+                          >
+                            {payingId === bill.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Mark Paid"}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* All bills */}
+            <Card>
+              <CardHeader className="p-3 pb-2">
+                <CardTitle className="text-base">All Bills</CardTitle>
+                <CardDescription>Active recurring expense bills sorted by next due date</CardDescription>
+              </CardHeader>
+              <CardContent className="p-3 pt-0">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : allBills.length === 0 ? (
+                  <EmptyState
+                    icon={Receipt}
+                    title="No bills tracked"
+                    description="Add recurring expense patterns in the Recurring tab to track your bills here"
+                    actionLabel="Go to Recurring"
+                    onAction={() => document.querySelector<HTMLButtonElement>('[data-state][value="recurring"]')?.click()}
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    {allBills.map((bill) => {
+                      const { label, color } = getDaysLabel(bill.next_date);
+                      return (
+                        <div
+                          key={bill.id}
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 rounded-full bg-red-100 dark:bg-red-900/30 shrink-0">
+                              <Receipt className="h-4 w-4 text-red-600" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{bill.name}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant="secondary" className="text-xs px-1.5">
+                                  {frequencyLabel[bill.frequency]}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">{bill.category}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right">
+                              <p className="font-semibold text-sm">{format(bill.amount)}</p>
+                              <p className={`text-xs ${color} flex items-center gap-1 justify-end`}>
+                                <Calendar className="h-3 w-3" />
+                                {label}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handlePayNow(bill.id, bill.name)}
+                              disabled={payingId === bill.id}
+                            >
+                              {payingId === bill.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Pay"}
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

@@ -73,7 +73,13 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
 } from "recharts";
+
+const ALLOCATION_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#ec4899", "#8b5cf6"];
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatsSkeleton } from "@/components/ui/skeleton";
@@ -236,6 +242,29 @@ export default function NetWorthPage() {
       },
     ];
   }, [holdings, mutualFunds, stocks, forexEntries, totalManualAssets]);
+
+  // Allocation tab: investment breakdown by category/sector
+  const allocationItems = useMemo(() => {
+    return assetBreakdown.filter((i) => i.value > 0);
+  }, [assetBreakdown]);
+
+  const mutualFundCategories = useMemo(() => {
+    const totals = mutualFunds.reduce<Record<string, number>>((acc, fund) => {
+      const key = fund.category || "Uncategorized";
+      acc[key] = (acc[key] || 0) + fund.currentValue;
+      return acc;
+    }, {});
+    return Object.entries(totals).map(([name, value]) => ({ name, value })).filter((i) => i.value > 0);
+  }, [mutualFunds]);
+
+  const stockSectors = useMemo(() => {
+    const totals = stocks.reduce<Record<string, number>>((acc, stock) => {
+      const key = stock.sector || "Uncategorized";
+      acc[key] = (acc[key] || 0) + stock.currentValue;
+      return acc;
+    }, {});
+    return Object.entries(totals).map(([name, value]) => ({ name, value })).filter((i) => i.value > 0);
+  }, [stocks]);
 
   // Net worth trend: from Jan 2026 only, up to 6 months (snapshot or current net worth)
   const NET_WORTH_START_YEAR = 2026;
@@ -482,7 +511,7 @@ export default function NetWorthPage() {
       <header className="bg-card shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-foreground">
               Net Worth Tracking
             </h1>
           </div>
@@ -524,13 +553,13 @@ export default function NetWorthPage() {
               <div className="text-xl font-bold text-red-600">
                 {format(totalLiabilities)}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 -1.8% from last month
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-blue-200 bg-blue-50">
+          <Card className="border-2 border-primary/30 bg-primary/10">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
               <TrendingUp className="h-4 w-4 text-blue-600" />
@@ -539,7 +568,7 @@ export default function NetWorthPage() {
               <div className="text-xl font-bold text-blue-600">
                 {format(netWorth)}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 +12.5% from last month
               </p>
             </CardContent>
@@ -556,7 +585,7 @@ export default function NetWorthPage() {
           </CardHeader>
           <CardContent className="p-3">
             {totalAssets === 0 ? (
-              <p className="text-center text-gray-500 py-3 text-sm">
+              <p className="text-center text-muted-foreground py-3 text-sm">
                 No assets tracked yet. Add investments or manual assets to get
                 started.
               </p>
@@ -585,16 +614,16 @@ export default function NetWorthPage() {
                                     {item.name}
                                   </span>
                                 </div>
-                                <ExternalLink className="h-4 w-4 text-gray-400" />
+                                <ExternalLink className="h-4 w-4 text-muted-foreground" />
                               </div>
                               <div className="text-xl font-bold text-green-600">
                                 {format(item.value)}
                               </div>
                               <div className="mt-2">
-                                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                <div className="flex justify-between text-xs text-muted-foreground mb-1">
                                   <span>{percentage.toFixed(1)}% of total</span>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div className="w-full bg-muted rounded-full h-2">
                                   <div
                                     className="bg-green-600 h-2 rounded-full transition-all"
                                     style={{ width: `${percentage}%` }}
@@ -605,7 +634,7 @@ export default function NetWorthPage() {
                           ) : (
                             <>
                               <div className="flex items-center gap-2 mb-2">
-                                <Icon className="h-5 w-5 text-gray-600" />
+                                <Icon className="h-5 w-5 text-muted-foreground" />
                                 <span className="font-semibold">
                                   {item.name}
                                 </span>
@@ -614,12 +643,12 @@ export default function NetWorthPage() {
                                 {format(item.value)}
                               </div>
                               <div className="mt-2">
-                                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                <div className="flex justify-between text-xs text-muted-foreground mb-1">
                                   <span>{percentage.toFixed(1)}% of total</span>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div className="w-full bg-muted rounded-full h-2">
                                   <div
-                                    className="bg-gray-600 h-2 rounded-full transition-all"
+                                    className="bg-primary h-2 rounded-full transition-all"
                                     style={{ width: `${percentage}%` }}
                                   />
                                 </div>
@@ -675,12 +704,12 @@ export default function NetWorthPage() {
                       sourceLabel: string;
                     };
                     return (
-                      <div className="rounded-lg border bg-white px-3 py-2 shadow-md">
-                        <p className="font-semibold text-gray-900">{p.month}</p>
+                      <div className="rounded-lg border bg-background px-3 py-2 shadow-md">
+                        <p className="font-semibold text-foreground">{p.month}</p>
                         <p className="text-indigo-600 font-medium">
                           Net worth: {format(p.netWorth)}
                         </p>
-                        <p className="mt-1 text-xs text-gray-500 max-w-[220px]">
+                        <p className="mt-1 text-xs text-muted-foreground max-w-[220px]">
                           {p.sourceLabel}
                         </p>
                       </div>
@@ -697,8 +726,8 @@ export default function NetWorthPage() {
               </BarChart>
             </ResponsiveContainer>
             {snapshots.length > 0 && (
-              <div className="mt-3 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                <span className="font-medium text-gray-700">
+              <div className="mt-3 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">
                   Chart values come from:{" "}
                 </span>
                 Either a snapshot on that month, or carried from the last
@@ -729,6 +758,7 @@ export default function NetWorthPage() {
             <TabsTrigger value="assets">Assets</TabsTrigger>
             <TabsTrigger value="liabilities">Liabilities</TabsTrigger>
             <TabsTrigger value="breakdown">Breakdown</TabsTrigger>
+            <TabsTrigger value="allocation">Allocation</TabsTrigger>
           </TabsList>
 
           <TabsContent value="assets" className="space-y-4">
@@ -821,7 +851,7 @@ export default function NetWorthPage() {
                         </div>
                         <div>
                           <h4 className="font-semibold">{asset.name}</h4>
-                          <p className="text-sm text-gray-500 capitalize">
+                          <p className="text-sm text-muted-foreground capitalize">
                             {asset.type}
                           </p>
                         </div>
@@ -997,7 +1027,7 @@ export default function NetWorthPage() {
                         </div>
                         <div>
                           <h4 className="font-semibold">{liability.name}</h4>
-                          <p className="text-sm text-gray-500 capitalize">
+                          <p className="text-sm text-muted-foreground capitalize">
                             {liability.type.replace("_", " ")}
                             {liability.interest_rate &&
                               ` • ${liability.interest_rate}% APR`}
@@ -1080,11 +1110,11 @@ export default function NetWorthPage() {
                         <div key={asset.id} className="mb-3">
                           <div className="flex justify-between text-sm mb-1">
                             <span>{asset.name}</span>
-                            <span className="text-gray-600">
+                            <span className="text-muted-foreground">
                               {format(asset.value)} ({percentage.toFixed(1)}%)
                             </span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="w-full bg-muted rounded-full h-2">
                             <div
                               className="bg-green-600 h-2 rounded-full"
                               style={{ width: `${percentage}%` }}
@@ -1105,11 +1135,11 @@ export default function NetWorthPage() {
                           <div key={item.name} className="mb-3">
                             <div className="flex justify-between text-sm mb-1">
                               <span>{item.name}</span>
-                              <span className="text-gray-600">
+                              <span className="text-muted-foreground">
                                 {format(item.value)} ({percentage.toFixed(1)}%)
                               </span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="w-full bg-muted rounded-full h-2">
                               <div
                                 className="bg-green-600 h-2 rounded-full"
                                 style={{ width: `${percentage}%` }}
@@ -1136,11 +1166,11 @@ export default function NetWorthPage() {
                         <div key={liability.id} className="mb-3">
                           <div className="flex justify-between text-sm mb-1">
                             <span>{liability.name}</span>
-                            <span className="text-gray-600">
+                            <span className="text-muted-foreground">
                               {percentage.toFixed(1)}%
                             </span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="w-full bg-muted rounded-full h-2">
                             <div
                               className="bg-red-600 h-2 rounded-full"
                               style={{ width: `${percentage}%` }}
@@ -1153,6 +1183,120 @@ export default function NetWorthPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Allocation Tab */}
+          <TabsContent value="allocation" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Asset Allocation</CardTitle>
+                <CardDescription>Distribution of investments by asset class</CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center p-3">
+                {allocationItems.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-6 w-full">No asset data yet. Add investments to see allocation.</p>
+                ) : (
+                  <>
+                    <div className="h-80">
+                      <ResponsiveContainer>
+                        <PieChart>
+                          <Pie data={allocationItems} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={50} paddingAngle={2} label={({ percent = 0 }) => `${(percent * 100).toFixed(0)}%`}>
+                            {allocationItems.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip formatter={(value) => format((value ?? 0) as number)} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="space-y-3">
+                      {allocationItems.map((item, idx) => {
+                        const total = allocationItems.reduce((s, i) => s + i.value, 0);
+                        const share = total ? ((item.value / total) * 100).toFixed(1) : "0";
+                        return (
+                          <div key={item.name} className="flex items-center justify-between border rounded-lg p-3">
+                            <div className="flex items-center gap-3">
+                              <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
+                              <div><p className="font-semibold text-foreground">{item.name}</p><p className="text-xs text-muted-foreground">{share}% of assets</p></div>
+                            </div>
+                            <p className="font-semibold text-foreground">{format(item.value)}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <Card>
+                <CardHeader><CardTitle>Mutual Funds by Category</CardTitle><CardDescription>Breakdown of MF current value</CardDescription></CardHeader>
+                <CardContent>
+                  {mutualFundCategories.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">No mutual fund data yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+                      <div className="h-64">
+                        <ResponsiveContainer>
+                          <PieChart>
+                            <Pie data={mutualFundCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={45} paddingAngle={2} label={({ percent = 0 }) => `${(percent * 100).toFixed(0)}%`}>
+                              {mutualFundCategories.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} />)}
+                            </Pie>
+                            <Tooltip formatter={(value) => format((value ?? 0) as number)} />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="space-y-2">
+                        {mutualFundCategories.map((item, idx) => (
+                          <div key={item.name} className="flex items-center justify-between border rounded-lg p-3">
+                            <div className="flex items-center gap-3">
+                              <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
+                              <p className="font-semibold text-foreground">{item.name}</p>
+                            </div>
+                            <p className="font-semibold text-foreground">{format(item.value)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader><CardTitle>Stocks by Sector</CardTitle><CardDescription>Breakdown of stock current value</CardDescription></CardHeader>
+                <CardContent>
+                  {stockSectors.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">No stock data yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+                      <div className="h-64">
+                        <ResponsiveContainer>
+                          <PieChart>
+                            <Pie data={stockSectors} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={45} paddingAngle={2} label={({ percent = 0 }) => `${(percent * 100).toFixed(0)}%`}>
+                              {stockSectors.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} />)}
+                            </Pie>
+                            <Tooltip formatter={(value) => format((value ?? 0) as number)} />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="space-y-2">
+                        {stockSectors.map((item, idx) => (
+                          <div key={item.name} className="flex items-center justify-between border rounded-lg p-3">
+                            <div className="flex items-center gap-3">
+                              <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
+                              <p className="font-semibold text-foreground">{item.name}</p>
+                            </div>
+                            <p className="font-semibold text-foreground">{format(item.value)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </main>

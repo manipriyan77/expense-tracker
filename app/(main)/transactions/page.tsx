@@ -824,7 +824,7 @@ export default function TransactionsPage() {
                                 <span>
                                   {transaction.category}
                                   {transaction.subtype && (
-                                    <span className="ml-1 px-1.5 py-0.5 bg-gray-100 rounded-full">
+                                    <span className="ml-1 px-1.5 py-0.5 bg-muted rounded-full">
                                       {transaction.subtype}
                                     </span>
                                   )}
@@ -926,7 +926,7 @@ export default function TransactionsPage() {
                                 <span>
                                   {transaction.category}
                                   {transaction.subtype && (
-                                    <span className="ml-1 px-1.5 py-0.5 bg-gray-100 rounded-full">
+                                    <span className="ml-1 px-1.5 py-0.5 bg-muted rounded-full">
                                       {transaction.subtype}
                                     </span>
                                   )}
@@ -1016,7 +1016,7 @@ export default function TransactionsPage() {
                                 <span>
                                   {transaction.category}
                                   {transaction.subtype && (
-                                    <span className="ml-1 px-1.5 py-0.5 bg-gray-100 rounded-full">
+                                    <span className="ml-1 px-1.5 py-0.5 bg-muted rounded-full">
                                       {transaction.subtype}
                                     </span>
                                   )}
@@ -1115,7 +1115,7 @@ export default function TransactionsPage() {
                                   <span>
                                     {transaction.category}
                                     {transaction.subtype && (
-                                      <span className="ml-1 px-1.5 py-0.5 bg-gray-100 rounded-full">
+                                      <span className="ml-1 px-1.5 py-0.5 bg-muted rounded-full">
                                         {transaction.subtype}
                                       </span>
                                     )}

@@ -147,6 +147,7 @@ export default function DebtTrackerPage() {
 
   const [extraFocusDebtId, setExtraFocusDebtId] = useState<string>("all");
   const [payoffView, setPayoffView] = useState<"cards" | "list">("cards");
+  const [amortizationDebtId, setAmortizationDebtId] = useState<string>("");
 
   const totalDebt = debts.reduce((sum, debt) => sum + debt.balance, 0);
   const totalMinPayment = debts.reduce(
@@ -724,6 +725,54 @@ export default function DebtTrackerPage() {
     });
   };
 
+  const generateAmortizationSchedule = (debt: Debt) => {
+    const balance = debt.balance;
+    const annualRate = debt.interest_rate / 100;
+    const monthlyRate = annualRate / 12;
+    const months =
+      debt.months_remaining ||
+      debt.term_months ||
+      Math.ceil(debt.balance / debt.minimum_payment);
+
+    if (monthlyRate === 0) {
+      const payment = balance / months;
+      return Array.from({ length: months }, (_, i) => ({
+        month: i + 1,
+        payment,
+        principal: payment,
+        interest: 0,
+        balance: Math.max(0, balance - payment * (i + 1)),
+      }));
+    }
+
+    const payment =
+      (balance * (monthlyRate * Math.pow(1 + monthlyRate, months))) /
+      (Math.pow(1 + monthlyRate, months) - 1);
+
+    const schedule = [];
+    let remainingBalance = balance;
+    for (let i = 1; i <= months; i++) {
+      const interest = remainingBalance * monthlyRate;
+      const principal = Math.min(payment - interest, remainingBalance);
+      remainingBalance = Math.max(0, remainingBalance - principal);
+      schedule.push({
+        month: i,
+        payment: principal + interest,
+        principal,
+        interest,
+        balance: remainingBalance,
+      });
+      if (remainingBalance <= 0) break;
+    }
+    return schedule;
+  };
+
+  const amortizationSchedule = React.useMemo(() => {
+    const debt = debts.find((d) => d.id === amortizationDebtId) || debts[0];
+    if (!debt) return [];
+    return generateAmortizationSchedule(debt);
+  }, [amortizationDebtId, debts]);
+
   const getDebtIcon = (type: string) => {
     switch (type) {
       case "credit_card":
@@ -739,8 +788,8 @@ export default function DebtTrackerPage() {
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Debt Tracker</h1>
-              <p className="text-xs text-gray-500 mt-1">
+              <h1 className="text-xl font-bold text-foreground">Debt Tracker</h1>
+              <p className="text-xs text-muted-foreground mt-1">
                 Manage and pay off your debts strategically
               </p>
             </div>
@@ -909,7 +958,7 @@ export default function DebtTrackerPage() {
                         {schedulePreview.slice(0, 6).map((date) => (
                           <span
                             key={date}
-                            className="px-2 py-1 rounded-full bg-gray-100"
+                            className="px-2 py-1 rounded-full bg-muted"
                           >
                             {new Date(date).toLocaleDateString("en-US", {
                               month: "short",
@@ -918,7 +967,7 @@ export default function DebtTrackerPage() {
                           </span>
                         ))}
                         {schedulePreview.length > 6 ? (
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-muted-foreground">
                             +{schedulePreview.length - 6} more months
                           </span>
                         ) : null}
@@ -950,7 +999,7 @@ export default function DebtTrackerPage() {
               <div className="text-xl font-bold text-red-600">
                 {format(totalDebt)}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Across {debts.length} accounts
               </p>
             </CardContent>
@@ -959,11 +1008,11 @@ export default function DebtTrackerPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
               <CardTitle className="text-sm font-medium">Min Payment</CardTitle>
-              <Calendar className="h-4 w-4 text-gray-600" />
+              <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent className="p-3 pt-2">
               <div className="text-xl font-bold">{format(totalMinPayment)}</div>
-              <p className="text-xs text-gray-500 mt-1">Per month</p>
+              <p className="text-xs text-muted-foreground mt-1">Per month</p>
             </CardContent>
           </Card>
 
@@ -978,7 +1027,7 @@ export default function DebtTrackerPage() {
               <div className="text-xl font-bold">
                 {avgInterestRate.toFixed(1)}%
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Annual percentage rate
               </p>
             </CardContent>
@@ -993,7 +1042,7 @@ export default function DebtTrackerPage() {
             </CardHeader>
             <CardContent className="p-3 pt-2">
               <div className="text-xl font-bold text-blue-600">48 months</div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 With current payments
               </p>
             </CardContent>
@@ -1050,6 +1099,7 @@ export default function DebtTrackerPage() {
               <TabsTrigger value="active">Active Debts</TabsTrigger>
               <TabsTrigger value="payoff">Payoff Strategy</TabsTrigger>
               <TabsTrigger value="calculator">Calculator</TabsTrigger>
+              <TabsTrigger value="amortization">Amortization</TabsTrigger>
             </TabsList>
           </div>
 
@@ -1094,7 +1144,7 @@ export default function DebtTrackerPage() {
                               <CardTitle className="text-lg">
                                 {debt.name}
                               </CardTitle>
-                              <p className="text-sm text-gray-500 capitalize">
+                              <p className="text-sm text-muted-foreground capitalize">
                                 {debt.type.replace("_", " ")}
                               </p>
                             </div>
@@ -1137,7 +1187,7 @@ export default function DebtTrackerPage() {
                       <CardContent className="space-y-4">
                         <div className="flex justify-between items-end">
                           <div>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-muted-foreground">
                               Current Balance
                             </p>
                             <p className="text-2xl font-bold text-red-600">
@@ -1145,7 +1195,7 @@ export default function DebtTrackerPage() {
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm text-gray-500">Min Payment</p>
+                            <p className="text-sm text-muted-foreground">Min Payment</p>
                             <p className="text-lg font-semibold">
                               {format(debt.minimum_payment)}
                             </p>
@@ -1154,7 +1204,7 @@ export default function DebtTrackerPage() {
 
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Progress</span>
+                            <span className="text-muted-foreground">Progress</span>
                             <span className="font-medium">
                               {progress.toFixed(0)}% paid off
                             </span>
@@ -1164,17 +1214,17 @@ export default function DebtTrackerPage() {
 
                         <div className="grid grid-cols-3 gap-4 pt-2 border-t text-center">
                           <div>
-                            <p className="text-xs text-gray-500">APR</p>
+                            <p className="text-xs text-muted-foreground">APR</p>
                             <p className="font-semibold">
                               {debt.interest_rate}%
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500">Payoff Time</p>
+                            <p className="text-xs text-muted-foreground">Payoff Time</p>
                             <p className="font-semibold">{monthsToPayoff}mo</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500">Next Due</p>
+                            <p className="text-xs text-muted-foreground">Next Due</p>
                             <p className="font-semibold">
                               {nextDueDate
                                 ? new Date(nextDueDate).toLocaleDateString(
@@ -1184,7 +1234,7 @@ export default function DebtTrackerPage() {
                                 : "Not set"}
                             </p>
                             {debt.term_months ? (
-                              <p className="text-xs text-gray-500">
+                              <p className="text-xs text-muted-foreground">
                                 {debt.months_remaining ?? debt.term_months} of{" "}
                                 {debt.term_months} months left
                               </p>
@@ -1252,7 +1302,7 @@ export default function DebtTrackerPage() {
                       ? "Avalanche Method"
                       : "Snowball Method"}
                   </h4>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     {payoffStrategy === "avalanche"
                       ? "Pay off debts with the highest interest rates first to save money on interest charges."
                       : "Pay off debts with the smallest balances first to build momentum and motivation."}
@@ -1272,7 +1322,7 @@ export default function DebtTrackerPage() {
                         </div>
                         <div>
                           <p className="font-semibold">{debt.name}</p>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-muted-foreground">
                             {format(debt.balance)} @ {debt.interest_rate}% APR
                           </p>
                         </div>
@@ -1281,7 +1331,7 @@ export default function DebtTrackerPage() {
                         <p className="font-semibold">
                           {format(debt.minimum_payment)}
                         </p>
-                        <p className="text-xs text-gray-500">min payment</p>
+                        <p className="text-xs text-muted-foreground">min payment</p>
                       </div>
                     </div>
                   ))}
@@ -1316,7 +1366,7 @@ export default function DebtTrackerPage() {
                         }
                         placeholder="0.00"
                       />
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         Minimum required across all debts:{" "}
                         {format(totalMinPayment)}
                       </p>
@@ -1402,7 +1452,7 @@ export default function DebtTrackerPage() {
                   <div className="grid grid-cols-2 gap-4 pt-4">
                     <Card>
                       <CardContent className="p-4">
-                        <p className="text-sm text-gray-500">Time to Pay Off</p>
+                        <p className="text-sm text-muted-foreground">Time to Pay Off</p>
                         <p className="text-2xl font-bold text-blue-600">
                           {selectedBreakdown?.payoffMonth != null
                             ? `${selectedBreakdown.payoffMonth} months`
@@ -1412,13 +1462,13 @@ export default function DebtTrackerPage() {
                         </p>
                         {selectedBreakdown?.baselinePayoffMonth != null &&
                         selectedBreakdown?.payoffMonth != null ? (
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-muted-foreground">
                             Was {selectedBreakdown.baselinePayoffMonth} months
                             with minimums
                           </p>
                         ) : calculatorResult.baselineMonths !== null &&
                           calculatorResult.months !== null ? (
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-muted-foreground">
                             Was {calculatorResult.baselineMonths} months with
                             minimums
                           </p>
@@ -1427,14 +1477,14 @@ export default function DebtTrackerPage() {
                     </Card>
                     <Card>
                       <CardContent className="p-4">
-                        <p className="text-sm text-gray-500">Interest Saved</p>
+                        <p className="text-sm text-muted-foreground">Interest Saved</p>
                         <p className="text-2xl font-bold text-green-600">
                           {calculatorResult.interestSaved !== null
                             ? format(calculatorResult.interestSaved)
                             : format(0)}
                         </p>
                         {calculatorResult.totalInterest !== null ? (
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-muted-foreground mt-1">
                             Interest with extra payments:{" "}
                             {format(calculatorResult.totalInterest)}
                           </p>
@@ -1466,14 +1516,14 @@ export default function DebtTrackerPage() {
                                     </span>
                                   ) : null}
                                 </div>
-                                <p className="text-sm text-gray-500">
+                                <p className="text-sm text-muted-foreground">
                                   Payoff:{" "}
                                   {detail.payoffMonth !== null
                                     ? `${detail.payoffMonth} months`
                                     : "Not reached"}
                                 </p>
                                 {detail.baselineInterestPaid !== null ? (
-                                  <p className="text-sm text-gray-500">
+                                  <p className="text-sm text-muted-foreground">
                                     Interest saved on this debt:{" "}
                                     {format(
                                       Math.max(
@@ -1492,7 +1542,7 @@ export default function DebtTrackerPage() {
                         <div className="overflow-x-auto">
                           <table className="min-w-full text-sm">
                             <thead>
-                              <tr className="text-left text-gray-500">
+                              <tr className="text-left text-muted-foreground">
                                 <th className="py-2 pr-4">Debt</th>
                                 <th className="py-2 pr-4">Payoff (months)</th>
                                 <th className="py-2 pr-4">Baseline (months)</th>
@@ -1531,6 +1581,94 @@ export default function DebtTrackerPage() {
                     </div>
                   ) : null}
                 </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="amortization">
+            <Card>
+              <CardHeader>
+                <CardTitle>Amortization Schedule</CardTitle>
+                <CardDescription>
+                  Month-by-month principal and interest breakdown
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {debts.length === 0 ? (
+                  <EmptyState
+                    icon={CreditCard}
+                    title="No debts tracked"
+                    description="Add a debt to view its amortization schedule"
+                    actionLabel="Add Debt"
+                    onAction={() => setIsAddDebtOpen(true)}
+                  />
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Select Debt</Label>
+                      <Select
+                        value={amortizationDebtId || debts[0]?.id}
+                        onValueChange={setAmortizationDebtId}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a debt" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {debts.map((d) => (
+                            <SelectItem key={d.id} value={d.id}>
+                              {d.name} — {format(d.balance)} @ {d.interest_rate}%
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {amortizationSchedule.length > 0 && (
+                      <>
+                        <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-lg text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Monthly Payment</p>
+                            <p className="font-bold">{format(amortizationSchedule[0].payment)}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Total Interest</p>
+                            <p className="font-bold text-red-600">
+                              {format(amortizationSchedule.reduce((s, r) => s + r.interest, 0))}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Total Cost</p>
+                            <p className="font-bold">
+                              {format(amortizationSchedule.reduce((s, r) => s + r.payment, 0))}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="overflow-x-auto max-h-100 overflow-y-auto">
+                          <table className="min-w-full text-sm">
+                            <thead className="sticky top-0 bg-background">
+                              <tr className="text-left text-muted-foreground border-b">
+                                <th className="py-2 pr-4 font-medium">Month</th>
+                                <th className="py-2 pr-4 font-medium">Payment</th>
+                                <th className="py-2 pr-4 font-medium">Principal</th>
+                                <th className="py-2 pr-4 font-medium">Interest</th>
+                                <th className="py-2 font-medium">Balance</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {amortizationSchedule.map((row) => (
+                                <tr key={row.month} className="border-b hover:bg-muted/50">
+                                  <td className="py-2 pr-4">{row.month}</td>
+                                  <td className="py-2 pr-4">{format(row.payment)}</td>
+                                  <td className="py-2 pr-4 text-green-600">{format(row.principal)}</td>
+                                  <td className="py-2 pr-4 text-red-500">{format(row.interest)}</td>
+                                  <td className="py-2">{format(row.balance)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -1746,7 +1884,7 @@ export default function DebtTrackerPage() {
                   {schedulePreview.slice(0, 6).map((date) => (
                     <span
                       key={date}
-                      className="px-2 py-1 rounded-full bg-gray-100"
+                      className="px-2 py-1 rounded-full bg-muted"
                     >
                       {new Date(date).toLocaleDateString("en-US", {
                         month: "short",
@@ -1755,7 +1893,7 @@ export default function DebtTrackerPage() {
                     </span>
                   ))}
                   {schedulePreview.length > 6 ? (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted-foreground">
                       +{schedulePreview.length - 6} more months
                     </span>
                   ) : null}

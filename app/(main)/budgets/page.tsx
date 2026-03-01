@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BudgetTemplatesContent } from "@/components/budgets/BudgetTemplatesContent";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -77,7 +79,7 @@ export default function BudgetsPage() {
     currentYear,
     setMonth,
   } = useBudgetsStore();
-  const { transactions, fetchTransactions } = useTransactionsStore();
+  const { fetchTransactions } = useTransactionsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
@@ -99,42 +101,6 @@ export default function BudgetsPage() {
     fetchTransactions();
   }, [fetchTransactions]);
 
-  // Calculate projected spending for budgets
-  const calculateBudgetProjection = (budget: Budget) => {
-    const currentMonthNum = selectedMonth.getMonth();
-    const currentYearNum = selectedMonth.getFullYear();
-    const daysInMonth = new Date(
-      currentYearNum,
-      currentMonthNum + 1,
-      0,
-    ).getDate();
-    const daysPassed = new Date().getDate();
-    const daysRemaining = daysInMonth - daysPassed;
-
-    // Get transactions for this budget in current month
-    const monthTransactions = transactions.filter((t) => {
-      if (t.budget_id !== budget.id || t.type !== "expense") return false;
-      const date = new Date(t.date);
-      return (
-        date.getMonth() === currentMonthNum &&
-        date.getFullYear() === currentYearNum
-      );
-    });
-
-    const spent = budget.spent_amount || 0;
-    const dailyAvg = daysPassed > 0 ? spent / daysPassed : 0;
-    const projectedMonthEnd = spent + dailyAvg * daysRemaining;
-    const projectedOverspend = projectedMonthEnd - budget.limit_amount;
-    const projectedPercentage = (projectedMonthEnd / budget.limit_amount) * 100;
-
-    return {
-      projectedMonthEnd,
-      projectedOverspend,
-      projectedPercentage,
-      dailyAvg,
-      isLikelyToOverspend: projectedMonthEnd > budget.limit_amount * 0.9, // 90% threshold
-    };
-  };
 
   const {
     control: addControl,
@@ -341,17 +307,25 @@ export default function BudgetsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Toaster position="top-right" />
-      <header className="bg-card shadow-sm border-b">
+      <header className="bg-card shadow-sm border-b sticky top-0 z-10">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
-            <h1 className="text-xl font-bold text-gray-900">
-              Budget Management
-            </h1>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Budget Management</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Manage budgets and reusable templates</p>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4">
+        <Tabs defaultValue="budgets" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="budgets">Budgets</TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="budgets" className="space-y-4 mt-0">
         {/* Month Selector */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <MonthSelector
@@ -359,7 +333,7 @@ export default function BudgetsPage() {
             onMonthChange={setSelectedMonth}
             monthsToShow={7}
           />
-          <div className="text-sm text-gray-600 shrink-0" title={`${budgets.length} budgets`}>
+          <div className="text-sm text-muted-foreground shrink-0" title={`${budgets.length} budgets`}>
             <span className="sm:hidden">{budgets.length}</span>
             <span className="hidden sm:inline">{budgets.length} budget(s)</span>
           </div>
@@ -381,17 +355,17 @@ export default function BudgetsPage() {
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:justify-between gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Total Budget</p>
+                  <p className="text-sm text-muted-foreground">Total Budget</p>
                   <p className="text-xl font-bold">{format(totalBudget)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Total Spent</p>
+                  <p className="text-sm text-muted-foreground">Total Spent</p>
                   <p className="text-xl font-bold text-red-600">
                     {format(totalSpent)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Remaining</p>
+                  <p className="text-sm text-muted-foreground">Remaining</p>
                   <p className="text-xl font-bold text-green-600">
                     {format(totalBudget - totalSpent)}
                   </p>
@@ -787,16 +761,11 @@ export default function BudgetsPage() {
             const spent = budget.spent_amount || 0;
             const percentage = (spent / budget.limit_amount) * 100;
             const remaining = budget.limit_amount - spent;
-            const projection = calculateBudgetProjection(budget);
 
             return (
               <Card
                 key={budget.id}
-                className={`relative hover:shadow-lg transition-shadow cursor-pointer ${
-                  projection.isLikelyToOverspend
-                    ? "border-orange-200 bg-orange-50"
-                    : ""
-                }`}
+                className="relative hover:shadow-lg transition-shadow cursor-pointer"
                 onClick={() => openDetailsModal(budget)}
               >
                 <CardHeader className="pb-2">
@@ -805,14 +774,12 @@ export default function BudgetsPage() {
                       <CardTitle className="text-lg truncate">
                         {budget.category}
                         {budget.subtype && (
-                          <span className="text-sm font-normal text-gray-500 ml-1">
+                          <span className="text-sm font-normal text-muted-foreground ml-1">
                             → {budget.subtype}
                           </span>
                         )}
                       </CardTitle>
-                      {projection.isLikelyToOverspend && (
-                        <AlertTriangle className="h-4 w-4 shrink-0 text-orange-600" />
-                      )}
+
                     </div>
                     <div className="shrink-0">{getStatusIcon(percentage)}</div>
                   </div>
@@ -823,40 +790,17 @@ export default function BudgetsPage() {
                 <CardContent className="space-y-4 pb-4">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-sm text-gray-600">Spent</p>
+                      <p className="text-sm text-muted-foreground">Spent</p>
                       <p className="text-xl font-bold">{format(spent)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-gray-600">Limit</p>
+                      <p className="text-sm text-muted-foreground">Limit</p>
                       <p className="text-xl font-bold">
                         {format(budget.limit_amount)}
                       </p>
                     </div>
                   </div>
 
-                  {/* Projection Warning */}
-                  {projection.isLikelyToOverspend && (
-                    <div className="p-3 bg-orange-100 border border-orange-200 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-orange-800">
-                            Projected Overspend
-                          </p>
-                          <p className="text-xs text-orange-700 wrap-break-word">
-                            At current rate:{" "}
-                            {format(projection.projectedMonthEnd)} by month-end
-                            {projection.projectedOverspend > 0 && (
-                              <span className="font-semibold">
-                                {" "}
-                                ({format(projection.projectedOverspend)} over)
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
@@ -866,36 +810,18 @@ export default function BudgetsPage() {
                       </span>
                     </div>
                     <div className="relative">
-                      <Progress value={Math.min(percentage, 100)} />
+                      <Progress value={Math.min(percentage, 100)} className="h-2" />
                       <div
-                        className={`absolute top-0 left-0 h-full ${getProgressColor(percentage)} rounded-full transition-all`}
+                        className={`absolute top-0 left-0 h-2 ${getProgressColor(percentage)} rounded-full transition-all`}
                         style={{ width: `${Math.min(percentage, 100)}%` }}
                       />
                     </div>
-                    {projection.isLikelyToOverspend && (
-                      <div className="relative mt-1">
-                        <Progress
-                          value={Math.min(projection.projectedPercentage, 100)}
-                          className="h-1 opacity-50"
-                        />
-                        <div
-                          className="absolute top-0 left-0 h-full bg-orange-400 rounded-full transition-all"
-                          style={{
-                            width: `${Math.min(projection.projectedPercentage, 100)}%`,
-                          }}
-                        />
-                        <p className="text-xs text-orange-600 mt-1">
-                          Projected: {projection.projectedPercentage.toFixed(1)}
-                          %
-                        </p>
-                      </div>
-                    )}
                   </div>
 
                   <div className="pt-2 border-t">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="text-sm text-gray-600">Remaining</p>
+                        <p className="text-sm text-muted-foreground">Remaining</p>
                         <p
                           className={`text-lg font-semibold ${
                             remaining < 0 ? "text-red-600" : "text-green-600"
@@ -945,8 +871,8 @@ export default function BudgetsPage() {
                     <div
                       className={`flex items-center space-x-2 p-2 rounded ${
                         percentage >= 100
-                          ? "bg-red-50 text-red-700"
-                          : "bg-orange-50 text-orange-700"
+                          ? "bg-red-500/10 text-red-500"
+                          : "bg-orange-500/10 text-orange-500"
                       }`}
                     >
                       <AlertTriangle className="h-4 w-4" />
@@ -966,16 +892,22 @@ export default function BudgetsPage() {
         {budgets.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <TrendingDown className="h-10 w-10 text-gray-400 mb-2" />
-              <p className="text-lg font-semibold text-gray-900 mb-2">
+              <TrendingDown className="h-10 w-10 text-muted-foreground mb-2" />
+              <p className="text-lg font-semibold text-foreground mb-2">
                 No budgets created yet
               </p>
-              <p className="text-gray-600 mb-2 text-sm">
+              <p className="text-muted-foreground mb-2 text-sm">
                 Start by creating your first budget to track spending
               </p>
             </CardContent>
           </Card>
         )}
+          </TabsContent>
+
+          <TabsContent value="templates" className="mt-0">
+            <BudgetTemplatesContent />
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Budget Details Modal */}

@@ -5,6 +5,7 @@ export interface CurrencyPreferences {
   decimalPlaces: number;
   thousandsSeparator: "," | ".";
   decimalSeparator: "." | ",";
+  locale?: string;
 }
 
 export const CURRENCY_CONFIGS: Record<string, CurrencyPreferences> = {
@@ -15,6 +16,7 @@ export const CURRENCY_CONFIGS: Record<string, CurrencyPreferences> = {
     decimalPlaces: 2,
     thousandsSeparator: ",",
     decimalSeparator: ".",
+    locale: "en-IN",
   },
   EUR: {
     code: "EUR",
@@ -71,17 +73,24 @@ export function formatCurrency(
   const sign = amount < 0 ? "-" : "";
 
   // Format the number
-  const parts = absAmount.toFixed(config.decimalPlaces).split(".");
-  const integerPart = parts[0].replace(
-    /\B(?=(\d{3})+(?!\d))/g,
-    config.thousandsSeparator,
-  );
-  const decimalPart = parts[1] || "";
-
-  const formattedNumber =
-    config.decimalPlaces > 0
-      ? `${integerPart}${config.decimalSeparator}${decimalPart}`
-      : integerPart;
+  let formattedNumber: string;
+  if (config.locale) {
+    formattedNumber = new Intl.NumberFormat(config.locale, {
+      minimumFractionDigits: config.decimalPlaces,
+      maximumFractionDigits: config.decimalPlaces,
+    }).format(absAmount);
+  } else {
+    const parts = absAmount.toFixed(config.decimalPlaces).split(".");
+    const integerPart = parts[0].replace(
+      /\B(?=(\d{3})+(?!\d))/g,
+      config.thousandsSeparator,
+    );
+    const decimalPart = parts[1] || "";
+    formattedNumber =
+      config.decimalPlaces > 0
+        ? `${integerPart}${config.decimalSeparator}${decimalPart}`
+        : integerPart;
+  }
 
   if (config.format === "code") {
     return `${sign}${config.code} ${formattedNumber}`;
@@ -108,7 +117,17 @@ export function formatCompactCurrency(
   const absAmount = Math.abs(amount);
   const sign = amount < 0 ? "-" : "";
   let formattedNumber: string;
-  if (absAmount >= 1000000) {
+  if (config.locale === "en-IN") {
+    if (absAmount >= 10000000) {
+      formattedNumber = (absAmount / 10000000).toFixed(1) + "Cr";
+    } else if (absAmount >= 100000) {
+      formattedNumber = (absAmount / 100000).toFixed(1) + "L";
+    } else if (absAmount >= 1000) {
+      formattedNumber = (absAmount / 1000).toFixed(1) + "K";
+    } else {
+      formattedNumber = absAmount.toFixed(config.decimalPlaces);
+    }
+  } else if (absAmount >= 1000000) {
     formattedNumber = (absAmount / 1000000).toFixed(1) + "M";
   } else if (absAmount >= 1000) {
     formattedNumber = (absAmount / 1000).toFixed(1) + "K";

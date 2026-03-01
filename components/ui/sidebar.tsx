@@ -17,8 +17,6 @@ import {
   X,
   PieChart,
   CreditCard,
-  Bell,
-  FileText,
   Settings,
   ArrowLeftRight,
   TrendingUp,
@@ -26,6 +24,9 @@ import {
   PieChart as PieChartIcon,
   Eye,
   EyeOff,
+  Receipt,
+  Repeat,
+  Lightbulb,
 } from "lucide-react";
 import { Button } from "./button";
 import { usePrivacyStore } from "@/store/privacy-store";
@@ -45,25 +46,19 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
   {
-    title: "Overview",
+    title: "Dashboard",
+    href: "/dashboard",
     icon: Home,
-    subItems: [
-      {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: Home,
-      },
-      {
-        title: "Calendar",
-        href: "/calendar",
-        icon: Bell,
-      },
-      {
-        title: "Analytics",
-        href: "/analytics",
-        icon: PieChart,
-      },
-    ],
+  },
+  {
+    title: "Net Worth",
+    href: "/net-worth",
+    icon: Wallet,
+  },
+  {
+    title: "Investments",
+    href: "/investments",
+    icon: TrendingUp,
   },
   {
     title: "Cashflow",
@@ -72,7 +67,17 @@ const sidebarItems: SidebarItem[] = [
       {
         title: "Transactions",
         href: "/transactions",
-        icon: ArrowLeftRight,
+        icon: Receipt,
+      },
+      {
+        title: "Recurring & Bills",
+        href: "/recurring",
+        icon: Repeat,
+      },
+      {
+        title: "Insights",
+        href: "/insights",
+        icon: Lightbulb,
       },
     ],
   },
@@ -81,24 +86,14 @@ const sidebarItems: SidebarItem[] = [
     icon: Target,
     subItems: [
       {
-        title: "Budgets",
-        href: "/budgets",
-        icon: CreditCard,
-      },
-      {
-        title: "Budget Templates",
-        href: "/budget-templates",
-        icon: FileText,
-      },
-      {
         title: "Goals",
         href: "/goals",
         icon: Target,
       },
       {
-        title: "Savings Challenges",
-        href: "/savings-challenges",
-        icon: TrendingUp,
+        title: "Budgets",
+        href: "/budgets",
+        icon: CreditCard,
       },
       {
         title: "Debt Tracker",
@@ -108,40 +103,9 @@ const sidebarItems: SidebarItem[] = [
     ],
   },
   {
-    title: "Wealth",
-    icon: Wallet,
-    subItems: [
-      {
-        title: "Net Worth",
-        href: "/net-worth",
-        icon: Wallet,
-      },
-      {
-        title: "Asset Allocation",
-        href: "/assets",
-        icon: PieChartIcon,
-      },
-      {
-        title: "Mutual Funds",
-        href: "/mutual-funds",
-        icon: Wallet,
-      },
-      {
-        title: "Stocks",
-        href: "/stocks",
-        icon: BarChart3,
-      },
-      {
-        title: "Gold",
-        href: "/gold",
-        icon: Gem,
-      },
-      {
-        title: "Forex",
-        href: "/forex",
-        icon: TrendingUp,
-      },
-    ],
+    title: "Analytics",
+    href: "/analytics",
+    icon: PieChart,
   },
   {
     title: "Settings",
@@ -163,8 +127,9 @@ export function Sidebar({
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([
-    "Overview",
-    "Wealth",
+    "Investments",
+    "Cashflow",
+    "Planning",
   ]);
   const pathname = usePathname();
   const { amountsHidden, toggleAmountsHidden, hydrateFromStorage } =

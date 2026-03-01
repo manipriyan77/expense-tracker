@@ -25,6 +25,7 @@ import {
   Sparkles,
   CreditCard,
   PiggyBank,
+  Repeat,
 } from "lucide-react";
 import {
   Card,
@@ -33,7 +34,19 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
+import { useCategorizationRulesStore } from "@/store/categorization-rules-store";
+
+const recurringFrequencyOptions = [
+  "daily",
+  "weekly",
+  "biweekly",
+  "monthly",
+  "quarterly",
+  "yearly",
+] as const;
+type RecurringFrequency = (typeof recurringFrequencyOptions)[number];
 
 const transactionFormSchema = z.object({
   type: z.enum(["income", "expense"]),
@@ -52,6 +65,12 @@ const transactionFormSchema = z.object({
   debtId: z.string().optional(),
   savingsChallengeId: z.string().optional(),
   date: z.string().optional(),
+  isRecurring: z.boolean().optional(),
+  recurringFrequency: z
+    .enum(["daily", "weekly", "biweekly", "monthly", "quarterly", "yearly"])
+    .optional(),
+  recurringEndDate: z.string().optional(),
+  recurringDayOfMonth: z.number().min(1).max(31).optional(),
 });
 
 type TransactionFormData = z.infer<typeof transactionFormSchema>;
@@ -141,6 +160,16 @@ export default function AddTransactionForm({
   const [customSubtypes, setCustomSubtypes] = useState<
     Record<string, string[]>
   >({});
+  const [autoRuleSuggestion, setAutoRuleSuggestion] = useState<{
+    category: string;
+    subtype: string | null;
+  } | null>(null);
+  const { matchRule, fetchRules } = useCategorizationRulesStore();
+
+  useEffect(() => {
+    fetchRules();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const {
     control,
@@ -162,6 +191,10 @@ export default function AddTransactionForm({
       debtId: initialValues?.debtId || "",
       savingsChallengeId: initialValues?.savingsChallengeId || "",
       date: initialValues?.date ?? new Date().toISOString().split("T")[0],
+      isRecurring: false,
+      recurringFrequency: "monthly",
+      recurringEndDate: "",
+      recurringDayOfMonth: undefined,
     },
   });
 
@@ -169,6 +202,9 @@ export default function AddTransactionForm({
   const selectedCategory = watch("category");
   const selectedSubtype = watch("subtype");
   const amount = watch("amount");
+  const isRecurring = watch("isRecurring");
+  const formDate = watch("date");
+  const recurringFrequency = watch("recurringFrequency");
 
   // Load budgets on mount
   useEffect(() => {
@@ -361,6 +397,66 @@ export default function AddTransactionForm({
         return;
       }
 
+      // Recurring: create pattern, then first transaction, then advance pattern's next_date
+      if (data.isRecurring && data.recurringFrequency) {
+        const patternRes = await fetch("/api/recurring-patterns", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: data.description,
+            type: data.type,
+            amount,
+            description: data.description,
+            category: data.category,
+            subtype: data.subtype,
+            frequency: data.recurringFrequency,
+            day_of_month:
+              data.recurringFrequency === "monthly" && data.recurringDayOfMonth
+                ? data.recurringDayOfMonth
+                : null,
+            start_date: txDate,
+            end_date: data.recurringEndDate || null,
+            next_date: txDate,
+            is_active: true,
+            auto_create: false,
+            tags: [],
+            notes: null,
+          }),
+        });
+        if (!patternRes.ok) {
+          const err = await patternRes.json();
+          throw new Error(err.error || "Failed to create recurring pattern");
+        }
+        const pattern = await patternRes.json();
+
+        const txRes = await fetch("/api/transactions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!txRes.ok) {
+          const err = await txRes.json();
+          throw new Error(err.error || "Failed to add transaction");
+        }
+
+        const nextDate = getNextRecurringDate(
+          txDate,
+          data.recurringFrequency as RecurringFrequency,
+          data.recurringFrequency === "monthly"
+            ? data.recurringDayOfMonth ?? null
+            : null,
+        );
+        await fetch(`/api/recurring-patterns/${pattern.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ next_date: nextDate }),
+        });
+
+        reset();
+        onSuccess();
+        return;
+      }
+
       const response = await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -496,6 +592,45 @@ export default function AddTransactionForm({
         ].includes(cat),
     ),
   ];
+
+  // Advance date by one interval for recurring pattern
+  const getNextRecurringDate = (
+    dateStr: string,
+    frequency: RecurringFrequency,
+    dayOfMonth?: number | null,
+  ): string => {
+    const d = new Date(dateStr);
+    switch (frequency) {
+      case "daily":
+        d.setDate(d.getDate() + 1);
+        break;
+      case "weekly":
+        d.setDate(d.getDate() + 7);
+        break;
+      case "biweekly":
+        d.setDate(d.getDate() + 14);
+        break;
+      case "monthly": {
+        d.setMonth(d.getMonth() + 1);
+        if (dayOfMonth != null && dayOfMonth >= 1 && dayOfMonth <= 31) {
+          const lastDay = new Date(
+            d.getFullYear(),
+            d.getMonth() + 1,
+            0,
+          ).getDate();
+          d.setDate(Math.min(dayOfMonth, lastDay));
+        }
+        break;
+      }
+      case "quarterly":
+        d.setMonth(d.getMonth() + 3);
+        break;
+      case "yearly":
+        d.setFullYear(d.getFullYear() + 1);
+        break;
+    }
+    return d.toISOString().split("T")[0];
+  };
 
   const getSubtypes = (category: string, type: string) => {
     const baseSubtypes =
@@ -671,7 +806,7 @@ export default function AddTransactionForm({
               control={control}
               render={({ field }) => (
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     ₹
                   </span>
                   <Input
@@ -701,6 +836,11 @@ export default function AddTransactionForm({
                   {...field}
                   id="description"
                   placeholder="What is this for?"
+                  onChange={(e) => {
+                    field.onChange(e);
+                    const match = matchRule(e.target.value);
+                    setAutoRuleSuggestion(match);
+                  }}
                 />
               )}
             />
@@ -708,6 +848,33 @@ export default function AddTransactionForm({
               <p className="text-sm text-red-600">
                 {errors.description.message}
               </p>
+            )}
+            {autoRuleSuggestion && (
+              <div className="flex items-center gap-2 p-2 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded-md text-xs">
+                <Sparkles className="h-3 w-3 text-yellow-600 shrink-0" />
+                <span className="text-yellow-800 dark:text-yellow-300">
+                  Auto-rule matched: <strong>{autoRuleSuggestion.category}</strong>
+                  {autoRuleSuggestion.subtype && <> / {autoRuleSuggestion.subtype}</>}
+                </span>
+                <button
+                  type="button"
+                  className="ml-auto text-yellow-700 hover:text-yellow-900 dark:text-yellow-400 font-medium"
+                  onClick={() => {
+                    setValue("category", autoRuleSuggestion.category);
+                    if (autoRuleSuggestion.subtype) setValue("subtype", autoRuleSuggestion.subtype);
+                    setAutoRuleSuggestion(null);
+                  }}
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  className="text-yellow-600 hover:text-yellow-800 dark:text-yellow-500"
+                  onClick={() => setAutoRuleSuggestion(null)}
+                >
+                  ×
+                </button>
+              </div>
             )}
           </div>
 
@@ -937,7 +1104,7 @@ export default function AddTransactionForm({
                                   {budget.subtype && ` → ${budget.subtype}`}
                                   <span className="text-xs text-green-600 ml-1">(matches)</span>
                                 </span>
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-muted-foreground">
                                   {format(budget.limit_amount)} / {budget.period}
                                 </span>
                               </div>
@@ -954,7 +1121,7 @@ export default function AddTransactionForm({
                                 {budget.category}
                                 {budget.subtype && ` → ${budget.subtype}`}
                               </span>
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-muted-foreground">
                                 {format(budget.limit_amount)} / {budget.period}
                               </span>
                             </div>
@@ -964,7 +1131,7 @@ export default function AddTransactionForm({
                   </Select>
                 )}
               />
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-muted-foreground">
                 {getMatchingBudgets().length > 0
                   ? "Choose a budget to link this expense to, or use Auto-select to match by category."
                   : "Choose a budget to link this expense to, or create one in Budgets."}
@@ -977,6 +1144,123 @@ export default function AddTransactionForm({
           )}
         </CardContent>
       </Card>
+
+      {/* Recurring option */}
+      {!transactionId && (
+        <Card className="border-2">
+          <CardHeader className="pb-3">
+            <div className="flex items-center space-x-2">
+              <Repeat className="h-5 w-5" />
+              <CardTitle className="text-base">Repeat</CardTitle>
+            </div>
+            <CardDescription>
+              Make this a recurring transaction. You can set an end date so it
+              repeats until a specific date. Manage recurring patterns in
+              Recurring.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="isRecurring" className="cursor-pointer">
+                Repeat this transaction
+              </Label>
+              <Controller
+                name="isRecurring"
+                control={control}
+                render={({ field }) => (
+                  <Switch
+                    id="isRecurring"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
+            {isRecurring && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="recurringFrequency">Frequency</Label>
+                  <Controller
+                    name="recurringFrequency"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger id="recurringFrequency">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="biweekly">Bi-weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="quarterly">Quarterly</SelectItem>
+                          <SelectItem value="yearly">Yearly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+                {recurringFrequency === "monthly" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="recurringDayOfMonth">
+                      Day of month (e.g. 15 = every 15th)
+                    </Label>
+                    <Controller
+                      name="recurringDayOfMonth"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value ? String(field.value) : "same"}
+                          onValueChange={(v) =>
+                            field.onChange(
+                              v === "same" ? undefined : parseInt(v, 10),
+                            )
+                          }
+                        >
+                          <SelectTrigger id="recurringDayOfMonth">
+                            <SelectValue placeholder="Same as transaction date" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="same">
+                              Same as transaction date
+                            </SelectItem>
+                            {Array.from({ length: 31 }, (_, i) => (
+                              <SelectItem key={i} value={String(i + 1)}>
+                                {i + 1}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="recurringEndDate">
+                    End date (optional – repeats until this date)
+                  </Label>
+                  <Controller
+                    name="recurringEndDate"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="recurringEndDate"
+                        type="date"
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        min={formDate || undefined}
+                      />
+                    )}
+                  />
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Budget Warning (for expenses) */}
       {transactionType === "expense" &&
@@ -1015,7 +1299,7 @@ export default function AddTransactionForm({
                     {format(budgetInfo.newTotal || 0)}
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
+                <div className="w-full bg-border rounded-full h-2 mt-3">
                   <div
                     className={`h-2 rounded-full transition-all ${
                       budgetInfo.isOverLimit
@@ -1054,32 +1338,38 @@ export default function AddTransactionForm({
       {/* Link to Goal / Loan / Savings Challenge (expenses only) */}
       {showLinkToSection && (
         <Card
-          className={`border-2 ${isGoalRequired ? "border-red-500 bg-red-50" : "border-green-500 bg-green-50"}`}
+          className={
+            isGoalRequired
+              ? "border-2 border-amber-200 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/20"
+              : "border-2 border-border"
+          }
         >
           <CardHeader className="pb-3">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <Target
-                className={`h-5 w-5 ${isGoalRequired ? "text-red-600" : "text-green-600"}`}
+                className={`h-5 w-5 shrink-0 ${isGoalRequired ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground"}`}
               />
-              <CardTitle className="text-base">
-                Link to goal, loan, or savings
-              </CardTitle>
+              <div>
+                <CardTitle className="text-base font-semibold text-foreground">
+                  Link to goal, loan, or savings
+                </CardTitle>
+                <CardDescription className="mt-1 text-muted-foreground">
+                  {isGoalRequired
+                    ? "Goal is required for Savings. You can also record this as a loan payment or savings challenge contribution."
+                    : "Optionally add this expense to a goal, record as a loan payment, or contribute to a savings challenge."}
+                </CardDescription>
+              </div>
             </div>
-            <CardDescription>
-              {isGoalRequired
-                ? "Goal is required for Savings. You can also record this as a loan payment or savings challenge contribution."
-                : "Optionally add this expense to a goal, record as a loan payment, or contribute to a savings challenge."}
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Goal */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5 text-sm font-medium">
-                <Target className="h-4 w-4" />
+              <Label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <Target className="h-4 w-4 text-muted-foreground" />
                 Goal {isGoalRequired ? "*" : "(optional)"}
               </Label>
               {goals.length === 0 && isGoalRequired ? (
-                <div className="text-sm text-red-600 bg-white p-3 rounded border border-red-200">
+                <div className="text-sm text-red-600 bg-background p-3 rounded border border-red-200">
                   ⚠️ No active goals.{" "}
                   <a
                     href="/goals"
@@ -1115,7 +1405,7 @@ export default function AddTransactionForm({
                           <SelectItem key={goal.id} value={goal.id}>
                             <div className="flex flex-col">
                               <span className="font-medium">{goal.title}</span>
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-muted-foreground">
                                 {format(goal.currentAmount)} /{" "}
                                 {format(goal.targetAmount)}
                               </span>
@@ -1134,8 +1424,8 @@ export default function AddTransactionForm({
 
             {/* Loan */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5 text-sm font-medium">
-                <CreditCard className="h-4 w-4" />
+              <Label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
                 Loan (optional)
               </Label>
               <Controller
@@ -1152,7 +1442,7 @@ export default function AddTransactionForm({
                         <SelectItem key={debt.id} value={debt.id}>
                           <div className="flex flex-col">
                             <span className="font-medium">{debt.name}</span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-muted-foreground">
                               {format(debt.balance)} • {debt.type}
                             </span>
                           </div>
@@ -1163,7 +1453,7 @@ export default function AddTransactionForm({
                 )}
               />
               {debts.length === 0 && (
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   No loans. Add one in{" "}
                   <a
                     href="/debt-tracker"
@@ -1180,8 +1470,8 @@ export default function AddTransactionForm({
 
             {/* Savings Challenge */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5 text-sm font-medium">
-                <Trophy className="h-4 w-4" />
+              <Label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <Trophy className="h-4 w-4 text-muted-foreground" />
                 Savings challenge (optional)
               </Label>
               <Controller
@@ -1198,7 +1488,7 @@ export default function AddTransactionForm({
                         <SelectItem key={c.id} value={c.id}>
                           <div className="flex flex-col">
                             <span className="font-medium">{c.name}</span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-muted-foreground">
                               {format(c.current_amount)} /{" "}
                               {format(c.target_amount)}
                             </span>
@@ -1210,7 +1500,7 @@ export default function AddTransactionForm({
                 )}
               />
               {savingsChallenges.length === 0 && (
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   No active challenges.{" "}
                   <a
                     href="/savings-challenges"
