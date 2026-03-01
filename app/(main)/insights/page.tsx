@@ -391,7 +391,7 @@ export default function InsightsPage() {
                       borderRadius: "8px",
                       fontSize: 12,
                     }}
-                    formatter={(value: number) => [format(value)]}
+                    formatter={(value: number | undefined) => [value !== undefined ? format(value) : "₹0"]}
                   />
                   <Legend
                     iconType="circle"

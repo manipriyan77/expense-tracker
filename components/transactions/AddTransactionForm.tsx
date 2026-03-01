@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -26,6 +28,7 @@ import {
   CreditCard,
   PiggyBank,
   Repeat,
+  Wallet,
 } from "lucide-react";
 import {
   Card,
@@ -684,6 +687,15 @@ export default function AddTransactionForm({
   const showLinkToSection = transactionType === "expense";
   const isGoalRequired = selectedCategory === "Savings";
 
+  const availableCategories = [
+    ...(transactionType === "income" ? incomeCategories : expenseCategories),
+    ...customCategories,
+  ];
+
+  const availableSubtypes = selectedCategory
+    ? getSubtypes(selectedCategory, transactionType)
+    : [];
+
   const handleAddCustomCategory = () => {
     if (newCategoryName.trim()) {
       const trimmedName = newCategoryName.trim();
@@ -715,593 +727,533 @@ export default function AddTransactionForm({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 pb-6">
       {/* Context Info Banner */}
       {contextInfo && contextInfo.source && (
-        <Card className="border-2 border-blue-500 bg-blue-50">
-          <CardContent className="pt-4">
-            <div className="flex items-center space-x-2">
-              {contextInfo.source === "budget" && (
-                <Target className="h-5 w-5 text-blue-600" />
-              )}
-              {contextInfo.source === "goal" && (
-                <Trophy className="h-5 w-5 text-blue-600" />
-              )}
-              {contextInfo.source === "savings-challenge" && (
-                <Sparkles className="h-5 w-5 text-blue-600" />
-              )}
-              <div>
-                <p className="text-sm font-medium text-blue-900">
-                  Adding transaction for{" "}
-                  {contextInfo.source === "budget"
-                    ? "Budget"
-                    : contextInfo.source === "goal"
-                      ? "Goal"
-                      : "Savings Challenge"}
-                </p>
-                <p className="text-sm text-blue-700">
-                  {contextInfo.sourceName}
-                </p>
-              </div>
+        <div className="rounded-xl border border-blue-200 bg-linear-to-r from-blue-50 to-blue-50/50 p-4 dark:border-blue-900/30 dark:from-blue-950/40 dark:to-blue-950/20">
+          <div className="flex items-start gap-3">
+            {contextInfo.source === "budget" && (
+              <Wallet className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            )}
+            {contextInfo.source === "goal" && (
+              <Target className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            )}
+            {contextInfo.source === "savings-challenge" && (
+              <Trophy className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            )}
+            <div>
+              <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                {contextInfo.source === "budget"
+                  ? "Budget context"
+                  : contextInfo.source === "goal"
+                    ? "Goal context"
+                    : "Savings challenge"}
+              </p>
+              <p className="text-sm text-blue-600 dark:text-blue-400">
+                {contextInfo.sourceName}
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
-      {/* Transaction Type */}
-      <Card className="border-2">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Transaction Type</CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* Type Selector - Modern Tabs */}
+      <div className="flex gap-2 bg-muted p-1.5 rounded-lg">
+        {["income", "expense"].map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => {
+              setValue("type", t as "income" | "expense");
+              setValue("category", "");
+              setValue("subtype", "");
+            }}
+            className={`flex-1 py-2.5 px-4 rounded-md font-medium text-sm transition-all ${
+              transactionType === t
+                ? t === "income"
+                  ? "bg-green-500 text-white shadow-md dark:bg-green-600"
+                  : "bg-red-500 text-white shadow-md dark:bg-red-600"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t === "income" ? "Income" : "Expense"}
+          </button>
+        ))}
+      </div>
+
+      {/* Amount Input - Large and Prominent */}
+      <div className="rounded-2xl border-2 border-dashed border-muted-foreground/30 bg-linear-to-b from-muted/50 to-muted/25 p-8 text-center">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3 block">
+          Amount
+        </Label>
+        <div className="flex items-baseline justify-center gap-1">
+          <span className="text-3xl font-light text-muted-foreground">₹</span>
           <Controller
-            name="type"
+            name="amount"
             control={control}
             render={({ field }) => (
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => field.onChange("income")}
-                  className={`flex items-center justify-center space-x-2 p-4 rounded-lg border-2 transition-all ${
-                    field.value === "income"
-                      ? "border-green-600 bg-green-50 text-green-700"
-                      : "border-gray-200 hover:border-green-300"
-                  }`}
-                >
-                  <TrendingUp className="h-5 w-5" />
-                  <span className="font-medium">Income</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => field.onChange("expense")}
-                  className={`flex items-center justify-center space-x-2 p-4 rounded-lg border-2 transition-all ${
-                    field.value === "expense"
-                      ? "border-red-600 bg-red-50 text-red-700"
-                      : "border-gray-200 hover:border-red-300"
-                  }`}
-                >
-                  <TrendingDown className="h-5 w-5" />
-                  <span className="font-medium">Expense</span>
-                </button>
-              </div>
-            )}
-          />
-          {errors.type && (
-            <p className="text-sm text-red-600 mt-2">{errors.type.message}</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Basic Details */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Transaction Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Amount */}
-          <div className="space-y-2">
-            <Label htmlFor="amount">Amount *</Label>
-            <Controller
-              name="amount"
-              control={control}
-              render={({ field }) => (
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                    ₹
-                  </span>
-                  <Input
-                    {...field}
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    className="pl-8"
-                  />
-                </div>
-              )}
-            />
-            {errors.amount && (
-              <p className="text-sm text-red-600">{errors.amount.message}</p>
-            )}
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
-            <Controller
-              name="description"
-              control={control}
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  id="description"
-                  placeholder="What is this for?"
-                  onChange={(e) => {
-                    field.onChange(e);
-                    const match = matchRule(e.target.value);
-                    setAutoRuleSuggestion(match);
-                  }}
-                />
-              )}
-            />
-            {errors.description && (
-              <p className="text-sm text-red-600">
-                {errors.description.message}
-              </p>
-            )}
-            {autoRuleSuggestion && (
-              <div className="flex items-center gap-2 p-2 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded-md text-xs">
-                <Sparkles className="h-3 w-3 text-yellow-600 shrink-0" />
-                <span className="text-yellow-800 dark:text-yellow-300">
-                  Auto-rule matched: <strong>{autoRuleSuggestion.category}</strong>
-                  {autoRuleSuggestion.subtype && <> / {autoRuleSuggestion.subtype}</>}
-                </span>
-                <button
-                  type="button"
-                  className="ml-auto text-yellow-700 hover:text-yellow-900 dark:text-yellow-400 font-medium"
-                  onClick={() => {
-                    setValue("category", autoRuleSuggestion.category);
-                    if (autoRuleSuggestion.subtype) setValue("subtype", autoRuleSuggestion.subtype);
-                    setAutoRuleSuggestion(null);
-                  }}
-                >
-                  Apply
-                </button>
-                <button
-                  type="button"
-                  className="text-yellow-600 hover:text-yellow-800 dark:text-yellow-500"
-                  onClick={() => setAutoRuleSuggestion(null)}
-                >
-                  ×
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Date */}
-          <div className="space-y-2">
-            <Label htmlFor="date">Date</Label>
-            <Controller
-              name="date"
-              control={control}
-              render={({ field }) => <Input {...field} id="date" type="date" />}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Category & Subtype */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Categorization *</CardTitle>
-          <CardDescription>Required for budget tracking</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Category */}
-          <div className="space-y-2">
-            <Label htmlFor="category">Category *</Label>
-            {showCategoryInput ? (
-              <div className="flex space-x-2">
-                <Input
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="Enter category name"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddCustomCategory();
-                    } else if (e.key === "Escape") {
-                      setShowCategoryInput(false);
-                      setNewCategoryName("");
-                    }
-                  }}
-                  autoFocus
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleAddCustomCategory}
-                  disabled={!newCategoryName.trim()}
-                >
-                  Add
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setShowCategoryInput(false);
-                    setNewCategoryName("");
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <Controller
-                name="category"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={(value) => {
-                      if (value === "add_custom") {
-                        setShowCategoryInput(true);
-                      } else {
-                        field.onChange(value);
-                        setValue("subtype", ""); // Reset subtype when category changes
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(transactionType === "income"
-                        ? incomeCategories
-                        : expenseCategories
-                      ).map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                      <SelectItem
-                        value="add_custom"
-                        className="text-blue-600 font-medium border-t mt-1 pt-2"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <Plus className="h-4 w-4" />
-                          <span>Add Category</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                placeholder="0"
+                className={`border-0 bg-transparent text-5xl font-bold text-center placeholder-muted-foreground/30 focus-visible:ring-0 focus-visible:outline-none ${
+                  errors.amount ? "text-red-600" : ""
+                }`}
+                {...field}
+                onChange={(e) => field.onChange(e.target.valueAsNumber)}
               />
             )}
-            {errors.category && (
-              <p className="text-sm text-red-600">{errors.category.message}</p>
+          />
+        </div>
+        {errors.amount && (
+          <p className="text-sm text-red-600 mt-3">{errors.amount.message}</p>
+        )}
+      </div>
+
+      {/* Quick Entry: Date + Description */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Date */}
+        <div className="space-y-2">
+          <Label htmlFor="date" className="text-xs font-medium">
+            Date
+          </Label>
+          <Controller
+            name="date"
+            control={control}
+            render={({ field }) => (
+              <Input
+                id="date"
+                type="date"
+                value={field.value}
+                onChange={field.onChange}
+                className={`text-sm ${errors.date ? "border-red-500" : ""}`}
+              />
             )}
+          />
+          {errors.date && (
+            <p className="text-xs text-red-600">{errors.date.message}</p>
+          )}
+        </div>
+
+        {/* Description */}
+        <div className="space-y-2">
+          <Label htmlFor="description" className="text-xs font-medium flex items-center gap-1">
+            Description
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+          </Label>
+          <Controller
+            name="description"
+            control={control}
+            render={({ field }) => (
+              <Input
+                id="description"
+                placeholder="What for?"
+                className="text-sm"
+                {...field}
+                onChange={(e) => {
+                  field.onChange(e);
+                  const match = matchRule(e.target.value);
+                  setAutoRuleSuggestion(match);
+                }}
+              />
+            )}
+          />
+        </div>
+      </div>
+
+      {/* Auto-Rule Suggestion */}
+      {autoRuleSuggestion && (
+        <div className="flex items-center gap-3 rounded-lg bg-amber-50 border border-amber-200 p-3 dark:bg-amber-950/30 dark:border-amber-900/50">
+          <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+              Smart categorization detected
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Auto-map <span className="font-semibold">"{autoRuleSuggestion.category}"</span>
+              {autoRuleSuggestion.subtype && <> / {autoRuleSuggestion.subtype}</>}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300 font-medium text-sm"
+            onClick={() => {
+              setValue("category", autoRuleSuggestion.category);
+              if (autoRuleSuggestion.subtype) setValue("subtype", autoRuleSuggestion.subtype);
+              setAutoRuleSuggestion(null);
+            }}
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            className="text-amber-600 hover:text-amber-800 dark:text-amber-500"
+            onClick={() => setAutoRuleSuggestion(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Category Selection - Button Grid */}
+      <div className="space-y-3">
+        <Label className="text-xs font-medium">Category *</Label>
+        <div className="grid grid-cols-3 gap-2">
+          {availableCategories.slice(0, 6).map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => {
+                setValue("category", cat);
+                setValue("subtype", "");
+              }}
+              className={`py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
+                selectedCategory === cat
+                  ? "bg-foreground text-background shadow-md"
+                  : "bg-muted text-foreground hover:bg-muted/80 border border-transparent hover:border-muted-foreground/20"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setShowCategoryInput(true)}
+            className="py-2.5 px-3 rounded-lg text-sm font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50"
+          >
+            + Add
+          </button>
+        </div>
+        {showCategoryInput && (
+          <div className="flex gap-2">
+            <Input
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="Category name"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddCustomCategory();
+                }
+              }}
+              autoFocus
+            />
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleAddCustomCategory}
+              disabled={!newCategoryName.trim()}
+            >
+              Add
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setShowCategoryInput(false);
+                setNewCategoryName("");
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        )}
+        {errors.category && (
+          <p className="text-sm text-red-600">{errors.category.message}</p>
+        )}
+      </div>
+
+      {/* Subcategory Selection - Button Grid */}
+      {selectedCategory && (
+        <div className="space-y-3">
+          <Label className="text-xs font-medium">Subcategory (Optional)</Label>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => setValue("subtype", "")}
+              className={`py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
+                !selectedSubtype
+                  ? "bg-foreground text-background shadow-md"
+                  : "bg-muted text-foreground hover:bg-muted/80 border border-transparent hover:border-muted-foreground/20"
+              }`}
+            >
+              None
+            </button>
+            {availableSubtypes.slice(0, 5).map((sub) => (
+              <button
+                key={sub}
+                type="button"
+                onClick={() => setValue("subtype", sub)}
+                className={`py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
+                  selectedSubtype === sub
+                    ? "bg-foreground text-background shadow-md"
+                    : "bg-muted text-foreground hover:bg-muted/80 border border-transparent hover:border-muted-foreground/20"
+                }`}
+              >
+                {sub}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setShowSubtypeInput(true)}
+              className="py-2.5 px-3 rounded-lg text-sm font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50"
+            >
+              + Add
+            </button>
+          </div>
+          {showSubtypeInput && (
+            <div className="flex gap-2">
+              <Input
+                value={newSubtypeName}
+                onChange={(e) => setNewSubtypeName(e.target.value)}
+                placeholder="Subcategory name"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddCustomSubtype();
+                  }
+                }}
+                autoFocus
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleAddCustomSubtype}
+                disabled={!newSubtypeName.trim()}
+              >
+                Add
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setShowSubtypeInput(false);
+                  setNewSubtypeName("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Budget Linking -Optional, for Expenses */}
+      {transactionType === "expense" && selectedCategory && (
+        <div className="space-y-3 rounded-lg border border-muted bg-muted/30 p-4">
+          <Label className="text-xs font-medium flex items-center gap-2">
+            <Wallet className="h-4 w-4" />
+            Link to Budget (Optional)
+          </Label>
+          {allBudgetsForExpense.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No budgets created yet.{" "}
+              <a href="/budgets" target="_blank" rel="noreferrer" className="underline font-medium">
+                Create a budget
+              </a>
+            </p>
+          ) : (
+            <Controller
+              name="budgetId"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value || ""} onValueChange={(v) => field.onChange(v === "none" ? "" : v)}>
+                  <SelectTrigger className="text-sm">
+                    <SelectValue placeholder="Select budget (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No budget</SelectItem>
+                    {getMatchingBudgets().length > 0 && (
+                      <>
+                        <SelectGroup>
+                          <SelectLabel className="text-xs font-semibold text-green-600">
+                            MATCHING YOUR CATEGORY
+                          </SelectLabel>
+                          {getMatchingBudgets().map((budget) => (
+                            <SelectItem key={budget.id} value={budget.id}>
+                              <span className="font-medium">{budget.category}</span>
+                              {budget.subtype && <span className="text-xs text-muted-foreground ml-1">({budget.subtype})</span>}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </>
+                    )}
+                    {allBudgetsForExpense
+                      .filter((b) => !getMatchingBudgets().some((m) => m.id === b.id))
+                      .map((budget) => (
+                        <SelectItem key={budget.id} value={budget.id}>
+                          <span className="font-medium">{budget.category}</span>
+                          {budget.subtype && <span className="text-xs text-muted-foreground ml-1">({budget.subtype})</span>}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Recurring option */}
+      {!transactionId && (
+        <div className="space-y-3 rounded-lg border border-muted bg-muted/30 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Repeat className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <Label className="text-sm font-medium cursor-pointer">Repeat this transaction</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Set up a recurring pattern</p>
+              </div>
+            </div>
+            <Controller
+              name="isRecurring"
+              control={control}
+              render={({ field }) => (
+                <Switch
+                  id="isRecurring"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              )}
+            />
           </div>
 
-          {/* Subtype */}
-          {selectedCategory && (
-            <div className="space-y-2">
-              <Label htmlFor="subtype">Subtype *</Label>
-              {showSubtypeInput ? (
-                <div className="flex space-x-2">
-                  <Input
-                    value={newSubtypeName}
-                    onChange={(e) => setNewSubtypeName(e.target.value)}
-                    placeholder="Enter subtype name"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddCustomSubtype();
-                      } else if (e.key === "Escape") {
-                        setShowSubtypeInput(false);
-                        setNewSubtypeName("");
-                      }
-                    }}
-                    autoFocus
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleAddCustomSubtype}
-                    disabled={!newSubtypeName.trim()}
-                  >
-                    Add
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setShowSubtypeInput(false);
-                      setNewSubtypeName("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
+          {isRecurring && (
+            <div className="space-y-3 pt-2 border-t border-muted-foreground/10">
+              {/* Frequency */}
+              <div className="space-y-2">
+                <Label htmlFor="recurringFrequency" className="text-xs font-medium">
+                  Frequency
+                </Label>
                 <Controller
-                  name="subtype"
+                  name="recurringFrequency"
                   control={control}
                   render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={(value) => {
-                        if (value === "add_custom") {
-                          setShowSubtypeInput(true);
-                        } else {
-                          field.onChange(value);
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select subtype" />
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger id="recurringFrequency" className="text-sm">
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {getSubtypes(selectedCategory, transactionType).map(
-                          (subtype) => (
-                            <SelectItem key={subtype} value={subtype}>
-                              {subtype}
-                            </SelectItem>
-                          ),
-                        )}
-                        <SelectItem
-                          value="add_custom"
-                          className="text-blue-600 font-medium border-t mt-1 pt-2"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <Plus className="h-4 w-4" />
-                            <span>Add Sub-category</span>
-                          </div>
-                        </SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="biweekly">Bi-weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="yearly">Yearly</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
                 />
-              )}
-              {errors.subtype && (
-                <p className="text-sm text-red-600">{errors.subtype.message}</p>
-              )}
-            </div>
-          )}
+              </div>
 
-          {/* Budget Selection - Optional, for expenses */}
-          {transactionType === "expense" && selectedCategory && selectedSubtype && (
-            <div className="space-y-2">
-              <Label
-                htmlFor="budgetId"
-                className="flex items-center space-x-1"
-              >
-                <span>Link to budget (Optional)</span>
-              </Label>
-              <Controller
-                name="budgetId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value || "none"}
-                    onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a budget" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Don't link to a budget</SelectItem>
-                      <SelectItem value="auto">Auto-select matching budget</SelectItem>
-                      {getMatchingBudgets().length > 0 && (
-                        <>
-                          {getMatchingBudgets().map((budget) => (
-                            <SelectItem key={budget.id} value={budget.id}>
-                              <div className="flex flex-col">
-                                <span className="font-medium">
-                                  {budget.category}
-                                  {budget.subtype && ` → ${budget.subtype}`}
-                                  <span className="text-xs text-green-600 ml-1">(matches)</span>
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {format(budget.limit_amount)} / {budget.period}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </>
-                      )}
-                      {allBudgetsForExpense
-                        .filter((b) => !getMatchingBudgets().some((m) => m.id === b.id))
-                        .map((budget) => (
-                          <SelectItem key={budget.id} value={budget.id}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">
-                                {budget.category}
-                                {budget.subtype && ` → ${budget.subtype}`}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {format(budget.limit_amount)} / {budget.period}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              <p className="text-xs text-muted-foreground">
-                {getMatchingBudgets().length > 0
-                  ? "Choose a budget to link this expense to, or use Auto-select to match by category."
-                  : "Choose a budget to link this expense to, or create one in Budgets."}
-                {" "}
-                <a href="/budgets" target="_blank" rel="noreferrer" className="underline">
-                  Budgets
-                </a>
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Recurring option */}
-      {!transactionId && (
-        <Card className="border-2">
-          <CardHeader className="pb-3">
-            <div className="flex items-center space-x-2">
-              <Repeat className="h-5 w-5" />
-              <CardTitle className="text-base">Repeat</CardTitle>
-            </div>
-            <CardDescription>
-              Make this a recurring transaction. You can set an end date so it
-              repeats until a specific date. Manage recurring patterns in
-              Recurring.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="isRecurring" className="cursor-pointer">
-                Repeat this transaction
-              </Label>
-              <Controller
-                name="isRecurring"
-                control={control}
-                render={({ field }) => (
-                  <Switch
-                    id="isRecurring"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                )}
-              />
-            </div>
-            {isRecurring && (
-              <>
+              {/* Day of month (conditional) */}
+              {recurringFrequency === "monthly" && (
                 <div className="space-y-2">
-                  <Label htmlFor="recurringFrequency">Frequency</Label>
+                  <Label htmlFor="recurringDayOfMonth" className="text-xs font-medium">
+                    Day of month
+                  </Label>
                   <Controller
-                    name="recurringFrequency"
+                    name="recurringDayOfMonth"
                     control={control}
                     render={({ field }) => (
                       <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
+                        value={field.value ? String(field.value) : "same"}
+                        onValueChange={(v) =>
+                          field.onChange(v === "same" ? undefined : parseInt(v, 10))
+                        }
                       >
-                        <SelectTrigger id="recurringFrequency">
-                          <SelectValue />
+                        <SelectTrigger id="recurringDayOfMonth" className="text-sm">
+                          <SelectValue placeholder="Same as transaction date" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                          <SelectItem value="biweekly">Bi-weekly</SelectItem>
-                          <SelectItem value="monthly">Monthly</SelectItem>
-                          <SelectItem value="quarterly">Quarterly</SelectItem>
-                          <SelectItem value="yearly">Yearly</SelectItem>
+                          <SelectItem value="same">Same as transaction date</SelectItem>
+                          {Array.from({ length: 31 }, (_, i) => (
+                            <SelectItem key={i} value={String(i + 1)}>
+                              {i + 1}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     )}
                   />
                 </div>
-                {recurringFrequency === "monthly" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="recurringDayOfMonth">
-                      Day of month (e.g. 15 = every 15th)
-                    </Label>
-                    <Controller
-                      name="recurringDayOfMonth"
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          value={field.value ? String(field.value) : "same"}
-                          onValueChange={(v) =>
-                            field.onChange(
-                              v === "same" ? undefined : parseInt(v, 10),
-                            )
-                          }
-                        >
-                          <SelectTrigger id="recurringDayOfMonth">
-                            <SelectValue placeholder="Same as transaction date" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="same">
-                              Same as transaction date
-                            </SelectItem>
-                            {Array.from({ length: 31 }, (_, i) => (
-                              <SelectItem key={i} value={String(i + 1)}>
-                                {i + 1}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
+              )}
+
+              {/* End date */}
+              <div className="space-y-2">
+                <Label htmlFor="recurringEndDate" className="text-xs font-medium">
+                  End date (optional)
+                </Label>
+                <Controller
+                  name="recurringEndDate"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="recurringEndDate"
+                      type="date"
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      min={formDate || undefined}
+                      className="text-sm"
                     />
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="recurringEndDate">
-                    End date (optional – repeats until this date)
-                  </Label>
-                  <Controller
-                    name="recurringEndDate"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        id="recurringEndDate"
-                        type="date"
-                        value={field.value || ""}
-                        onChange={(e) => field.onChange(e.target.value)}
-                        min={formDate || undefined}
-                      />
-                    )}
-                  />
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                  )}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Budget Warning (for expenses) */}
-      {transactionType === "expense" &&
-        budgetInfo &&
-        budgetInfo.budgetLimit !== undefined && (
-          <Card
-            className={`border-2 ${budgetInfo.isOverLimit ? "border-red-500 bg-red-50" : budgetInfo.isNearLimit ? "border-orange-500 bg-orange-50" : "border-blue-500 bg-blue-50"}`}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center space-x-2">
-                <AlertCircle
-                  className={`h-5 w-5 ${budgetInfo.isOverLimit ? "text-red-600" : budgetInfo.isNearLimit ? "text-orange-600" : "text-blue-600"}`}
-                />
-                <CardTitle className="text-base">Budget Status</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
+      {transactionType === "expense" && budgetInfo && budgetInfo.budgetLimit !== undefined && (
+        <div
+          className={`rounded-lg border-2 p-4 ${
+            budgetInfo.isOverLimit
+              ? "border-red-500 bg-red-50/50 dark:bg-red-950/20"
+              : budgetInfo.isNearLimit
+                ? "border-orange-500 bg-orange-50/50 dark:bg-orange-950/20"
+                : "border-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle
+              className={`h-5 w-5 shrink-0 mt-0.5 ${
+                budgetInfo.isOverLimit
+                  ? "text-red-600 dark:text-red-400"
+                  : budgetInfo.isNearLimit
+                    ? "text-orange-600 dark:text-orange-400"
+                    : "text-blue-600 dark:text-blue-400"
+              }`}
+            />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold mb-3">Budget Status</h3>
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Budget Limit:</span>
-                  <span className="font-semibold">
-                    {format(budgetInfo.budgetLimit || 0)}
-                  </span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Limit:</span>
+                  <span className="font-semibold">{format(budgetInfo.budgetLimit)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>Current Spending:</span>
-                  <span className="font-semibold">
-                    {format(budgetInfo.totalSpent || 0)}
-                  </span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Spent:</span>
+                  <span className="font-semibold">{format(budgetInfo.totalSpent)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>After this transaction:</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">After this:</span>
                   <span
-                    className={`font-semibold ${budgetInfo.isOverLimit ? "text-red-600" : ""}`}
+                    className={`font-semibold ${
+                      budgetInfo.isOverLimit
+                        ? "text-red-600 dark:text-red-400"
+                        : ""
+                    }`}
                   >
-                    {format(budgetInfo.newTotal || 0)}
+                    {format(budgetInfo.newTotal)}
                   </span>
                 </div>
-                <div className="w-full bg-border rounded-full h-2 mt-3">
+                <div className="w-full bg-border rounded-full h-1.5 mt-2">
                   <div
-                    className={`h-2 rounded-full transition-all ${
+                    className={`h-1.5 rounded-full transition-all ${
                       budgetInfo.isOverLimit
                         ? "bg-red-600"
                         : budgetInfo.isNearLimit
@@ -1313,137 +1265,77 @@ export default function AddTransactionForm({
                     }}
                   />
                 </div>
-                <p className="text-sm text-center font-medium mt-2">
-                  {(budgetInfo.percentage || 0).toFixed(1)}% of budget
+                <p className="text-xs text-center font-medium text-muted-foreground mt-2">
+                  {(budgetInfo.percentage || 0).toFixed(0)}% used
                 </p>
-                {budgetInfo.isOverLimit &&
-                  budgetInfo.remainingAmount !== undefined && (
-                    <p className="text-sm text-red-600 font-medium text-center">
-                      ⚠️ This will exceed your budget by{" "}
-                      {format(Math.abs(budgetInfo.remainingAmount))}
-                    </p>
-                  )}
+                {budgetInfo.isOverLimit && budgetInfo.remainingAmount !== undefined && (
+                  <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                    ⚠️ Will exceed by {format(Math.abs(budgetInfo.remainingAmount))}
+                  </p>
+                )}
                 {budgetInfo.isNearLimit &&
                   !budgetInfo.isOverLimit &&
                   budgetInfo.remainingAmount !== undefined && (
-                    <p className="text-sm text-orange-600 font-medium text-center">
+                    <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">
                       ⚠️ Remaining: {format(budgetInfo.remainingAmount)}
                     </p>
                   )}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Link to Goal / Loan / Savings Challenge (expenses only) */}
       {showLinkToSection && (
-        <Card
-          className={
-            isGoalRequired
-              ? "border-2 border-amber-200 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/20"
-              : "border-2 border-border"
-          }
-        >
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Target
-                className={`h-5 w-5 shrink-0 ${isGoalRequired ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground"}`}
-              />
-              <div>
-                <CardTitle className="text-base font-semibold text-foreground">
-                  Link to goal, loan, or savings
-                </CardTitle>
-                <CardDescription className="mt-1 text-muted-foreground">
-                  {isGoalRequired
-                    ? "Goal is required for Savings. You can also record this as a loan payment or savings challenge contribution."
-                    : "Optionally add this expense to a goal, record as a loan payment, or contribute to a savings challenge."}
-                </CardDescription>
+        <div className="space-y-3 rounded-lg border border-muted bg-muted/30 p-4">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Target className="h-4 w-4 text-muted-foreground" />
+            Link to goal, loan, or savings
+            {isGoalRequired && <span className="text-xs font-normal text-amber-600 dark:text-amber-400">Required</span>}
+          </h3>
+
+          {/* Goal */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium flex items-center gap-2">
+              <Target className="h-3.5 w-3.5" />
+              Goal {isGoalRequired ? "*" : "(optional)"}
+            </Label>
+            {goals.length === 0 && isGoalRequired ? (
+              <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 p-2.5 rounded border border-red-200 dark:border-red-900/50">
+                No active goals.{" "}
+                <a
+                  href="/goals"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline font-medium"
+                >
+                  Create one
+                </a>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Goal */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                <Target className="h-4 w-4 text-muted-foreground" />
-                Goal {isGoalRequired ? "*" : "(optional)"}
-              </Label>
-              {goals.length === 0 && isGoalRequired ? (
-                <div className="text-sm text-red-600 bg-background p-3 rounded border border-red-200">
-                  ⚠️ No active goals.{" "}
-                  <a
-                    href="/goals"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline"
-                  >
-                    Create a goal
-                  </a>
-                </div>
-              ) : (
-                <Controller
-                  name="goalId"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger
-                        className={errors.goalId ? "border-red-500" : ""}
-                      >
-                        <SelectValue
-                          placeholder={
-                            isGoalRequired
-                              ? "Select a goal *"
-                              : "Select a goal (optional)"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {!isGoalRequired && (
-                          <SelectItem value="none">No goal</SelectItem>
-                        )}
-                        {goals.map((goal) => (
-                          <SelectItem key={goal.id} value={goal.id}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{goal.title}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {format(goal.currentAmount)} /{" "}
-                                {format(goal.targetAmount)}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              )}
-              {errors.goalId && (
-                <p className="text-sm text-red-600">{errors.goalId.message}</p>
-              )}
-            </div>
-
-            {/* Loan */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                Loan (optional)
-              </Label>
+            ) : (
               <Controller
-                name="debtId"
+                name="goalId"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Record as loan payment" />
+                  <Select value={field.value || ""} onValueChange={(v) => field.onChange(v === "none" ? "" : v)}>
+                    <SelectTrigger
+                      className={`text-sm ${errors.goalId ? "border-red-500" : ""}`}
+                    >
+                      <SelectValue
+                        placeholder={
+                          isGoalRequired ? "Select a goal *" : "Select a goal"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No loan</SelectItem>
-                      {debts.map((debt) => (
-                        <SelectItem key={debt.id} value={debt.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{debt.name}</span>
+                      {!isGoalRequired && <SelectItem value="none">No goal</SelectItem>}
+                      {goals.map((goal) => (
+                        <SelectItem key={goal.id} value={goal.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{goal.title}</span>
                             <span className="text-xs text-muted-foreground">
-                              {format(debt.balance)} • {debt.type}
+                              ({format(goal.currentAmount)}/{format(goal.targetAmount)})
                             </span>
                           </div>
                         </SelectItem>
@@ -1452,74 +1344,80 @@ export default function AddTransactionForm({
                   </Select>
                 )}
               />
-              {debts.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No loans. Add one in{" "}
-                  <a
-                    href="/debt-tracker"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline"
-                  >
-                    Debt Tracker
-                  </a>
-                  .
-                </p>
-              )}
-            </div>
+            )}
+            {errors.goalId && (
+              <p className="text-xs text-red-600">{errors.goalId.message}</p>
+            )}
+          </div>
 
-            {/* Savings Challenge */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                <Trophy className="h-4 w-4 text-muted-foreground" />
-                Savings challenge (optional)
-              </Label>
-              <Controller
-                name="savingsChallengeId"
-                control={control}
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Contribute to challenge" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No challenge</SelectItem>
-                      {savingsChallenges.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{c.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {format(c.current_amount)} /{" "}
-                              {format(c.target_amount)}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {savingsChallenges.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No active challenges.{" "}
-                  <a
-                    href="/savings-challenges"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline"
-                  >
-                    Savings Challenges
-                  </a>
-                  .
-                </p>
+          {/* Loan */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium flex items-center gap-2">
+              <CreditCard className="h-3.5 w-3.5" />
+              Loan payment (optional)
+            </Label>
+            <Controller
+              name="debtId"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value || ""} onValueChange={(v) => field.onChange(v === "none" ? "" : v)}>
+                  <SelectTrigger className="text-sm">
+                    <SelectValue placeholder="Select a loan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No loan</SelectItem>
+                    {debts.map((debt) => (
+                      <SelectItem key={debt.id} value={debt.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{debt.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({format(debt.balance)})
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
-            </div>
-          </CardContent>
-        </Card>
+            />
+          </div>
+
+          {/* Savings Challenge */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium flex items-center gap-2">
+              <Trophy className="h-3.5 w-3.5" />
+              Savings challenge (optional)
+            </Label>
+            <Controller
+              name="savingsChallengeId"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value || ""} onValueChange={(v) => field.onChange(v === "none" ? "" : v)}>
+                  <SelectTrigger className="text-sm">
+                    <SelectValue placeholder="Select a challenge" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No challenge</SelectItem>
+                    {savingsChallenges.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{c.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({format(c.current_amount)}/{format(c.target_amount)})
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+        </div>
       )}
 
       {/* Action Buttons */}
-      <div className="flex space-x-3">
+      <div className="flex gap-3 sticky bottom-0 bg-background pt-4 border-t border-muted">
         <Button
           type="button"
           variant="outline"
@@ -1529,7 +1427,12 @@ export default function AddTransactionForm({
         >
           Cancel
         </Button>
-        <Button type="submit" className="flex-1" disabled={isSubmitting}>
+        <Button 
+          type="submit" 
+          className="flex-1 bg-foreground text-background hover:bg-foreground/90" 
+          disabled={isSubmitting}
+          size="lg"
+        >
           {isSubmitting ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
