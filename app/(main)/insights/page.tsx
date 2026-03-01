@@ -20,7 +20,7 @@ import {
   ChevronUp,
   LayoutGrid,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useTransactionsStore } from "@/store/transactions-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
@@ -193,115 +193,43 @@ export default function InsightsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card shadow-sm border-b sticky top-0 z-10">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
-            <div>
-              <h1 className="text-xl font-bold text-foreground">
-                Money Insights
-              </h1>
-              <p className="text-sm text-muted-foreground">{currentMonthLabel}</p>
+      {/* ── Dark Hero Band ── */}
+      <div className="bg-slate-900 dark:bg-black text-white">
+        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+          <div className="mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Money Insights</p>
+            <p className="text-xs text-slate-500">{currentMonthLabel}</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Income</p>
+              <p className="font-mono text-base font-semibold text-green-400">{format(currentIncome)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{incomeEntries} {incomeEntries === 1 ? "entry" : "entries"} · {currentMonthLabel}</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Expenses</p>
+              <p className="font-mono text-base font-semibold text-red-400">{format(currentExpenses)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{expenseEntries} {expenseEntries === 1 ? "entry" : "entries"} · {currentMonthLabel}</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Invested</p>
+              <p className="font-mono text-base font-semibold text-blue-400">{currentInvested > 0 ? format(currentInvested) : "—"}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{currentInvested === 0 ? 'Use "Investment" category' : currentMonthLabel}</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Surplus</p>
+              <p className={`font-mono text-base font-semibold ${surplus >= 0 ? "text-green-400" : "text-red-400"}`}>
+                {surplus < 0 ? "-" : ""}{format(Math.abs(surplus))}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                {currentIncome === 0 ? "No income logged" : surplusRate ? `${surplusRate}% saved` : "—"}
+              </p>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4 space-y-4">
-        {/* 4 Stat Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Income */}
-          <Card className="border-t-2 border-t-green-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Income
-                </span>
-                <TrendingUp className="h-4 w-4 text-green-500" />
-              </div>
-              <div className="text-2xl font-bold text-foreground mb-1">
-                {format(currentIncome)}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {incomeEntries} {incomeEntries === 1 ? "entry" : "entries"} ·{" "}
-                {currentMonthLabel}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Expenses */}
-          <Card className="border-t-2 border-t-red-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Expenses
-                </span>
-                <TrendingDown className="h-4 w-4 text-red-500" />
-              </div>
-              <div className="text-2xl font-bold text-foreground mb-1">
-                {format(currentExpenses)}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {expenseEntries} {expenseEntries === 1 ? "entry" : "entries"} ·{" "}
-                {currentMonthLabel}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Invested */}
-          <Card className="border-t-2 border-t-blue-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Invested
-                </span>
-                <RefreshCw className="h-4 w-4 text-blue-500" />
-              </div>
-              {currentInvested > 0 ? (
-                <div className="text-2xl font-bold text-foreground mb-1">
-                  {format(currentInvested)}
-                </div>
-              ) : (
-                <div className="text-2xl font-bold text-foreground mb-1">—</div>
-              )}
-              <div className="text-xs text-muted-foreground">
-                {currentInvested === 0
-                  ? 'Use "Investment" category to track'
-                  : `${currentMonthLabel}`}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Surplus */}
-          <Card
-            className={`border-t-2 ${surplus >= 0 ? "border-t-purple-500" : "border-t-orange-500"}`}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Surplus
-                </span>
-                <Percent
-                  className={`h-4 w-4 ${surplus >= 0 ? "text-purple-500" : "text-orange-500"}`}
-                />
-              </div>
-              <div
-                className={`text-2xl font-bold mb-1 ${surplus >= 0 ? "text-foreground" : "text-red-500"}`}
-              >
-                {format(Math.abs(surplus))}
-                {surplus < 0 && (
-                  <span className="text-sm font-normal ml-1 text-red-400">deficit</span>
-                )}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {currentIncome === 0
-                  ? "No income logged yet"
-                  : surplusRate
-                    ? `${surplusRate}% of income saved`
-                    : "—"}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* 6-Month Averages */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -350,10 +278,10 @@ export default function InsightsPage() {
 
         {/* Cashflow Chart */}
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
               {cashflowData.length}-Month Cashflow · Income vs Expenses
-            </CardTitle>
+            </p>
           </CardHeader>
           <CardContent>
             {cashflowData.length === 0 ? (

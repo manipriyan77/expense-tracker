@@ -527,17 +527,12 @@ export default function GoalsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card shadow-sm border-b sticky top-0 z-10">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
+      <div className="bg-slate-900 dark:bg-black text-white">
+        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+          <div className="flex justify-between items-start mb-4">
             <div>
-              <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-                <Target className="h-5 w-5" /> Goals & Challenges
-              </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Track financial goals and savings challenges
-              </p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Goals & Challenges</p>
+              <p className="text-xs text-slate-500">Track financial goals and savings challenges</p>
             </div>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
@@ -677,8 +672,30 @@ export default function GoalsPage() {
               </DialogContent>
             </Dialog>
           </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Goals</p>
+              <p className="font-mono text-base font-semibold text-white">{totalGoals}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">All goals</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Active</p>
+              <p className="font-mono text-base font-semibold text-blue-400">{activeGoals}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">In progress</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Completed</p>
+              <p className="font-mono text-base font-semibold text-green-400">{completedGoals}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Achieved</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Saved</p>
+              <p className="font-mono text-base font-semibold text-slate-200">{format(totalCurrentAmount)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">of {format(totalTargetAmount)}</p>
+            </div>
+          </div>
         </div>
-      </header>
+      </div>
 
       {/* Edit Goal Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -825,63 +842,6 @@ export default function GoalsPage() {
           </TabsList>
 
           <TabsContent value="goals" className="space-y-4 mt-0">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">Total Goals</CardTitle>
-              <Target className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold">{totalGoals}</div>
-              <p className="text-xs text-muted-foreground">All goals</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Active Goals
-              </CardTitle>
-              <Circle className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-blue-600">
-                {activeGoals}
-              </div>
-              <p className="text-xs text-muted-foreground">In progress</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">Completed</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-green-600">
-                {completedGoals}
-              </div>
-              <p className="text-xs text-muted-foreground">Achieved</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">Progress</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold">
-                {format(totalCurrentAmount)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                of {format(totalTargetAmount)} saved
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Goals List */}
         <Card>
           <CardHeader className="p-3 pb-2">

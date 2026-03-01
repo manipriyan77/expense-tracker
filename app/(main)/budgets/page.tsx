@@ -307,16 +307,31 @@ export default function BudgetsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Toaster position="top-right" />
-      <header className="bg-card shadow-sm border-b sticky top-0 z-10">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
-            <div>
-              <h1 className="text-xl font-bold text-foreground">Budget Management</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">Manage budgets and reusable templates</p>
+      <div className="bg-slate-900 dark:bg-black text-white">
+        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+          <div className="mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Budget Management</p>
+            <p className="text-xs text-slate-500">Manage budgets and reusable templates</p>
+          </div>
+          <div className="grid grid-cols-3 divide-x divide-slate-700/60 border-t border-slate-700/60">
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Budget</p>
+              <p className="font-mono text-base font-semibold text-slate-200">{format(totalBudget)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{budgets.length} budget(s)</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Spent</p>
+              <p className="font-mono text-base font-semibold text-red-400">{format(totalSpent)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{overallPercentage.toFixed(1)}% used</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Remaining</p>
+              <p className={`font-mono text-base font-semibold ${totalBudget - totalSpent >= 0 ? "text-green-400" : "text-red-400"}`}>{format(Math.abs(totalBudget - totalSpent))}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{totalBudget - totalSpent >= 0 ? "left" : "over budget"}</p>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4">
         <Tabs defaultValue="budgets" className="space-y-4">
@@ -338,49 +353,6 @@ export default function BudgetsPage() {
             <span className="hidden sm:inline">{budgets.length} budget(s)</span>
           </div>
         </div>
-
-        {/* Overall Budget Summary */}
-        <Card className="mb-4">
-          <CardHeader className="p-3 pb-2">
-            <CardTitle className="text-base">Overall Budget Status</CardTitle>
-            <CardDescription>
-              Your total budget across all categories for{" "}
-              {selectedMonth.toLocaleDateString("en-US", {
-                month: "long",
-                year: "numeric",
-              })}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:justify-between gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Budget</p>
-                  <p className="text-xl font-bold">{format(totalBudget)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Spent</p>
-                  <p className="text-xl font-bold text-red-600">
-                    {format(totalSpent)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Remaining</p>
-                  <p className="text-xl font-bold text-green-600">
-                    {format(totalBudget - totalSpent)}
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Overall Progress</span>
-                  <span>{overallPercentage.toFixed(1)}%</span>
-                </div>
-                <Progress value={overallPercentage} className="h-3" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Add Budget Button */}
         <div className="mb-4">
@@ -756,7 +728,7 @@ export default function BudgetsPage() {
         </Dialog>
 
         {/* Budget Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {budgets.map((budget) => {
             const spent = budget.spent_amount || 0;
             const percentage = (spent / budget.limit_amount) * 100;
@@ -765,124 +737,131 @@ export default function BudgetsPage() {
             return (
               <Card
                 key={budget.id}
-                className="relative hover:shadow-lg transition-shadow cursor-pointer"
+                className="relative hover:shadow-md transition-shadow cursor-pointer"
                 onClick={() => openDetailsModal(budget)}
               >
-                <CardHeader className="pb-2">
+                <CardHeader className="p-3 pb-2">
                   <div className="flex justify-between items-start gap-2 min-w-0">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <CardTitle className="text-lg truncate">
-                        {budget.category}
-                        {budget.subtype && (
-                          <span className="text-sm font-normal text-muted-foreground ml-1">
-                            → {budget.subtype}
-                          </span>
-                        )}
-                      </CardTitle>
-
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">
+                          {budget.category}
+                          {budget.subtype && (
+                            <span className="font-normal text-muted-foreground ml-1">
+                              → {budget.subtype}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5 capitalize">
+                          {budget.category}
+                        </p>
+                      </div>
                     </div>
-                    <div className="shrink-0">{getStatusIcon(percentage)}</div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={`text-[10px] uppercase px-2 py-0.5 rounded-full font-medium ${
+                          percentage >= 100
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : percentage >= 80
+                              ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                              : percentage >= 60
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        }`}
+                      >
+                        {budget.period}
+                      </span>
+                      <div className="shrink-0">{getStatusIcon(percentage)}</div>
+                    </div>
                   </div>
-                  <CardDescription className="capitalize">
-                    {budget.period} budget
-                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4 pb-4">
-                  <div className="flex justify-between items-center">
+                <CardContent className="p-3 pt-0 space-y-3">
+                  {/* Stats row */}
+                  <div className="grid grid-cols-3 gap-2 pt-1">
                     <div>
-                      <p className="text-sm text-muted-foreground">Spent</p>
-                      <p className="text-xl font-bold">{format(spent)}</p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Spent</p>
+                      <p className="font-mono font-semibold text-sm text-red-600 dark:text-red-400">{format(spent)}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-muted-foreground">Limit</p>
-                      <p className="text-xl font-bold">
-                        {format(budget.limit_amount)}
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Limit</p>
+                      <p className="font-mono font-semibold text-sm">{format(budget.limit_amount)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Left</p>
+                      <p className={`font-mono font-semibold text-sm ${remaining < 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
+                        {remaining < 0 ? "-" : ""}{format(Math.abs(remaining))}
                       </p>
                     </div>
                   </div>
 
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Progress</span>
-                      <span className={percentage >= 100 ? "text-red-600" : ""}>
+                  {/* Progress bar */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Progress</p>
+                      <span className={`text-[10px] font-mono font-medium ${percentage >= 100 ? "text-red-600" : percentage >= 80 ? "text-orange-500" : "text-muted-foreground"}`}>
                         {percentage.toFixed(1)}%
                       </span>
                     </div>
-                    <div className="relative">
-                      <Progress value={Math.min(percentage, 100)} className="h-2" />
+                    <div className="relative w-full bg-muted rounded-full h-1.5 overflow-hidden">
                       <div
-                        className={`absolute top-0 left-0 h-2 ${getProgressColor(percentage)} rounded-full transition-all`}
+                        className={`absolute top-0 left-0 h-1.5 ${getProgressColor(percentage)} rounded-full transition-all`}
                         style={{ width: `${Math.min(percentage, 100)}%` }}
                       />
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Remaining</p>
-                        <p
-                          className={`text-lg font-semibold ${
-                            remaining < 0 ? "text-red-600" : "text-green-600"
-                          }`}
-                        >
-                          {format(Math.abs(remaining))}
-                          {remaining < 0 && " over"}
-                        </p>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openAddTransactionDialog(budget);
-                          }}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <DollarSign className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditDialog(budget);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteBudget(budget.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
+                  {/* Alert banner */}
                   {percentage >= 80 && (
                     <div
-                      className={`flex items-center space-x-2 p-2 rounded ${
+                      className={`flex items-center space-x-1.5 px-2 py-1 rounded ${
                         percentage >= 100
-                          ? "bg-red-500/10 text-red-500"
-                          : "bg-orange-500/10 text-orange-500"
+                          ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                          : "bg-orange-500/10 text-orange-600 dark:text-orange-400"
                       }`}
                     >
-                      <AlertTriangle className="h-4 w-4" />
-                      <span className="text-sm font-medium">
-                        {percentage >= 100
-                          ? "Budget exceeded!"
-                          : "Approaching limit"}
+                      <AlertTriangle className="h-3 w-3 shrink-0" />
+                      <span className="text-[10px] uppercase tracking-widest font-medium">
+                        {percentage >= 100 ? "Budget exceeded" : "Approaching limit"}
                       </span>
                     </div>
                   )}
+
+                  {/* Action buttons */}
+                  <div className="flex justify-end gap-1.5 pt-1 border-t">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openAddTransactionDialog(budget);
+                      }}
+                      className="h-7 px-2 bg-green-600 hover:bg-green-700"
+                    >
+                      <DollarSign className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditDialog(budget);
+                      }}
+                      className="h-7 px-2"
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteBudget(budget.id);
+                      }}
+                      className="h-7 px-2"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             );
@@ -892,11 +871,11 @@ export default function BudgetsPage() {
         {budgets.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <TrendingDown className="h-10 w-10 text-muted-foreground mb-2" />
-              <p className="text-lg font-semibold text-foreground mb-2">
+              <TrendingDown className="h-10 w-10 text-muted-foreground mb-3" />
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
                 No budgets created yet
               </p>
-              <p className="text-muted-foreground mb-2 text-sm">
+              <p className="text-sm text-muted-foreground">
                 Start by creating your first budget to track spending
               </p>
             </CardContent>

@@ -342,23 +342,21 @@ export default function TransactionsPage() {
     if (pages <= 1) return null;
 
     return (
-      <div className="flex items-center justify-between mt-6">
-        <div className="text-sm text-gray-600">
-          Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-          {Math.min(currentPage * itemsPerPage, dataLength)} of {dataLength}{" "}
-          transactions
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/40">
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, dataLength)} of {dataLength}
+        </p>
+        <div className="flex items-center gap-1">
           <Button
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
           >
-            <ChevronLeft className="h-4 w-4" />
-            Previous
+            <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             {Array.from({ length: Math.min(5, pages) }, (_, i) => {
               let pageNum;
               if (pages <= 5) {
@@ -373,8 +371,9 @@ export default function TransactionsPage() {
               return (
                 <Button
                   key={pageNum}
-                  variant={currentPage === pageNum ? "default" : "outline"}
-                  size="sm"
+                  variant={currentPage === pageNum ? "default" : "ghost"}
+                  size="icon"
+                  className="h-7 w-7 text-[11px]"
                   onClick={() => setCurrentPage(pageNum)}
                 >
                   {pageNum}
@@ -383,13 +382,13 @@ export default function TransactionsPage() {
             })}
           </div>
           <Button
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
             onClick={() => setCurrentPage((p) => Math.min(pages, p + 1))}
             disabled={currentPage === pages}
           >
-            Next
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-3.5 w-3.5" />
           </Button>
         </div>
         <Select
@@ -399,7 +398,7 @@ export default function TransactionsPage() {
             setCurrentPage(1);
           }}
         >
-          <SelectTrigger className="w-20">
+          <SelectTrigger className="h-7 w-16 text-[11px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -426,13 +425,31 @@ export default function TransactionsPage() {
     <>
       <Toaster position="top-right" richColors />
       <div className="min-h-screen bg-background">
-        <header className="bg-card shadow-sm border-b">
-          <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-3">
-              <h1 className="text-xl font-bold text-gray-900">Transactions</h1>
+        <div className="bg-slate-900 dark:bg-black text-white">
+          <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+            <div className="mb-4">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Transactions</p>
+              <p className="text-xs text-slate-500">{selectedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
+            </div>
+            <div className="grid grid-cols-3 divide-x divide-slate-700/60 border-t border-slate-700/60">
+              <div className="px-4 py-3">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Income</p>
+                <p className="font-mono text-base font-semibold text-green-400">{format(totalIncome)}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{filteredTransactions.filter(t => t.type === "income").length} entries</p>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Expenses</p>
+                <p className="font-mono text-base font-semibold text-red-400">{format(totalExpenses)}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{filteredTransactions.filter(t => t.type === "expense").length} entries</p>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Balance</p>
+                <p className={`font-mono text-base font-semibold ${balance >= 0 ? "text-green-400" : "text-red-400"}`}>{balance < 0 ? "-" : ""}{format(Math.abs(balance))}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Income − Expenses</p>
+              </div>
             </div>
           </div>
-        </header>
+        </div>
 
         <main className="px-4 sm:px-6 lg:px-8 py-4">
           {/* Month Selector */}
@@ -442,68 +459,10 @@ export default function TransactionsPage() {
               onMonthChange={setSelectedMonth}
               monthsToShow={7}
             />
-            <div className="text-sm text-gray-600 shrink-0" title={`${filteredTransactions.length} transactions`}>
+            <div className="text-sm text-muted-foreground shrink-0" title={`${filteredTransactions.length} transactions`}>
               <span className="sm:hidden">{filteredTransactions.length}</span>
               <span className="hidden sm:inline">{filteredTransactions.length} transaction(s)</span>
             </div>
-          </div>
-
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-                <CardTitle className="text-sm font-medium">
-                  Total Balance
-                </CardTitle>
-                <IndianRupee className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="p-3 pt-2">
-                <div className="text-xl font-bold">{format(balance)}</div>
-                <p className="text-xs text-muted-foreground">
-                  Income - Expenses
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-                <CardTitle className="text-sm font-medium">
-                  Total Income
-                </CardTitle>
-                <TrendingUp className="h-4 w-4 text-green-600" />
-              </CardHeader>
-              <CardContent className="p-3 pt-2">
-                <div className="text-xl font-bold text-green-600">
-                  {format(totalIncome)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {selectedMonth.toLocaleDateString("en-US", {
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-                <CardTitle className="text-sm font-medium">
-                  Total Expenses
-                </CardTitle>
-                <TrendingDown className="h-4 w-4 text-red-600" />
-              </CardHeader>
-              <CardContent className="p-3 pt-2">
-                <div className="text-xl font-bold text-red-600">
-                  {format(totalExpenses)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {selectedMonth.toLocaleDateString("en-US", {
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </p>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Actions Bar */}
@@ -573,7 +532,7 @@ export default function TransactionsPage() {
                     filterType !== "all" ||
                     minAmount ||
                     maxAmount) && (
-                    <span className="ml-1 sm:ml-2 px-1.5 py-0.5 text-xs bg-blue-500 text-white rounded-full">
+                    <span className="ml-1 sm:ml-2 px-2 py-0.5 text-[10px] uppercase tracking-widest bg-blue-500 text-white rounded-full">
                       {
                         [
                           filterCategory !== "all",
@@ -662,17 +621,17 @@ export default function TransactionsPage() {
 
             {/* Advanced Filters */}
             {showFilters && (
-              <Card className="p-3">
+              <Card className="p-3 border-border/50">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <div>
-                    <label className="text-sm font-medium mb-2 block">
+                    <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5 block">
                       Category
                     </label>
                     <Select
                       value={filterCategory}
                       onValueChange={setFilterCategory}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs">
                         <SelectValue placeholder="All categories" />
                       </SelectTrigger>
                       <SelectContent>
@@ -687,7 +646,7 @@ export default function TransactionsPage() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium mb-2 block">
+                    <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5 block">
                       Type
                     </label>
                     <Select
@@ -696,7 +655,7 @@ export default function TransactionsPage() {
                         setFilterType(v as typeof filterType)
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -708,7 +667,7 @@ export default function TransactionsPage() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium mb-2 block">
+                    <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5 block">
                       Min Amount
                     </label>
                     <Input
@@ -716,11 +675,12 @@ export default function TransactionsPage() {
                       placeholder="0"
                       value={minAmount}
                       onChange={(e) => setMinAmount(e.target.value)}
+                      className="h-8 text-xs font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium mb-2 block">
+                    <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5 block">
                       Max Amount
                     </label>
                     <div className="flex gap-2">
@@ -729,6 +689,7 @@ export default function TransactionsPage() {
                         placeholder="No limit"
                         value={maxAmount}
                         onChange={(e) => setMaxAmount(e.target.value)}
+                        className="h-8 text-xs font-mono"
                       />
                       {(filterCategory !== "all" ||
                         filterType !== "all" ||

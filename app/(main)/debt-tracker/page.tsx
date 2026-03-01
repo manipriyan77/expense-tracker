@@ -784,14 +784,12 @@ export default function DebtTrackerPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card shadow-sm border-b sticky top-0 z-10">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
+      <div className="bg-slate-900 dark:bg-black text-white">
+        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+          <div className="flex justify-between items-start mb-4">
             <div>
-              <h1 className="text-xl font-bold text-foreground">Debt Tracker</h1>
-              <p className="text-xs text-muted-foreground mt-1">
-                Manage and pay off your debts strategically
-              </p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Debt Tracker</p>
+              <p className="text-xs text-slate-500">Manage and pay off your debts strategically</p>
             </div>
             <Dialog open={isAddDebtOpen} onOpenChange={setIsAddDebtOpen}>
               <DialogTrigger asChild>
@@ -984,76 +982,38 @@ export default function DebtTrackerPage() {
               </DialogContent>
             </Dialog>
           </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Debt</p>
+              <p className="font-mono text-base font-semibold text-red-400">{format(totalDebt)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Across {debts.length} accounts</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Min Payment</p>
+              <p className="font-mono text-base font-semibold text-slate-200">{format(totalMinPayment)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Per month</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Avg Interest</p>
+              <p className="font-mono text-base font-semibold text-amber-400">{avgInterestRate.toFixed(1)}%</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Annual rate</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Debt-Free In</p>
+              <p className="font-mono text-base font-semibold text-blue-400">48 months</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">With current payments</p>
+            </div>
+          </div>
         </div>
-      </header>
+      </div>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4">
-        {/* Summary Cards */}
-        <div className="grid gap-3 md:grid-cols-4 mb-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">Total Debt</CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-red-600">
-                {format(totalDebt)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Across {debts.length} accounts
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">Min Payment</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold">{format(totalMinPayment)}</div>
-              <p className="text-xs text-muted-foreground mt-1">Per month</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Avg Interest Rate
-              </CardTitle>
-              <TrendingDown className="h-4 w-4 text-amber-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold">
-                {avgInterestRate.toFixed(1)}%
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Annual percentage rate
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Debt-Free In
-              </CardTitle>
-              <Target className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-blue-600">48 months</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                With current payments
-              </p>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Payoff Progress Chart */}
         <Card className="mb-4">
           <CardHeader className="p-3 pb-2">
-            <CardTitle className="text-base">Debt Payoff Progress</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-[10px] uppercase tracking-widest text-muted-foreground">Debt Payoff Progress</CardTitle>
+            <CardDescription className="text-[10px]">
               Your debt reduction over the past 6 months
             </CardDescription>
           </CardHeader>
@@ -1128,11 +1088,11 @@ export default function DebtTrackerPage() {
                       key={debt.id}
                       className="hover:shadow-md transition-shadow"
                     >
-                      <CardHeader>
+                      <CardHeader className="p-3 pb-2">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-2">
                             <div
-                              className={`p-2 rounded-full ${
+                              className={`p-1.5 rounded-full ${
                                 debt.type === "credit_card"
                                   ? "bg-purple-100"
                                   : "bg-blue-100"
@@ -1141,23 +1101,28 @@ export default function DebtTrackerPage() {
                               {getDebtIcon(debt.type)}
                             </div>
                             <div>
-                              <CardTitle className="text-lg">
+                              <p className="font-medium text-sm leading-tight">
                                 {debt.name}
-                              </CardTitle>
-                              <p className="text-sm text-muted-foreground capitalize">
+                              </p>
+                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground capitalize">
                                 {debt.type.replace("_", " ")}
                               </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            {daysUntilDue <= 7 && (
-                              <div className="flex items-center space-x-1 text-amber-600">
-                                <Calendar className="h-4 w-4" />
-                                <span className="text-xs font-semibold">
-                                  {daysUntilDue}d
-                                </span>
-                              </div>
-                            )}
+                            {daysUntilDue < 0 ? (
+                              <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">
+                                Overdue
+                              </span>
+                            ) : daysUntilDue <= 7 ? (
+                              <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 font-semibold">
+                                Due in {daysUntilDue}d
+                              </span>
+                            ) : nextDueDate ? (
+                              <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-600 font-semibold">
+                                Current
+                              </span>
+                            ) : null}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon">
@@ -1184,48 +1149,48 @@ export default function DebtTrackerPage() {
                           </div>
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent className="p-3 pt-0 space-y-3">
                         <div className="flex justify-between items-end">
                           <div>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                               Current Balance
                             </p>
-                            <p className="text-2xl font-bold text-red-600">
+                            <p className="font-mono font-semibold text-red-500 text-xl">
                               {format(debt.balance)}
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm text-muted-foreground">Min Payment</p>
-                            <p className="text-lg font-semibold">
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Min Payment</p>
+                            <p className="font-mono font-semibold text-sm">
                               {format(debt.minimum_payment)}
                             </p>
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Progress</span>
-                            <span className="font-medium">
-                              {progress.toFixed(0)}% paid off
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between">
+                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Progress</span>
+                            <span className="font-mono text-xs font-semibold">
+                              {progress.toFixed(0)}%
                             </span>
                           </div>
-                          <Progress value={progress} className="h-2" />
+                          <Progress value={progress} className="h-1.5" />
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4 pt-2 border-t text-center">
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t text-center">
                           <div>
-                            <p className="text-xs text-muted-foreground">APR</p>
-                            <p className="font-semibold">
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">APR</p>
+                            <p className="font-mono font-semibold text-xs text-amber-600">
                               {debt.interest_rate}%
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">Payoff Time</p>
-                            <p className="font-semibold">{monthsToPayoff}mo</p>
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Payoff</p>
+                            <p className="font-mono font-semibold text-xs">{monthsToPayoff}mo</p>
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">Next Due</p>
-                            <p className="font-semibold">
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Next Due</p>
+                            <p className="font-mono font-semibold text-xs">
                               {nextDueDate
                                 ? new Date(nextDueDate).toLocaleDateString(
                                     "en-US",
@@ -1234,9 +1199,9 @@ export default function DebtTrackerPage() {
                                 : "Not set"}
                             </p>
                             {debt.term_months ? (
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-[10px] text-muted-foreground">
                                 {debt.months_remaining ?? debt.term_months} of{" "}
-                                {debt.term_months} months left
+                                {debt.term_months} mo left
                               </p>
                             ) : null}
                           </div>

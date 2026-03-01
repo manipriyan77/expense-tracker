@@ -665,18 +665,14 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card shadow-sm border-b sticky top-0 z-10">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
+      <div className="bg-slate-900 dark:bg-black text-white">
+        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h1 className="text-xl font-bold text-foreground">
-                Advanced Analytics
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Comprehensive insights into your financial data
-              </p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Advanced Analytics</p>
+              <p className="text-xs text-slate-500">Comprehensive insights into your financial data</p>
             </div>
-            <div className="flex gap-3 items-center flex-wrap">
+            <div className="flex gap-2 items-center flex-wrap">
               <MonthlyReportDownloadButton
                 month={new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                 transactions={filteredTransactions}
@@ -684,11 +680,8 @@ export default function AnalyticsPage() {
                 goals={goals}
                 userName={(user?.user_metadata?.full_name as string) || user?.email}
               />
-              <Select
-                value={selectedCategory}
-                onValueChange={setSelectedCategory}
-              >
-                <SelectTrigger className="w-40">
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-36 h-8 text-xs border-slate-600 bg-slate-800 text-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -699,13 +692,8 @@ export default function AnalyticsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select
-                value={selectedPeriod}
-                onValueChange={(v) =>
-                  setSelectedPeriod(v as typeof selectedPeriod)
-                }
-              >
-                <SelectTrigger className="w-32">
+              <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as typeof selectedPeriod)}>
+                <SelectTrigger className="w-28 h-8 text-xs border-slate-600 bg-slate-800 text-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -718,109 +706,32 @@ export default function AnalyticsPage() {
               </Select>
             </div>
           </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Income</p>
+              <p className="font-mono text-base font-semibold text-green-400">{format(statistics.income)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{statistics.incomeTrend >= 0 ? "+" : ""}{statistics.incomeTrend.toFixed(1)}% vs last mo</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Expenses</p>
+              <p className="font-mono text-base font-semibold text-red-400">{format(statistics.expenses)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{statistics.expenseTrend >= 0 ? "+" : ""}{statistics.expenseTrend.toFixed(1)}% vs last mo</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Net Balance</p>
+              <p className={`font-mono text-base font-semibold ${statistics.net >= 0 ? "text-green-400" : "text-red-400"}`}>{format(statistics.net)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{statistics.transactionCount} transactions</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Savings Rate</p>
+              <p className="font-mono text-base font-semibold text-blue-400">{statistics.savingsRate.toFixed(1)}%</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Of income saved</p>
+            </div>
+          </div>
         </div>
-      </header>
+      </div>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4">
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Total Income
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-green-600">
-                {format(statistics.income)}
-              </div>
-              <div className="flex items-center text-xs text-muted-foreground mt-1">
-                {statistics.incomeTrend >= 0 ? (
-                  <ArrowUpRight className="h-3 w-3 text-green-600 mr-1" />
-                ) : (
-                  <ArrowDownRight className="h-3 w-3 text-red-600 mr-1" />
-                )}
-                <span
-                  className={
-                    statistics.incomeTrend >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }
-                >
-                  {Math.abs(statistics.incomeTrend).toFixed(1)}%
-                </span>
-                <span className="ml-1">vs last month</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Total Expenses
-              </CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-red-600">
-                {format(statistics.expenses)}
-              </div>
-              <div className="flex items-center text-xs text-muted-foreground mt-1">
-                {statistics.expenseTrend >= 0 ? (
-                  <ArrowUpRight className="h-3 w-3 text-red-600 mr-1" />
-                ) : (
-                  <ArrowDownRight className="h-3 w-3 text-green-600 mr-1" />
-                )}
-                <span
-                  className={
-                    statistics.expenseTrend >= 0
-                      ? "text-red-600"
-                      : "text-green-600"
-                  }
-                >
-                  {Math.abs(statistics.expenseTrend).toFixed(1)}%
-                </span>
-                <span className="ml-1">vs last month</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">Net Balance</CardTitle>
-              <DollarSign className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div
-                className={`text-xl font-bold ${statistics.net >= 0 ? "text-green-600" : "text-red-600"}`}
-              >
-                {format(statistics.net)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {statistics.transactionCount} transactions
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Savings Rate
-              </CardTitle>
-              <Target className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-purple-600">
-                {statistics.savingsRate.toFixed(1)}%
-              </div>
-              <Progress
-                value={Math.min(statistics.savingsRate, 100)}
-                className="mt-2"
-              />
-            </CardContent>
-          </Card>
-        </div>
 
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList className="grid w-full grid-cols-7 lg:w-auto">

@@ -508,72 +508,33 @@ export default function NetWorthPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card shadow-sm border-b sticky top-0 z-10">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
-            <h1 className="text-xl font-bold text-foreground">
-              Net Worth Tracking
-            </h1>
+      {/* ── Dark Hero Band ── */}
+      <div className="bg-slate-900 dark:bg-black text-white">
+        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+          <div className="mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Net Worth Tracking</p>
+            <p className="text-4xl sm:text-5xl font-mono font-bold tracking-tight">
+              {format(netWorth)}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-x divide-slate-700/60 border-t border-slate-700/60">
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Assets</p>
+              <p className="font-mono text-base font-semibold text-green-400">{format(totalAssets)}</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Liabilities</p>
+              <p className="font-mono text-base font-semibold text-red-400">{format(totalLiabilities)}</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Net Worth</p>
+              <p className={`font-mono text-base font-semibold ${netWorth >= 0 ? "text-green-400" : "text-red-400"}`}>{format(netWorth)}</p>
+            </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4">
-        {/* Summary Cards */}
-        <div className="grid gap-3 md:grid-cols-3 mb-4">
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Total Assets
-              </CardTitle>
-              <ArrowUpCircle className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-green-600">
-                {format(totalAssets)}
-              </div>
-              <Link
-                href="/assets"
-                className="text-xs text-blue-600 hover:underline mt-1 flex items-center gap-1"
-              >
-                View Asset Allocation
-                <ExternalLink className="h-3 w-3" />
-              </Link>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Total Liabilities
-              </CardTitle>
-              <ArrowDownCircle className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-red-600">
-                {format(totalLiabilities)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                -1.8% from last month
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-primary/30 bg-primary/10">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-blue-600">
-                {format(netWorth)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                +12.5% from last month
-              </p>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Asset Breakdown by Category */}
         <Card className="mb-4">

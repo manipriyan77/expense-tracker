@@ -456,20 +456,31 @@ export default function RecurringPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card shadow-sm border-b sticky top-0 z-10">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
-            <div>
-              <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-                <Repeat className="h-5 w-5" /> Recurring & Bills
-              </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Manage recurring patterns and track upcoming bills
-              </p>
+      <div className="bg-slate-900 dark:bg-black text-white">
+        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+          <div className="mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Recurring & Bills</p>
+            <p className="text-xs text-slate-500">Manage recurring patterns and track upcoming bills</p>
+          </div>
+          <div className="grid grid-cols-3 divide-x divide-slate-700/60 border-t border-slate-700/60">
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Monthly Income</p>
+              <p className="font-mono text-base font-semibold text-green-400">{format(totalMonthlyIncome)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">From recurring sources</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Monthly Expenses</p>
+              <p className="font-mono text-base font-semibold text-red-400">{format(totalMonthlyExpenses)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">From recurring bills</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Net Monthly</p>
+              <p className={`font-mono text-base font-semibold ${totalMonthlyIncome - totalMonthlyExpenses >= 0 ? "text-green-400" : "text-red-400"}`}>{format(totalMonthlyIncome - totalMonthlyExpenses)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Expected balance change</p>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4">
         <Tabs defaultValue="recurring" className="space-y-4">
@@ -486,64 +497,12 @@ export default function RecurringPage() {
           </TabsList>
 
           <TabsContent value="recurring" className="space-y-4 mt-0">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Monthly Income
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-green-600">
-                {format(totalMonthlyIncome)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                From recurring sources
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Monthly Expenses
-              </CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-red-600">
-                {format(totalMonthlyExpenses)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                From recurring bills
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">Net Monthly</CardTitle>
-              <DollarSign className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-blue-600">
-                {format(totalMonthlyIncome - totalMonthlyExpenses)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Expected balance change
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Upcoming Recurring Transactions */}
         {upcomingRecurring.length > 0 && (
           <Card className="mb-4 border-blue-200 bg-blue-50">
             <CardHeader className="p-3 pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-blue-600" />
+              <CardTitle className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-blue-600" />
                 Upcoming This Week
               </CardTitle>
               <CardDescription>
@@ -555,21 +514,21 @@ export default function RecurringPage() {
                 {upcomingRecurring.map((pattern) => (
                   <div
                     key={pattern.id}
-                    className="flex items-center justify-between p-3 bg-background rounded-lg border border-blue-200"
+                    className="flex items-center justify-between border-b border-border/40 last:border-0 py-2.5"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold">{pattern.description}</p>
-                        <span className="text-xs text-muted-foreground">
+                        <p className="font-medium text-sm">{pattern.description}</p>
+                        <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
                           {pattern.daysUntil === 0
                             ? "Due today"
                             : pattern.daysUntil === 1
-                              ? "Due tomorrow"
-                              : `Due in ${pattern.daysUntil} days`}
+                              ? "Tomorrow"
+                              : `${pattern.daysUntil}d`}
                         </span>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {pattern.category} • {format(pattern.amount)}
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
+                        {pattern.category} • <span className="font-mono font-semibold normal-case tracking-normal">{format(pattern.amount)}</span>
                       </p>
                     </div>
                     <Button
@@ -597,8 +556,8 @@ export default function RecurringPage() {
         {potentialRecurring.length > 0 && (
           <Card className="mb-4 border-yellow-200 bg-yellow-50">
             <CardHeader className="p-3 pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Lightbulb className="h-5 w-5 text-yellow-600" />
+              <CardTitle className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-yellow-600" />
                 Smart Detection
               </CardTitle>
               <CardDescription>
@@ -610,13 +569,12 @@ export default function RecurringPage() {
                 {potentialRecurring.map((potential, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between p-3 bg-background rounded-lg border border-yellow-200"
+                    className="flex items-center justify-between border-b border-border/40 last:border-0 py-2.5"
                   >
                     <div className="flex-1">
-                      <p className="font-semibold">{potential.description}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {potential.category} • {format(potential.amount)} •{" "}
-                        {potential.frequency} • Found {potential.count} times
+                      <p className="font-medium text-sm">{potential.description}</p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
+                        {potential.category} • <span className="font-mono font-semibold normal-case tracking-normal">{format(potential.amount)}</span> • {potential.frequency} • {potential.count}x
                       </p>
                     </div>
                     <Button

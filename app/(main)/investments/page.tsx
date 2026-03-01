@@ -735,75 +735,40 @@ export default function InvestmentsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Toaster richColors />
-      <header className="bg-card shadow-sm border-b sticky top-0 z-10">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
+      <div className="bg-slate-900 dark:bg-black text-white">
+        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+          <div className="mb-4 flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-xl font-bold text-foreground">
-                Investments
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                All your investment holdings in one place
-              </p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Investments</p>
+              <p className="text-xs text-slate-500">All your investment holdings in one place</p>
             </div>
-            <Button onClick={() => openAddDialog()}>
+            <Button size="sm" variant="outline" className="border-slate-600 text-slate-200 hover:bg-slate-800 shrink-0" onClick={() => openAddDialog()}>
               <Plus className="h-4 w-4 mr-2" />
               Add Investment
             </Button>
           </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Invested</p>
+              <p className="font-mono text-base font-semibold text-slate-200">{format(portfolio.totalInvested)}</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Current Value</p>
+              <p className="font-mono text-base font-semibold text-slate-200">{format(portfolio.totalCurrent)}</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total P&L</p>
+              <p className={`font-mono text-base font-semibold ${portfolio.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>{portfolio.totalPnl >= 0 ? "+" : ""}{format(portfolio.totalPnl)}</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Overall Return</p>
+              <p className={`font-mono text-base font-semibold ${portfolio.returnPct >= 0 ? "text-green-400" : "text-red-400"}`}>{portfolio.returnPct >= 0 ? "+" : ""}{portfolio.returnPct.toFixed(2)}%</p>
+            </div>
+          </div>
         </div>
-      </header>
+      </div>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4 space-y-4">
-        {/* Portfolio Summary */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            {
-              label: "Total Invested",
-              value: format(portfolio.totalInvested),
-              color: "text-foreground",
-            },
-            {
-              label: "Current Value",
-              value: format(portfolio.totalCurrent),
-              color: "text-foreground",
-            },
-            {
-              label: "Total P&L",
-              value: `${portfolio.totalPnl >= 0 ? "+" : ""}${format(portfolio.totalPnl)}`,
-              color:
-                portfolio.totalPnl >= 0
-                  ? "text-green-600"
-                  : "text-red-600",
-            },
-            {
-              label: "Overall Return",
-              value: `${portfolio.returnPct >= 0 ? "+" : ""}${portfolio.returnPct.toFixed(2)}%`,
-              color:
-                portfolio.returnPct >= 0
-                  ? "text-green-600"
-                  : "text-red-600",
-              Icon:
-                portfolio.returnPct >= 0 ? ArrowUpRight : ArrowDownRight,
-            },
-          ].map((item) => (
-            <Card key={item.label}>
-              <CardContent className="p-4">
-                <div className="text-xs uppercase tracking-widest text-muted-foreground mb-1">
-                  {item.label}
-                </div>
-                <div
-                  className={`text-xl font-bold ${item.color} flex items-center gap-1`}
-                >
-                  {"Icon" in item && item.Icon && (
-                    <item.Icon className="h-4 w-4" />
-                  )}
-                  {item.value}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -862,33 +827,33 @@ export default function InvestmentsPage() {
                         className="cursor-pointer hover:shadow-md transition-shadow"
                         onClick={() => setActiveTab(a.key)}
                       >
-                        <CardContent className="p-4">
+                        <CardContent className="p-3">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
                               {a.label}
                             </span>
                             <span
-                              className="w-2.5 h-2.5 rounded-full"
+                              className="w-2 h-2 rounded-full"
                               style={{ backgroundColor: a.color }}
                             />
                           </div>
-                          <div className="text-lg font-bold text-foreground">
+                          <div className="font-mono text-base font-semibold text-foreground">
                             {format(a.current)}
                           </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {format(a.invested)} invested
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            <span className="font-mono">{format(a.invested)}</span> invested
                           </div>
                           <div
-                            className={`text-sm font-semibold mt-1 flex items-center gap-1 ${isPos ? "text-green-600" : "text-red-600"}`}
+                            className={`font-mono text-sm font-semibold mt-1 flex items-center gap-1 ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
                           >
                             {isPos ? (
-                              <ArrowUpRight className="h-3.5 w-3.5" />
+                              <ArrowUpRight className="h-3 w-3" />
                             ) : (
-                              <ArrowDownRight className="h-3.5 w-3.5" />
+                              <ArrowDownRight className="h-3 w-3" />
                             )}
                             {isPos ? "+" : ""}{ret.toFixed(1)}%
                           </div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-[10px] text-muted-foreground">
                             {a.count} {a.count === 1 ? "holding" : "holdings"}
                           </div>
                         </CardContent>

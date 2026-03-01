@@ -78,13 +78,32 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card shadow-sm border-b">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
-            <h1 className="text-xl font-bold text-foreground">Settings</h1>
+      <div className="bg-slate-900 dark:bg-black text-white">
+        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+          <div className="mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Settings</p>
+            <p className="text-lg font-semibold text-white">{displayName}</p>
+            <p className="text-xs text-slate-500">{displayEmail}</p>
+          </div>
+          <div className="grid grid-cols-3 divide-x divide-slate-700/60 border-t border-slate-700/60">
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Theme</p>
+              <p className="font-mono text-base font-semibold text-slate-200 capitalize">{theme}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Appearance mode</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Currency</p>
+              <p className="font-mono text-base font-semibold text-slate-200">{baseCurrency}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Base currency</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Auto-Rules</p>
+              <p className="font-mono text-base font-semibold text-slate-200">{rules.length}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Categorization rules</p>
+            </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4">
         <Tabs defaultValue="general" className="space-y-4">
