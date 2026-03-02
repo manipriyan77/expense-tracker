@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -788,8 +786,12 @@ export default function DebtTrackerPage() {
         <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Debt Tracker</p>
-              <p className="text-xs text-slate-500">Manage and pay off your debts strategically</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
+                Debt Tracker
+              </p>
+              <p className="text-xs text-slate-500">
+                Manage and pay off your debts strategically
+              </p>
             </div>
             <Dialog open={isAddDebtOpen} onOpenChange={setIsAddDebtOpen}>
               <DialogTrigger asChild>
@@ -984,38 +986,55 @@ export default function DebtTrackerPage() {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Debt</p>
-              <p className="font-mono text-base font-semibold text-red-400">{format(totalDebt)}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">Across {debts.length} accounts</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                Total Debt
+              </p>
+              <p className="font-mono text-base font-semibold text-red-400">
+                {format(totalDebt)}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                Across {debts.length} accounts
+              </p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Min Payment</p>
-              <p className="font-mono text-base font-semibold text-slate-200">{format(totalMinPayment)}</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                Min Payment
+              </p>
+              <p className="font-mono text-base font-semibold text-slate-200">
+                {format(totalMinPayment)}
+              </p>
               <p className="text-[10px] text-slate-500 mt-0.5">Per month</p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Avg Interest</p>
-              <p className="font-mono text-base font-semibold text-amber-400">{avgInterestRate.toFixed(1)}%</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                Avg Interest
+              </p>
+              <p className="font-mono text-base font-semibold text-amber-400">
+                {avgInterestRate.toFixed(1)}%
+              </p>
               <p className="text-[10px] text-slate-500 mt-0.5">Annual rate</p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Debt-Free In</p>
-              <p className="font-mono text-base font-semibold text-blue-400">48 months</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">With current payments</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                Debt-Free In
+              </p>
+              <p className="font-mono text-base font-semibold text-blue-400">
+                48 months
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                With current payments
+              </p>
             </div>
           </div>
         </div>
       </div>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4">
-
         {/* Payoff Progress Chart */}
         <Card className="mb-4">
-          <CardHeader className="p-3 pb-2">
-            <CardTitle className="text-[10px] uppercase tracking-widest text-muted-foreground">Debt Payoff Progress</CardTitle>
-            <CardDescription className="text-[10px]">
-              Your debt reduction over the past 6 months
-            </CardDescription>
+          <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Debt Payoff Progress</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Your debt reduction over the past 6 months</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -1073,7 +1092,7 @@ export default function DebtTrackerPage() {
                 onAction={() => setIsAddDebtOpen(true)}
               />
             ) : (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 {debts.map((debt) => {
                   const progress =
                     ((debt.original_amount - debt.balance) /
@@ -1104,7 +1123,7 @@ export default function DebtTrackerPage() {
                               <p className="font-medium text-sm leading-tight">
                                 {debt.name}
                               </p>
-                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground capitalize">
+                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                                 {debt.type.replace("_", " ")}
                               </p>
                             </div>
@@ -1149,7 +1168,7 @@ export default function DebtTrackerPage() {
                           </div>
                         </div>
                       </CardHeader>
-                      <CardContent className="p-3 pt-0 space-y-3">
+                      <CardContent className="p-2 pt-0.5 space-y-2">
                         <div className="flex justify-between items-end">
                           <div>
                             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -1160,7 +1179,9 @@ export default function DebtTrackerPage() {
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Min Payment</p>
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                              Min Payment
+                            </p>
                             <p className="font-mono font-semibold text-sm">
                               {format(debt.minimum_payment)}
                             </p>
@@ -1169,7 +1190,9 @@ export default function DebtTrackerPage() {
 
                         <div className="space-y-1.5">
                           <div className="flex justify-between">
-                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Progress</span>
+                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                              Progress
+                            </span>
                             <span className="font-mono text-xs font-semibold">
                               {progress.toFixed(0)}%
                             </span>
@@ -1179,17 +1202,25 @@ export default function DebtTrackerPage() {
 
                         <div className="grid grid-cols-3 gap-2 pt-2 border-t text-center">
                           <div>
-                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">APR</p>
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                              APR
+                            </p>
                             <p className="font-mono font-semibold text-xs text-amber-600">
                               {debt.interest_rate}%
                             </p>
                           </div>
                           <div>
-                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Payoff</p>
-                            <p className="font-mono font-semibold text-xs">{monthsToPayoff}mo</p>
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                              Payoff
+                            </p>
+                            <p className="font-mono font-semibold text-xs">
+                              {monthsToPayoff}mo
+                            </p>
                           </div>
                           <div>
-                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Next Due</p>
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                              Next Due
+                            </p>
                             <p className="font-mono font-semibold text-xs">
                               {nextDueDate
                                 ? new Date(nextDueDate).toLocaleDateString(
@@ -1233,11 +1264,9 @@ export default function DebtTrackerPage() {
 
           <TabsContent value="payoff">
             <Card>
-              <CardHeader>
-                <CardTitle>Debt Payoff Strategy</CardTitle>
-                <CardDescription>
-                  Choose a strategy to pay off your debts faster
-                </CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Debt Payoff Strategy</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Choose a strategy to pay off your debts faster</p>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex gap-4">
@@ -1296,7 +1325,9 @@ export default function DebtTrackerPage() {
                         <p className="font-semibold">
                           {format(debt.minimum_payment)}
                         </p>
-                        <p className="text-xs text-muted-foreground">min payment</p>
+                        <p className="text-xs text-muted-foreground">
+                          min payment
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -1307,11 +1338,9 @@ export default function DebtTrackerPage() {
 
           <TabsContent value="calculator">
             <Card>
-              <CardHeader>
-                <CardTitle>Debt Payoff Calculator</CardTitle>
-                <CardDescription>
-                  See how extra payments can accelerate your debt freedom
-                </CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Debt Payoff Calculator</p>
+                <p className="text-xs text-muted-foreground mt-0.5">See how extra payments can accelerate your debt freedom</p>
               </CardHeader>
               <CardContent>
                 <form className="space-y-4" onSubmit={handleCalculatePayoff}>
@@ -1414,10 +1443,12 @@ export default function DebtTrackerPage() {
                     </div>
                   ) : null}
 
-                  <div className="grid grid-cols-2 gap-4 pt-4">
+                  <div className="grid grid-cols-2 gap-3 pt-3">
                     <Card>
                       <CardContent className="p-4">
-                        <p className="text-sm text-muted-foreground">Time to Pay Off</p>
+                        <p className="text-sm text-muted-foreground">
+                          Time to Pay Off
+                        </p>
                         <p className="text-2xl font-bold text-blue-600">
                           {selectedBreakdown?.payoffMonth != null
                             ? `${selectedBreakdown.payoffMonth} months`
@@ -1442,7 +1473,9 @@ export default function DebtTrackerPage() {
                     </Card>
                     <Card>
                       <CardContent className="p-4">
-                        <p className="text-sm text-muted-foreground">Interest Saved</p>
+                        <p className="text-sm text-muted-foreground">
+                          Interest Saved
+                        </p>
                         <p className="text-2xl font-bold text-green-600">
                           {calculatorResult.interestSaved !== null
                             ? format(calculatorResult.interestSaved)
@@ -1459,7 +1492,7 @@ export default function DebtTrackerPage() {
                   </div>
 
                   {calculatorResult.breakdown.length > 0 ? (
-                    <div className="pt-2 space-y-3">
+                    <div className="pt-1.5 space-y-2">
                       <h4 className="font-semibold">Payoff details</h4>
                       {payoffView === "cards" ? (
                         <div className="grid md:grid-cols-2 gap-3">
@@ -1551,11 +1584,9 @@ export default function DebtTrackerPage() {
           </TabsContent>
           <TabsContent value="amortization">
             <Card>
-              <CardHeader>
-                <CardTitle>Amortization Schedule</CardTitle>
-                <CardDescription>
-                  Month-by-month principal and interest breakdown
-                </CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Amortization Schedule</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Month-by-month principal and interest breakdown</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 {debts.length === 0 ? (
@@ -1580,7 +1611,8 @@ export default function DebtTrackerPage() {
                         <SelectContent>
                           {debts.map((d) => (
                             <SelectItem key={d.id} value={d.id}>
-                              {d.name} — {format(d.balance)} @ {d.interest_rate}%
+                              {d.name} — {format(d.balance)} @ {d.interest_rate}
+                              %
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1590,19 +1622,35 @@ export default function DebtTrackerPage() {
                       <>
                         <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-lg text-sm">
                           <div>
-                            <p className="text-muted-foreground">Monthly Payment</p>
-                            <p className="font-bold">{format(amortizationSchedule[0].payment)}</p>
+                            <p className="text-muted-foreground">
+                              Monthly Payment
+                            </p>
+                            <p className="font-bold">
+                              {format(amortizationSchedule[0].payment)}
+                            </p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground">Total Interest</p>
+                            <p className="text-muted-foreground">
+                              Total Interest
+                            </p>
                             <p className="font-bold text-red-600">
-                              {format(amortizationSchedule.reduce((s, r) => s + r.interest, 0))}
+                              {format(
+                                amortizationSchedule.reduce(
+                                  (s, r) => s + r.interest,
+                                  0,
+                                ),
+                              )}
                             </p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">Total Cost</p>
                             <p className="font-bold">
-                              {format(amortizationSchedule.reduce((s, r) => s + r.payment, 0))}
+                              {format(
+                                amortizationSchedule.reduce(
+                                  (s, r) => s + r.payment,
+                                  0,
+                                ),
+                              )}
                             </p>
                           </div>
                         </div>
@@ -1611,20 +1659,37 @@ export default function DebtTrackerPage() {
                             <thead className="sticky top-0 bg-background">
                               <tr className="text-left text-muted-foreground border-b">
                                 <th className="py-2 pr-4 font-medium">Month</th>
-                                <th className="py-2 pr-4 font-medium">Payment</th>
-                                <th className="py-2 pr-4 font-medium">Principal</th>
-                                <th className="py-2 pr-4 font-medium">Interest</th>
+                                <th className="py-2 pr-4 font-medium">
+                                  Payment
+                                </th>
+                                <th className="py-2 pr-4 font-medium">
+                                  Principal
+                                </th>
+                                <th className="py-2 pr-4 font-medium">
+                                  Interest
+                                </th>
                                 <th className="py-2 font-medium">Balance</th>
                               </tr>
                             </thead>
                             <tbody>
                               {amortizationSchedule.map((row) => (
-                                <tr key={row.month} className="border-b hover:bg-muted/50">
+                                <tr
+                                  key={row.month}
+                                  className="border-b hover:bg-muted/50"
+                                >
                                   <td className="py-2 pr-4">{row.month}</td>
-                                  <td className="py-2 pr-4">{format(row.payment)}</td>
-                                  <td className="py-2 pr-4 text-green-600">{format(row.principal)}</td>
-                                  <td className="py-2 pr-4 text-red-500">{format(row.interest)}</td>
-                                  <td className="py-2">{format(row.balance)}</td>
+                                  <td className="py-2 pr-4">
+                                    {format(row.payment)}
+                                  </td>
+                                  <td className="py-2 pr-4 text-green-600">
+                                    {format(row.principal)}
+                                  </td>
+                                  <td className="py-2 pr-4 text-red-500">
+                                    {format(row.interest)}
+                                  </td>
+                                  <td className="py-2">
+                                    {format(row.balance)}
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>

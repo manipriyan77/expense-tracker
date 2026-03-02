@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -736,115 +736,100 @@ export default function TransactionsPage() {
             </div>
 
             {/* All Transactions */}
-            <TabsContent value="all" className="space-y-2">
+            <TabsContent value="all" className="mt-0">
               {paginatedTransactions.length === 0 ? (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <IndianRupee className="h-10 w-10 text-gray-400 mb-2" />
-                    <p className="text-lg font-semibold text-gray-900 mb-2">
-                      No transactions yet
-                    </p>
-                    <p className="text-gray-600 mb-2 text-sm">
-                      Start by adding your first transaction
-                    </p>
-                  </CardContent>
-                </Card>
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <IndianRupee className="h-8 w-8 text-muted-foreground/40 mb-3" />
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">No transactions yet</p>
+                  <p className="text-xs text-muted-foreground">Start by adding your first transaction</p>
+                </div>
               ) : (
                 <>
-                  {paginatedTransactions.map((transaction) => (
-                    <Card key={transaction.id}>
-                      <CardContent className="p-3 py-2.5">
-                        <div className="flex items-center justify-between gap-3">
+                  <Card className="overflow-hidden p-0">
+                    <div className="divide-y divide-border">
+                      {paginatedTransactions.map((transaction) => (
+                        <div key={transaction.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                           <div className="flex items-center gap-3 min-w-0">
                             <div
-                              className={`shrink-0 p-2 rounded-full ${
+                              className={`shrink-0 p-1.5 rounded-full ${
                                 transaction.type === "income"
                                   ? "bg-green-100 text-green-600"
                                   : "bg-red-100 text-red-600"
                               }`}
                             >
                               {transaction.type === "income" ? (
-                                <TrendingUp className="h-4 w-4" />
+                                <TrendingUp className="h-3.5 w-3.5" />
                               ) : (
-                                <TrendingDown className="h-4 w-4" />
+                                <TrendingDown className="h-3.5 w-3.5" />
                               )}
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-semibold text-base truncate">
+                                <p className="font-medium text-sm truncate">
                                   {transaction.description}
                                 </p>
                                 {transaction.isRecurring && (
-                                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
+                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
                                     <Repeat className="h-3 w-3" />
                                     <span>{transaction.frequency}</span>
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
-                                <span>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
                                   {transaction.category}
-                                  {transaction.subtype && (
-                                    <span className="ml-1 px-1.5 py-0.5 bg-muted rounded-full">
-                                      {transaction.subtype}
-                                    </span>
-                                  )}
+                                  {transaction.subtype && ` · ${transaction.subtype}`}
                                 </span>
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
+                                <span className="text-[10px] text-muted-foreground">
                                   {new Date(transaction.date).toLocaleDateString()}
                                 </span>
                                 {transaction.isRecurring && transaction.nextDate && (
-                                  <span className="text-blue-600">
+                                  <span className="text-[10px] text-blue-500">
                                     Next: {new Date(transaction.nextDate).toLocaleDateString()}
                                   </span>
                                 )}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
                             <p
-                              className={`text-base font-bold ${
+                              className={`font-mono font-semibold text-sm ${
                                 transaction.type === "income"
-                                  ? "text-green-600"
-                                  : "text-red-600"
+                                  ? "text-green-600 dark:text-green-400"
+                                  : "text-red-600 dark:text-red-400"
                               }`}
                             >
-                              {transaction.type === "income" ? "+" : "-"}
+                              {transaction.type === "income" ? "+" : "−"}
                               {format(transaction.amount)}
                             </p>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-gray-500 hover:text-gray-700"
-                                onClick={() => handleEditTransaction(transaction)}
-                                title="Edit"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={() =>
-                                  handleDeleteTransaction(transaction.id)
-                                }
-                                disabled={deleting === transaction.id}
-                                title="Delete"
-                              >
-                                {deleting === transaction.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={() => handleEditTransaction(transaction)}
+                              title="Edit"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => handleDeleteTransaction(transaction.id)}
+                              disabled={deleting === transaction.id}
+                              title="Delete"
+                            >
+                              {deleting === transaction.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                      ))}
+                    </div>
+                  </Card>
                   <PaginationControls
                     totalPages={totalPages}
                     dataLength={sortedTransactions.length}
@@ -854,87 +839,77 @@ export default function TransactionsPage() {
             </TabsContent>
 
             {/* Income Only */}
-            <TabsContent value="income" className="space-y-2">
+            <TabsContent value="income" className="mt-0">
               {incomeTransactions.length === 0 ? (
-                <Card>
-                  <CardContent className="py-12 text-center text-gray-500">
-                    No income transactions found
-                  </CardContent>
-                </Card>
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <TrendingUp className="h-8 w-8 text-muted-foreground/40 mb-3" />
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">No income transactions found</p>
+                </div>
               ) : (
                 <>
-                  {getPaginatedData(incomeTransactions).map((transaction) => (
-                    <Card key={transaction.id}>
-                      <CardContent className="p-3 py-2.5">
-                        <div className="flex items-center justify-between gap-3">
+                  <Card className="overflow-hidden p-0">
+                    <div className="divide-y divide-border">
+                      {getPaginatedData(incomeTransactions).map((transaction) => (
+                        <div key={transaction.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="shrink-0 p-2 rounded-full bg-green-100 text-green-600">
-                              <TrendingUp className="h-4 w-4" />
+                            <div className="shrink-0 p-1.5 rounded-full bg-green-100 text-green-600">
+                              <TrendingUp className="h-3.5 w-3.5" />
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-semibold text-base truncate">
+                                <p className="font-medium text-sm truncate">
                                   {transaction.description}
                                 </p>
                                 {transaction.isRecurring && (
-                                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
+                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
                                     <Repeat className="h-3 w-3" />
                                     <span>{transaction.frequency}</span>
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
-                                <span>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
                                   {transaction.category}
-                                  {transaction.subtype && (
-                                    <span className="ml-1 px-1.5 py-0.5 bg-muted rounded-full">
-                                      {transaction.subtype}
-                                    </span>
-                                  )}
+                                  {transaction.subtype && ` · ${transaction.subtype}`}
                                 </span>
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
+                                <span className="text-[10px] text-muted-foreground">
                                   {new Date(transaction.date).toLocaleDateString()}
                                 </span>
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <p className="text-base font-bold text-green-600">
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <p className="font-mono font-semibold text-sm text-green-600 dark:text-green-400">
                               +{format(transaction.amount)}
                             </p>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-gray-500 hover:text-gray-700"
-                                onClick={() => handleEditTransaction(transaction)}
-                                title="Edit"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={() =>
-                                  handleDeleteTransaction(transaction.id)
-                                }
-                                disabled={deleting === transaction.id}
-                                title="Delete"
-                              >
-                                {deleting === transaction.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={() => handleEditTransaction(transaction)}
+                              title="Edit"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => handleDeleteTransaction(transaction.id)}
+                              disabled={deleting === transaction.id}
+                              title="Delete"
+                            >
+                              {deleting === transaction.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                      ))}
+                    </div>
+                  </Card>
                   <PaginationControls
                     totalPages={getTotalPages(incomeTransactions)}
                     dataLength={incomeTransactions.length}
@@ -944,87 +919,77 @@ export default function TransactionsPage() {
             </TabsContent>
 
             {/* Expenses Only */}
-            <TabsContent value="expense" className="space-y-2">
+            <TabsContent value="expense" className="mt-0">
               {expenseTransactions.length === 0 ? (
-                <Card>
-                  <CardContent className="py-12 text-center text-gray-500">
-                    No expense transactions found
-                  </CardContent>
-                </Card>
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <TrendingDown className="h-8 w-8 text-muted-foreground/40 mb-3" />
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">No expense transactions found</p>
+                </div>
               ) : (
                 <>
-                  {getPaginatedData(expenseTransactions).map((transaction) => (
-                    <Card key={transaction.id}>
-                      <CardContent className="p-3 py-2.5">
-                        <div className="flex items-center justify-between gap-3">
+                  <Card className="overflow-hidden p-0">
+                    <div className="divide-y divide-border">
+                      {getPaginatedData(expenseTransactions).map((transaction) => (
+                        <div key={transaction.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="shrink-0 p-2 rounded-full bg-red-100 text-red-600">
-                              <TrendingDown className="h-4 w-4" />
+                            <div className="shrink-0 p-1.5 rounded-full bg-red-100 text-red-600">
+                              <TrendingDown className="h-3.5 w-3.5" />
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-semibold text-base truncate">
+                                <p className="font-medium text-sm truncate">
                                   {transaction.description}
                                 </p>
                                 {transaction.isRecurring && (
-                                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
+                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
                                     <Repeat className="h-3 w-3" />
                                     <span>{transaction.frequency}</span>
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
-                                <span>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
                                   {transaction.category}
-                                  {transaction.subtype && (
-                                    <span className="ml-1 px-1.5 py-0.5 bg-muted rounded-full">
-                                      {transaction.subtype}
-                                    </span>
-                                  )}
+                                  {transaction.subtype && ` · ${transaction.subtype}`}
                                 </span>
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
+                                <span className="text-[10px] text-muted-foreground">
                                   {new Date(transaction.date).toLocaleDateString()}
                                 </span>
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <p className="text-base font-bold text-red-600">
-                              -{format(transaction.amount)}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <p className="font-mono font-semibold text-sm text-red-600 dark:text-red-400">
+                              −{format(transaction.amount)}
                             </p>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-gray-500 hover:text-gray-700"
-                                onClick={() => handleEditTransaction(transaction)}
-                                title="Edit"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={() =>
-                                  handleDeleteTransaction(transaction.id)
-                                }
-                                disabled={deleting === transaction.id}
-                                title="Delete"
-                              >
-                                {deleting === transaction.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={() => handleEditTransaction(transaction)}
+                              title="Edit"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => handleDeleteTransaction(transaction.id)}
+                              disabled={deleting === transaction.id}
+                              title="Delete"
+                            >
+                              {deleting === transaction.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                      ))}
+                    </div>
+                  </Card>
                   <PaginationControls
                     totalPages={getTotalPages(expenseTransactions)}
                     dataLength={expenseTransactions.length}
@@ -1034,109 +999,96 @@ export default function TransactionsPage() {
             </TabsContent>
 
             {/* Recurring Only */}
-            <TabsContent value="recurring" className="space-y-2">
+            <TabsContent value="recurring" className="mt-0">
               {recurringTransactions.length === 0 ? (
-                <Card>
-                  <CardContent className="py-12 text-center text-gray-500">
-                    No recurring transactions found
-                  </CardContent>
-                </Card>
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <Repeat className="h-8 w-8 text-muted-foreground/40 mb-3" />
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">No recurring transactions found</p>
+                </div>
               ) : (
                 <>
-                  {getPaginatedData(recurringTransactions).map(
-                    (transaction) => (
-                      <Card key={transaction.id} className="border-blue-200">
-                        <CardContent className="p-3 py-2.5">
-                          <div className="flex items-center justify-between gap-3">
+                  <Card className="overflow-hidden p-0">
+                    <div className="divide-y divide-border">
+                      {getPaginatedData(recurringTransactions).map(
+                        (transaction) => (
+                          <div key={transaction.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                             <div className="flex items-center gap-3 min-w-0">
                               <div
-                                className={`shrink-0 p-2 rounded-full ${
+                                className={`shrink-0 p-1.5 rounded-full ${
                                   transaction.type === "income"
                                     ? "bg-green-100 text-green-600"
                                     : "bg-red-100 text-red-600"
                                 }`}
                               >
                                 {transaction.type === "income" ? (
-                                  <TrendingUp className="h-4 w-4" />
+                                  <TrendingUp className="h-3.5 w-3.5" />
                                 ) : (
-                                  <TrendingDown className="h-4 w-4" />
+                                  <TrendingDown className="h-3.5 w-3.5" />
                                 )}
                               </div>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="font-semibold text-base truncate">
+                                  <p className="font-medium text-sm truncate">
                                     {transaction.description}
                                   </p>
-                                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
+                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
                                     <Repeat className="h-3 w-3" />
                                     <span>{transaction.frequency}</span>
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
-                                  <span>
+                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
                                     {transaction.category}
-                                    {transaction.subtype && (
-                                      <span className="ml-1 px-1.5 py-0.5 bg-muted rounded-full">
-                                        {transaction.subtype}
-                                      </span>
-                                    )}
+                                    {transaction.subtype && ` · ${transaction.subtype}`}
                                   </span>
                                   {transaction.nextDate && (
-                                    <span className="text-blue-600 flex items-center gap-1">
-                                      <Calendar className="h-3 w-3" />
-                                      Next:{" "}
-                                      {new Date(
-                                        transaction.nextDate,
-                                      ).toLocaleDateString()}
+                                    <span className="text-[10px] text-blue-500">
+                                      Next: {new Date(transaction.nextDate).toLocaleDateString()}
                                     </span>
                                   )}
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <p
-                                className={`text-base font-bold ${
+                                className={`font-mono font-semibold text-sm ${
                                   transaction.type === "income"
-                                    ? "text-green-600"
-                                    : "text-red-600"
+                                    ? "text-green-600 dark:text-green-400"
+                                    : "text-red-600 dark:text-red-400"
                                 }`}
                               >
-                                {transaction.type === "income" ? "+" : "-"}
+                                {transaction.type === "income" ? "+" : "−"}
                                 {format(transaction.amount)}
                               </p>
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-gray-500 hover:text-gray-700"
-                                  onClick={() => handleEditTransaction(transaction)}
-                                  title="Edit"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  onClick={() =>
-                                    handleDeleteTransaction(transaction.id)
-                                  }
-                                  disabled={deleting === transaction.id}
-                                  title="Delete"
-                                >
-                                  {deleting === transaction.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                onClick={() => handleEditTransaction(transaction)}
+                                title="Edit"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                onClick={() => handleDeleteTransaction(transaction.id)}
+                                disabled={deleting === transaction.id}
+                                title="Delete"
+                              >
+                                {deleting === transaction.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                )}
+                              </Button>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ),
-                  )}
+                        ),
+                      )}
+                    </div>
+                  </Card>
                   <PaginationControls
                     totalPages={getTotalPages(recurringTransactions)}
                     dataLength={recurringTransactions.length}

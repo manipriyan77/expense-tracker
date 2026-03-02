@@ -7,9 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -841,164 +839,110 @@ export default function GoalsPage() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="goals" className="space-y-4 mt-0">
+          <TabsContent value="goals" className="space-y-3 mt-0">
         {/* Goals List */}
-        <Card>
-          <CardHeader className="p-3 pb-2">
-            <CardTitle className="text-base">Your Goals</CardTitle>
-            <CardDescription className="text-sm">
-              Track your progress towards financial goals
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 min-w-0">
-            <div className="space-y-4 min-w-0">
-              {goals.length === 0 ? (
-                <p className="text-center text-gray-500 py-4 text-sm">
-                  No goals yet. Add your first goal above!
-                </p>
-              ) : (
-                goals.map((goal) => {
-                  const progress =
-                    (goal.currentAmount / goal.targetAmount) * 100;
-                  const isCompleted = goal.status === "completed";
-                  const isOverdue =
-                    new Date(goal.targetDate) < new Date() && !isCompleted;
-                  const probability = calculateGoalProbability(goal);
+        {goals.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Circle className="h-8 w-8 text-muted-foreground/40 mb-3" />
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">No goals yet</p>
+            <p className="text-xs text-muted-foreground">Add your first goal to start tracking</p>
+          </div>
+        ) : (
+          goals.map((goal) => {
+            const progress = (goal.currentAmount / goal.targetAmount) * 100;
+            const isCompleted = goal.status === "completed";
+            const isOverdue = new Date(goal.targetDate) < new Date() && !isCompleted;
+            const probability = calculateGoalProbability(goal);
 
-                  return (
-                    <div
-                      key={goal.id}
-                      className={`border rounded-lg p-4 space-y-3 hover:shadow-lg transition-shadow cursor-pointer min-w-0 ${
-                        probability.status === "at-risk"
-                          ? "border-orange-200 bg-orange-50"
-                          : probability.status === "unlikely"
-                            ? "border-red-200 bg-red-50"
-                            : ""
-                      }`}
-                      onClick={() => openDetailsModal(goal)}
-                    >
-                      {/* Top: icon + title/category (full width on mobile) */}
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 min-w-0">
-                        <div className="flex items-start gap-3 min-w-0 flex-1">
-                          {isCompleted ? (
-                            <CheckCircle className="h-6 w-6 text-green-600 shrink-0" />
-                          ) : (
-                            <Circle className="h-6 w-6 text-gray-400 shrink-0" />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="text-lg font-semibold truncate">
-                                {goal.title}
-                              </h3>
-                              {probability.status === "at-risk" && (
-                                <AlertTriangle className="h-4 w-4 text-orange-600 shrink-0" />
-                              )}
-                              {probability.status === "unlikely" && (
-                                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-500">
-                              {goal.category}
-                            </p>
-                            {!isCompleted && (
-                              <p
-                                className={`text-xs mt-1 wrap-break-word ${
-                                  probability.status === "on-track"
-                                    ? "text-green-600"
-                                    : probability.status === "at-risk"
-                                      ? "text-orange-600"
-                                      : "text-red-600"
-                                }`}
-                              >
-                                {probability.probability.toFixed(2)}% chance •{" "}
-                                {probability.message}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        {/* Amount, target date, and actions - wrap on mobile */}
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-0 sm:space-x-2 shrink-0">
-                          <div className="text-left sm:text-right w-full sm:w-auto sm:mr-4 sm:min-w-0">
-                            <p className="text-lg font-bold">
-                              {format(goal.currentAmount)} /{" "}
-                              {format(goal.targetAmount)}
-                            </p>
-                            <p className="text-sm text-gray-500 flex items-center sm:justify-end">
-                              <Calendar className="h-3 w-3 mr-1 shrink-0" />
-                              Target:{" "}
-                              {new Date(goal.targetDate).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openAddTransactionDialog(goal);
-                              }}
-                              className="bg-green-600 hover:bg-green-700 shrink-0"
-                            >
-                              <DollarSign className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openEditDialog(goal);
-                              }}
-                              className="shrink-0"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteGoal(goal.id);
-                              }}
-                              className="shrink-0"
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Progress</span>
-                          <span>{progress.toFixed(1)}%</span>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all duration-300 ${
-                              isCompleted
-                                ? "bg-green-600"
-                                : isOverdue
-                                  ? "bg-red-600"
-                                  : "bg-blue-600"
-                            }`}
-                            style={{ width: `${Math.min(progress, 100)}%` }}
-                          ></div>
-                        </div>
-                      </div>
-
-                      {isOverdue && (
-                        <p className="text-sm text-red-600 font-medium">
-                          ⚠️ Target date has passed
-                        </p>
+            return (
+              <Card
+                key={goal.id}
+                className={`cursor-pointer hover:shadow-md transition-shadow ${
+                  probability.status === "at-risk"
+                    ? "border-orange-200 dark:border-orange-800"
+                    : probability.status === "unlikely"
+                      ? "border-red-200 dark:border-red-800"
+                      : ""
+                }`}
+                onClick={() => openDetailsModal(goal)}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {isCompleted ? (
+                        <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                      ) : (
+                        <Circle className="h-4 w-4 text-muted-foreground/60 shrink-0" />
                       )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{goal.title}</p>
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          {goal.category}
+                          {!isCompleted && (
+                            <span className={`ml-2 ${
+                              probability.status === "on-track" ? "text-green-600" :
+                              probability.status === "at-risk" ? "text-orange-600" : "text-red-600"
+                            }`}>
+                              · {probability.probability.toFixed(0)}% chance
+                            </span>
+                          )}
+                        </p>
+                      </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                    <div className="text-right shrink-0">
+                      <p className="font-mono font-semibold text-sm">
+                        {format(goal.currentAmount)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">of {format(goal.targetAmount)}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 mb-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Progress</span>
+                      <span className="font-mono text-[10px] font-semibold">{progress.toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-1.5">
+                      <div
+                        className={`h-1.5 rounded-full transition-all ${
+                          isCompleted ? "bg-green-600" : isOverdue ? "bg-red-600" : "bg-blue-600"
+                        }`}
+                        style={{ width: `${Math.min(progress, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      <span>
+                        {isOverdue ? (
+                          <span className="text-red-500 font-medium">Overdue · {new Date(goal.targetDate).toLocaleDateString()}</span>
+                        ) : (
+                          new Date(goal.targetDate).toLocaleDateString()
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button variant="default" size="sm" className="h-6 px-2 bg-green-600 hover:bg-green-700 text-[10px]"
+                        onClick={(e) => { e.stopPropagation(); openAddTransactionDialog(goal); }}>
+                        <DollarSign className="h-3 w-3" />
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-6 px-2"
+                        onClick={(e) => { e.stopPropagation(); openEditDialog(goal); }}>
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-6 px-2"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteGoal(goal.id); }}>
+                        <Trash2 className="h-3 w-3 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
           </TabsContent>
 
           {/* Challenges Tab */}
@@ -1071,45 +1015,32 @@ export default function GoalsPage() {
             </div>
 
             {/* Challenges Summary */}
-            <div className="grid gap-3 md:grid-cols-3">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-                  <CardTitle className="text-sm font-medium">Active Challenges</CardTitle>
-                  <Target className="h-4 w-4 text-blue-600" />
-                </CardHeader>
-                <CardContent className="p-3 pt-2">
-                  <div className="text-xl font-bold">{challenges.filter((c) => c.status === "active").length}</div>
-                  <p className="text-xs text-muted-foreground">In progress</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-                  <CardTitle className="text-sm font-medium">Total Saved</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                </CardHeader>
-                <CardContent className="p-3 pt-2">
-                  <div className="text-xl font-bold text-green-600">{format(activeTotal)}</div>
-                  <p className="text-xs text-muted-foreground">From active challenges</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-                  <CardTitle className="text-sm font-medium">Completed</CardTitle>
-                  <Trophy className="h-4 w-4 text-amber-600" />
-                </CardHeader>
-                <CardContent className="p-3 pt-2">
-                  <div className="text-xl font-bold text-amber-600">{completedChallengesCount}</div>
-                  <p className="text-xs text-muted-foreground">Challenges finished</p>
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="overflow-hidden p-0">
+              <div className="grid grid-cols-3 divide-x divide-border">
+                <div className="px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Active</p>
+                  <p className="font-mono font-semibold text-sm">{challenges.filter((c) => c.status === "active").length}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">In progress</p>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Saved</p>
+                  <p className="font-mono font-semibold text-sm text-green-600 dark:text-green-400">{format(activeTotal)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Active challenges</p>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Completed</p>
+                  <p className="font-mono font-semibold text-sm text-amber-600">{completedChallengesCount}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Challenges finished</p>
+                </div>
+              </div>
+            </Card>
 
             {challenges.length === 0 ? (
               <EmptyState icon={Trophy} title="No challenges yet" description="Start your first savings challenge to build healthy saving habits" actionLabel="Create Challenge" onAction={() => setIsCreateOpen(true)} />
             ) : (
               <>
                 <div className="space-y-4">
-                  <h3 className="text-base font-semibold">Active Challenges</h3>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Active Challenges</p>
                   <div className="grid gap-3 md:grid-cols-2">
                     {challenges.filter((c) => c.status === "active").map((challenge) => {
                       const progress = getProgressPercentage(challenge);
@@ -1122,8 +1053,8 @@ export default function GoalsPage() {
                               <div className="flex items-center space-x-3">
                                 <div className="p-2 bg-blue-100 rounded-full">{getChallengeIcon(challenge.type)}</div>
                                 <div>
-                                  <CardTitle className="text-lg">{challenge.name}</CardTitle>
-                                  <p className="text-sm text-gray-500 capitalize">{challenge.frequency} contributions</p>
+                                  <p className="font-medium text-sm">{challenge.name}</p>
+                                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{challenge.frequency} contributions</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">

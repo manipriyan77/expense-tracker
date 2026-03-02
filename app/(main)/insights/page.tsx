@@ -232,49 +232,30 @@ export default function InsightsPage() {
       <main className="px-4 sm:px-6 lg:px-8 py-4 space-y-4">
 
         {/* 6-Month Averages */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-green-100 dark:bg-green-950/40">
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <div className="text-xs text-muted-foreground mb-0.5">
-                    Avg Monthly Income
-                  </div>
-                  <div className="text-xl font-bold text-foreground">
-                    {format(avgMonthlyIncome)}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    6-month average
-                  </div>
-                </div>
+        <Card className="overflow-hidden p-0">
+          <div className="grid grid-cols-2 divide-x divide-border">
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div className="p-1.5 rounded-full bg-green-100 dark:bg-green-950/40 shrink-0">
+                <TrendingUp className="h-3.5 w-3.5 text-green-600" />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-red-100 dark:bg-red-950/40">
-                  <TrendingDown className="h-4 w-4 text-red-600" />
-                </div>
-                <div className="flex-1">
-                  <div className="text-xs text-muted-foreground mb-0.5">
-                    Avg Monthly Expense
-                  </div>
-                  <div className="text-xl font-bold text-foreground">
-                    {format(avgMonthlyExpense)}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    6-month average
-                  </div>
-                </div>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Avg Monthly Income</p>
+                <p className="font-mono font-semibold text-sm text-green-600 dark:text-green-400">{format(avgMonthlyIncome)}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">6-month average</p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div className="p-1.5 rounded-full bg-red-100 dark:bg-red-950/40 shrink-0">
+                <TrendingDown className="h-3.5 w-3.5 text-red-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Avg Monthly Expense</p>
+                <p className="font-mono font-semibold text-sm text-red-600 dark:text-red-400">{format(avgMonthlyExpense)}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">6-month average</p>
+              </div>
+            </div>
+          </div>
+        </Card>
 
         {/* Cashflow Chart */}
         <Card>
@@ -351,13 +332,9 @@ export default function InsightsPage() {
             onClick={() => setCategorySettingsOpen((v) => !v)}
           >
             <div className="flex items-center gap-2">
-              <LayoutGrid className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-semibold text-foreground">
-                Category Breakdown
-              </span>
-              <span className="text-xs text-muted-foreground ml-1">
-                ({currentMonthLabel})
-              </span>
+              <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Category Breakdown</p>
+              <span className="text-[10px] text-muted-foreground">· {currentMonthLabel}</span>
             </div>
             {categorySettingsOpen ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -369,7 +346,7 @@ export default function InsightsPage() {
           {categorySettingsOpen && (
             <CardContent className="pt-0 pb-4 px-4">
               {categoryBreakdown.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center py-6">
                   No expenses this month
                 </p>
               ) : (
@@ -389,15 +366,15 @@ export default function InsightsPage() {
                               className="inline-block w-2.5 h-2.5 rounded-full"
                               style={{ backgroundColor: color }}
                             />
-                            <span className="text-sm font-medium text-foreground">
+                            <span className="font-medium text-sm">
                               {name}
                             </span>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="text-xs text-muted-foreground">
+                            <span className="font-mono text-[10px] text-muted-foreground">
                               {pct.toFixed(1)}%
                             </span>
-                            <span className="text-sm font-semibold text-foreground">
+                            <span className="font-mono font-semibold text-sm">
                               {format(amount)}
                             </span>
                           </div>

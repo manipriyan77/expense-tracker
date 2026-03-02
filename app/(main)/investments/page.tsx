@@ -53,7 +53,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useStocksStore, type Stock } from "@/store/stocks-store";
-import { useMutualFundsStore, type MutualFund } from "@/store/mutual-funds-store";
+import {
+  useMutualFundsStore,
+  type MutualFund,
+} from "@/store/mutual-funds-store";
 import { useGoldStore, type GoldHolding } from "@/store/gold-store";
 import { useForexStore, type ForexEntry } from "@/store/forex-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
@@ -104,10 +107,7 @@ const ASSET_CLASSES: {
   },
 ];
 
-const TYPE_BADGE: Record<
-  AssetClass,
-  { label: string; className: string }
-> = {
+const TYPE_BADGE: Record<AssetClass, { label: string; className: string }> = {
   stocks: {
     label: "Stocks",
     className:
@@ -140,6 +140,7 @@ const defaultStockForm = {
   currentPrice: "",
   purchaseDate: new Date().toISOString().split("T")[0],
   sector: "information_technology",
+  subSector: "",
 };
 
 const defaultMfForm = {
@@ -197,6 +198,7 @@ export default function InvestmentsPage() {
     addHolding,
     updateHolding,
     deleteHolding,
+    updateAllGoldPrices,
   } = useGoldStore();
   const {
     entries,
@@ -217,15 +219,20 @@ export default function InvestmentsPage() {
   const [stockForm, setStockForm] = useState(defaultStockForm);
   const [mfForm, setMfForm] = useState(defaultMfForm);
   const [goldForm, setGoldForm] = useState(defaultGoldForm);
+  const [goldPriceUpdate, setGoldPriceUpdate] = useState("");
   const [forexForm, setForexForm] = useState(defaultForexForm);
   const [saving, setSaving] = useState(false);
 
   // CSV Import state
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [importType, setImportType] = useState<"stocks" | "mutual-funds">("stocks");
+  const [importType, setImportType] = useState<"stocks" | "mutual-funds">(
+    "stocks",
+  );
   const [importRows, setImportRows] = useState<Record<string, string>[]>([]);
   const [importHeaders, setImportHeaders] = useState<string[]>([]);
-  const [importStep, setImportStep] = useState<"upload" | "preview" | "done">("upload");
+  const [importStep, setImportStep] = useState<"upload" | "preview" | "done">(
+    "upload",
+  );
   const [importSaving, setImportSaving] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
 
@@ -266,8 +273,7 @@ export default function InvestmentsPage() {
       stockInvested + mfInvested + goldInvested + forexDeposited;
     const totalCurrent = stockCurrent + mfCurrent + goldCurrent + forexBalance;
     const totalPnl = totalCurrent - totalInvested;
-    const returnPct =
-      totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0;
+    const returnPct = totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0;
 
     return { totalInvested, totalCurrent, totalPnl, returnPct };
   }, [stocks, mutualFunds, holdings, entries]);
@@ -313,6 +319,7 @@ export default function InvestmentsPage() {
       currentPrice: String(s.currentPrice),
       purchaseDate: s.purchaseDate,
       sector: s.sector ?? "information_technology",
+      subSector: s.subSector ?? "",
     });
     setDialogStep(2);
     setDialogOpen(true);
@@ -374,7 +381,10 @@ export default function InvestmentsPage() {
     setSaving(true);
     try {
       if (selectedClass === "stocks") {
-        if (!stockForm.name) { toast.error("Name is required"); return; }
+        if (!stockForm.name) {
+          toast.error("Name is required");
+          return;
+        }
         const shares = parseFloat(stockForm.shares) || 0;
         const avgP = parseFloat(stockForm.avgPurchasePrice) || 0;
         const curP = parseFloat(stockForm.currentPrice) || 0;
@@ -389,7 +399,7 @@ export default function InvestmentsPage() {
           currentValue: shares * curP,
           purchaseDate: stockForm.purchaseDate,
           sector: stockForm.sector,
-          subSector: null,
+          subSector: stockForm.subSector || null,
         };
         if (editMode && editId) {
           await updateStock(editId, payload);
@@ -399,7 +409,10 @@ export default function InvestmentsPage() {
           toast.success("Stock added");
         }
       } else if (selectedClass === "mutual-funds") {
-        if (!mfForm.name) { toast.error("Name is required"); return; }
+        if (!mfForm.name) {
+          toast.error("Name is required");
+          return;
+        }
         const units = parseFloat(mfForm.units) || 0;
         const purchaseNav = parseFloat(mfForm.purchaseNav) || 0;
         const nav = parseFloat(mfForm.nav) || 0;
@@ -423,7 +436,10 @@ export default function InvestmentsPage() {
           toast.success("Fund added");
         }
       } else if (selectedClass === "gold") {
-        if (!goldForm.name) { toast.error("Name is required"); return; }
+        if (!goldForm.name) {
+          toast.error("Name is required");
+          return;
+        }
         const payload = {
           name: goldForm.name,
           type: goldForm.type as GoldHolding["type"],
@@ -442,7 +458,10 @@ export default function InvestmentsPage() {
           toast.success("Holding added");
         }
       } else if (selectedClass === "forex") {
-        if (!forexForm.month) { toast.error("Month is required"); return; }
+        if (!forexForm.month) {
+          toast.error("Month is required");
+          return;
+        }
         const payload = {
           type: forexForm.type as ForexEntry["type"],
           month: forexForm.month,
@@ -492,34 +511,53 @@ export default function InvestmentsPage() {
     reader.onload = (e) => {
       const text = e.target?.result as string;
       const allLines = text.trim().split(/\r?\n/);
-      if (allLines.length < 2) { toast.error("CSV must have a header row and at least one data row"); return; }
+      if (allLines.length < 2) {
+        toast.error("CSV must have a header row and at least one data row");
+        return;
+      }
 
       // Strip quotes, and non-ASCII chars (handles ₹ encoding issues like "â¹")
-      const clean = (s: string) => s.trim().replace(/^"|"$/g, "").replace(/[^\x00-\x7F]/g, "").trim();
+      const clean = (s: string) =>
+        s
+          .trim()
+          .replace(/^"|"$/g, "")
+          .replace(/[^\x00-\x7F]/g, "")
+          .trim();
 
       // Auto-detect the actual header row (skip metadata rows like TickerTape's top 3 lines)
       let headerIdx = 0;
       for (let i = 0; i < Math.min(allLines.length, 8); i++) {
         const cols = allLines[i]!.split(",").map(clean).filter(Boolean);
         // A header row has several non-empty text fields (not all empty/URLs)
-        if (cols.length >= 3 && cols.some((c) => /^[a-zA-Z]/.test(c)) && !cols[0]!.startsWith("http")) {
+        if (
+          cols.length >= 3 &&
+          cols.some((c) => /^[a-zA-Z]/.test(c)) &&
+          !cols[0]!.startsWith("http")
+        ) {
           headerIdx = i;
           break;
         }
       }
 
       const headers = allLines[headerIdx]!.split(",").map(clean);
-      const rows = allLines.slice(headerIdx + 1)
+      const rows = allLines
+        .slice(headerIdx + 1)
         .map((line) => {
           const vals = line.split(",").map(clean);
           const row: Record<string, string> = {};
-          headers.forEach((h, i) => { if (h) row[h] = vals[i] ?? ""; });
+          headers.forEach((h, i) => {
+            if (h) row[h] = vals[i] ?? "";
+          });
           return row;
         })
         .filter((r) => {
           const firstVal = Object.values(r)[0] ?? "";
           // Skip empty rows and "Total" summary row
-          return firstVal && firstVal.toLowerCase() !== "total" && Object.values(r).some((v) => v);
+          return (
+            firstVal &&
+            firstVal.toLowerCase() !== "total" &&
+            Object.values(r).some((v) => v)
+          );
         });
 
       setImportHeaders(headers.filter(Boolean));
@@ -530,9 +568,14 @@ export default function InvestmentsPage() {
   };
 
   // Find a value in a row by checking multiple possible column name patterns (case-insensitive, partial match)
-  const findCol = (row: Record<string, string>, ...patterns: string[]): string => {
+  const findCol = (
+    row: Record<string, string>,
+    ...patterns: string[]
+  ): string => {
     for (const pat of patterns) {
-      const entry = Object.entries(row).find(([k]) => k.toLowerCase().includes(pat.toLowerCase()));
+      const entry = Object.entries(row).find(([k]) =>
+        k.toLowerCase().includes(pat.toLowerCase()),
+      );
       if (entry?.[1]) return entry[1];
     }
     return "";
@@ -540,30 +583,53 @@ export default function InvestmentsPage() {
 
   // Generate a short symbol from fund/stock name
   const genSymbol = (name: string) =>
-    name.split(/\s+/).map((w) => w[0]?.toUpperCase() ?? "").join("").slice(0, 8) || "NA";
+    name
+      .split(/\s+/)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("")
+      .slice(0, 8) || "NA";
 
   const handleImportConfirm = async () => {
     setImportSaving(true);
-    let success = 0, failed = 0;
+    let success = 0,
+      failed = 0;
     try {
       for (const row of importRows) {
         try {
           if (importType === "stocks") {
             const nameVal = findCol(row, "name", "stock name", "scrip");
-            const shares = parseFloat(findCol(row, "shares", "quantity", "qty")) || 0;
-            const avgP = parseFloat(findCol(row, "avg_purchase_price", "avg price", "purchase_price", "buy price")) || 0;
-            const curP = parseFloat(findCol(row, "current_price", "cmp", "ltp", "close price")) || 0;
-            const symbolVal = findCol(row, "symbol", "ticker", "scrip code") || genSymbol(nameVal);
+            const shares =
+              parseFloat(findCol(row, "shares", "quantity", "qty")) || 0;
+            const avgP =
+              parseFloat(
+                findCol(
+                  row,
+                  "avg_purchase_price",
+                  "avg price",
+                  "purchase_price",
+                  "buy price",
+                ),
+              ) || 0;
+            const curP =
+              parseFloat(
+                findCol(row, "current_price", "cmp", "ltp", "close price"),
+              ) || 0;
+            const symbolVal =
+              findCol(row, "symbol", "ticker", "scrip code") ||
+              genSymbol(nameVal);
             await addStock({
               name: nameVal,
               symbol: symbolVal.toUpperCase(),
-              stockType: (findCol(row, "type", "stock_type", "cap") || "other") as Stock["stockType"],
+              stockType: (findCol(row, "type", "stock_type", "cap") ||
+                "other") as Stock["stockType"],
               shares,
               avgPurchasePrice: avgP,
               currentPrice: curP,
               investedAmount: shares * avgP,
               currentValue: shares * curP,
-              purchaseDate: findCol(row, "purchase_date", "date", "invested since") || new Date().toISOString().split("T")[0]!,
+              purchaseDate:
+                findCol(row, "purchase_date", "date", "invested since") ||
+                new Date().toISOString().split("T")[0]!,
               sector: findCol(row, "sector") || null,
               subSector: null,
             });
@@ -573,18 +639,62 @@ export default function InvestmentsPage() {
             // Current NAV column
             const navVal = parseFloat(findCol(row, "nav")) || 0;
             // Invested amount — used to back-calculate purchase NAV
-            const investedAmt = parseFloat(findCol(row, "invested amt", "invested amount", "invested_amount", "purchase amount")) || 0;
+            const investedAmt =
+              parseFloat(
+                findCol(
+                  row,
+                  "invested amt",
+                  "invested amount",
+                  "invested_amount",
+                  "purchase amount",
+                ),
+              ) || 0;
             // Purchase NAV: from explicit column or calculate from invested / units
-            const purchaseNavExplicit = parseFloat(findCol(row, "purchase nav", "purchase_nav", "buy nav", "avg nav")) || 0;
-            const purchaseNav = purchaseNavExplicit || (units > 0 && investedAmt > 0 ? investedAmt / units : navVal);
+            const purchaseNavExplicit =
+              parseFloat(
+                findCol(
+                  row,
+                  "purchase nav",
+                  "purchase_nav",
+                  "buy nav",
+                  "avg nav",
+                ),
+              ) || 0;
+            const purchaseNav =
+              purchaseNavExplicit ||
+              (units > 0 && investedAmt > 0 ? investedAmt / units : navVal);
             // Current value
-            const currentVal = parseFloat(findCol(row, "current value", "current_value", "market value")) || (units * navVal);
-            const symbolVal = findCol(row, "symbol", "isin", "scheme code") || genSymbol(nameVal);
-            const categoryVal = (findCol(row, "category") || "equity").toLowerCase();
-            const subCatRaw = findCol(row, "sub-category", "sub_category", "subcategory", "sub category");
+            const currentVal =
+              parseFloat(
+                findCol(row, "current value", "current_value", "market value"),
+              ) || units * navVal;
+            const symbolVal =
+              findCol(row, "symbol", "isin", "scheme code") ||
+              genSymbol(nameVal);
+            const categoryVal = (
+              findCol(row, "category") || "equity"
+            ).toLowerCase();
+            const subCatRaw = findCol(
+              row,
+              "sub-category",
+              "sub_category",
+              "subcategory",
+              "sub category",
+            );
             // Normalize sub-category to a simple slug
-            const subCatSlug = subCatRaw.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/(^_|_$)/g, "") || "other";
-            const purchaseDateVal = findCol(row, "invested since", "purchase_date", "purchase date", "date") || new Date().toISOString().split("T")[0]!;
+            const subCatSlug =
+              subCatRaw
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "_")
+                .replace(/(^_|_$)/g, "") || "other";
+            const purchaseDateVal =
+              findCol(
+                row,
+                "invested since",
+                "purchase_date",
+                "purchase date",
+                "date",
+              ) || new Date().toISOString().split("T")[0]!;
 
             await addMutualFund({
               name: nameVal,
@@ -605,8 +715,12 @@ export default function InvestmentsPage() {
         }
       }
       setImportStep("done");
-      if (success > 0) toast.success(`Imported ${success} ${importType === "stocks" ? "stocks" : "funds"}${failed > 0 ? `, ${failed} failed` : ""}`);
-      if (failed > 0 && success === 0) toast.error(`All ${failed} rows failed to import`);
+      if (success > 0)
+        toast.success(
+          `Imported ${success} ${importType === "stocks" ? "stocks" : "funds"}${failed > 0 ? `, ${failed} failed` : ""}`,
+        );
+      if (failed > 0 && success === 0)
+        toast.error(`All ${failed} rows failed to import`);
     } finally {
       setImportSaving(false);
     }
@@ -634,7 +748,10 @@ export default function InvestmentsPage() {
   const allocationData = useMemo(() => {
     const si = stocks.reduce((s, x) => s + x.currentValue, 0);
     const mi = mutualFunds.reduce((s, x) => s + x.currentValue, 0);
-    const gi = holdings.reduce((s, x) => s + x.quantityGrams * x.currentPricePerGram, 0);
+    const gi = holdings.reduce(
+      (s, x) => s + x.quantityGrams * x.currentPricePerGram,
+      0,
+    );
     const fi = forexSummary.balance;
     return [
       { name: "Stocks", value: si, color: "#3b82f6" },
@@ -650,15 +767,53 @@ export default function InvestmentsPage() {
     const sc = stocks.reduce((s, x) => s + x.currentValue, 0);
     const mi = mutualFunds.reduce((s, x) => s + x.investedAmount, 0);
     const mc = mutualFunds.reduce((s, x) => s + x.currentValue, 0);
-    const gi = holdings.reduce((s, x) => s + x.quantityGrams * x.purchasePricePerGram, 0);
-    const gc = holdings.reduce((s, x) => s + x.quantityGrams * x.currentPricePerGram, 0);
+    const gi = holdings.reduce(
+      (s, x) => s + x.quantityGrams * x.purchasePricePerGram,
+      0,
+    );
+    const gc = holdings.reduce(
+      (s, x) => s + x.quantityGrams * x.currentPricePerGram,
+      0,
+    );
     const fi = forexSummary.deposited;
     const fc = forexSummary.balance;
     return [
-      { key: "stocks", label: "Stocks", invested: si, current: sc, pnl: sc - si, color: "#3b82f6", count: stocks.length },
-      { key: "mutual-funds", label: "Mutual Funds", invested: mi, current: mc, pnl: mc - mi, color: "#8b5cf6", count: mutualFunds.length },
-      { key: "gold", label: "Gold", invested: gi, current: gc, pnl: gc - gi, color: "#f59e0b", count: holdings.length },
-      { key: "forex", label: "Forex", invested: fi, current: fc, pnl: forexSummary.pnl, color: "#22c55e", count: entries.length },
+      {
+        key: "stocks",
+        label: "Stocks",
+        invested: si,
+        current: sc,
+        pnl: sc - si,
+        color: "#3b82f6",
+        count: stocks.length,
+      },
+      {
+        key: "mutual-funds",
+        label: "Mutual Funds",
+        invested: mi,
+        current: mc,
+        pnl: mc - mi,
+        color: "#8b5cf6",
+        count: mutualFunds.length,
+      },
+      {
+        key: "gold",
+        label: "Gold",
+        invested: gi,
+        current: gc,
+        pnl: gc - gi,
+        color: "#f59e0b",
+        count: holdings.length,
+      },
+      {
+        key: "forex",
+        label: "Forex",
+        invested: fi,
+        current: fc,
+        pnl: forexSummary.pnl,
+        color: "#22c55e",
+        count: entries.length,
+      },
     ].filter((a) => a.count > 0);
   }, [stocks, mutualFunds, holdings, entries, forexSummary]);
 
@@ -675,31 +830,89 @@ export default function InvestmentsPage() {
 
   // Top 5 holdings by current value (combined)
   const topHoldings = useMemo(() => {
-    const all: { name: string; type: string; invested: number; current: number; badge: string; color: string }[] = [];
-    stocks.forEach((s) => all.push({ name: s.name, type: "stocks", invested: s.investedAmount, current: s.currentValue, badge: "Stocks", color: "#3b82f6" }));
-    mutualFunds.forEach((f) => all.push({ name: f.name, type: "mutual-funds", invested: f.investedAmount, current: f.currentValue, badge: "MF", color: "#8b5cf6" }));
-    holdings.forEach((g) => all.push({ name: g.name, type: "gold", invested: g.quantityGrams * g.purchasePricePerGram, current: g.quantityGrams * g.currentPricePerGram, badge: "Gold", color: "#f59e0b" }));
-    return all
-      .sort((a, b) => b.current - a.current)
-      .slice(0, 5);
+    const all: {
+      name: string;
+      type: string;
+      invested: number;
+      current: number;
+      badge: string;
+      color: string;
+    }[] = [];
+    stocks.forEach((s) =>
+      all.push({
+        name: s.name,
+        type: "stocks",
+        invested: s.investedAmount,
+        current: s.currentValue,
+        badge: "Stocks",
+        color: "#3b82f6",
+      }),
+    );
+    mutualFunds.forEach((f) =>
+      all.push({
+        name: f.name,
+        type: "mutual-funds",
+        invested: f.investedAmount,
+        current: f.currentValue,
+        badge: "MF",
+        color: "#8b5cf6",
+      }),
+    );
+    holdings.forEach((g) =>
+      all.push({
+        name: g.name,
+        type: "gold",
+        invested: g.quantityGrams * g.purchasePricePerGram,
+        current: g.quantityGrams * g.currentPricePerGram,
+        badge: "Gold",
+        color: "#f59e0b",
+      }),
+    );
+    return all.sort((a, b) => b.current - a.current).slice(0, 5);
   }, [stocks, mutualFunds, holdings]);
 
   // Best performers by return %
   const performers = useMemo(() => {
-    const all: { name: string; badge: string; returnPct: number; pnl: number; color: string }[] = [];
+    const all: {
+      name: string;
+      badge: string;
+      returnPct: number;
+      pnl: number;
+      color: string;
+    }[] = [];
     stocks.forEach((s) => {
       if (s.investedAmount > 0)
-        all.push({ name: s.name, badge: "Stocks", returnPct: ((s.currentValue - s.investedAmount) / s.investedAmount) * 100, pnl: s.currentValue - s.investedAmount, color: "#3b82f6" });
+        all.push({
+          name: s.name,
+          badge: "Stocks",
+          returnPct:
+            ((s.currentValue - s.investedAmount) / s.investedAmount) * 100,
+          pnl: s.currentValue - s.investedAmount,
+          color: "#3b82f6",
+        });
     });
     mutualFunds.forEach((f) => {
       if (f.investedAmount > 0)
-        all.push({ name: f.name, badge: "MF", returnPct: ((f.currentValue - f.investedAmount) / f.investedAmount) * 100, pnl: f.currentValue - f.investedAmount, color: "#8b5cf6" });
+        all.push({
+          name: f.name,
+          badge: "MF",
+          returnPct:
+            ((f.currentValue - f.investedAmount) / f.investedAmount) * 100,
+          pnl: f.currentValue - f.investedAmount,
+          color: "#8b5cf6",
+        });
     });
     holdings.forEach((g) => {
       const inv = g.quantityGrams * g.purchasePricePerGram;
       const cur = g.quantityGrams * g.currentPricePerGram;
       if (inv > 0)
-        all.push({ name: g.name, badge: "Gold", returnPct: ((cur - inv) / inv) * 100, pnl: cur - inv, color: "#f59e0b" });
+        all.push({
+          name: g.name,
+          badge: "Gold",
+          returnPct: ((cur - inv) / inv) * 100,
+          pnl: cur - inv,
+          color: "#f59e0b",
+        });
     });
     all.sort((a, b) => b.returnPct - a.returnPct);
     return { best: all.slice(0, 3), worst: all.slice(-3).reverse() };
@@ -725,12 +938,30 @@ export default function InvestmentsPage() {
     });
     return Object.entries(map)
       .sort(([, a], [, b]) => b - a)
-      .map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }));
+      .map(([name, value]) => ({
+        name: name.charAt(0).toUpperCase() + name.slice(1),
+        value,
+      }));
   }, [mutualFunds]);
 
-  const SECTOR_COLORS = ["#3b82f6","#8b5cf6","#f59e0b","#22c55e","#ef4444","#06b6d4","#f97316","#6366f1","#ec4899","#14b8a6"];
+  const SECTOR_COLORS = [
+    "#3b82f6",
+    "#8b5cf6",
+    "#f59e0b",
+    "#22c55e",
+    "#ef4444",
+    "#06b6d4",
+    "#f97316",
+    "#6366f1",
+    "#ec4899",
+    "#14b8a6",
+  ];
 
-  const hasAnyData = stocks.length > 0 || mutualFunds.length > 0 || holdings.length > 0 || entries.length > 0;
+  const hasAnyData =
+    stocks.length > 0 ||
+    mutualFunds.length > 0 ||
+    holdings.length > 0 ||
+    entries.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -739,37 +970,67 @@ export default function InvestmentsPage() {
         <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Investments</p>
-              <p className="text-xs text-slate-500">All your investment holdings in one place</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
+                Investments
+              </p>
+              <p className="text-xs text-slate-500">
+                All your investment holdings in one place
+              </p>
             </div>
-            <Button size="sm" variant="outline" className="border-slate-600 text-slate-200 hover:bg-slate-800 shrink-0" onClick={() => openAddDialog()}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-slate-600 text-slate-200 hover:bg-slate-800 shrink-0"
+              onClick={() => openAddDialog()}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Add Investment
             </Button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Invested</p>
-              <p className="font-mono text-base font-semibold text-slate-200">{format(portfolio.totalInvested)}</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                Total Invested
+              </p>
+              <p className="font-mono text-base font-semibold text-slate-200">
+                {format(portfolio.totalInvested)}
+              </p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Current Value</p>
-              <p className="font-mono text-base font-semibold text-slate-200">{format(portfolio.totalCurrent)}</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                Current Value
+              </p>
+              <p className="font-mono text-base font-semibold text-slate-200">
+                {format(portfolio.totalCurrent)}
+              </p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total P&L</p>
-              <p className={`font-mono text-base font-semibold ${portfolio.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>{portfolio.totalPnl >= 0 ? "+" : ""}{format(portfolio.totalPnl)}</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                Total P&L
+              </p>
+              <p
+                className={`font-mono text-base font-semibold ${portfolio.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}
+              >
+                {portfolio.totalPnl >= 0 ? "+" : ""}
+                {format(portfolio.totalPnl)}
+              </p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Overall Return</p>
-              <p className={`font-mono text-base font-semibold ${portfolio.returnPct >= 0 ? "text-green-400" : "text-red-400"}`}>{portfolio.returnPct >= 0 ? "+" : ""}{portfolio.returnPct.toFixed(2)}%</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                Overall Return
+              </p>
+              <p
+                className={`font-mono text-base font-semibold ${portfolio.returnPct >= 0 ? "text-green-400" : "text-red-400"}`}
+              >
+                {portfolio.returnPct >= 0 ? "+" : ""}
+                {portfolio.returnPct.toFixed(2)}%
+              </p>
             </div>
           </div>
         </div>
       </div>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4 space-y-4">
-
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-5 lg:w-auto">
@@ -807,10 +1068,15 @@ export default function InvestmentsPage() {
               <Card>
                 <CardContent className="py-14 text-center">
                   <TrendingUp className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-semibold text-foreground mb-1">No investments yet</p>
-                  <p className="text-sm text-muted-foreground mb-4">Start tracking your portfolio</p>
+                  <p className="font-semibold text-foreground mb-1">
+                    No investments yet
+                  </p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Start tracking your portfolio
+                  </p>
                   <Button onClick={() => openAddDialog()}>
-                    <Plus className="h-4 w-4 mr-2" />Add Investment
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Investment
                   </Button>
                 </CardContent>
               </Card>
@@ -841,7 +1107,10 @@ export default function InvestmentsPage() {
                             {format(a.current)}
                           </div>
                           <div className="text-[10px] text-muted-foreground mt-0.5">
-                            <span className="font-mono">{format(a.invested)}</span> invested
+                            <span className="font-mono">
+                              {format(a.invested)}
+                            </span>{" "}
+                            invested
                           </div>
                           <div
                             className={`font-mono text-sm font-semibold mt-1 flex items-center gap-1 ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
@@ -851,7 +1120,8 @@ export default function InvestmentsPage() {
                             ) : (
                               <ArrowDownRight className="h-3 w-3" />
                             )}
-                            {isPos ? "+" : ""}{ret.toFixed(1)}%
+                            {isPos ? "+" : ""}
+                            {ret.toFixed(1)}%
                           </div>
                           <div className="text-[10px] text-muted-foreground">
                             {a.count} {a.count === 1 ? "holding" : "holdings"}
@@ -918,7 +1188,11 @@ export default function InvestmentsPage() {
                       </CardHeader>
                       <CardContent>
                         <ResponsiveContainer width="100%" height={220}>
-                          <BarChart data={assetBarData} barCategoryGap="30%" barGap={4}>
+                          <BarChart
+                            data={assetBarData}
+                            barCategoryGap="30%"
+                            barGap={4}
+                          >
                             <CartesianGrid
                               strokeDasharray="3 3"
                               vertical={false}
@@ -951,9 +1225,21 @@ export default function InvestmentsPage() {
                                 fontSize: 12,
                               }}
                             />
-                            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-                            <Bar dataKey="Invested" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="Current" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                            <Legend
+                              iconType="circle"
+                              iconSize={8}
+                              wrapperStyle={{ fontSize: 12 }}
+                            />
+                            <Bar
+                              dataKey="Invested"
+                              fill="#94a3b8"
+                              radius={[4, 4, 0, 0]}
+                            />
+                            <Bar
+                              dataKey="Current"
+                              fill="#3b82f6"
+                              radius={[4, 4, 0, 0]}
+                            />
                           </BarChart>
                         </ResponsiveContainer>
                       </CardContent>
@@ -976,17 +1262,13 @@ export default function InvestmentsPage() {
                         {topHoldings.map((h, i) => {
                           const pnl = h.current - h.invested;
                           const ret =
-                            h.invested > 0
-                              ? (pnl / h.invested) * 100
-                              : 0;
+                            h.invested > 0 ? (pnl / h.invested) * 100 : 0;
                           const total = topHoldings[0].current || 1;
                           return (
                             <div key={i}>
                               <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <span
-                                    className="text-xs font-bold w-4 text-muted-foreground"
-                                  >
+                                  <span className="text-xs font-bold w-4 text-muted-foreground">
                                     #{i + 1}
                                   </span>
                                   <span
@@ -1004,7 +1286,8 @@ export default function InvestmentsPage() {
                                   <div
                                     className={`text-xs ${pnl >= 0 ? "text-green-600" : "text-red-600"}`}
                                   >
-                                    {pnl >= 0 ? "+" : ""}{ret.toFixed(1)}%
+                                    {pnl >= 0 ? "+" : ""}
+                                    {ret.toFixed(1)}%
                                   </div>
                                 </div>
                               </div>
@@ -1025,7 +1308,8 @@ export default function InvestmentsPage() {
                   )}
 
                   {/* Best & Worst Performers */}
-                  {(performers.best.length > 0 || performers.worst.length > 0) && (
+                  {(performers.best.length > 0 ||
+                    performers.worst.length > 0) && (
                     <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -1112,108 +1396,70 @@ export default function InvestmentsPage() {
                 {(sectorData.length > 0 || mfCategoryData.length > 0) && (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {sectorData.length > 0 && (
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-semibold">
-                            Stock Sector Allocation
-                          </CardTitle>
+                      <Card className="overflow-hidden p-0">
+                        <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Stock Sector Allocation</p>
                         </CardHeader>
-                        <CardContent>
-                          <ResponsiveContainer width="100%" height={200}>
-                            <BarChart
-                              data={sectorData.slice(0, 6)}
-                              layout="vertical"
-                              barCategoryGap="25%"
-                            >
-                              <CartesianGrid
-                                strokeDasharray="3 3"
-                                horizontal={false}
-                                stroke="rgba(128,128,128,0.15)"
-                              />
-                              <XAxis
-                                type="number"
-                                tick={{ fontSize: 10 }}
-                                axisLine={false}
-                                tickLine={false}
-                                tickFormatter={(v) =>
-                                  v >= 100000
-                                    ? `${(v / 100000).toFixed(0)}L`
-                                    : v >= 1000
-                                      ? `${(v / 1000).toFixed(0)}K`
-                                      : String(v)
-                                }
-                              />
-                              <YAxis
-                                type="category"
-                                dataKey="name"
-                                tick={{ fontSize: 10 }}
-                                axisLine={false}
-                                tickLine={false}
-                                width={90}
-                              />
-                              <Tooltip
-                                formatter={(v: unknown) => [format(v as number)]}
-                                contentStyle={{
-                                  backgroundColor: "hsl(var(--card))",
-                                  border: "1px solid hsl(var(--border))",
-                                  borderRadius: "8px",
-                                  fontSize: 12,
-                                }}
-                              />
-                              <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                                {sectorData.slice(0, 6).map((_, i) => (
-                                  <Cell
-                                    key={i}
-                                    fill={SECTOR_COLORS[i % SECTOR_COLORS.length]}
-                                  />
-                                ))}
-                              </Bar>
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </CardContent>
+                        <div className="divide-y divide-border">
+                          {(() => {
+                            const total = sectorData.reduce((s, d) => s + d.value, 0);
+                            return sectorData.slice(0, 6).map((item, i) => {
+                              const pct = total > 0 ? (item.value / total) * 100 : 0;
+                              const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
+                              return (
+                                <div key={item.name} className="px-4 py-2.5">
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                      <span className="text-sm font-medium capitalize">{item.name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <span className="font-mono text-[10px] text-muted-foreground">{pct.toFixed(1)}%</span>
+                                      <span className="font-mono font-semibold text-sm">{format(item.value)}</span>
+                                    </div>
+                                  </div>
+                                  <div className="h-1 rounded-full bg-muted overflow-hidden">
+                                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
                       </Card>
                     )}
 
                     {mfCategoryData.length > 0 && (
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-semibold">
-                            Mutual Fund Categories
-                          </CardTitle>
+                      <Card className="overflow-hidden p-0">
+                        <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Mutual Fund Categories</p>
                         </CardHeader>
-                        <CardContent>
-                          <ResponsiveContainer width="100%" height={200}>
-                            <PieChart>
-                              <Pie
-                                data={mfCategoryData}
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={80}
-                                dataKey="value"
-                                label={({ name, percent }) =>
-                                  `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
-                                }
-                                labelLine={false}
-                              >
-                                {mfCategoryData.map((_, i) => (
-                                  <Cell
-                                    key={i}
-                                    fill={SECTOR_COLORS[i % SECTOR_COLORS.length]}
-                                  />
-                                ))}
-                              </Pie>
-                              <Tooltip
-                                formatter={(v: unknown) => [format(v as number)]}
-                                contentStyle={{
-                                  backgroundColor: "hsl(var(--card))",
-                                  border: "1px solid hsl(var(--border))",
-                                  borderRadius: "8px",
-                                  fontSize: 12,
-                                }}
-                              />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </CardContent>
+                        <div className="divide-y divide-border">
+                          {(() => {
+                            const total = mfCategoryData.reduce((s, d) => s + d.value, 0);
+                            return mfCategoryData.map((item, i) => {
+                              const pct = total > 0 ? (item.value / total) * 100 : 0;
+                              const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
+                              return (
+                                <div key={item.name} className="px-4 py-2.5">
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                      <span className="text-sm font-medium">{item.name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <span className="font-mono text-[10px] text-muted-foreground">{pct.toFixed(1)}%</span>
+                                      <span className="font-mono font-semibold text-sm">{format(item.value)}</span>
+                                    </div>
+                                  </div>
+                                  <div className="h-1 rounded-full bg-muted overflow-hidden">
+                                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
                       </Card>
                     )}
                   </div>
@@ -1253,24 +1499,45 @@ export default function InvestmentsPage() {
                               {s.symbol}
                             </span>
                             {s.stockType && (
-                              <Badge variant="outline" className="text-xs capitalize">
+                              <Badge
+                                variant="outline"
+                                className="text-xs capitalize"
+                              >
                                 {s.stockType.replace("_", " ")}
                               </Badge>
                             )}
                           </div>
                           <div className="text-xs text-muted-foreground mt-0.5">
                             {s.shares} shares
-                            {s.sector ? ` · ${s.sector.replace(/_/g, " ")}` : ""}
+                            {s.sector
+                              ? ` · ${s.sector.replace(/_/g, " ")}`
+                              : ""}
                             {s.purchaseDate
                               ? ` · Bought ${s.purchaseDate}`
                               : ""}
                           </div>
                           <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-2">
-                            <Metric label="Invested" value={format(s.investedAmount)} />
-                            <Metric label="Current" value={format(s.currentValue)} />
-                            <Metric label="P&L" value={d.text} valueClass={d.color} />
-                            <Metric label="Avg Price" value={format(s.avgPurchasePrice)} />
-                            <Metric label="CMP" value={format(s.currentPrice)} />
+                            <Metric
+                              label="Invested"
+                              value={format(s.investedAmount)}
+                            />
+                            <Metric
+                              label="Current"
+                              value={format(s.currentValue)}
+                            />
+                            <Metric
+                              label="P&L"
+                              value={d.text}
+                              valueClass={d.color}
+                            />
+                            <Metric
+                              label="Avg Price"
+                              value={format(s.avgPurchasePrice)}
+                            />
+                            <Metric
+                              label="CMP"
+                              value={format(s.currentPrice)}
+                            />
                           </div>
                         </div>
                         <RowActions
@@ -1313,11 +1580,17 @@ export default function InvestmentsPage() {
                             <span className="font-semibold text-foreground">
                               {f.name}
                             </span>
-                            <Badge variant="outline" className="text-xs capitalize">
+                            <Badge
+                              variant="outline"
+                              className="text-xs capitalize"
+                            >
                               {f.category}
                             </Badge>
                             {f.subCategory && (
-                              <Badge variant="outline" className="text-xs capitalize">
+                              <Badge
+                                variant="outline"
+                                className="text-xs capitalize"
+                              >
                                 {f.subCategory.replace(/_/g, " ")}
                               </Badge>
                             )}
@@ -1329,10 +1602,23 @@ export default function InvestmentsPage() {
                               : ""}
                           </div>
                           <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-2">
-                            <Metric label="Invested" value={format(f.investedAmount)} />
-                            <Metric label="Current" value={format(f.currentValue)} />
-                            <Metric label="P&L" value={d.text} valueClass={d.color} />
-                            <Metric label="Purchase NAV" value={format(f.purchaseNav)} />
+                            <Metric
+                              label="Invested"
+                              value={format(f.investedAmount)}
+                            />
+                            <Metric
+                              label="Current"
+                              value={format(f.currentValue)}
+                            />
+                            <Metric
+                              label="P&L"
+                              value={d.text}
+                              valueClass={d.color}
+                            />
+                            <Metric
+                              label="Purchase NAV"
+                              value={format(f.purchaseNav)}
+                            />
                           </div>
                         </div>
                         <RowActions
@@ -1355,6 +1641,55 @@ export default function InvestmentsPage() {
               onAdd={() => openAddDialog("gold")}
               addLabel="Add Gold"
             />
+
+            {/* Gold Price Update Section */}
+            {holdings.length > 0 && (
+              <Card className="bg-amber-50 border-amber-200">
+                <CardContent className="p-3">
+                  <div className="flex items-end gap-3">
+                    <div className="flex-1">
+                      <Label
+                        htmlFor="gold-price"
+                        className="text-xs font-medium mb-1 block"
+                      >
+                        Update Current Gold Price (₹/gram)
+                      </Label>
+                      <Input
+                        id="gold-price"
+                        type="number"
+                        placeholder="Enter current price per gram"
+                        value={goldPriceUpdate}
+                        onChange={(e) => setGoldPriceUpdate(e.target.value)}
+                        className="text-sm h-8"
+                        step="0.01"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      className="h-8 bg-amber-600 hover:bg-amber-700"
+                      onClick={async () => {
+                        const priceValue =
+                          parseFloat(goldPriceUpdate) ||
+                          holdings[0]?.currentPricePerGram ||
+                          0;
+                        try {
+                          await updateAllGoldPrices(priceValue);
+                          setGoldPriceUpdate("");
+                          toast.success(
+                            "Gold prices updated for all holdings!",
+                          );
+                        } catch (error) {
+                          toast.error("Failed to update gold prices");
+                        }
+                      }}
+                    >
+                      Update All
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {holdings.length === 0 ? (
               <EmptyState
                 icon={Gem}
@@ -1376,7 +1711,10 @@ export default function InvestmentsPage() {
                             <span className="font-semibold text-foreground">
                               {g.name}
                             </span>
-                            <Badge variant="outline" className="text-xs capitalize">
+                            <Badge
+                              variant="outline"
+                              className="text-xs capitalize"
+                            >
                               {g.type.replace("_", " ")}
                             </Badge>
                             <Badge variant="outline" className="text-xs">
@@ -1393,7 +1731,11 @@ export default function InvestmentsPage() {
                           <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-2">
                             <Metric label="Invested" value={format(invested)} />
                             <Metric label="Current" value={format(current)} />
-                            <Metric label="P&L" value={d.text} valueClass={d.color} />
+                            <Metric
+                              label="P&L"
+                              value={d.text}
+                              valueClass={d.color}
+                            />
                             <Metric
                               label="Buy ₹/g"
                               value={format(g.purchasePricePerGram)}
@@ -1436,9 +1778,7 @@ export default function InvestmentsPage() {
                     label: "P&L",
                     value: `${forexSummary.pnl >= 0 ? "+" : ""}${format(forexSummary.pnl)}`,
                     color:
-                      forexSummary.pnl >= 0
-                        ? "text-green-600"
-                        : "text-red-600",
+                      forexSummary.pnl >= 0 ? "text-green-600" : "text-red-600",
                   },
                   {
                     label: "Withdrawn",
@@ -1550,7 +1890,9 @@ export default function InvestmentsPage() {
                   : `Add ${ASSET_CLASSES.find((a) => a.key === selectedClass)?.label}`}
             </DialogTitle>
             {!editMode && dialogStep === 2 && (
-              <p className="text-sm text-muted-foreground">Step 2 of 2: Fill in the details</p>
+              <p className="text-sm text-muted-foreground">
+                Step 2 of 2: Fill in the details
+              </p>
             )}
           </DialogHeader>
 
@@ -1600,10 +1942,7 @@ export default function InvestmentsPage() {
           {dialogStep === 2 && (
             <div className="flex justify-between pt-2">
               {!editMode ? (
-                <Button
-                  variant="outline"
-                  onClick={() => setDialogStep(1)}
-                >
+                <Button variant="outline" onClick={() => setDialogStep(1)}>
                   <ChevronLeft className="h-4 w-4 mr-1" />
                   Back
                 </Button>
@@ -1611,10 +1950,7 @@ export default function InvestmentsPage() {
                 <div />
               )}
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setDialogOpen(false)}
-                >
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
                 <Button onClick={handleSubmit} disabled={saving}>
@@ -1631,11 +1967,18 @@ export default function InvestmentsPage() {
       </Dialog>
 
       {/* CSV Import Dialog */}
-      <Dialog open={importDialogOpen} onOpenChange={(v) => { setImportDialogOpen(v); if (!v) setImportStep("upload"); }}>
+      <Dialog
+        open={importDialogOpen}
+        onOpenChange={(v) => {
+          setImportDialogOpen(v);
+          if (!v) setImportStep("upload");
+        }}
+      >
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Import {importType === "stocks" ? "Stocks" : "Mutual Funds"} from CSV
+              Import {importType === "stocks" ? "Stocks" : "Mutual Funds"} from
+              CSV
             </DialogTitle>
           </DialogHeader>
 
@@ -1646,25 +1989,87 @@ export default function InvestmentsPage() {
                 <p className="font-medium">Expected CSV columns:</p>
                 {importType === "stocks" ? (
                   <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-                    <span><span className="font-mono text-foreground">name</span> — Stock name *</span>
-                    <span><span className="font-mono text-foreground">symbol</span> — Ticker (e.g. RELIANCE)</span>
-                    <span><span className="font-mono text-foreground">shares</span> — Number of shares *</span>
-                    <span><span className="font-mono text-foreground">avg_purchase_price</span> — Avg buy price *</span>
-                    <span><span className="font-mono text-foreground">current_price</span> — Current price *</span>
-                    <span><span className="font-mono text-foreground">purchase_date</span> — YYYY-MM-DD</span>
-                    <span><span className="font-mono text-foreground">sector</span> — e.g. information_technology</span>
-                    <span><span className="font-mono text-foreground">type</span> — large_cap / mid_cap / small_cap / etf</span>
+                    <span>
+                      <span className="font-mono text-foreground">name</span> —
+                      Stock name *
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">symbol</span>{" "}
+                      — Ticker (e.g. RELIANCE)
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">shares</span>{" "}
+                      — Number of shares *
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">
+                        avg_purchase_price
+                      </span>{" "}
+                      — Avg buy price *
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">
+                        current_price
+                      </span>{" "}
+                      — Current price *
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">
+                        purchase_date
+                      </span>{" "}
+                      — YYYY-MM-DD
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">sector</span>{" "}
+                      — e.g. information_technology
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">type</span> —
+                      large_cap / mid_cap / small_cap / etf
+                    </span>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-                    <span><span className="font-mono text-foreground">name</span> — Fund name *</span>
-                    <span><span className="font-mono text-foreground">symbol</span> — ISIN or scheme code</span>
-                    <span><span className="font-mono text-foreground">units</span> — Number of units *</span>
-                    <span><span className="font-mono text-foreground">purchase_nav</span> — NAV at purchase *</span>
-                    <span><span className="font-mono text-foreground">nav</span> — Current NAV *</span>
-                    <span><span className="font-mono text-foreground">category</span> — equity / debt / hybrid</span>
-                    <span><span className="font-mono text-foreground">sub_category</span> — flexi_cap / elss etc.</span>
-                    <span><span className="font-mono text-foreground">purchase_date</span> — YYYY-MM-DD</span>
+                    <span>
+                      <span className="font-mono text-foreground">name</span> —
+                      Fund name *
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">symbol</span>{" "}
+                      — ISIN or scheme code
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">units</span> —
+                      Number of units *
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">
+                        purchase_nav
+                      </span>{" "}
+                      — NAV at purchase *
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">nav</span> —
+                      Current NAV *
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">
+                        category
+                      </span>{" "}
+                      — equity / debt / hybrid
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">
+                        sub_category
+                      </span>{" "}
+                      — flexi_cap / elss etc.
+                    </span>
+                    <span>
+                      <span className="font-mono text-foreground">
+                        purchase_date
+                      </span>{" "}
+                      — YYYY-MM-DD
+                    </span>
                   </div>
                 )}
               </div>
@@ -1674,18 +2079,29 @@ export default function InvestmentsPage() {
                 className="border-2 border-dashed border-border rounded-xl p-10 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
                 onClick={() => importFileRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleImportFile(file); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleImportFile(file);
+                }}
               >
                 <FileSpreadsheet className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                <p className="font-medium text-foreground">Click or drag a CSV file here</p>
-                <p className="text-sm text-muted-foreground mt-1">Supports .csv files exported from any broker</p>
+                <p className="font-medium text-foreground">
+                  Click or drag a CSV file here
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Supports .csv files exported from any broker
+                </p>
               </div>
               <input
                 ref={importFileRef}
                 type="file"
                 accept=".csv,text/csv"
                 className="hidden"
-                onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImportFile(file); }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImportFile(file);
+                }}
               />
             </div>
           )}
@@ -1693,9 +2109,17 @@ export default function InvestmentsPage() {
           {importStep === "preview" && (
             <div className="space-y-4 pt-2">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">{importRows.length} row{importRows.length !== 1 ? "s" : ""} detected</p>
-                <Button variant="outline" size="sm" onClick={() => setImportStep("upload")}>
-                  <ChevronLeft className="h-4 w-4 mr-1" />Change file
+                <p className="text-sm text-muted-foreground">
+                  {importRows.length} row{importRows.length !== 1 ? "s" : ""}{" "}
+                  detected
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setImportStep("upload")}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Change file
                 </Button>
               </div>
               <div className="overflow-x-auto rounded-lg border">
@@ -1703,7 +2127,12 @@ export default function InvestmentsPage() {
                   <thead className="bg-muted/50">
                     <tr>
                       {importHeaders.map((h) => (
-                        <th key={h} className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
+                        <th
+                          key={h}
+                          className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap"
+                        >
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
@@ -1711,7 +2140,12 @@ export default function InvestmentsPage() {
                     {importRows.slice(0, 10).map((row, i) => (
                       <tr key={i} className="border-t">
                         {importHeaders.map((h) => (
-                          <td key={h} className="px-3 py-2 text-foreground whitespace-nowrap max-w-[150px] truncate">{row[h]}</td>
+                          <td
+                            key={h}
+                            className="px-3 py-2 text-foreground whitespace-nowrap max-w-[150px] truncate"
+                          >
+                            {row[h]}
+                          </td>
                         ))}
                       </tr>
                     ))}
@@ -1724,9 +2158,16 @@ export default function InvestmentsPage() {
                 )}
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setImportDialogOpen(false)}>Cancel</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setImportDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
                 <Button onClick={handleImportConfirm} disabled={importSaving}>
-                  {importSaving ? "Importing..." : `Import ${importRows.length} rows`}
+                  {importSaving
+                    ? "Importing..."
+                    : `Import ${importRows.length} rows`}
                 </Button>
               </div>
             </div>
@@ -1735,8 +2176,13 @@ export default function InvestmentsPage() {
           {importStep === "done" && (
             <div className="py-10 text-center space-y-3">
               <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
-              <p className="font-semibold text-foreground text-lg">Import Complete</p>
-              <p className="text-sm text-muted-foreground">Your {importType === "stocks" ? "stocks" : "mutual funds"} have been imported.</p>
+              <p className="font-semibold text-foreground text-lg">
+                Import Complete
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Your {importType === "stocks" ? "stocks" : "mutual funds"} have
+                been imported.
+              </p>
               <Button onClick={() => setImportDialogOpen(false)}>Done</Button>
             </div>
           )}
@@ -1881,12 +2327,7 @@ function RowActions({
 }) {
   return (
     <div className="flex gap-0.5 shrink-0">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8"
-        onClick={onEdit}
-      >
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
         <Edit2 className="h-3.5 w-3.5" />
       </Button>
       <Button
@@ -1986,6 +2427,45 @@ function StockForm({
           onChange={(e) => s("purchaseDate", e.target.value)}
         />
       </div>
+      <div className="space-y-1.5">
+        <Label>Sector</Label>
+        <Select value={form.sector} onValueChange={(v) => s("sector", v)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[
+              ["information_technology", "Information Technology"],
+              ["financial_services", "Financial Services"],
+              ["healthcare", "Healthcare & Pharma"],
+              ["fmcg", "FMCG & Consumer Goods"],
+              ["energy", "Energy & Oil/Gas"],
+              ["automobiles", "Automobiles"],
+              ["metals_mining", "Metals & Mining"],
+              ["telecom", "Telecom"],
+              ["real_estate", "Real Estate"],
+              ["infrastructure", "Infrastructure"],
+              ["power", "Power & Utilities"],
+              ["chemicals", "Chemicals"],
+              ["consumer_durables", "Consumer Durables"],
+              ["media", "Media & Entertainment"],
+              ["other", "Other"],
+            ].map(([val, label]) => (
+              <SelectItem key={val} value={val}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Sub-sector <span className="text-muted-foreground text-xs">(optional)</span></Label>
+        <Input
+          placeholder="e.g. Software, Banking, EV"
+          value={form.subSector}
+          onChange={(e) => s("subSector", e.target.value)}
+        />
+      </div>
     </div>
   );
 }
@@ -2019,21 +2499,23 @@ function MfForm({
       </div>
       <div className="space-y-1.5">
         <Label>Category</Label>
-        <Select
-          value={form.category}
-          onValueChange={(v) => s("category", v)}
-        >
+        <Select value={form.category} onValueChange={(v) => s("category", v)}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {["equity", "debt", "hybrid", "index", "international", "other"].map(
-              (c) => (
-                <SelectItem key={c} value={c}>
-                  {c.charAt(0).toUpperCase() + c.slice(1)}
-                </SelectItem>
-              ),
-            )}
+            {[
+              "equity",
+              "debt",
+              "hybrid",
+              "index",
+              "international",
+              "other",
+            ].map((c) => (
+              <SelectItem key={c} value={c}>
+                {c.charAt(0).toUpperCase() + c.slice(1)}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

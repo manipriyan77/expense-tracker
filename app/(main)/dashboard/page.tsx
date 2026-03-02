@@ -668,7 +668,6 @@ export default function Dashboard() {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
-
         {/* ── Dark Hero Band ── */}
         <div className="bg-slate-900 dark:bg-black text-white">
           <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
@@ -728,7 +727,7 @@ export default function Dashboard() {
                 </p>
               </Link>
               <Link
-                href="/planning/debt-tracker"
+                href="/debt-tracker"
                 className="px-4 py-3 hover:bg-slate-800/60 transition-colors"
               >
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
@@ -738,7 +737,7 @@ export default function Dashboard() {
                   {format(totalLiabilities)}
                 </p>
                 <p className="text-[10px] text-slate-500 mt-0.5">
-                  {liabilities.length + debts.length} items
+                  {liabilities.length} items
                 </p>
               </Link>
               <div className="px-4 py-3">
@@ -785,13 +784,14 @@ export default function Dashboard() {
         </div>
 
         <main className="px-3 sm:px-6 lg:px-8 py-4 space-y-4">
-
           {/* Goal prompt banner */}
           {hasNoGoals && !goalBannerDismissed && (
             <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 flex items-center gap-3">
               <Trophy className="h-4 w-4 text-muted-foreground shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">Set your first financial goal</p>
+                <p className="text-sm font-medium">
+                  Set your first financial goal
+                </p>
                 <p className="text-xs text-muted-foreground">
                   Goals help you stay motivated and track progress.
                 </p>
@@ -916,7 +916,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Charts row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {/* Net Worth Timeline */}
             <Card className="lg:col-span-2 rounded-lg">
               <CardHeader className="pb-2 border-b border-border px-4 pt-4">
@@ -1068,8 +1068,7 @@ export default function Dashboard() {
           </div>
 
           {/* Data row: Holdings · Cashflow · Goals */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {/* Top Holdings */}
             <Card className="rounded-lg">
               <CardHeader className="pb-0 border-b border-border px-4 pt-4">

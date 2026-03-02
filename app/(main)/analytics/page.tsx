@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -206,7 +200,10 @@ export default function AnalyticsPage() {
       .map(([key, data]) => {
         const date = new Date(key);
         return {
-          month: date.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+          month: date.toLocaleDateString("en-US", {
+            month: "short",
+            year: "2-digit",
+          }),
           year: date.getFullYear(),
           ...data,
         };
@@ -270,9 +267,10 @@ export default function AnalyticsPage() {
 
     return days.map((day) => ({
       day: day.substring(0, 3),
-      amount: dayUniqueDates[day].size > 0
-        ? dayTotals[day] / dayUniqueDates[day].size
-        : 0,
+      amount:
+        dayUniqueDates[day].size > 0
+          ? dayTotals[day] / dayUniqueDates[day].size
+          : 0,
     }));
   }, [filteredTransactions]);
 
@@ -326,7 +324,9 @@ export default function AnalyticsPage() {
       expenseTrend,
       transactionCount: filteredTransactions.length,
       avgTransactionAmount: (() => {
-        const expOnly = filteredTransactions.filter((t) => t.type === "expense");
+        const expOnly = filteredTransactions.filter(
+          (t) => t.type === "expense",
+        );
         return expOnly.length > 0
           ? expOnly.reduce((sum, t) => sum + t.amount, 0) / expOnly.length
           : 0;
@@ -590,9 +590,7 @@ export default function AnalyticsPage() {
           <div className="flex justify-between items-start mb-1">
             <span
               className={`text-sm font-medium ${
-                calIsToday(date)
-                  ? "text-primary font-bold"
-                  : "text-foreground"
+                calIsToday(date) ? "text-primary font-bold" : "text-foreground"
               }`}
             >
               {day}
@@ -669,18 +667,30 @@ export default function AnalyticsPage() {
         <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Advanced Analytics</p>
-              <p className="text-xs text-slate-500">Comprehensive insights into your financial data</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
+                Advanced Analytics
+              </p>
+              <p className="text-xs text-slate-500">
+                Comprehensive insights into your financial data
+              </p>
             </div>
             <div className="flex gap-2 items-center flex-wrap">
               <MonthlyReportDownloadButton
-                month={new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                month={new Date().toLocaleDateString("en-US", {
+                  month: "long",
+                  year: "numeric",
+                })}
                 transactions={filteredTransactions}
                 budgets={budgets}
                 goals={goals}
-                userName={(user?.user_metadata?.full_name as string) || user?.email}
+                userName={
+                  (user?.user_metadata?.full_name as string) || user?.email
+                }
               />
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <Select
+                value={selectedCategory}
+                onValueChange={setSelectedCategory}
+              >
                 <SelectTrigger className="w-36 h-8 text-xs border-slate-600 bg-slate-800 text-slate-200">
                   <SelectValue />
                 </SelectTrigger>
@@ -692,7 +702,12 @@ export default function AnalyticsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as typeof selectedPeriod)}>
+              <Select
+                value={selectedPeriod}
+                onValueChange={(v) =>
+                  setSelectedPeriod(v as typeof selectedPeriod)
+                }
+              >
                 <SelectTrigger className="w-28 h-8 text-xs border-slate-600 bg-slate-800 text-slate-200">
                   <SelectValue />
                 </SelectTrigger>
@@ -708,41 +723,82 @@ export default function AnalyticsPage() {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Income</p>
-              <p className="font-mono text-base font-semibold text-green-400">{format(statistics.income)}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{statistics.incomeTrend >= 0 ? "+" : ""}{statistics.incomeTrend.toFixed(1)}% vs last mo</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                Income
+              </p>
+              <p className="font-mono text-base font-semibold text-green-400">
+                {format(statistics.income)}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                {statistics.incomeTrend >= 0 ? "+" : ""}
+                {statistics.incomeTrend.toFixed(1)}% vs last mo
+              </p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Expenses</p>
-              <p className="font-mono text-base font-semibold text-red-400">{format(statistics.expenses)}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{statistics.expenseTrend >= 0 ? "+" : ""}{statistics.expenseTrend.toFixed(1)}% vs last mo</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                Expenses
+              </p>
+              <p className="font-mono text-base font-semibold text-red-400">
+                {format(statistics.expenses)}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                {statistics.expenseTrend >= 0 ? "+" : ""}
+                {statistics.expenseTrend.toFixed(1)}% vs last mo
+              </p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Net Balance</p>
-              <p className={`font-mono text-base font-semibold ${statistics.net >= 0 ? "text-green-400" : "text-red-400"}`}>{format(statistics.net)}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{statistics.transactionCount} transactions</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                Net Balance
+              </p>
+              <p
+                className={`font-mono text-base font-semibold ${statistics.net >= 0 ? "text-green-400" : "text-red-400"}`}
+              >
+                {format(statistics.net)}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                {statistics.transactionCount} transactions
+              </p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Savings Rate</p>
-              <p className="font-mono text-base font-semibold text-blue-400">{statistics.savingsRate.toFixed(1)}%</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">Of income saved</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                Savings Rate
+              </p>
+              <p className="font-mono text-base font-semibold text-blue-400">
+                {statistics.savingsRate.toFixed(1)}%
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                Of income saved
+              </p>
             </div>
           </div>
         </div>
       </div>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4">
-
         <Tabs defaultValue="overview" className="space-y-4">
           <div className="overflow-x-auto -mx-1 px-1">
             <TabsList className="flex w-max gap-0.5 h-9">
-              <TabsTrigger value="overview" className="text-xs px-3">Overview</TabsTrigger>
-              <TabsTrigger value="trends" className="text-xs px-3">Trends</TabsTrigger>
-              <TabsTrigger value="categories" className="text-xs px-3">Categories</TabsTrigger>
-              <TabsTrigger value="budgets" className="text-xs px-3">Budgets</TabsTrigger>
-              <TabsTrigger value="goals" className="text-xs px-3">Goals</TabsTrigger>
-              <TabsTrigger value="forecast" className="text-xs px-3">Forecast</TabsTrigger>
-              <TabsTrigger value="calendar" className="text-xs px-3">Calendar</TabsTrigger>
+              <TabsTrigger value="overview" className="text-xs px-3">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="trends" className="text-xs px-3">
+                Trends
+              </TabsTrigger>
+              <TabsTrigger value="categories" className="text-xs px-3">
+                Categories
+              </TabsTrigger>
+              <TabsTrigger value="budgets" className="text-xs px-3">
+                Budgets
+              </TabsTrigger>
+              <TabsTrigger value="goals" className="text-xs px-3">
+                Goals
+              </TabsTrigger>
+              <TabsTrigger value="forecast" className="text-xs px-3">
+                Forecast
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="text-xs px-3">
+                Calendar
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -751,25 +807,64 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Income vs Expenses Trend */}
               <Card>
-                <CardHeader>
-                  <CardTitle>Income vs Expenses Trend</CardTitle>
-                  <CardDescription>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Income vs Expenses Trend
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Monthly comparison over time
-                  </CardDescription>
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={monthlyData} barGap={2} barCategoryGap="25%">
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                      <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />
+                    <BarChart
+                      data={monthlyData}
+                      barGap={2}
+                      barCategoryGap="25%"
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--border)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="month"
+                        tick={{ fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(v) =>
+                          v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
+                        }
+                      />
                       <Tooltip
-                        contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
-                        formatter={(value: number | undefined) => value !== undefined ? format(value) : format(0)}
+                        contentStyle={{
+                          backgroundColor: "var(--card)",
+                          border: "1px solid var(--border)",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                        }}
+                        formatter={(value: number | undefined) =>
+                          value !== undefined ? format(value) : format(0)
+                        }
                       />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Bar dataKey="income" name="Income" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="expenses" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                      <Bar
+                        dataKey="income"
+                        name="Income"
+                        fill="#22c55e"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="expenses"
+                        name="Expenses"
+                        fill="#ef4444"
+                        radius={[4, 4, 0, 0]}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -778,9 +873,12 @@ export default function AnalyticsPage() {
               {/* Category Distribution */}
               <Card>
                 <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Expense Distribution</p>
-                  </div>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Expense Distribution
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Breakdown by category
+                  </p>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 pt-3">
                   <div className="flex gap-4 items-center">
@@ -801,7 +899,12 @@ export default function AnalyticsPage() {
                           ))}
                         </Pie>
                         <Tooltip
-                          contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
+                          contentStyle={{
+                            backgroundColor: "var(--card)",
+                            border: "1px solid var(--border)",
+                            borderRadius: "8px",
+                            fontSize: "12px",
+                          }}
                           formatter={(value: number | undefined) =>
                             value !== undefined ? format(value) : format(0)
                           }
@@ -810,12 +913,22 @@ export default function AnalyticsPage() {
                     </ResponsiveContainer>
                     <div className="flex-1 space-y-1.5 min-w-0">
                       {categoryData.slice(0, 7).map((cat, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs gap-2">
+                        <div
+                          key={i}
+                          className="flex items-center justify-between text-xs gap-2"
+                        >
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cat.color }} />
-                            <span className="truncate text-muted-foreground">{cat.name}</span>
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ background: cat.color }}
+                            />
+                            <span className="truncate text-muted-foreground">
+                              {cat.name}
+                            </span>
                           </div>
-                          <span className="font-mono font-medium shrink-0">{cat.percentage.toFixed(1)}%</span>
+                          <span className="font-mono font-medium shrink-0">
+                            {cat.percentage.toFixed(1)}%
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -825,16 +938,22 @@ export default function AnalyticsPage() {
 
               {/* Daily Spending Pattern */}
               <Card>
-                <CardHeader>
-                  <CardTitle>Weekly Spending Pattern</CardTitle>
-                  <CardDescription>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Weekly Spending Pattern
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Average spending by day of week
-                  </CardDescription>
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={dailyPattern}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" stroke="var(--border)" />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        className="stroke-border"
+                        stroke="var(--border)"
+                      />
                       <XAxis dataKey="day" tick={{ fontSize: 12 }} />
                       <YAxis tick={{ fontSize: 12 }} />
                       <Tooltip
@@ -854,9 +973,13 @@ export default function AnalyticsPage() {
 
               {/* Spending Radar */}
               <Card>
-                <CardHeader>
-                  <CardTitle>Category Spending Radar</CardTitle>
-                  <CardDescription>Top categories at a glance</CardDescription>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Category Spending Radar
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Top categories at a glance
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -887,34 +1010,38 @@ export default function AnalyticsPage() {
 
             {/* Top Categories List */}
             <Card>
-              <CardHeader>
-                <CardTitle>Top Spending Categories</CardTitle>
-                <CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Top Spending Categories
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Detailed breakdown of your expenses
-                </CardDescription>
+                </p>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="divide-y divide-border">
                   {categoryData.slice(0, 8).map((category) => (
-                    <div key={category.name} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
+                    <div key={category.name} className="py-2.5">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
                           <div
-                            className="w-4 h-4 rounded"
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
                             style={{ backgroundColor: category.color }}
                           />
-                          <span className="font-medium">{category.name}</span>
+                          <span className="font-medium text-sm">
+                            {category.name}
+                          </span>
                         </div>
-                        <div className="text-right">
-                          <div className="font-semibold">
-                            {format(category.value)}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-[10px] text-muted-foreground">
                             {category.percentage.toFixed(1)}%
-                          </div>
+                          </span>
+                          <span className="font-mono font-semibold text-sm">
+                            {format(category.value)}
+                          </span>
                         </div>
                       </div>
-                      <Progress value={category.percentage} className="h-2" />
+                      <Progress value={category.percentage} className="h-1.5" />
                     </div>
                   ))}
                 </div>
@@ -925,25 +1052,47 @@ export default function AnalyticsPage() {
           {/* Trends Tab */}
           <TabsContent value="trends" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Category Trends Over Time</CardTitle>
-                <CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Category Trends Over Time
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Compare category spending across months
-                </CardDescription>
+                </p>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={categoryTrends} barCategoryGap="30%" barGap={2}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <BarChart
+                    data={categoryTrends}
+                    barCategoryGap="30%"
+                    barGap={2}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="var(--border)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
                     <YAxis
                       tick={{ fontSize: 11 }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+                      tickFormatter={(v) =>
+                        v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
+                      }
                     />
                     <Tooltip
-                      contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
+                      contentStyle={{
+                        backgroundColor: "var(--card)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                      }}
                       formatter={(value: number | undefined) =>
                         value === undefined ? format(0) : format(value)
                       }
@@ -962,35 +1111,75 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-3 divide-x divide-border border rounded-xl overflow-hidden">
-              <div className="px-4 py-3">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Avg Monthly Income</p>
-                <p className="font-mono text-base font-semibold text-green-600 dark:text-green-400">{format(statistics.avgMonthlyIncome)}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Over {monthlyData.length} months</p>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Avg Monthly Expenses</p>
-                <p className="font-mono text-base font-semibold text-red-600 dark:text-red-400">{format(statistics.avgMonthlyExpenses)}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Over {monthlyData.length} months</p>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Avg Expense</p>
-                <p className="font-mono text-base font-semibold text-blue-600 dark:text-blue-400">{format(statistics.avgTransactionAmount)}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Per expense transaction</p>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Avg Monthly Income
+                  </p>
+                  <TrendingUp className="h-4 w-4 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                  <p className="font-mono font-semibold text-sm text-green-600 dark:text-green-400">
+                    {format(statistics.avgMonthlyIncome)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Based on {monthlyData.length} months
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Avg Monthly Expenses
+                  </p>
+                  <TrendingDown className="h-4 w-4 text-red-600" />
+                </CardHeader>
+                <CardContent>
+                  <p className="font-mono font-semibold text-sm text-red-600 dark:text-red-400">
+                    {format(statistics.avgMonthlyExpenses)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Based on {monthlyData.length} months
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Avg Transaction
+                  </p>
+                  <DollarSign className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <p className="font-mono font-semibold text-sm text-blue-600">
+                    {format(statistics.avgTransactionAmount)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Per transaction average
+                  </p>
+                </CardContent>
+              </Card>
             </div>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Net Cash Flow</CardTitle>
-                <CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Net Cash Flow
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Monthly surplus/deficit visualization
-                </CardDescription>
+                </p>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="var(--border)"
+                    />
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
                     <Tooltip
@@ -1016,9 +1205,13 @@ export default function AnalyticsPage() {
           <TabsContent value="categories" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card>
-                <CardHeader>
-                  <CardTitle>Expense Categories</CardTitle>
-                  <CardDescription>Detailed category breakdown</CardDescription>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Expense Categories
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Detailed category breakdown
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={400}>
@@ -1026,7 +1219,11 @@ export default function AnalyticsPage() {
                       data={categoryData.slice(0, 10)}
                       layout="vertical"
                     >
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" stroke="var(--border)" />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        className="stroke-border"
+                        stroke="var(--border)"
+                      />
                       <XAxis type="number" tick={{ fontSize: 12 }} />
                       <YAxis
                         dataKey="name"
@@ -1050,11 +1247,13 @@ export default function AnalyticsPage() {
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardTitle>Category Percentage</CardTitle>
-                  <CardDescription>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Category Percentage
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Relative spending distribution
-                  </CardDescription>
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <div className="flex gap-4 items-center">
@@ -1075,7 +1274,12 @@ export default function AnalyticsPage() {
                           ))}
                         </Pie>
                         <Tooltip
-                          contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
+                          contentStyle={{
+                            backgroundColor: "var(--card)",
+                            border: "1px solid var(--border)",
+                            borderRadius: "8px",
+                            fontSize: "12px",
+                          }}
                           formatter={(value: number | undefined) =>
                             value === undefined ? format(0) : format(value)
                           }
@@ -1084,10 +1288,20 @@ export default function AnalyticsPage() {
                     </ResponsiveContainer>
                     <div className="flex-1 space-y-2 min-w-0">
                       {categoryData.slice(0, 8).map((cat) => (
-                        <div key={cat.name} className="flex items-center gap-2 text-xs">
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cat.color }} />
-                          <span className="truncate text-muted-foreground flex-1">{cat.name}</span>
-                          <span className="font-mono font-medium shrink-0">{cat.percentage.toFixed(1)}%</span>
+                        <div
+                          key={cat.name}
+                          className="flex items-center gap-2 text-xs"
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: cat.color }}
+                          />
+                          <span className="truncate text-muted-foreground flex-1">
+                            {cat.name}
+                          </span>
+                          <span className="font-mono font-medium shrink-0">
+                            {cat.percentage.toFixed(1)}%
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -1111,9 +1325,9 @@ export default function AnalyticsPage() {
                     >
                       <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
-                          <CardTitle className="text-base">
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                             {budget.category}
-                          </CardTitle>
+                          </p>
                           {budget.status === "over" ? (
                             <AlertCircle className="h-5 w-5 text-red-600" />
                           ) : budget.status === "warning" ? (
@@ -1121,9 +1335,9 @@ export default function AnalyticsPage() {
                           ) : null}
                         </div>
                         {budget.subtype && (
-                          <CardDescription className="text-xs">
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {budget.subtype}
-                          </CardDescription>
+                          </p>
                         )}
                       </CardHeader>
                       <CardContent className="space-y-3">
@@ -1178,16 +1392,22 @@ export default function AnalyticsPage() {
                 </div>
 
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Budget Performance Overview</CardTitle>
-                    <CardDescription>
+                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Budget Performance Overview
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Compare all budgets at once
-                    </CardDescription>
+                    </p>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={350}>
                       <BarChart data={budgetAnalysis}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" stroke="var(--border)" />
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          className="stroke-border"
+                          stroke="var(--border)"
+                        />
                         <XAxis
                           dataKey="category"
                           tick={{ fontSize: 11 }}
@@ -1241,14 +1461,16 @@ export default function AnalyticsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {goalAnalysis.map((goal, idx) => (
                     <Card key={idx}>
-                      <CardHeader>
+                      <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                         <div className="flex items-center justify-between">
-                          <CardTitle className="text-base">
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                             {goal.title}
-                          </CardTitle>
+                          </p>
                           <Target className="h-5 w-5 text-blue-600" />
                         </div>
-                        <CardDescription>{goal.category}</CardDescription>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {goal.category}
+                        </p>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="space-y-2">
@@ -1279,16 +1501,22 @@ export default function AnalyticsPage() {
                 </div>
 
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Goal Progress Comparison</CardTitle>
-                    <CardDescription>
+                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Goal Progress Comparison
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Track all your goals together
-                    </CardDescription>
+                    </p>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={350}>
                       <BarChart data={goalAnalysis} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" stroke="var(--border)" />
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          className="stroke-border"
+                          stroke="var(--border)"
+                        />
                         <XAxis
                           type="number"
                           domain={[0, 100]}
@@ -1302,13 +1530,31 @@ export default function AnalyticsPage() {
                           tick={{ fontSize: 11 }}
                         />
                         <Tooltip
-                          formatter={(value: number | undefined, name: string | undefined, props: { payload?: { current: number; target: number } }) => {
+                          formatter={(
+                            value: number | undefined,
+                            name: string | undefined,
+                            props: {
+                              payload?: { current: number; target: number };
+                            },
+                          ) => {
                             const p = props.payload;
                             const label = name ?? "";
-                            if (!p) return [value != null ? `${value.toFixed(1)}%` : "0%", label];
-                            if (name === "Current") return [`${format(p.current)} (${(value ?? 0).toFixed(1)}%)`, label];
-                            if (name === "Target") return [`${format(p.target)} (100%)`, label];
-                            return [value != null ? `${value.toFixed(1)}%` : "0%", label];
+                            if (!p)
+                              return [
+                                value != null ? `${value.toFixed(1)}%` : "0%",
+                                label,
+                              ];
+                            if (name === "Current")
+                              return [
+                                `${format(p.current)} (${(value ?? 0).toFixed(1)}%)`,
+                                label,
+                              ];
+                            if (name === "Target")
+                              return [`${format(p.target)} (100%)`, label];
+                            return [
+                              value != null ? `${value.toFixed(1)}%` : "0%",
+                              label,
+                            ];
                           }}
                         />
                         <Legend />
@@ -1347,14 +1593,14 @@ export default function AnalyticsPage() {
           {/* Forecast Tab */}
           <TabsContent value="forecast" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
                   <span>Financial Forecasting</span>
-                </CardTitle>
-                <CardDescription>
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Advanced predictions using multiple forecasting models
-                </CardDescription>
+                </p>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Forecast Controls */}
@@ -1502,44 +1748,82 @@ export default function AnalyticsPage() {
                     {/* How to read the chart & table */}
                     <Card className="border-2 border-border bg-muted/50">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-base">How to read this</CardTitle>
-                        <CardDescription className="text-sm space-y-2">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          How to read this
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 space-y-2">
                           <span className="block">
-                            <strong className="text-foreground">Historical</strong> — Your real past {forecastType === "expense" ? "expenses" : "income"} (what actually happened). Shown as the blue solid line on the chart.
+                            <strong className="text-foreground">
+                              Historical
+                            </strong>{" "}
+                            — Your real past{" "}
+                            {forecastType === "expense" ? "expenses" : "income"}{" "}
+                            (what actually happened). Shown as the blue solid
+                            line on the chart.
                           </span>
                           <span className="block">
-                            <strong className="text-foreground">Forecast</strong> — What the model thinks will happen in future months. Shown as the orange dashed line.
+                            <strong className="text-foreground">
+                              Forecast
+                            </strong>{" "}
+                            — What the model thinks will happen in future
+                            months. Shown as the orange dashed line.
                           </span>
                           <span className="block">
-                            <strong className="text-foreground">Predicted</strong> — The single best guess for that month (e.g. we expect about ₹1,50,000).
+                            <strong className="text-foreground">
+                              Predicted
+                            </strong>{" "}
+                            — The single best guess for that month (e.g. we
+                            expect about ₹1,50,000).
                           </span>
                           <span className="block">
-                            <strong className="text-foreground">Lower bound</strong> — The minimum we expect (worst case). <strong className="text-foreground">Upper bound</strong> — The maximum we expect (high case). The shaded orange band on the chart is this range.
+                            <strong className="text-foreground">
+                              Lower bound
+                            </strong>{" "}
+                            — The minimum we expect (worst case).{" "}
+                            <strong className="text-foreground">
+                              Upper bound
+                            </strong>{" "}
+                            — The maximum we expect (high case). The shaded
+                            orange band on the chart is this range.
                           </span>
                           <span className="block">
-                            <strong className="text-foreground">Range</strong> — How wide that band is (± value). Bigger range = more uncertainty.
+                            <strong className="text-foreground">Range</strong> —
+                            How wide that band is (± value). Bigger range = more
+                            uncertainty.
                           </span>
-                        </CardDescription>
+                        </p>
                       </CardHeader>
                     </Card>
 
                     {/* Forecast Chart */}
                     <Card>
-                      <CardHeader>
-                        <CardTitle>Historical Data & Forecast</CardTitle>
-                        <CardDescription>
-                          Blue line = your real past data. Orange dashed line = predicted future. Shaded band = lower to upper bound.
-                        </CardDescription>
+                      <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          Historical Data & Forecast
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Blue line = your real past data. Orange dashed line =
+                          predicted future. Shaded band = lower to upper bound.
+                        </p>
                       </CardHeader>
                       <CardContent>
                         <ResponsiveContainer width="100%" height={400}>
                           <ComposedChart data={forecastData.chartData}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                            <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v))} />
+                            <YAxis
+                              tick={{ fontSize: 12 }}
+                              tickFormatter={(v) =>
+                                v >= 1000
+                                  ? `${(v / 1000).toFixed(0)}k`
+                                  : String(v)
+                              }
+                            />
                             <Tooltip
                               formatter={(value: unknown) =>
-                                value != null && typeof value === "number" ? format(value) : "N/A"
+                                value != null && typeof value === "number"
+                                  ? format(value)
+                                  : "N/A"
                               }
                               contentStyle={{
                                 backgroundColor: "var(--card)",
@@ -1576,12 +1860,22 @@ export default function AnalyticsPage() {
 
                             {/* Vertical line at forecast start */}
                             {forecastData.historicalData.length > 0 &&
-                              forecastData.chartData[forecastData.historicalData.length] && (
+                              forecastData.chartData[
+                                forecastData.historicalData.length
+                              ] && (
                                 <ReferenceLine
-                                  x={forecastData.chartData[forecastData.historicalData.length].date}
+                                  x={
+                                    forecastData.chartData[
+                                      forecastData.historicalData.length
+                                    ].date
+                                  }
                                   stroke="#94a3b8"
                                   strokeDasharray="3 3"
-                                  label={{ value: "Forecast start", position: "top", fontSize: 11 }}
+                                  label={{
+                                    value: "Forecast start",
+                                    position: "top",
+                                    fontSize: 11,
+                                  }}
                                 />
                               )}
                           </ComposedChart>
@@ -1591,11 +1885,15 @@ export default function AnalyticsPage() {
 
                     {/* Forecast Table */}
                     <Card>
-                      <CardHeader>
-                        <CardTitle>Detailed Forecast</CardTitle>
-                        <CardDescription>
-                          Month-by-month numbers: predicted value, then the low–high band (lower and upper bound), then the range (±).
-                        </CardDescription>
+                      <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          Detailed Forecast
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Month-by-month numbers: predicted value, then the
+                          low–high band (lower and upper bound), then the range
+                          (±).
+                        </p>
                       </CardHeader>
                       <CardContent>
                         <div className="overflow-x-auto">
@@ -1603,16 +1901,28 @@ export default function AnalyticsPage() {
                             <thead>
                               <tr className="border-b">
                                 <th className="text-left py-3 px-4">Month</th>
-                                <th className="text-right py-3 px-4" title="Most likely forecast for that month">
+                                <th
+                                  className="text-right py-3 px-4"
+                                  title="Most likely forecast for that month"
+                                >
                                   Predicted
                                 </th>
-                                <th className="text-right py-3 px-4" title="Minimum expected value in the confidence interval">
+                                <th
+                                  className="text-right py-3 px-4"
+                                  title="Minimum expected value in the confidence interval"
+                                >
                                   Lower Bound
                                 </th>
-                                <th className="text-right py-3 px-4" title="Maximum expected value in the confidence interval">
+                                <th
+                                  className="text-right py-3 px-4"
+                                  title="Maximum expected value in the confidence interval"
+                                >
                                   Upper Bound
                                 </th>
-                                <th className="text-right py-3 px-4" title="Half the width of the confidence interval (± around predicted)">
+                                <th
+                                  className="text-right py-3 px-4"
+                                  title="Half the width of the confidence interval (± around predicted)"
+                                >
                                   Range
                                 </th>
                               </tr>
@@ -1654,11 +1964,11 @@ export default function AnalyticsPage() {
 
                     {/* Insights & Recommendations */}
                     <Card className="border-2 border-indigo-200 bg-indigo-50">
-                      <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
+                      <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                           <AlertCircle className="h-5 w-5 text-indigo-600" />
                           <span>AI Insights</span>
-                        </CardTitle>
+                        </p>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         {forecastData.trend === "increasing" &&
@@ -1762,9 +2072,9 @@ export default function AnalyticsPage() {
                 <div className="grid gap-3 md:grid-cols-3">
                   <Card>
                     <CardHeader className="p-3 pb-0">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                         Total Income
-                      </CardTitle>
+                      </p>
                     </CardHeader>
                     <CardContent className="p-3 pt-2">
                       <div className="text-xl font-bold text-green-600">
@@ -1774,9 +2084,9 @@ export default function AnalyticsPage() {
                   </Card>
                   <Card>
                     <CardHeader className="p-3 pb-0">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                         Total Expenses
-                      </CardTitle>
+                      </p>
                     </CardHeader>
                     <CardContent className="p-3 pt-2">
                       <div className="text-xl font-bold text-red-600">
@@ -1786,9 +2096,9 @@ export default function AnalyticsPage() {
                   </Card>
                   <Card>
                     <CardHeader className="p-3 pb-0">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                         Net Balance
-                      </CardTitle>
+                      </p>
                     </CardHeader>
                     <CardContent className="p-3 pt-2">
                       <div
@@ -1804,7 +2114,7 @@ export default function AnalyticsPage() {
 
             {/* Calendar */}
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                 <div className="flex items-center justify-between">
                   <Button
                     variant="outline"

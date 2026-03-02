@@ -446,7 +446,7 @@ export default function AddTransactionForm({
           txDate,
           data.recurringFrequency as RecurringFrequency,
           data.recurringFrequency === "monthly"
-            ? data.recurringDayOfMonth ?? null
+            ? (data.recurringDayOfMonth ?? null)
             : null,
         );
         await fetch(`/api/recurring-patterns/${pattern.id}`, {
@@ -521,7 +521,12 @@ export default function AddTransactionForm({
       reset();
       onSuccess();
     } catch (error) {
-      console.error(transactionId ? "Error updating transaction:" : "Error adding transaction:", error);
+      console.error(
+        transactionId
+          ? "Error updating transaction:"
+          : "Error adding transaction:",
+        error,
+      );
       alert(
         error instanceof Error
           ? error.message
@@ -838,7 +843,10 @@ export default function AddTransactionForm({
 
         {/* Description */}
         <div className="space-y-2">
-          <Label htmlFor="description" className="text-xs font-medium flex items-center gap-1">
+          <Label
+            htmlFor="description"
+            className="text-xs font-medium flex items-center gap-1"
+          >
             Description
             <Sparkles className="h-3.5 w-3.5 text-amber-500" />
           </Label>
@@ -871,8 +879,13 @@ export default function AddTransactionForm({
               Smart categorization detected
             </p>
             <p className="text-xs text-amber-600 dark:text-amber-400">
-              Auto-map <span className="font-semibold">"{autoRuleSuggestion.category}"</span>
-              {autoRuleSuggestion.subtype && <> / {autoRuleSuggestion.subtype}</>}
+              Auto-map{" "}
+              <span className="font-semibold">
+                "{autoRuleSuggestion.category}"
+              </span>
+              {autoRuleSuggestion.subtype && (
+                <> / {autoRuleSuggestion.subtype}</>
+              )}
             </p>
           </div>
           <button
@@ -880,7 +893,8 @@ export default function AddTransactionForm({
             className="text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300 font-medium text-sm"
             onClick={() => {
               setValue("category", autoRuleSuggestion.category);
-              if (autoRuleSuggestion.subtype) setValue("subtype", autoRuleSuggestion.subtype);
+              if (autoRuleSuggestion.subtype)
+                setValue("subtype", autoRuleSuggestion.subtype);
               setAutoRuleSuggestion(null);
             }}
           >
@@ -1051,7 +1065,12 @@ export default function AddTransactionForm({
           {allBudgetsForExpense.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               No budgets created yet.{" "}
-              <a href="/budgets" target="_blank" rel="noreferrer" className="underline font-medium">
+              <a
+                href="/budgets"
+                target="_blank"
+                rel="noreferrer"
+                className="underline font-medium"
+              >
                 Create a budget
               </a>
             </p>
@@ -1060,7 +1079,10 @@ export default function AddTransactionForm({
               name="budgetId"
               control={control}
               render={({ field }) => (
-                <Select value={field.value || ""} onValueChange={(v) => field.onChange(v === "none" ? "" : v)}>
+                <Select
+                  value={field.value || ""}
+                  onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
+                >
                   <SelectTrigger className="text-sm">
                     <SelectValue placeholder="Select budget (optional)" />
                   </SelectTrigger>
@@ -1074,19 +1096,31 @@ export default function AddTransactionForm({
                           </SelectLabel>
                           {getMatchingBudgets().map((budget) => (
                             <SelectItem key={budget.id} value={budget.id}>
-                              <span className="font-medium">{budget.category}</span>
-                              {budget.subtype && <span className="text-xs text-muted-foreground ml-1">({budget.subtype})</span>}
+                              <span className="font-medium">
+                                {budget.category}
+                              </span>
+                              {budget.subtype && (
+                                <span className="text-xs text-muted-foreground ml-1">
+                                  ({budget.subtype})
+                                </span>
+                              )}
                             </SelectItem>
                           ))}
                         </SelectGroup>
                       </>
                     )}
                     {allBudgetsForExpense
-                      .filter((b) => !getMatchingBudgets().some((m) => m.id === b.id))
+                      .filter(
+                        (b) => !getMatchingBudgets().some((m) => m.id === b.id),
+                      )
                       .map((budget) => (
                         <SelectItem key={budget.id} value={budget.id}>
                           <span className="font-medium">{budget.category}</span>
-                          {budget.subtype && <span className="text-xs text-muted-foreground ml-1">({budget.subtype})</span>}
+                          {budget.subtype && (
+                            <span className="text-xs text-muted-foreground ml-1">
+                              ({budget.subtype})
+                            </span>
+                          )}
                         </SelectItem>
                       ))}
                   </SelectContent>
@@ -1104,8 +1138,12 @@ export default function AddTransactionForm({
             <div className="flex items-center gap-3">
               <Repeat className="h-5 w-5 text-muted-foreground" />
               <div>
-                <Label className="text-sm font-medium cursor-pointer">Repeat this transaction</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">Set up a recurring pattern</p>
+                <Label className="text-sm font-medium cursor-pointer">
+                  Repeat this transaction
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Set up a recurring pattern
+                </p>
               </div>
             </div>
             <Controller
@@ -1122,10 +1160,13 @@ export default function AddTransactionForm({
           </div>
 
           {isRecurring && (
-            <div className="space-y-3 pt-2 border-t border-muted-foreground/10">
+            <div className="space-y-2 pt-2 border-t border-muted-foreground/10">
               {/* Frequency */}
               <div className="space-y-2">
-                <Label htmlFor="recurringFrequency" className="text-xs font-medium">
+                <Label
+                  htmlFor="recurringFrequency"
+                  className="text-xs font-medium"
+                >
                   Frequency
                 </Label>
                 <Controller
@@ -1133,7 +1174,10 @@ export default function AddTransactionForm({
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger id="recurringFrequency" className="text-sm">
+                      <SelectTrigger
+                        id="recurringFrequency"
+                        className="text-sm"
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1152,7 +1196,10 @@ export default function AddTransactionForm({
               {/* Day of month (conditional) */}
               {recurringFrequency === "monthly" && (
                 <div className="space-y-2">
-                  <Label htmlFor="recurringDayOfMonth" className="text-xs font-medium">
+                  <Label
+                    htmlFor="recurringDayOfMonth"
+                    className="text-xs font-medium"
+                  >
                     Day of month
                   </Label>
                   <Controller
@@ -1162,14 +1209,21 @@ export default function AddTransactionForm({
                       <Select
                         value={field.value ? String(field.value) : "same"}
                         onValueChange={(v) =>
-                          field.onChange(v === "same" ? undefined : parseInt(v, 10))
+                          field.onChange(
+                            v === "same" ? undefined : parseInt(v, 10),
+                          )
                         }
                       >
-                        <SelectTrigger id="recurringDayOfMonth" className="text-sm">
+                        <SelectTrigger
+                          id="recurringDayOfMonth"
+                          className="text-sm"
+                        >
                           <SelectValue placeholder="Same as transaction date" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="same">Same as transaction date</SelectItem>
+                          <SelectItem value="same">
+                            Same as transaction date
+                          </SelectItem>
                           {Array.from({ length: 31 }, (_, i) => (
                             <SelectItem key={i} value={String(i + 1)}>
                               {i + 1}
@@ -1184,7 +1238,10 @@ export default function AddTransactionForm({
 
               {/* End date */}
               <div className="space-y-2">
-                <Label htmlFor="recurringEndDate" className="text-xs font-medium">
+                <Label
+                  htmlFor="recurringEndDate"
+                  className="text-xs font-medium"
+                >
                   End date (optional)
                 </Label>
                 <Controller
@@ -1208,83 +1265,91 @@ export default function AddTransactionForm({
       )}
 
       {/* Budget Warning (for expenses) */}
-      {transactionType === "expense" && budgetInfo && budgetInfo.budgetLimit !== undefined && (
-        <div
-          className={`rounded-lg border-2 p-4 ${
-            budgetInfo.isOverLimit
-              ? "border-red-500 bg-red-50/50 dark:bg-red-950/20"
-              : budgetInfo.isNearLimit
-                ? "border-orange-500 bg-orange-50/50 dark:bg-orange-950/20"
-                : "border-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            <AlertCircle
-              className={`h-5 w-5 shrink-0 mt-0.5 ${
-                budgetInfo.isOverLimit
-                  ? "text-red-600 dark:text-red-400"
-                  : budgetInfo.isNearLimit
-                    ? "text-orange-600 dark:text-orange-400"
-                    : "text-blue-600 dark:text-blue-400"
-              }`}
-            />
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold mb-3">Budget Status</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Limit:</span>
-                  <span className="font-semibold">{format(budgetInfo.budgetLimit)}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Spent:</span>
-                  <span className="font-semibold">{format(budgetInfo.totalSpent)}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">After this:</span>
-                  <span
-                    className={`font-semibold ${
-                      budgetInfo.isOverLimit
-                        ? "text-red-600 dark:text-red-400"
-                        : ""
-                    }`}
-                  >
-                    {format(budgetInfo.newTotal)}
-                  </span>
-                </div>
-                <div className="w-full bg-border rounded-full h-1.5 mt-2">
-                  <div
-                    className={`h-1.5 rounded-full transition-all ${
-                      budgetInfo.isOverLimit
-                        ? "bg-red-600"
-                        : budgetInfo.isNearLimit
-                          ? "bg-orange-500"
-                          : "bg-blue-600"
-                    }`}
-                    style={{
-                      width: `${Math.min(budgetInfo.percentage || 0, 100)}%`,
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-center font-medium text-muted-foreground mt-2">
-                  {(budgetInfo.percentage || 0).toFixed(0)}% used
-                </p>
-                {budgetInfo.isOverLimit && budgetInfo.remainingAmount !== undefined && (
-                  <p className="text-xs text-red-600 dark:text-red-400 font-medium">
-                    ⚠️ Will exceed by {format(Math.abs(budgetInfo.remainingAmount))}
+      {transactionType === "expense" &&
+        budgetInfo &&
+        budgetInfo.budgetLimit !== undefined && (
+          <div
+            className={`rounded-lg border-2 p-4 ${
+              budgetInfo.isOverLimit
+                ? "border-red-500 bg-red-50/50 dark:bg-red-950/20"
+                : budgetInfo.isNearLimit
+                  ? "border-orange-500 bg-orange-50/50 dark:bg-orange-950/20"
+                  : "border-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <AlertCircle
+                className={`h-5 w-5 shrink-0 mt-0.5 ${
+                  budgetInfo.isOverLimit
+                    ? "text-red-600 dark:text-red-400"
+                    : budgetInfo.isNearLimit
+                      ? "text-orange-600 dark:text-orange-400"
+                      : "text-blue-600 dark:text-blue-400"
+                }`}
+              />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold mb-3">Budget Status</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Limit:</span>
+                    <span className="font-semibold">
+                      {format(budgetInfo.budgetLimit)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Spent:</span>
+                    <span className="font-semibold">
+                      {format(budgetInfo.totalSpent)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">After this:</span>
+                    <span
+                      className={`font-semibold ${
+                        budgetInfo.isOverLimit
+                          ? "text-red-600 dark:text-red-400"
+                          : ""
+                      }`}
+                    >
+                      {format(budgetInfo.newTotal)}
+                    </span>
+                  </div>
+                  <div className="w-full bg-border rounded-full h-1.5 mt-2">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${
+                        budgetInfo.isOverLimit
+                          ? "bg-red-600"
+                          : budgetInfo.isNearLimit
+                            ? "bg-orange-500"
+                            : "bg-blue-600"
+                      }`}
+                      style={{
+                        width: `${Math.min(budgetInfo.percentage || 0, 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-center font-medium text-muted-foreground mt-2">
+                    {(budgetInfo.percentage || 0).toFixed(0)}% used
                   </p>
-                )}
-                {budgetInfo.isNearLimit &&
-                  !budgetInfo.isOverLimit &&
-                  budgetInfo.remainingAmount !== undefined && (
-                    <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">
-                      ⚠️ Remaining: {format(budgetInfo.remainingAmount)}
-                    </p>
-                  )}
+                  {budgetInfo.isOverLimit &&
+                    budgetInfo.remainingAmount !== undefined && (
+                      <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                        ⚠️ Will exceed by{" "}
+                        {format(Math.abs(budgetInfo.remainingAmount))}
+                      </p>
+                    )}
+                  {budgetInfo.isNearLimit &&
+                    !budgetInfo.isOverLimit &&
+                    budgetInfo.remainingAmount !== undefined && (
+                      <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+                        ⚠️ Remaining: {format(budgetInfo.remainingAmount)}
+                      </p>
+                    )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Link to Goal / Loan / Savings Challenge (expenses only) */}
       {showLinkToSection && (
@@ -1292,7 +1357,11 @@ export default function AddTransactionForm({
           <h3 className="text-sm font-semibold flex items-center gap-2">
             <Target className="h-4 w-4 text-muted-foreground" />
             Link to goal, loan, or savings
-            {isGoalRequired && <span className="text-xs font-normal text-amber-600 dark:text-amber-400">Required</span>}
+            {isGoalRequired && (
+              <span className="text-xs font-normal text-amber-600 dark:text-amber-400">
+                Required
+              </span>
+            )}
           </h3>
 
           {/* Goal */}
@@ -1318,7 +1387,10 @@ export default function AddTransactionForm({
                 name="goalId"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value || ""} onValueChange={(v) => field.onChange(v === "none" ? "" : v)}>
+                  <Select
+                    value={field.value || ""}
+                    onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
+                  >
                     <SelectTrigger
                       className={`text-sm ${errors.goalId ? "border-red-500" : ""}`}
                     >
@@ -1329,13 +1401,16 @@ export default function AddTransactionForm({
                       />
                     </SelectTrigger>
                     <SelectContent>
-                      {!isGoalRequired && <SelectItem value="none">No goal</SelectItem>}
+                      {!isGoalRequired && (
+                        <SelectItem value="none">No goal</SelectItem>
+                      )}
                       {goals.map((goal) => (
                         <SelectItem key={goal.id} value={goal.id}>
                           <div className="flex items-center gap-2">
                             <span>{goal.title}</span>
                             <span className="text-xs text-muted-foreground">
-                              ({format(goal.currentAmount)}/{format(goal.targetAmount)})
+                              ({format(goal.currentAmount)}/
+                              {format(goal.targetAmount)})
                             </span>
                           </div>
                         </SelectItem>
@@ -1360,7 +1435,10 @@ export default function AddTransactionForm({
               name="debtId"
               control={control}
               render={({ field }) => (
-                <Select value={field.value || ""} onValueChange={(v) => field.onChange(v === "none" ? "" : v)}>
+                <Select
+                  value={field.value || ""}
+                  onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
+                >
                   <SelectTrigger className="text-sm">
                     <SelectValue placeholder="Select a loan" />
                   </SelectTrigger>
@@ -1392,7 +1470,10 @@ export default function AddTransactionForm({
               name="savingsChallengeId"
               control={control}
               render={({ field }) => (
-                <Select value={field.value || ""} onValueChange={(v) => field.onChange(v === "none" ? "" : v)}>
+                <Select
+                  value={field.value || ""}
+                  onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
+                >
                   <SelectTrigger className="text-sm">
                     <SelectValue placeholder="Select a challenge" />
                   </SelectTrigger>
@@ -1403,7 +1484,8 @@ export default function AddTransactionForm({
                         <div className="flex items-center gap-2">
                           <span>{c.name}</span>
                           <span className="text-xs text-muted-foreground">
-                            ({format(c.current_amount)}/{format(c.target_amount)})
+                            ({format(c.current_amount)}/
+                            {format(c.target_amount)})
                           </span>
                         </div>
                       </SelectItem>
@@ -1427,9 +1509,9 @@ export default function AddTransactionForm({
         >
           Cancel
         </Button>
-        <Button 
-          type="submit" 
-          className="flex-1 bg-foreground text-background hover:bg-foreground/90" 
+        <Button
+          type="submit"
+          className="flex-1 bg-foreground text-background hover:bg-foreground/90"
           disabled={isSubmitting}
           size="lg"
         >

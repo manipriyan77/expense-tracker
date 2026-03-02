@@ -21,7 +21,7 @@ export function RecentTransactionsWidget() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 pb-1">
         <CardTitle className="text-base font-semibold">
           Recent Transactions
         </CardTitle>
@@ -32,7 +32,7 @@ export function RecentTransactionsWidget() {
           </Button>
         </Link>
       </CardHeader>
-      <CardContent className="p-3 pt-0">
+      <CardContent className="p-2 pt-0">
         {loading ? (
           <div className="space-y-2">
             <TransactionSkeleton />

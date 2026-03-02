@@ -15,9 +15,7 @@ import { useForexStore } from "@/store/forex-store";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -538,17 +536,14 @@ export default function NetWorthPage() {
 
         {/* Asset Breakdown by Category */}
         <Card className="mb-4">
-          <CardHeader className="p-3 pb-2">
-            <CardTitle className="text-base">Asset Breakdown</CardTitle>
-            <CardDescription>
-              Your assets by category - click to view details
-            </CardDescription>
+          <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Asset Breakdown</p>
+            <p className="text-xs text-muted-foreground mt-0.5">By category · click to view details</p>
           </CardHeader>
           <CardContent className="p-3">
             {totalAssets === 0 ? (
-              <p className="text-center text-muted-foreground py-3 text-sm">
-                No assets tracked yet. Add investments or manual assets to get
-                started.
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center py-6">
+                No assets tracked yet
               </p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -570,23 +565,17 @@ export default function NetWorthPage() {
                             <Link href={item.href} className="block">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                  <Icon className="h-5 w-5 text-blue-600" />
-                                  <span className="font-semibold">
-                                    {item.name}
-                                  </span>
+                                  <Icon className="h-4 w-4 text-blue-600" />
+                                  <span className="font-medium text-sm">{item.name}</span>
                                 </div>
-                                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
                               </div>
-                              <div className="text-xl font-bold text-green-600">
-                                {format(item.value)}
-                              </div>
+                              <p className="font-mono font-semibold text-sm text-green-600 dark:text-green-400">{format(item.value)}</p>
                               <div className="mt-2">
-                                <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                                  <span>{percentage.toFixed(1)}% of total</span>
-                                </div>
-                                <div className="w-full bg-muted rounded-full h-2">
+                                <span className="font-mono text-[10px] text-muted-foreground">{percentage.toFixed(1)}% of total</span>
+                                <div className="w-full bg-muted rounded-full h-1.5 mt-1">
                                   <div
-                                    className="bg-green-600 h-2 rounded-full transition-all"
+                                    className="bg-green-600 h-1.5 rounded-full transition-all"
                                     style={{ width: `${percentage}%` }}
                                   />
                                 </div>
@@ -595,21 +584,15 @@ export default function NetWorthPage() {
                           ) : (
                             <>
                               <div className="flex items-center gap-2 mb-2">
-                                <Icon className="h-5 w-5 text-muted-foreground" />
-                                <span className="font-semibold">
-                                  {item.name}
-                                </span>
+                                <Icon className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium text-sm">{item.name}</span>
                               </div>
-                              <div className="text-xl font-bold text-green-600">
-                                {format(item.value)}
-                              </div>
+                              <p className="font-mono font-semibold text-sm text-green-600 dark:text-green-400">{format(item.value)}</p>
                               <div className="mt-2">
-                                <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                                  <span>{percentage.toFixed(1)}% of total</span>
-                                </div>
-                                <div className="w-full bg-muted rounded-full h-2">
+                                <span className="font-mono text-[10px] text-muted-foreground">{percentage.toFixed(1)}% of total</span>
+                                <div className="w-full bg-muted rounded-full h-1.5 mt-1">
                                   <div
-                                    className="bg-primary h-2 rounded-full transition-all"
+                                    className="bg-primary h-1.5 rounded-full transition-all"
                                     style={{ width: `${percentage}%` }}
                                   />
                                 </div>
@@ -627,14 +610,9 @@ export default function NetWorthPage() {
 
         {/* Net Worth Trend Chart */}
         <Card className="mb-4">
-          <CardHeader className="p-3 pb-2">
-            <CardTitle className="text-base">Net Worth Trend</CardTitle>
-            <CardDescription>
-              From Jan 2026 — up to 6 months. Each point comes from: a snapshot
-              saved that month (e.g. &quot;Snapshot on Jan 10, 2026&quot;),
-              current net worth for the current month, or the last snapshot
-              carried forward. Hover a point to see its source.
-            </CardDescription>
+          <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Net Worth Trend</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Up to 6 months · hover a point to see source</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -724,7 +702,7 @@ export default function NetWorthPage() {
 
           <TabsContent value="assets" className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Your Assets</h3>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Your Assets</p>
               <Dialog open={isAddAssetOpen} onOpenChange={setIsAddAssetOpen}>
                 <DialogTrigger asChild>
                   <Button>
@@ -804,22 +782,22 @@ export default function NetWorthPage() {
                   key={asset.id}
                   className="hover:shadow-md transition-shadow"
                 >
-                  <CardContent className="p-4">
+                  <CardContent className="p-3">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="p-3 bg-green-100 rounded-full">
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-green-100 dark:bg-green-950/40 rounded-full">
                           {getAssetIcon(asset.type)}
                         </div>
                         <div>
-                          <h4 className="font-semibold">{asset.name}</h4>
-                          <p className="text-sm text-muted-foreground capitalize">
-                            {asset.type}
+                          <p className="font-medium text-sm">{asset.name}</p>
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                            {asset.type.replace("_", " ")}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         <div className="text-right">
-                          <p className="text-lg font-bold text-green-600">
+                          <p className="font-mono font-semibold text-sm text-green-600 dark:text-green-400">
                             {format(asset.value)}
                           </p>
                         </div>
@@ -870,7 +848,7 @@ export default function NetWorthPage() {
 
           <TabsContent value="liabilities" className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Your Liabilities</h3>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Your Liabilities</p>
               <Dialog
                 open={isAddLiabilityOpen}
                 onOpenChange={setIsAddLiabilityOpen}
@@ -980,24 +958,24 @@ export default function NetWorthPage() {
                   key={liability.id}
                   className="hover:shadow-md transition-shadow border-red-100"
                 >
-                  <CardContent className="p-4">
+                  <CardContent className="p-3">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="p-3 bg-red-100 rounded-full">
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-red-100 dark:bg-red-950/40 rounded-full">
                           {getLiabilityIcon(liability.type)}
                         </div>
                         <div>
-                          <h4 className="font-semibold">{liability.name}</h4>
-                          <p className="text-sm text-muted-foreground capitalize">
+                          <p className="font-medium text-sm">{liability.name}</p>
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                             {liability.type.replace("_", " ")}
                             {liability.interest_rate &&
-                              ` • ${liability.interest_rate}% APR`}
+                              ` · ${liability.interest_rate}% APR`}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         <div className="text-right">
-                          <p className="text-lg font-bold text-red-600">
+                          <p className="font-mono font-semibold text-sm text-red-600 dark:text-red-400">
                             {format(liability.balance)}
                           </p>
                         </div>
@@ -1048,18 +1026,16 @@ export default function NetWorthPage() {
 
           <TabsContent value="breakdown">
             <Card>
-              <CardHeader>
-                <CardTitle>Asset & Liability Breakdown</CardTitle>
-                <CardDescription>
-                  Detailed view of your financial position
-                </CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Asset & Liability Breakdown</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Detailed view of your financial position</p>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   <div>
                     <div className="flex justify-between mb-2">
-                      <h4 className="font-semibold text-green-600">Assets</h4>
-                      <span className="font-semibold text-green-600">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Assets</p>
+                      <span className="font-mono font-semibold text-sm text-green-600 dark:text-green-400">
                         {format(totalAssets)}
                       </span>
                     </div>
@@ -1069,15 +1045,15 @@ export default function NetWorthPage() {
                         totalAssets > 0 ? (asset.value / totalAssets) * 100 : 0;
                       return (
                         <div key={asset.id} className="mb-3">
-                          <div className="flex justify-between text-sm mb-1">
-                            <span>{asset.name}</span>
-                            <span className="text-muted-foreground">
-                              {format(asset.value)} ({percentage.toFixed(1)}%)
+                          <div className="flex justify-between mb-1">
+                            <span className="font-medium text-sm">{asset.name}</span>
+                            <span className="font-mono text-[10px] text-muted-foreground">
+                              {format(asset.value)} · {percentage.toFixed(1)}%
                             </span>
                           </div>
-                          <div className="w-full bg-muted rounded-full h-2">
+                          <div className="w-full bg-muted rounded-full h-1.5">
                             <div
-                              className="bg-green-600 h-2 rounded-full"
+                              className="bg-green-600 h-1.5 rounded-full"
                               style={{ width: `${percentage}%` }}
                             />
                           </div>
@@ -1094,15 +1070,15 @@ export default function NetWorthPage() {
                             : 0;
                         return (
                           <div key={item.name} className="mb-3">
-                            <div className="flex justify-between text-sm mb-1">
-                              <span>{item.name}</span>
-                              <span className="text-muted-foreground">
-                                {format(item.value)} ({percentage.toFixed(1)}%)
+                            <div className="flex justify-between mb-1">
+                              <span className="font-medium text-sm">{item.name}</span>
+                              <span className="font-mono text-[10px] text-muted-foreground">
+                                {format(item.value)} · {percentage.toFixed(1)}%
                               </span>
                             </div>
-                            <div className="w-full bg-muted rounded-full h-2">
+                            <div className="w-full bg-muted rounded-full h-1.5">
                               <div
-                                className="bg-green-600 h-2 rounded-full"
+                                className="bg-green-600 h-1.5 rounded-full"
                                 style={{ width: `${percentage}%` }}
                               />
                             </div>
@@ -1113,10 +1089,8 @@ export default function NetWorthPage() {
 
                   <div className="pt-4 border-t">
                     <div className="flex justify-between mb-2">
-                      <h4 className="font-semibold text-red-600">
-                        Liabilities
-                      </h4>
-                      <span className="font-semibold text-red-600">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Liabilities</p>
+                      <span className="font-mono font-semibold text-sm text-red-600 dark:text-red-400">
                         {format(totalLiabilities)}
                       </span>
                     </div>
@@ -1125,15 +1099,15 @@ export default function NetWorthPage() {
                         (liability.balance / totalLiabilities) * 100;
                       return (
                         <div key={liability.id} className="mb-3">
-                          <div className="flex justify-between text-sm mb-1">
-                            <span>{liability.name}</span>
-                            <span className="text-muted-foreground">
+                          <div className="flex justify-between mb-1">
+                            <span className="font-medium text-sm">{liability.name}</span>
+                            <span className="font-mono text-[10px] text-muted-foreground">
                               {percentage.toFixed(1)}%
                             </span>
                           </div>
-                          <div className="w-full bg-muted rounded-full h-2">
+                          <div className="w-full bg-muted rounded-full h-1.5">
                             <div
-                              className="bg-red-600 h-2 rounded-full"
+                              className="bg-red-600 h-1.5 rounded-full"
                               style={{ width: `${percentage}%` }}
                             />
                           </div>
@@ -1149,13 +1123,13 @@ export default function NetWorthPage() {
           {/* Allocation Tab */}
           <TabsContent value="allocation" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Asset Allocation</CardTitle>
-                <CardDescription>Distribution of investments by asset class</CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Asset Allocation</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Distribution of investments by asset class</p>
               </CardHeader>
               <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center p-3">
                 {allocationItems.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-6 w-full">No asset data yet. Add investments to see allocation.</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center py-6 w-full">No asset data yet</p>
                 ) : (
                   <>
                     <div className="h-80">
@@ -1174,12 +1148,12 @@ export default function NetWorthPage() {
                         const total = allocationItems.reduce((s, i) => s + i.value, 0);
                         const share = total ? ((item.value / total) * 100).toFixed(1) : "0";
                         return (
-                          <div key={item.name} className="flex items-center justify-between border rounded-lg p-3">
+                          <div key={item.name} className="flex items-center justify-between px-3 py-2.5 border-b border-border last:border-0">
                             <div className="flex items-center gap-3">
-                              <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
-                              <div><p className="font-semibold text-foreground">{item.name}</p><p className="text-xs text-muted-foreground">{share}% of assets</p></div>
+                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
+                              <div><p className="font-medium text-sm">{item.name}</p><p className="text-[10px] text-muted-foreground">{share}% of assets</p></div>
                             </div>
-                            <p className="font-semibold text-foreground">{format(item.value)}</p>
+                            <p className="font-mono font-semibold text-sm">{format(item.value)}</p>
                           </div>
                         );
                       })}
@@ -1191,10 +1165,10 @@ export default function NetWorthPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <Card>
-                <CardHeader><CardTitle>Mutual Funds by Category</CardTitle><CardDescription>Breakdown of MF current value</CardDescription></CardHeader>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4"><p className="text-[10px] uppercase tracking-widest text-muted-foreground">Mutual Funds by Category</p><p className="text-xs text-muted-foreground mt-0.5">Breakdown of MF current value</p></CardHeader>
                 <CardContent>
                   {mutualFundCategories.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-4">No mutual fund data yet.</p>
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center py-4">No mutual fund data yet</p>
                   ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
                       <div className="h-64">
@@ -1210,12 +1184,12 @@ export default function NetWorthPage() {
                       </div>
                       <div className="space-y-2">
                         {mutualFundCategories.map((item, idx) => (
-                          <div key={item.name} className="flex items-center justify-between border rounded-lg p-3">
+                          <div key={item.name} className="flex items-center justify-between px-3 py-2.5 border-b border-border last:border-0">
                             <div className="flex items-center gap-3">
-                              <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
-                              <p className="font-semibold text-foreground">{item.name}</p>
+                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
+                              <p className="font-medium text-sm">{item.name}</p>
                             </div>
-                            <p className="font-semibold text-foreground">{format(item.value)}</p>
+                            <p className="font-mono font-semibold text-sm">{format(item.value)}</p>
                           </div>
                         ))}
                       </div>
@@ -1225,10 +1199,10 @@ export default function NetWorthPage() {
               </Card>
 
               <Card>
-                <CardHeader><CardTitle>Stocks by Sector</CardTitle><CardDescription>Breakdown of stock current value</CardDescription></CardHeader>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4"><p className="text-[10px] uppercase tracking-widest text-muted-foreground">Stocks by Sector</p><p className="text-xs text-muted-foreground mt-0.5">Breakdown of stock current value</p></CardHeader>
                 <CardContent>
                   {stockSectors.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-4">No stock data yet.</p>
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center py-4">No stock data yet</p>
                   ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
                       <div className="h-64">
@@ -1244,12 +1218,12 @@ export default function NetWorthPage() {
                       </div>
                       <div className="space-y-2">
                         {stockSectors.map((item, idx) => (
-                          <div key={item.name} className="flex items-center justify-between border rounded-lg p-3">
+                          <div key={item.name} className="flex items-center justify-between px-3 py-2.5 border-b border-border last:border-0">
                             <div className="flex items-center gap-3">
-                              <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
-                              <p className="font-semibold text-foreground">{item.name}</p>
+                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
+                              <p className="font-medium text-sm">{item.name}</p>
                             </div>
-                            <p className="font-semibold text-foreground">{format(item.value)}</p>
+                            <p className="font-mono font-semibold text-sm">{format(item.value)}</p>
                           </div>
                         ))}
                       </div>

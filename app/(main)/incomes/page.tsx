@@ -136,7 +136,43 @@ export default function IncomesPage() {
             </div>
           </div>
         </div>
-      </div>
+      </header>
+
+      <main className="px-4 sm:px-6 lg:px-8 py-4">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 pb-0">
+              <CardTitle className="text-sm font-medium">
+                Total Income
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="p-2 pt-1.5">
+              <div className="text-xl font-bold text-green-600">
+                {format(totalIncome)}
+              </div>
+              <p className="text-xs text-muted-foreground">This month</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
+              <CardTitle className="text-sm font-medium">
+                Monthly Average
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent className="p-3 pt-2">
+              <div className="text-xl font-bold text-green-600">
+                {format(monthlyAverage)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Based on {incomes.length} transactions
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
       <main className="px-3 sm:px-6 lg:px-8 py-4">
         {/* Add Income Button */}

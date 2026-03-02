@@ -8,9 +8,7 @@ import { useAuthStore } from "@/store/auth-store";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -120,11 +118,11 @@ export default function SettingsPage() {
           {/* General Settings */}
           <TabsContent value="general" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
-                <CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Profile Information</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Update your personal information
-                </CardDescription>
+                </p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -150,9 +148,9 @@ export default function SettingsPage() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Data Management</CardTitle>
-                <CardDescription>Export or delete your data</CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Data Management</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Export or delete your data</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -202,11 +200,11 @@ export default function SettingsPage() {
           {/* Appearance Settings */}
           <TabsContent value="appearance" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Theme</CardTitle>
-                <CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Theme</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Customize the appearance of the application
-                </CardDescription>
+                </p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="pt-2">
@@ -237,11 +235,11 @@ export default function SettingsPage() {
           {/* Currency Settings */}
           <TabsContent value="currency" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Currency Settings</CardTitle>
-                <CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Currency Settings</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Manage your currency preferences
-                </CardDescription>
+                </p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -278,48 +276,50 @@ export default function SettingsPage() {
           {/* Categories & Tags */}
           <TabsContent value="categories" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Custom Categories</CardTitle>
-                <CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Custom Categories</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Add and manage your expense categories
-                </CardDescription>
+                </p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex space-x-2">
                   <Input placeholder="New category name" />
                   <Button>Add</Button>
                 </div>
-                <div className="space-y-2">
-                  {[
-                    "Food",
-                    "Transportation",
-                    "Entertainment",
-                    "Bills",
-                    "Shopping",
-                  ].map((category) => (
-                    <div
-                      key={category}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-3 h-3 rounded-full bg-blue-600" />
-                        <span>{category}</span>
+                <Card className="overflow-hidden p-0">
+                  <div className="divide-y divide-border">
+                    {[
+                      "Food",
+                      "Transportation",
+                      "Entertainment",
+                      "Bills",
+                      "Shopping",
+                    ].map((category) => (
+                      <div
+                        key={category}
+                        className="flex items-center justify-between px-4 py-2.5"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0" />
+                          <span className="font-medium text-sm">{category}</span>
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                        </Button>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </Card>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Tags</CardTitle>
-                <CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Tags</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Create tags to organize your transactions
-                </CardDescription>
+                </p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex space-x-2">
@@ -349,14 +349,14 @@ export default function SettingsPage() {
           {/* Auto-Categorization Rules */}
           <TabsContent value="autorules" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                   <Zap className="h-4 w-4 text-yellow-500" />
                   Auto-Categorization Rules
-                </CardTitle>
-                <CardDescription>
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Keywords that auto-fill category when adding a transaction
-                </CardDescription>
+                </p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -390,35 +390,38 @@ export default function SettingsPage() {
                 </Button>
 
                 {rules.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No rules yet. Add your first rule above.
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center py-6">
+                    No rules yet
                   </p>
                 ) : (
-                  <div className="space-y-2">
-                    {rules.map((rule) => (
-                      <div
-                        key={rule.id}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Zap className="h-3 w-3 text-yellow-500" />
-                          <span className="font-medium text-sm">{rule.keyword}</span>
-                          <span className="text-muted-foreground text-xs">→</span>
-                          <span className="text-sm">{rule.category}</span>
-                          {rule.subtype && (
-                            <span className="text-xs text-muted-foreground">/ {rule.subtype}</span>
-                          )}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteRule(rule.id)}
+                  <Card className="overflow-hidden p-0">
+                    <div className="divide-y divide-border">
+                      {rules.map((rule) => (
+                        <div
+                          key={rule.id}
+                          className="flex items-center justify-between px-4 py-2.5"
                         >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Zap className="h-3 w-3 text-yellow-500 shrink-0" />
+                            <span className="font-medium text-sm">{rule.keyword}</span>
+                            <span className="text-[10px] text-muted-foreground">→</span>
+                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{rule.category}</span>
+                            {rule.subtype && (
+                              <span className="text-[10px] text-muted-foreground">· {rule.subtype}</span>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => deleteRule(rule.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
                 )}
               </CardContent>
             </Card>
@@ -427,11 +430,11 @@ export default function SettingsPage() {
           {/* Notifications */}
           <TabsContent value="notifications" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Notification Preferences</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Choose how you want to be notified
-                </CardDescription>
+                </p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -483,9 +486,9 @@ export default function SettingsPage() {
           {/* Security */}
           <TabsContent value="security" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Security Settings</CardTitle>
-                <CardDescription>Manage your account security</CardDescription>
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Security Settings</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Manage your account security</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">

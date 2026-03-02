@@ -21,6 +21,7 @@ interface GoldState {
   addHolding: (payload: Omit<GoldHolding, "id">) => Promise<void>;
   updateHolding: (id: string, updates: Partial<GoldHolding>) => Promise<void>;
   deleteHolding: (id: string) => Promise<void>;
+  updateAllGoldPrices: (newPrice: number) => Promise<void>;
   load: () => Promise<void>;
 }
 
@@ -41,7 +42,8 @@ export const useGoldStore = create<GoldState>((set, get) => ({
       set({ holdings: data ?? [], loading: false });
     } catch (err) {
       set({
-        error: err instanceof Error ? err.message : "Failed to load gold holdings",
+        error:
+          err instanceof Error ? err.message : "Failed to load gold holdings",
         holdings: [],
         loading: false,
       });
@@ -64,7 +66,8 @@ export const useGoldStore = create<GoldState>((set, get) => ({
       set({ holdings: [added, ...get().holdings] });
     } catch (err) {
       set({
-        error: err instanceof Error ? err.message : "Failed to add gold holding",
+        error:
+          err instanceof Error ? err.message : "Failed to add gold holding",
       });
       throw err;
     }
@@ -110,6 +113,35 @@ export const useGoldStore = create<GoldState>((set, get) => ({
       set({
         error:
           err instanceof Error ? err.message : "Failed to delete gold holding",
+      });
+      throw err;
+    }
+  },
+
+  updateAllGoldPrices: async (newPrice) => {
+    set({ error: null });
+    try {
+      const updatedHoldings = get().holdings.map((h) => ({
+        ...h,
+        currentPricePerGram: newPrice,
+      }));
+
+      // Update all holdings in parallel
+      await Promise.all(
+        get().holdings.map((h) =>
+          fetch(`/api/gold/${h.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ currentPricePerGram: newPrice }),
+          }),
+        ),
+      );
+
+      set({ holdings: updatedHoldings });
+    } catch (err) {
+      set({
+        error:
+          err instanceof Error ? err.message : "Failed to update gold prices",
       });
       throw err;
     }

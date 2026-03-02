@@ -168,7 +168,7 @@ export default function BudgetDetailsModal({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-sm text-gray-600">Category</p>
                     <p className="text-lg font-semibold">{budget.category}</p>
@@ -241,7 +241,7 @@ export default function BudgetDetailsModal({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-3">
                   <div className="text-center p-4 bg-red-50 rounded-lg">
                     <p className="text-sm text-gray-600">Spent</p>
                     <p className="text-2xl font-bold text-red-600">

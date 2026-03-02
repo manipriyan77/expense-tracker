@@ -148,7 +148,7 @@ export default function GoalDetailsModal({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-sm text-gray-600">Category</p>
                     <p className="text-lg font-semibold">{goal.category}</p>
@@ -213,7 +213,7 @@ export default function GoalDetailsModal({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-3">
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
                     <p className="text-sm text-gray-600">Current Amount</p>
                     <p className="text-2xl font-bold text-blue-600">
