@@ -23,24 +23,33 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
+  ComposedChart,
+  Area,
   Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip as RechartTooltip,
   ResponsiveContainer,
-  Legend,
+  ReferenceLine,
 } from "recharts";
 import {
   TrendingUp,
   TrendingDown,
   Target as TargetIcon,
   ArrowRight,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
   Trophy,
   Wallet,
   Camera,
   X,
+  PiggyBank,
+  Receipt,
+  Landmark,
+  BarChart3,
+  Lightbulb,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { useTransactionsStore } from "@/store/transactions-store";
@@ -51,6 +60,7 @@ import { useStocksStore } from "@/store/stocks-store";
 import { useMutualFundsStore } from "@/store/mutual-funds-store";
 import { useGoldStore } from "@/store/gold-store";
 import { useForexStore } from "@/store/forex-store";
+import { useBudgetsStore } from "@/store/budgets-store";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { RecentTransactionsWidget } from "@/components/dashboard/RecentTransactionsWidget";
 import { QuickAddButton } from "@/components/QuickAddButton";
@@ -59,6 +69,196 @@ import { StatsSkeleton } from "@/components/ui/skeleton";
 // financial health card removed
 // achievements removed from dashboard
 // import { StreaksBadges } from "@/components/streaks-badges";
+
+// ── Financial Health Score helpers (module-level to avoid cognitive complexity) ──
+// 5 pillars, 25+20+20+15+20 = 100 pts max
+function scoreSavings(savingsRate: number): number {
+  if (savingsRate >= 20) return 25;
+  if (savingsRate >= 15) return 20;
+  if (savingsRate >= 10) return 15;
+  if (savingsRate >= 5) return 10;
+  if (savingsRate > 0) return 5;
+  return 0;
+}
+function scoreBudget(budgetCount: number, underCount: number): number {
+  if (budgetCount === 0) return 12;
+  const rate = (underCount / budgetCount) * 100;
+  if (rate >= 100) return 20;
+  if (rate >= 80) return 16;
+  if (rate >= 60) return 12;
+  if (rate >= 40) return 8;
+  if (rate >= 20) return 4;
+  return 0;
+}
+function scoreDebt(hasAssets: boolean, debtRatio: number): number {
+  if (!hasAssets) return 12;
+  if (debtRatio < 10) return 20;
+  if (debtRatio < 20) return 16;
+  if (debtRatio < 30) return 12;
+  if (debtRatio < 50) return 8;
+  if (debtRatio < 80) return 4;
+  return 0;
+}
+function scoreGoals(avgPct: number | null): number {
+  if (avgPct === null) return 8;
+  if (avgPct >= 75) return 15;
+  if (avgPct >= 50) return 12;
+  if (avgPct >= 25) return 9;
+  if (avgPct >= 10) return 6;
+  return 3;
+}
+function scoreInvestments(activeTypes: number): number {
+  if (activeTypes >= 3) return 20;
+  if (activeTypes >= 2) return 15;
+  if (activeTypes >= 1) return 10;
+  return 5;
+}
+function gradeFromTotal(total: number): string {
+  if (total >= 85) return "A";
+  if (total >= 70) return "B";
+  if (total >= 55) return "C";
+  if (total >= 40) return "D";
+  return "F";
+}
+function gradeLabelFromTotal(total: number): string {
+  if (total >= 85) return "Excellent";
+  if (total >= 70) return "Good";
+  if (total >= 55) return "Fair";
+  if (total >= 40) return "Needs Work";
+  return "Critical";
+}
+function gradeColorFromTotal(total: number): string {
+  if (total >= 85) return "text-green-400";
+  if (total >= 70) return "text-emerald-400";
+  if (total >= 55) return "text-amber-400";
+  if (total >= 40) return "text-orange-400";
+  return "text-red-400";
+}
+function ringColorFromTotal(total: number): string {
+  if (total >= 85) return "#22c55e";
+  if (total >= 70) return "#10b981";
+  if (total >= 55) return "#f59e0b";
+  if (total >= 40) return "#f97316";
+  return "#ef4444";
+}
+function pillarRatioColor(pts: number, max: number): string {
+  const r = pts / max;
+  if (r >= 0.8) return "#22c55e";
+  if (r >= 0.6) return "#10b981";
+  if (r >= 0.4) return "#f59e0b";
+  if (r >= 0.2) return "#f97316";
+  return "#ef4444";
+}
+function trendColorClass(delta: number | null): string {
+  if (delta === null || delta === 0) return "text-slate-500";
+  return delta > 0 ? "text-green-400" : "text-red-400";
+}
+function trendStr(delta: number | null): string {
+  if (delta === null || delta === 0) return "Same as last month";
+  return delta > 0 ? `+${delta} vs last month` : `${delta} vs last month`;
+}
+function tipSavings(rate: number): string {
+  if (rate < 15) return `Savings rate ${rate.toFixed(1)}% — aim for 15%+ to earn top score`;
+  return "";
+}
+function tipBudget(count: number, underCount: number): string {
+  if (count === 0) return "Set spending budgets to unlock the Budget score";
+  if (underCount < count) return `${count - underCount} budget(s) are over limit — review spending`;
+  return "";
+}
+function tipDebt(ratio: number): string {
+  if (ratio >= 30) return `Debt ratio ${ratio.toFixed(1)}% — pay down debt to aim under 30%`;
+  return "";
+}
+function tipGoals(avgPct: number | null): string {
+  if (avgPct === null) return "Add financial goals to track your progress";
+  if (avgPct < 25) return "Goals are early-stage — keep contributing regularly";
+  return "";
+}
+function tipInvestments(types: number): string {
+  if (types === 0) return "Start investing to diversify and grow your wealth";
+  if (types === 1) return "Diversify across stocks, mutual funds, gold, or forex";
+  return "";
+}
+function getTopTips(items: Array<{ ratio: number; tip: string }>): string[] {
+  return items
+    .filter((t) => t.ratio < 0.75 && t.tip.length > 0)
+    .sort((a, b) => a.ratio - b.ratio)
+    .slice(0, 2)
+    .map((t) => t.tip);
+}
+
+const PILLAR_ICONS = {
+  Savings: PiggyBank,
+  Budgets: Receipt,
+  Debt: Landmark,
+  Goals: TargetIcon,
+  Investments: BarChart3,
+};
+
+const PILLAR_INFO: Record<string, { description: string; how: string }> = {
+  Savings: {
+    description: "% of monthly income you save after all expenses.",
+    how: "Aim for 15%+ savings rate. Cut discretionary spending or add income streams.",
+  },
+  Budgets: {
+    description: "How many of your budget categories stay within their spending limits.",
+    how: "Review overspent categories and tighten limits. Set budgets if you haven't yet.",
+  },
+  Debt: {
+    description: "Your total liabilities as a percentage of total assets (debt-to-asset ratio).",
+    how: "Pay down high-interest debt first. Aim to keep debt below 30% of assets.",
+  },
+  Goals: {
+    description: "Average completion % across all active financial goals.",
+    how: "Create goals and contribute consistently. Even small monthly amounts compound fast.",
+  },
+  Investments: {
+    description: "Number of investment asset types you actively hold (stocks, MF, gold, forex).",
+    how: "Diversify across 3+ asset types. Start with index funds or gold SIP for easy diversification.",
+  },
+};
+
+const PILLAR_RANGES: Record<string, string[]> = {
+  Savings: [
+    "≥ 20% saved  →  25 / 25 pts",
+    "15 – 20%     →  20 / 25 pts",
+    "10 – 15%     →  15 / 25 pts",
+    " 5 – 10%     →  10 / 25 pts",
+    " > 0%         →   5 / 25 pts",
+    "0% or less   →   0 / 25 pts",
+  ],
+  Budgets: [
+    "All under limit  →  20 / 20 pts",
+    "≥ 80% under      →  16 / 20 pts",
+    "≥ 60% under      →  12 / 20 pts",
+    "≥ 40% under      →   8 / 20 pts",
+    "≥ 20% under      →   4 / 20 pts",
+    "None set          →  12 / 20 pts (neutral)",
+  ],
+  Debt: [
+    "Debt < 10% of assets  →  20 / 20 pts",
+    "10 – 20%               →  16 / 20 pts",
+    "20 – 30%               →  12 / 20 pts",
+    "30 – 50%               →   8 / 20 pts",
+    "50 – 80%               →   4 / 20 pts",
+    "≥ 80% or no assets     →  12 / 20 pts (neutral)",
+  ],
+  Goals: [
+    "≥ 75% avg progress  →  15 / 15 pts",
+    "50 – 75%             →  12 / 15 pts",
+    "25 – 50%             →   9 / 15 pts",
+    "10 – 25%             →   6 / 15 pts",
+    "< 10%                →   3 / 15 pts",
+    "No goals             →   8 / 15 pts (neutral)",
+  ],
+  Investments: [
+    "3 + types  →  20 / 20 pts",
+    "2 types    →  15 / 20 pts",
+    "1 type     →  10 / 20 pts",
+    "None       →   5 / 20 pts",
+  ],
+};
 
 const ALLOCATION_COLORS = [
   "#16a34a",
@@ -86,6 +286,7 @@ export default function Dashboard() {
     createSnapshot,
   } = useNetWorthStore();
   const { debts, fetchDebts } = useDebtTrackerStore();
+  const { budgets, fetchBudgets } = useBudgetsStore();
   const { stocks, fetchStocks } = useStocksStore();
   const { mutualFunds, fetchMutualFunds } = useMutualFundsStore();
   const { holdings: goldHoldings, load: loadGold } = useGoldStore();
@@ -106,6 +307,7 @@ export default function Dashboard() {
     fetchMutualFunds();
     loadGold();
     loadForex();
+    fetchBudgets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -167,6 +369,140 @@ export default function Dashboard() {
   const netWorth = totalAssets - totalLiabilities;
   const debtRatio =
     totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
+
+  // Financial Health Score (0–100, 5 pillars: 25+20+20+15+20)
+  const healthScore = useMemo(() => {
+    const savingsRate =
+      currentMonthIncome > 0
+        ? ((currentMonthIncome - currentMonthExpenses) / currentMonthIncome) * 100
+        : 0;
+
+    // Previous month data for trend indicator
+    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    const prevTxs = transactions.filter((t) => {
+      const d = new Date(t.date);
+      return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+    });
+    const prevIncome = prevTxs
+      .filter((t) => t.type === "income")
+      .reduce((s, t) => s + t.amount, 0);
+    const prevExpenses = prevTxs
+      .filter((t) => t.type === "expense")
+      .reduce((s, t) => s + t.amount, 0);
+    const prevSavingsRate =
+      prevIncome > 0 ? ((prevIncome - prevExpenses) / prevIncome) * 100 : 0;
+
+    const budgetUnderCount = budgets.filter(
+      (b) => (b.spent_amount || 0) <= b.limit_amount,
+    ).length;
+
+    const activeGoalsForScore = goals.filter((g) => g.status === "active");
+    const avgGoalPct =
+      activeGoalsForScore.length > 0
+        ? activeGoalsForScore.reduce(
+            (sum, g) =>
+              sum + Math.min((g.currentAmount / g.targetAmount) * 100, 100),
+            0,
+          ) / activeGoalsForScore.length
+        : null;
+
+    const investTypes = [stocksValue, mfValue, goldValue, forexValue].filter(
+      (v) => v > 0,
+    ).length;
+
+    const savingsPts = scoreSavings(savingsRate);
+    const budgetPts = scoreBudget(budgets.length, budgetUnderCount);
+    const debtPts = scoreDebt(totalAssets > 0, debtRatio);
+    const goalPts = scoreGoals(avgGoalPct);
+    const investPts = scoreInvestments(investTypes);
+    const total = savingsPts + budgetPts + debtPts + goalPts + investPts;
+
+    // Trend vs last month (savings pillar is the only one with historical tx data)
+    const hasPrevData = prevTxs.length > 0;
+    const prevTotal = hasPrevData
+      ? scoreSavings(prevSavingsRate) + budgetPts + debtPts + goalPts + investPts
+      : null;
+    const trend = prevTotal === null ? null : total - prevTotal;
+
+    const investTypeSuffix = investTypes > 1 ? "s" : "";
+    const investLabel =
+      investTypes === 0 ? "None" : `${investTypes} type${investTypeSuffix}`;
+
+    const components = [
+      {
+        label: "Savings",
+        pts: savingsPts,
+        max: 25,
+        value: currentMonthIncome > 0 ? `${savingsRate.toFixed(1)}%` : "—",
+        color: pillarRatioColor(savingsPts, 25),
+        tip: tipSavings(savingsRate),
+      },
+      {
+        label: "Budgets",
+        pts: budgetPts,
+        max: 20,
+        value: budgets.length > 0 ? `${budgetUnderCount}/${budgets.length}` : "—",
+        color: pillarRatioColor(budgetPts, 20),
+        tip: tipBudget(budgets.length, budgetUnderCount),
+      },
+      {
+        label: "Debt",
+        pts: debtPts,
+        max: 20,
+        value: totalAssets > 0 ? `${debtRatio.toFixed(1)}%` : "—",
+        color: pillarRatioColor(debtPts, 20),
+        tip: tipDebt(debtRatio),
+      },
+      {
+        label: "Goals",
+        pts: goalPts,
+        max: 15,
+        value: avgGoalPct === null ? "—" : `${avgGoalPct.toFixed(0)}%`,
+        color: pillarRatioColor(goalPts, 15),
+        tip: tipGoals(avgGoalPct),
+      },
+      {
+        label: "Investments",
+        pts: investPts,
+        max: 20,
+        value: investLabel,
+        color: pillarRatioColor(investPts, 20),
+        tip: tipInvestments(investTypes),
+      },
+    ];
+
+    const tips = getTopTips(
+      components.map((c) => ({ ratio: c.pts / c.max, tip: c.tip })),
+    );
+
+    return {
+      total,
+      grade: gradeFromTotal(total),
+      gradeLabel: gradeLabelFromTotal(total),
+      gradeColor: gradeColorFromTotal(total),
+      ringColor: ringColorFromTotal(total),
+      trend,
+      trendColor: trendColorClass(trend),
+      trendText: trendStr(trend),
+      components,
+      tips,
+    };
+  }, [
+    currentMonthIncome,
+    currentMonthExpenses,
+    transactions,
+    budgets,
+    totalAssets,
+    debtRatio,
+    goals,
+    currentMonth,
+    currentYear,
+    stocksValue,
+    mfValue,
+    goldValue,
+    forexValue,
+  ]);
 
   // Investment totals (used in allocation, investment cards)
   // these values already computed above for net worth but recomputing here keeps logic grouped
@@ -476,6 +812,109 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Financial Health Score */}
+          <Card className="rounded-lg overflow-hidden">
+            <div className="flex flex-col sm:flex-row">
+              {/* Score panel */}
+              <div className="bg-slate-900 dark:bg-black text-white px-6 py-5 flex items-center gap-5 sm:w-52 shrink-0">
+                <div className="relative w-[72px] h-[72px] shrink-0">
+                  <svg viewBox="0 0 36 36" className="absolute inset-0 w-full h-full -rotate-90">
+                    <circle cx="18" cy="18" r="15.915" stroke="#1e293b" strokeWidth="3" fill="none" />
+                    <circle
+                      cx="18" cy="18" r="15.915"
+                      stroke={healthScore.ringColor}
+                      strokeWidth="3" fill="none"
+                      strokeDasharray={`${healthScore.total} ${100 - healthScore.total}`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-xl font-mono font-bold leading-none">{healthScore.total}</span>
+                    <span className="text-[9px] text-slate-500 mt-0.5">/ 100</span>
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Health Score</p>
+                  <p className={`text-4xl font-bold font-mono leading-none ${healthScore.gradeColor}`}>{healthScore.grade}</p>
+                  <p className="text-xs text-slate-400 mt-1">{healthScore.gradeLabel}</p>
+                  {healthScore.trend !== null && (
+                    <div className="flex items-center gap-1 mt-2">
+                      {healthScore.trend > 0 && <ArrowUpRight className="h-3 w-3 text-green-400" />}
+                      {healthScore.trend < 0 && <ArrowDownRight className="h-3 w-3 text-red-400" />}
+                      {healthScore.trend === 0 && <Minus className="h-3 w-3 text-slate-500" />}
+                      <span className={`text-[10px] font-mono ${healthScore.trendColor}`}>
+                        {healthScore.trendText}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 5 Pillars */}
+              <div className="flex-1 px-5 py-4 space-y-3">
+                {healthScore.components.map((c) => {
+                  const PillarIcon = PILLAR_ICONS[c.label as keyof typeof PILLAR_ICONS] ?? BarChart3;
+                  const info = PILLAR_INFO[c.label];
+                  const ranges = PILLAR_RANGES[c.label] ?? [];
+                  return (
+                    <div key={c.label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground cursor-help select-none">
+                              <PillarIcon className="h-3 w-3" />
+                              {c.label}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-[240px] p-3 space-y-2">
+                            <p className="font-semibold text-xs">{c.label}</p>
+                            {info && <p className="text-[11px] text-muted-foreground leading-relaxed">{info.description}</p>}
+                            {ranges.length > 0 && (
+                              <div className="border-t border-border pt-2 space-y-0.5">
+                                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Scoring</p>
+                                {ranges.map((r) => (
+                                  <p key={r} className="text-[10px] font-mono text-muted-foreground">{r}</p>
+                                ))}
+                              </div>
+                            )}
+                            {info?.how && (
+                              <div className="border-t border-border pt-2 flex items-start gap-1.5">
+                                <Lightbulb className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
+                                <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">{info.how}</p>
+                              </div>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-xs font-mono font-semibold">{c.value}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">{c.pts}/{c.max}</span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${(c.pts / c.max) * 100}%`, backgroundColor: c.color }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tips strip */}
+            {healthScore.tips.length > 0 && (
+              <div className="border-t border-border bg-muted/30 px-5 py-3 space-y-1.5">
+                {healthScore.tips.map((tip) => (
+                  <div key={tip} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <Lightbulb className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    <span>{tip}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
           {/* Charts row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Net Worth Timeline */}
@@ -496,49 +935,29 @@ export default function Dashboard() {
               <CardContent className="pt-3 px-4 pb-4">
                 {nwChartData.length > 1 ? (
                   <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={nwChartData}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        className="stroke-muted"
-                      />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fontSize: 11 }}
-                        className="text-muted-foreground"
-                      />
-                      <YAxis
-                        tickFormatter={formatShort}
-                        tick={{ fontSize: 11 }}
-                        className="text-muted-foreground"
-                      />
+                    <ComposedChart data={nwChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="assetsGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.18} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="liabGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={formatShort} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={48} />
+                      <ReferenceLine y={0} stroke="var(--border)" strokeDasharray="3 3" />
                       <RechartTooltip
+                        contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
                         formatter={(v: unknown) => [format(v as number)]}
                       />
-                      <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Line
-                        type="monotone"
-                        dataKey="Net Worth"
-                        stroke="#22c55e"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="Assets"
-                        stroke="#3b82f6"
-                        strokeWidth={1.5}
-                        dot={false}
-                        strokeDasharray="4 2"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="Liabilities"
-                        stroke="#ef4444"
-                        strokeWidth={1.5}
-                        dot={false}
-                        strokeDasharray="4 2"
-                      />
-                    </LineChart>
+                      <Area type="monotone" dataKey="Assets" stroke="#3b82f6" strokeWidth={1.5} fill="url(#assetsGrad)" dot={false} />
+                      <Area type="monotone" dataKey="Liabilities" stroke="#ef4444" strokeWidth={1.5} fill="url(#liabGrad)" dot={false} />
+                      <Line type="monotone" dataKey="Net Worth" stroke="#22c55e" strokeWidth={2.5} dot={false} />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-[220px] flex flex-col items-center justify-center text-muted-foreground gap-2">

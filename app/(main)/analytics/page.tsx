@@ -17,7 +17,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  LineChart,
   Line,
   BarChart,
   Bar,
@@ -30,8 +29,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  AreaChart,
-  Area,
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
@@ -44,7 +41,6 @@ import {
   TrendingUp,
   TrendingDown,
   Calendar,
-  DollarSign,
   Loader2,
   Target,
   AlertCircle,
@@ -191,10 +187,6 @@ export default function AnalyticsPage() {
     filteredTransactions.forEach((t) => {
       const date = new Date(t.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const monthName = date.toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-      });
 
       if (!months[monthKey]) {
         months[monthKey] = { income: 0, expenses: 0, net: 0 };
@@ -214,7 +206,7 @@ export default function AnalyticsPage() {
       .map(([key, data]) => {
         const date = new Date(key);
         return {
-          month: date.toLocaleDateString("en-US", { month: "short" }),
+          month: date.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
           year: date.getFullYear(),
           ...data,
         };
@@ -249,7 +241,7 @@ export default function AnalyticsPage() {
       });
   }, [filteredTransactions]);
 
-  // Calculate daily spending pattern
+  // Calculate average daily spending pattern (average spend per occurrence of that weekday)
   const dailyPattern = useMemo(() => {
     const days = [
       "Sunday",
@@ -260,20 +252,27 @@ export default function AnalyticsPage() {
       "Friday",
       "Saturday",
     ];
-    const dayData: Record<string, number> = {};
+    const dayTotals: Record<string, number> = {};
+    const dayUniqueDates: Record<string, Set<string>> = {};
 
-    days.forEach((day) => (dayData[day] = 0));
+    days.forEach((day) => {
+      dayTotals[day] = 0;
+      dayUniqueDates[day] = new Set();
+    });
 
     filteredTransactions
       .filter((t) => t.type === "expense")
       .forEach((t) => {
         const dayName = days[new Date(t.date).getDay()];
-        dayData[dayName] += t.amount;
+        dayTotals[dayName] += t.amount;
+        dayUniqueDates[dayName].add(t.date.substring(0, 10));
       });
 
     return days.map((day) => ({
       day: day.substring(0, 3),
-      amount: dayData[day],
+      amount: dayUniqueDates[day].size > 0
+        ? dayTotals[day] / dayUniqueDates[day].size
+        : 0,
     }));
   }, [filteredTransactions]);
 
@@ -301,16 +300,16 @@ export default function AnalyticsPage() {
           monthlyData.length
         : 0;
 
-    // Calculate trends
+    // Calculate trends (guard against division by zero)
     const recentMonths = monthlyData.slice(-2);
     const incomeTrend =
-      recentMonths.length === 2
+      recentMonths.length === 2 && recentMonths[0].income > 0
         ? ((recentMonths[1].income - recentMonths[0].income) /
             recentMonths[0].income) *
           100
         : 0;
     const expenseTrend =
-      recentMonths.length === 2
+      recentMonths.length === 2 && recentMonths[0].expenses > 0
         ? ((recentMonths[1].expenses - recentMonths[0].expenses) /
             recentMonths[0].expenses) *
           100
@@ -326,11 +325,12 @@ export default function AnalyticsPage() {
       incomeTrend,
       expenseTrend,
       transactionCount: filteredTransactions.length,
-      avgTransactionAmount:
-        filteredTransactions.length > 0
-          ? filteredTransactions.reduce((sum, t) => sum + t.amount, 0) /
-            filteredTransactions.length
-          : 0,
+      avgTransactionAmount: (() => {
+        const expOnly = filteredTransactions.filter((t) => t.type === "expense");
+        return expOnly.length > 0
+          ? expOnly.reduce((sum, t) => sum + t.amount, 0) / expOnly.length
+          : 0;
+      })(),
     };
   }, [filteredTransactions, monthlyData]);
 
@@ -734,15 +734,17 @@ export default function AnalyticsPage() {
       <main className="px-4 sm:px-6 lg:px-8 py-4">
 
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7 lg:w-auto">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="trends">Trends</TabsTrigger>
-            <TabsTrigger value="categories">Categories</TabsTrigger>
-            <TabsTrigger value="budgets">Budget Analysis</TabsTrigger>
-            <TabsTrigger value="goals">Goal Tracking</TabsTrigger>
-            <TabsTrigger value="forecast">Forecast</TabsTrigger>
-            <TabsTrigger value="calendar">Calendar</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-1 px-1">
+            <TabsList className="flex w-max gap-0.5 h-9">
+              <TabsTrigger value="overview" className="text-xs px-3">Overview</TabsTrigger>
+              <TabsTrigger value="trends" className="text-xs px-3">Trends</TabsTrigger>
+              <TabsTrigger value="categories" className="text-xs px-3">Categories</TabsTrigger>
+              <TabsTrigger value="budgets" className="text-xs px-3">Budgets</TabsTrigger>
+              <TabsTrigger value="goals" className="text-xs px-3">Goals</TabsTrigger>
+              <TabsTrigger value="forecast" className="text-xs px-3">Forecast</TabsTrigger>
+              <TabsTrigger value="calendar" className="text-xs px-3">Calendar</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4">
@@ -756,79 +758,68 @@ export default function AnalyticsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart data={monthlyData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={monthlyData} barGap={2} barCategoryGap="25%">
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />
                       <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#fff",
-                          border: "1px solid #e5e7eb",
-                        }}
-                        formatter={(value: number | undefined) =>
-                          value !== undefined ? format(value) : format(0)
-                        }
+                        contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
+                        formatter={(value: number | undefined) => value !== undefined ? format(value) : format(0)}
                       />
-                      <Legend />
-                      <Area
-                        type="monotone"
-                        dataKey="income"
-                        fill="#22c55e"
-                        stroke="#22c55e"
-                        fillOpacity={0.3}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="expenses"
-                        fill="#ef4444"
-                        stroke="#ef4444"
-                        fillOpacity={0.3}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="net"
-                        stroke="#6366f1"
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                      />
-                    </ComposedChart>
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      <Bar dataKey="income" name="Income" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="expenses" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
 
               {/* Category Distribution */}
               <Card>
-                <CardHeader>
-                  <CardTitle>Expense Distribution</CardTitle>
-                  <CardDescription>Breakdown by category</CardDescription>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Expense Distribution</p>
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={categoryData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) =>
-                          `${name} ${percent ? (percent * 100).toFixed(0) : "0"}%`
-                        }
-                        outerRadius={90}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {categoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: number | undefined) =>
-                          value !== undefined ? format(value) : format(0)
-                        }
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <CardContent className="px-4 pb-4 pt-3">
+                  <div className="flex gap-4 items-center">
+                    <ResponsiveContainer width={160} height={160}>
+                      <PieChart>
+                        <Pie
+                          data={categoryData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={45}
+                          outerRadius={70}
+                          paddingAngle={2}
+                          dataKey="value"
+                          labelLine={false}
+                        >
+                          {categoryData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
+                          formatter={(value: number | undefined) =>
+                            value !== undefined ? format(value) : format(0)
+                          }
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      {categoryData.slice(0, 7).map((cat, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cat.color }} />
+                            <span className="truncate text-muted-foreground">{cat.name}</span>
+                          </div>
+                          <span className="font-mono font-medium shrink-0">{cat.percentage.toFixed(1)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -843,7 +834,7 @@ export default function AnalyticsPage() {
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={dailyPattern}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" stroke="var(--border)" />
                       <XAxis dataKey="day" tick={{ fontSize: 12 }} />
                       <YAxis tick={{ fontSize: 12 }} />
                       <Tooltip
@@ -870,7 +861,7 @@ export default function AnalyticsPage() {
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <RadarChart data={radarData}>
-                      <PolarGrid stroke="#e5e7eb" />
+                      <PolarGrid stroke="var(--border)" />
                       <PolarAngleAxis
                         dataKey="category"
                         tick={{ fontSize: 11 }}
@@ -942,82 +933,51 @@ export default function AnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={400}>
-                  <LineChart data={categoryTrends}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
+                  <BarChart data={categoryTrends} barCategoryGap="30%" barGap={2}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+                    />
                     <Tooltip
+                      contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
                       formatter={(value: number | undefined) =>
-                        value !== undefined ? format(value) : format(0)
+                        value === undefined ? format(0) : format(value)
                       }
                     />
-                    <Legend />
-                    {categoryData.slice(0, 5).map((cat, idx) => (
-                      <Line
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    {categoryData.slice(0, 5).map((cat) => (
+                      <Bar
                         key={cat.name}
-                        type="monotone"
                         dataKey={cat.name}
-                        stroke={cat.color}
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
+                        fill={cat.color}
+                        radius={[4, 4, 0, 0]}
                       />
                     ))}
-                  </LineChart>
+                  </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Avg Monthly Income
-                  </CardTitle>
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600">
-                    {format(statistics.avgMonthlyIncome)}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Based on {monthlyData.length} months
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Avg Monthly Expenses
-                  </CardTitle>
-                  <TrendingDown className="h-4 w-4 text-red-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-red-600">
-                    {format(statistics.avgMonthlyExpenses)}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Based on {monthlyData.length} months
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Avg Transaction
-                  </CardTitle>
-                  <DollarSign className="h-4 w-4 text-blue-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">
-                    {format(statistics.avgTransactionAmount)}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Per transaction average
-                  </p>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-3 divide-x divide-border border rounded-xl overflow-hidden">
+              <div className="px-4 py-3">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Avg Monthly Income</p>
+                <p className="font-mono text-base font-semibold text-green-600 dark:text-green-400">{format(statistics.avgMonthlyIncome)}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Over {monthlyData.length} months</p>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Avg Monthly Expenses</p>
+                <p className="font-mono text-base font-semibold text-red-600 dark:text-red-400">{format(statistics.avgMonthlyExpenses)}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Over {monthlyData.length} months</p>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Avg Expense</p>
+                <p className="font-mono text-base font-semibold text-blue-600 dark:text-blue-400">{format(statistics.avgTransactionAmount)}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Per expense transaction</p>
+              </div>
             </div>
 
             <Card>
@@ -1030,7 +990,7 @@ export default function AnalyticsPage() {
               <CardContent>
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
                     <Tooltip
@@ -1066,7 +1026,7 @@ export default function AnalyticsPage() {
                       data={categoryData.slice(0, 10)}
                       layout="vertical"
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" stroke="var(--border)" />
                       <XAxis type="number" tick={{ fontSize: 12 }} />
                       <YAxis
                         dataKey="name"
@@ -1097,31 +1057,41 @@ export default function AnalyticsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <PieChart>
-                      <Pie
-                        data={categoryData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={true}
-                        label={({ name, percent }) =>
-                          `${name}: ${percent ? (percent * 100).toFixed(1) : "0"}%`
-                        }
-                        outerRadius={120}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {categoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: number | undefined) =>
-                          value !== undefined ? format(value) : format(0)
-                        }
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <div className="flex gap-4 items-center">
+                    <ResponsiveContainer width={200} height={200}>
+                      <PieChart>
+                        <Pie
+                          data={categoryData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={55}
+                          outerRadius={88}
+                          paddingAngle={2}
+                          dataKey="value"
+                          labelLine={false}
+                        >
+                          {categoryData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
+                          formatter={(value: number | undefined) =>
+                            value === undefined ? format(0) : format(value)
+                          }
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="flex-1 space-y-2 min-w-0">
+                      {categoryData.slice(0, 8).map((cat) => (
+                        <div key={cat.name} className="flex items-center gap-2 text-xs">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cat.color }} />
+                          <span className="truncate text-muted-foreground flex-1">{cat.name}</span>
+                          <span className="font-mono font-medium shrink-0">{cat.percentage.toFixed(1)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -1217,7 +1187,7 @@ export default function AnalyticsPage() {
                   <CardContent>
                     <ResponsiveContainer width="100%" height={350}>
                       <BarChart data={budgetAnalysis}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" stroke="var(--border)" />
                         <XAxis
                           dataKey="category"
                           tick={{ fontSize: 11 }}
@@ -1318,7 +1288,7 @@ export default function AnalyticsPage() {
                   <CardContent>
                     <ResponsiveContainer width="100%" height={350}>
                       <BarChart data={goalAnalysis} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" stroke="var(--border)" />
                         <XAxis
                           type="number"
                           domain={[0, 100]}
@@ -1572,30 +1542,14 @@ export default function AnalyticsPage() {
                                 value != null && typeof value === "number" ? format(value) : "N/A"
                               }
                               contentStyle={{
-                                backgroundColor: "white",
-                                border: "1px solid #e5e7eb",
+                                backgroundColor: "var(--card)",
+                                border: "1px solid var(--border)",
+                                borderRadius: "8px",
+                                fontSize: "12px",
                               }}
                               labelStyle={{ fontWeight: 600 }}
                             />
                             <Legend />
-
-                            {/* Confidence band: upper fill first, then lower with background to show only band between lower–upper */}
-                            <Area
-                              type="monotone"
-                              dataKey="upper"
-                              stroke="none"
-                              fill="#fbbf24"
-                              fillOpacity={0.25}
-                              name="Upper Bound"
-                            />
-                            <Area
-                              type="monotone"
-                              dataKey="lower"
-                              stroke="none"
-                              fill="#f9fafb"
-                              fillOpacity={1}
-                              name="Lower Bound"
-                            />
 
                             {/* Historical data (blue) */}
                             <Line

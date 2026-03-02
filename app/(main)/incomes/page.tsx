@@ -26,7 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, DollarSign, TrendingUp, Calendar } from "lucide-react";
+import { Plus, TrendingUp, Calendar } from "lucide-react";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 interface Income {
@@ -116,51 +116,29 @@ export default function IncomesPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card shadow-sm border-b">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
-            <h1 className="text-xl font-bold text-gray-900">Incomes</h1>
+      {/* Dark Hero Band */}
+      <div className="bg-slate-900 dark:bg-black text-white">
+        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+          <div className="mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Incomes</p>
+            <p className="text-xs text-slate-500">Track and manage your income sources</p>
+          </div>
+          <div className="grid grid-cols-2 divide-x divide-slate-700/60 border-t border-slate-700/60">
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Income</p>
+              <p className="font-mono text-base font-semibold text-green-400">{format(totalIncome)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">This month</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Avg per Transaction</p>
+              <p className="font-mono text-base font-semibold text-slate-200">{format(monthlyAverage)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{incomes.length} transactions</p>
+            </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-4">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Total Income
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-green-600">
-                {format(totalIncome)}
-              </div>
-              <p className="text-xs text-muted-foreground">This month</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Monthly Average
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-green-600">
-                {format(monthlyAverage)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Based on {incomes.length} transactions
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
+      <main className="px-3 sm:px-6 lg:px-8 py-4">
         {/* Add Income Button */}
         <div className="mb-4">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
