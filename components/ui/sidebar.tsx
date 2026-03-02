@@ -11,22 +11,14 @@ import {
   ChevronDown,
   ChevronUp,
   Home,
-  Target,
-  BarChart3,
   Wallet,
   X,
   PieChart,
-  CreditCard,
   Settings,
   ArrowLeftRight,
   TrendingUp,
-  Gem,
-  PieChart as PieChartIcon,
   Eye,
   EyeOff,
-  Receipt,
-  Repeat,
-  Lightbulb,
 } from "lucide-react";
 import { Button } from "./button";
 import { usePrivacyStore } from "@/store/privacy-store";
@@ -61,46 +53,9 @@ const sidebarItems: SidebarItem[] = [
     icon: TrendingUp,
   },
   {
-    title: "Cashflow",
+    title: "Cashflow & Planning",
+    href: "/cashflow-planning",
     icon: ArrowLeftRight,
-    subItems: [
-      {
-        title: "Transactions",
-        href: "/transactions",
-        icon: Receipt,
-      },
-      {
-        title: "Recurring & Bills",
-        href: "/recurring",
-        icon: Repeat,
-      },
-      {
-        title: "Insights",
-        href: "/insights",
-        icon: Lightbulb,
-      },
-    ],
-  },
-  {
-    title: "Planning",
-    icon: Target,
-    subItems: [
-      {
-        title: "Goals",
-        href: "/goals",
-        icon: Target,
-      },
-      {
-        title: "Budgets",
-        href: "/budgets",
-        icon: CreditCard,
-      },
-      {
-        title: "Debt Tracker",
-        href: "/debt-tracker",
-        icon: CreditCard,
-      },
-    ],
   },
   {
     title: "Analytics",
@@ -128,8 +83,6 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([
     "Investments",
-    "Cashflow",
-    "Planning",
   ]);
   const pathname = usePathname();
   const { amountsHidden, toggleAmountsHidden, hydrateFromStorage } =
