@@ -40,7 +40,7 @@ export default function MainLayout({
   }
 
   return (
-    <div className="flex min-h-screen w-full min-w-0">
+    <div className="flex h-screen w-full min-w-0 overflow-hidden">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -59,7 +59,7 @@ export default function MainLayout({
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className="flex items-center gap-2 px-3 py-2 border-b bg-card shrink-0 md:hidden sticky top-0 z-30">
           <Button
             variant="ghost"
@@ -77,7 +77,7 @@ export default function MainLayout({
             Expense Tracker
           </Link>
         </header>
-        <main id="main-content" className="flex-1 min-w-0 overflow-x-hidden" tabIndex={-1}>{children}</main>
+        <main id="main-content" className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden" tabIndex={-1}>{children}</main>
       </div>
     </div>
   );

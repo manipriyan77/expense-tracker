@@ -105,12 +105,11 @@ export function Sidebar({
   return (
     <div
       className={cn(
-        "relative flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 text-sidebar-foreground shrink-0",
-        "fixed left-0 top-0 z-50 h-full -translate-x-full md:relative md:translate-x-0 md:z-auto",
+        "flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 text-sidebar-foreground shrink-0",
+        "fixed left-0 top-0 z-50 h-full -translate-x-full md:relative md:translate-x-0 md:z-auto md:h-full overflow-y-auto",
         mobileOpen && "translate-x-0",
         "w-64",
         isCollapsed && "md:w-16",
-        "min-h-full",
         className
       )}
     >
