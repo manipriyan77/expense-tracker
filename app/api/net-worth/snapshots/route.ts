@@ -97,22 +97,51 @@ export async function POST() {
       liabilities?.reduce((sum, l) => sum + Number(l.balance || 0), 0) || 0;
     const netWorth = totalAssets - totalLiabilities;
 
-    // Create snapshot
+    // Upsert snapshot for today — update if a snapshot already exists for this date
+    const today = new Date().toISOString().split('T')[0];
     const { data, error } = await supabase
       .from("net_worth_snapshots")
-      .insert([{
-        user_id: user.id,
-        date: new Date().toISOString().split('T')[0],
-        total_assets: totalAssets,
-        total_liabilities: totalLiabilities,
-        net_worth: netWorth,
-      }])
+      .upsert(
+        [{
+          user_id: user.id,
+          date: today,
+          total_assets: totalAssets,
+          total_liabilities: totalLiabilities,
+          net_worth: netWorth,
+        }],
+        { onConflict: "user_id,date" }
+      )
       .select()
       .single();
 
     if (error) throw error;
 
     return NextResponse.json(data);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE() {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { error } = await supabase
+      .from("net_worth_snapshots")
+      .delete()
+      .eq("user_id", user.id);
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(
       { error: (error as Error).message },

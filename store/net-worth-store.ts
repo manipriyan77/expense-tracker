@@ -57,6 +57,7 @@ interface NetWorthState {
   deleteAsset: (id: string) => Promise<void>;
   deleteLiability: (id: string) => Promise<void>;
   createSnapshot: () => Promise<void>;
+  clearSnapshots: () => Promise<void>;
 }
 
 export const useNetWorthStore = create<NetWorthState>((set, get) => ({
@@ -205,7 +206,24 @@ export const useNetWorthStore = create<NetWorthState>((set, get) => ({
       });
       if (!response.ok) throw new Error("Failed to create snapshot");
       const snapshot = await response.json();
-      set({ snapshots: [...get().snapshots, snapshot] });
+      // Replace existing snapshot for today if present, otherwise append
+      const existing = get().snapshots;
+      const idx = existing.findIndex((s) => s.date === snapshot.date);
+      set({
+        snapshots: idx >= 0
+          ? existing.map((s, i) => (i === idx ? snapshot : s))
+          : [...existing, snapshot],
+      });
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
+  clearSnapshots: async () => {
+    try {
+      const response = await fetch("/api/net-worth/snapshots", { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed to clear snapshots");
+      set({ snapshots: [] });
     } catch (error) {
       set({ error: (error as Error).message });
     }

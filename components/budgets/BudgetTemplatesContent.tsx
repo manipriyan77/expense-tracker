@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -261,6 +262,7 @@ const DEFAULT_CATEGORIES = [
   "Children",
   "Gifts",
   "Travel",
+  "Loans",
   "Other",
 ];
 

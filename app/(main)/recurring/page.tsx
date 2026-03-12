@@ -48,6 +48,7 @@ import {
   Receipt,
   AlertCircle,
   Clock,
+  Pencil,
 } from "lucide-react";
 import type { Transaction } from "@/store/transactions-store";
 import {
@@ -55,6 +56,7 @@ import {
   type RecurringPattern,
 } from "@/store/recurring-patterns-store";
 import { useTransactionsStore } from "@/store/transactions-store";
+import { useGoalsStore } from "@/store/goals-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 export default function RecurringPage() {
@@ -70,13 +72,30 @@ export default function RecurringPage() {
   } = useRecurringPatternsStore();
   const { transactions: allTransactions, fetchTransactions } =
     useTransactionsStore();
+  const { goals, fetchGoals } = useGoalsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingPattern, setEditingPattern] = useState<RecurringPattern | null>(null);
   const [showCategoryInput, setShowCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [creatingTransaction, setCreatingTransaction] = useState<string | null>(
     null,
   );
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    type: "expense" as "income" | "expense",
+    amount: "",
+    description: "",
+    category: "",
+    subtype: "",
+    frequency: "monthly" as "daily" | "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly",
+    day_of_month: "" as string | number,
+    start_date: "",
+    end_date: "",
+    auto_create: false,
+    linked_goal_id: "",
+  });
   const [formData, setFormData] = useState({
     name: "",
     type: "expense" as "income" | "expense",
@@ -95,12 +114,14 @@ export default function RecurringPage() {
     start_date: new Date().toISOString().split("T")[0],
     end_date: "",
     auto_create: false,
+    linked_goal_id: "",
   });
 
   useEffect(() => {
     fetchPatterns();
     fetchTransactions();
-  }, [fetchPatterns, fetchTransactions]);
+    fetchGoals();
+  }, [fetchPatterns, fetchTransactions, fetchGoals]);
 
   // Smart detection: Find potential recurring transactions
   const potentialRecurring = useMemo(() => {
@@ -259,6 +280,7 @@ export default function RecurringPage() {
         next_date: nextDateStr,
         is_active: true,
         auto_create: formData.auto_create,
+        linked_goal_id: formData.linked_goal_id || null,
         tags: [],
         notes: null,
       });
@@ -275,6 +297,7 @@ export default function RecurringPage() {
         start_date: new Date().toISOString().split("T")[0],
         end_date: "",
         auto_create: false,
+        linked_goal_id: "",
       });
       setIsAddDialogOpen(false);
     } catch (err) {
@@ -316,6 +339,57 @@ export default function RecurringPage() {
       toast.success("Pattern deleted successfully");
     } catch {
       toast.error("Failed to delete pattern");
+    }
+  };
+
+  const handleOpenEdit = (pattern: RecurringPattern) => {
+    setEditingPattern(pattern);
+    setEditFormData({
+      name: pattern.name,
+      type: pattern.type,
+      amount: String(pattern.amount),
+      description: pattern.description,
+      category: pattern.category,
+      subtype: pattern.subtype || "",
+      frequency: pattern.frequency,
+      day_of_month: pattern.day_of_month ?? "",
+      start_date: pattern.start_date,
+      end_date: pattern.end_date || "",
+      auto_create: pattern.auto_create,
+      linked_goal_id: pattern.linked_goal_id || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdatePattern = async () => {
+    if (!editingPattern || !editFormData.amount || !editFormData.description || !editFormData.category || !editFormData.name) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    const dayOfMonth =
+      editFormData.frequency === "monthly" && editFormData.day_of_month !== ""
+        ? Math.min(31, Math.max(1, Number(editFormData.day_of_month) || 0))
+        : null;
+    try {
+      await updatePattern(editingPattern.id, {
+        name: editFormData.name,
+        type: editFormData.type,
+        amount: parseFloat(editFormData.amount),
+        description: editFormData.description,
+        category: editFormData.category,
+        subtype: editFormData.subtype || "Other",
+        frequency: editFormData.frequency,
+        day_of_month: dayOfMonth,
+        start_date: editFormData.start_date,
+        end_date: editFormData.end_date || null,
+        auto_create: editFormData.auto_create,
+        linked_goal_id: editFormData.linked_goal_id || null,
+      });
+      toast.success("Pattern updated successfully!");
+      setIsEditDialogOpen(false);
+      setEditingPattern(null);
+    } catch {
+      toast.error("Failed to update pattern");
     }
   };
 
@@ -933,6 +1007,35 @@ export default function RecurringPage() {
                       />
                     </div>
 
+                    {goals.filter((g) => g.status === "active").length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Link to Goal (optional)</Label>
+                        <Select
+                          value={formData.linked_goal_id || "none"}
+                          onValueChange={(v) =>
+                            setFormData({ ...formData, linked_goal_id: v === "none" ? "" : v })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="No goal linked" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No goal linked</SelectItem>
+                            {goals
+                              .filter((g) => g.status === "active")
+                              .map((g) => (
+                                <SelectItem key={g.id} value={g.id}>
+                                  {g.title}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          When auto-created, this transaction will contribute to the selected goal.
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex items-center space-x-2">
                       <Switch
                         id="auto_create"
@@ -957,6 +1060,187 @@ export default function RecurringPage() {
                 </DialogContent>
               </Dialog>
             </div>
+
+            {/* Edit Dialog */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Recurring Pattern</DialogTitle>
+                  <DialogDescription>
+                    Update the details of this recurring transaction.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Pattern Name *</Label>
+                    <Input
+                      placeholder="e.g., Monthly Rent"
+                      value={editFormData.name}
+                      onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <Select
+                      value={editFormData.type}
+                      onValueChange={(value: "income" | "expense") =>
+                        setEditFormData({ ...editFormData, type: value })
+                      }
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="income">Income</SelectItem>
+                        <SelectItem value="expense">Expense</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Amount *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={editFormData.amount}
+                      onChange={(e) => setEditFormData({ ...editFormData, amount: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Description *</Label>
+                    <Input
+                      placeholder="e.g., Monthly Rent Payment"
+                      value={editFormData.description}
+                      onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Subtype</Label>
+                    <Input
+                      placeholder="Optional subtype"
+                      value={editFormData.subtype}
+                      onChange={(e) => setEditFormData({ ...editFormData, subtype: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Category *</Label>
+                    <Select
+                      value={editFormData.category}
+                      onValueChange={(value) => setEditFormData({ ...editFormData, category: value })}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Salary">Salary</SelectItem>
+                        <SelectItem value="Bills">Bills</SelectItem>
+                        <SelectItem value="Subscriptions">Subscriptions</SelectItem>
+                        <SelectItem value="Food">Food</SelectItem>
+                        <SelectItem value="Transportation">Transportation</SelectItem>
+                        <SelectItem value="Entertainment">Entertainment</SelectItem>
+                        <SelectItem value="Healthcare">Healthcare</SelectItem>
+                        <SelectItem value="Loan">Loan</SelectItem>
+                        <SelectItem value="Savings">Savings</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                        {customCategories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Frequency</Label>
+                    <Select
+                      value={editFormData.frequency}
+                      onValueChange={(value: "daily" | "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly") =>
+                        setEditFormData({ ...editFormData, frequency: value })
+                      }
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="biweekly">Bi-weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="yearly">Yearly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {editFormData.frequency === "monthly" && (
+                    <div className="space-y-2">
+                      <Label>Day of month</Label>
+                      <Select
+                        value={editFormData.day_of_month === "" ? "same" : String(editFormData.day_of_month)}
+                        onValueChange={(value) =>
+                          setEditFormData({ ...editFormData, day_of_month: value === "same" ? "" : Number(value) })
+                        }
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="same">Same as start date</SelectItem>
+                          {Array.from({ length: 31 }, (_, i) => {
+                            const d = i + 1;
+                            const ord = d === 1 || d === 21 || d === 31 ? "st" : d === 2 || d === 22 ? "nd" : d === 3 || d === 23 ? "rd" : "th";
+                            return <SelectItem key={d} value={String(d)}>{d}{ord}</SelectItem>;
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label>Start Date</Label>
+                    <Input
+                      type="date"
+                      value={editFormData.start_date}
+                      onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End Date (optional)</Label>
+                    <Input
+                      type="date"
+                      value={editFormData.end_date}
+                      onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
+                      min={editFormData.start_date}
+                    />
+                  </div>
+                  {goals.filter((g) => g.status === "active").length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Link to Goal (optional)</Label>
+                      <Select
+                        value={editFormData.linked_goal_id || "none"}
+                        onValueChange={(v) =>
+                          setEditFormData({ ...editFormData, linked_goal_id: v === "none" ? "" : v })
+                        }
+                      >
+                        <SelectTrigger><SelectValue placeholder="No goal linked" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No goal linked</SelectItem>
+                          {goals.filter((g) => g.status === "active").map((g) => (
+                            <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="edit_auto_create"
+                      checked={editFormData.auto_create}
+                      onCheckedChange={(checked) => setEditFormData({ ...editFormData, auto_create: checked })}
+                    />
+                    <Label htmlFor="edit_auto_create" className="cursor-pointer">
+                      Auto-create transactions
+                    </Label>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => setIsEditDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleUpdatePattern} className="flex-1" disabled={loading}>
+                      {loading ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Patterns List */}
             <Card className="overflow-hidden p-0">
@@ -1046,6 +1330,13 @@ export default function RecurringPage() {
                                 )}
                               </Button>
                             )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenEdit(pattern)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"

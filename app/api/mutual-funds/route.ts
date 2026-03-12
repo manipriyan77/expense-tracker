@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, symbol, investedAmount, currentValue, units, nav, purchaseNav, purchaseDate, category, subCategory } = body;
 
-    if (!name || !symbol || units === undefined || nav === undefined || purchaseNav === undefined) {
+    if (!name || units === undefined || nav === undefined || purchaseNav === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -50,15 +50,18 @@ export async function POST(request: NextRequest) {
     const currentValueNum =
       currentValue !== undefined ? Number(currentValue) : unitsNum * navNum;
 
-    if ([navNum, purchaseNavNum, unitsNum].some((n) => Number.isNaN(n) || n <= 0)) {
-      return NextResponse.json({ error: "Invalid numeric values" }, { status: 400 });
+    if (Number.isNaN(unitsNum) || unitsNum <= 0) {
+      return NextResponse.json({ error: "Invalid units value" }, { status: 400 });
+    }
+    if ([navNum, purchaseNavNum].some((n) => Number.isNaN(n) || n < 0)) {
+      return NextResponse.json({ error: "Invalid NAV values" }, { status: 400 });
     }
 
     const { data, error } = await supabase
       .from("mutual_funds")
       .insert({
         name,
-        symbol,
+        symbol: symbol || name.split(/\s+/).map((w: string) => w[0]?.toUpperCase() ?? "").join("").slice(0, 8) || "NA",
         invested_amount:
           investedAmountNum !== undefined ? investedAmountNum : unitsNum * purchaseNavNum,
         current_value: currentValueNum,
@@ -66,7 +69,12 @@ export async function POST(request: NextRequest) {
         nav: navNum,
         purchase_nav: purchaseNavNum,
         sub_category: subCategory ?? "other",
-        purchase_date: purchaseDate || new Date().toISOString().split("T")[0],
+        purchase_date: (() => {
+          const today = new Date().toISOString().split("T")[0];
+          if (!purchaseDate) return today;
+          const d = new Date(purchaseDate);
+          return isNaN(d.getTime()) ? today : d.toISOString().split("T")[0];
+        })(),
         category: category || "equity",
         user_id: user.id,
       })

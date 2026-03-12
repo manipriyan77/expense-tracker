@@ -212,3 +212,205 @@ UPDATE ON forex_entries FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
 CREATE TRIGGER update_gold_holdings_updated_at BEFORE
 UPDATE ON gold_holdings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 -- budget_id is optional for expense transactions (allows one-off expenses, Loan EMI, etc.)
+
+-- ============================================================
+-- COLUMN MIGRATIONS (safe to re-run on existing tables)
+-- ============================================================
+ALTER TABLE recurring_patterns ADD COLUMN IF NOT EXISTS linked_goal_id UUID REFERENCES goals(id) ON DELETE SET NULL;
+
+-- ============================================================
+-- MISSING TABLES (migrations)
+-- ============================================================
+
+-- Recurring Patterns table
+CREATE TABLE IF NOT EXISTS recurring_patterns (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+  amount DECIMAL(12, 2) NOT NULL,
+  description TEXT NOT NULL,
+  category TEXT NOT NULL,
+  subtype TEXT NOT NULL,
+  frequency TEXT NOT NULL CHECK (frequency IN ('daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly')),
+  day_of_month INTEGER CHECK (day_of_month BETWEEN 1 AND 31),
+  start_date DATE NOT NULL,
+  end_date DATE,
+  next_date DATE NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  auto_create BOOLEAN DEFAULT false,
+  linked_goal_id UUID REFERENCES goals(id) ON DELETE SET NULL,
+  tags TEXT[] DEFAULT '{}',
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Savings Challenges table
+CREATE TABLE IF NOT EXISTS savings_challenges (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('52_week', 'daily_dollar', 'custom', 'percentage')),
+  target_amount DECIMAL(12, 2) NOT NULL,
+  current_amount DECIMAL(12, 2) DEFAULT 0,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  frequency TEXT NOT NULL CHECK (frequency IN ('daily', 'weekly', 'monthly')),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'paused')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Savings Challenge Contributions table
+CREATE TABLE IF NOT EXISTS savings_challenge_contributions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  challenge_id UUID REFERENCES savings_challenges(id) ON DELETE CASCADE NOT NULL,
+  amount DECIMAL(12, 2) NOT NULL,
+  contribution_date DATE NOT NULL,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Categorization Rules table
+CREATE TABLE IF NOT EXISTS categorization_rules (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  keyword TEXT NOT NULL,
+  category TEXT NOT NULL,
+  subtype TEXT,
+  priority INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, keyword)
+);
+
+-- Budget Templates table
+CREATE TABLE IF NOT EXISTS budget_templates (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  categories JSONB NOT NULL DEFAULT '[]',
+  is_public BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Assets table (used by net-worth module)
+CREATE TABLE IF NOT EXISTS assets (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('cash', 'bank', 'investment', 'property', 'vehicle', 'other')),
+  value DECIMAL(12, 2) NOT NULL,
+  currency TEXT DEFAULT 'INR',
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Liabilities table (shared by net-worth module and debt tracker)
+CREATE TABLE IF NOT EXISTS liabilities (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('credit_card', 'loan', 'mortgage', 'other')),
+  balance DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  original_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  interest_rate DECIMAL(6, 3) NOT NULL DEFAULT 0,
+  minimum_payment DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  due_date DATE,
+  term_months INTEGER,
+  months_remaining INTEGER,
+  currency TEXT DEFAULT 'INR',
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Debt Payments table (references liabilities)
+CREATE TABLE IF NOT EXISTS debt_payments (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  liability_id UUID REFERENCES liabilities(id) ON DELETE CASCADE NOT NULL,
+  amount DECIMAL(12, 2) NOT NULL,
+  payment_date DATE NOT NULL,
+  principal_amount DECIMAL(12, 2),
+  interest_amount DECIMAL(12, 2),
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Net Worth Snapshots table (column "date" matches existing API and store)
+CREATE TABLE IF NOT EXISTS net_worth_snapshots (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  date DATE NOT NULL,
+  total_assets DECIMAL(12, 2) NOT NULL,
+  total_liabilities DECIMAL(12, 2) NOT NULL,
+  net_worth DECIMAL(12, 2) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes for new tables
+CREATE INDEX IF NOT EXISTS idx_recurring_patterns_user_id ON recurring_patterns(user_id);
+CREATE INDEX IF NOT EXISTS idx_recurring_patterns_next_date ON recurring_patterns(next_date);
+CREATE INDEX IF NOT EXISTS idx_recurring_patterns_is_active ON recurring_patterns(is_active);
+CREATE INDEX IF NOT EXISTS idx_savings_challenges_user_id ON savings_challenges(user_id);
+CREATE INDEX IF NOT EXISTS idx_savings_challenge_contributions_challenge_id ON savings_challenge_contributions(challenge_id);
+CREATE INDEX IF NOT EXISTS idx_categorization_rules_user_id ON categorization_rules(user_id);
+CREATE INDEX IF NOT EXISTS idx_budget_templates_user_id ON budget_templates(user_id);
+CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets(user_id);
+CREATE INDEX IF NOT EXISTS idx_liabilities_user_id ON liabilities(user_id);
+CREATE INDEX IF NOT EXISTS idx_debt_payments_liability_id ON debt_payments(liability_id);
+CREATE INDEX IF NOT EXISTS idx_net_worth_snapshots_user_id ON net_worth_snapshots(user_id);
+CREATE INDEX IF NOT EXISTS idx_net_worth_snapshots_date ON net_worth_snapshots(date);
+
+-- RLS for new tables
+ALTER TABLE recurring_patterns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE savings_challenges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE savings_challenge_contributions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE categorization_rules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE budget_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE liabilities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE debt_payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE net_worth_snapshots ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'recurring_patterns' AND policyname = 'Users can manage their recurring_patterns') THEN
+    CREATE POLICY "Users can manage their recurring_patterns" ON recurring_patterns FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'savings_challenges' AND policyname = 'Users can manage their savings_challenges') THEN
+    CREATE POLICY "Users can manage their savings_challenges" ON savings_challenges FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'savings_challenge_contributions' AND policyname = 'Users can manage their savings_challenge_contributions') THEN
+    CREATE POLICY "Users can manage their savings_challenge_contributions" ON savings_challenge_contributions FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'categorization_rules' AND policyname = 'Users can manage their categorization_rules') THEN
+    CREATE POLICY "Users can manage their categorization_rules" ON categorization_rules FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'budget_templates' AND policyname = 'Users can manage their budget_templates') THEN
+    CREATE POLICY "Users can manage their budget_templates" ON budget_templates FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'assets' AND policyname = 'Users can manage their assets') THEN
+    CREATE POLICY "Users can manage their assets" ON assets FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'liabilities' AND policyname = 'Users can manage their liabilities') THEN
+    CREATE POLICY "Users can manage their liabilities" ON liabilities FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'debt_payments' AND policyname = 'Users can manage their debt_payments') THEN
+    CREATE POLICY "Users can manage their debt_payments" ON debt_payments FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'net_worth_snapshots' AND policyname = 'Users can manage their net_worth_snapshots') THEN
+    CREATE POLICY "Users can manage their net_worth_snapshots" ON net_worth_snapshots FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- updated_at triggers (CREATE OR REPLACE is idempotent in Postgres 14+)
+CREATE OR REPLACE TRIGGER update_recurring_patterns_updated_at BEFORE UPDATE ON recurring_patterns FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE OR REPLACE TRIGGER update_savings_challenges_updated_at BEFORE UPDATE ON savings_challenges FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE OR REPLACE TRIGGER update_budget_templates_updated_at BEFORE UPDATE ON budget_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE OR REPLACE TRIGGER update_assets_updated_at BEFORE UPDATE ON assets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE OR REPLACE TRIGGER update_liabilities_updated_at BEFORE UPDATE ON liabilities FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

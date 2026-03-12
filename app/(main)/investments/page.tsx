@@ -19,6 +19,7 @@ import {
   Upload,
   FileSpreadsheet,
   CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
 import {
   PieChart,
@@ -222,6 +223,11 @@ export default function InvestmentsPage() {
   const [goldPriceUpdate, setGoldPriceUpdate] = useState("");
   const [forexForm, setForexForm] = useState(defaultForexForm);
   const [saving, setSaving] = useState(false);
+  const [refreshingPrices, setRefreshingPrices] = useState(false);
+  const [detailItem, setDetailItem] = useState<{
+    type: "stocks" | "mutual-funds" | "gold";
+    data: Stock | MutualFund | GoldHolding;
+  } | null>(null);
 
   // CSV Import state
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -234,6 +240,7 @@ export default function InvestmentsPage() {
     "upload",
   );
   const [importSaving, setImportSaving] = useState(false);
+  const [replaceOnImport, setReplaceOnImport] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -287,6 +294,30 @@ export default function InvestmentsPage() {
         ? "text-green-600 dark:text-green-400"
         : "text-red-600 dark:text-red-400",
     };
+  };
+
+  const handleRefreshPrices = async () => {
+    setRefreshingPrices(true);
+    try {
+      const res = await fetch("/api/investments/refresh-prices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "all" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to refresh prices");
+      if (data.updated > 0) {
+        toast.success(`Updated ${data.updated} price${data.updated > 1 ? "s" : ""} from market`);
+        fetchStocks();
+        fetchMutualFunds();
+      } else {
+        toast.info("No prices updated — check that symbols match Yahoo Finance format (e.g. RELIANCE.NS)");
+      }
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setRefreshingPrices(false);
+    }
   };
 
   const openAddDialog = (type?: AssetClass) => {
@@ -503,6 +534,7 @@ export default function InvestmentsPage() {
     setImportRows([]);
     setImportHeaders([]);
     setImportStep("upload");
+    setReplaceOnImport(false);
     setImportDialogOpen(true);
   };
 
@@ -567,6 +599,16 @@ export default function InvestmentsPage() {
     reader.readAsText(file);
   };
 
+  // Returns a valid YYYY-MM-DD date string, or today's date if the value doesn't look like a date
+  const parseDate = (val: string): string => {
+    const today = new Date().toISOString().split("T")[0]!;
+    if (!val) return today;
+    // Must contain at least one letter or dash/slash separator and match a date-like pattern
+    if (!/\d{1,4}[-/]\d{1,2}[-/]\d{1,4}/.test(val) && !/[a-zA-Z]/.test(val)) return today;
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? today : d.toISOString().split("T")[0]!;
+  };
+
   // Find a value in a row by checking multiple possible column name patterns (case-insensitive, partial match)
   const findCol = (
     row: Record<string, string>,
@@ -594,6 +636,13 @@ export default function InvestmentsPage() {
     let success = 0,
       failed = 0;
     try {
+      if (replaceOnImport) {
+        if (importType === "stocks") {
+          for (const s of stocks) await deleteStock(s.id);
+        } else {
+          for (const f of mutualFunds) await deleteMutualFund(f.id);
+        }
+      }
       for (const row of importRows) {
         try {
           if (importType === "stocks") {
@@ -627,9 +676,7 @@ export default function InvestmentsPage() {
               currentPrice: curP,
               investedAmount: shares * avgP,
               currentValue: shares * curP,
-              purchaseDate:
-                findCol(row, "purchase_date", "date", "invested since") ||
-                new Date().toISOString().split("T")[0]!,
+              purchaseDate: parseDate(findCol(row, "purchase_date", "date", "invested since")),
               sector: findCol(row, "sector") || null,
               subSector: null,
             });
@@ -687,14 +734,7 @@ export default function InvestmentsPage() {
                 .toLowerCase()
                 .replace(/[^a-z0-9]+/g, "_")
                 .replace(/(^_|_$)/g, "") || "other";
-            const purchaseDateVal =
-              findCol(
-                row,
-                "invested since",
-                "purchase_date",
-                "purchase date",
-                "date",
-              ) || new Date().toISOString().split("T")[0]!;
+            const purchaseDateVal = parseDate(findCol(row, "invested since", "purchase_date", "purchase date", "date"));
 
             await addMutualFund({
               name: nameVal,
@@ -977,15 +1017,28 @@ export default function InvestmentsPage() {
                 All your investment holdings in one place
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-slate-600 text-slate-200 hover:bg-slate-800 shrink-0"
-              onClick={() => openAddDialog()}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Investment
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-slate-600 text-slate-200 hover:bg-slate-800"
+                onClick={handleRefreshPrices}
+                disabled={refreshingPrices}
+                title="Fetch latest prices from Yahoo Finance"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshingPrices ? "animate-spin" : ""}`} />
+                {refreshingPrices ? "Refreshing..." : "Refresh Prices"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-slate-600 text-slate-200 hover:bg-slate-800"
+                onClick={() => openAddDialog()}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Investment
+              </Button>
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
             <div className="px-4 py-3">
@@ -1476,6 +1529,34 @@ export default function InvestmentsPage() {
               onAdd={() => openAddDialog("stocks")}
               onImport={() => openImport("stocks")}
             />
+            {stocks.length > 0 && (() => {
+              const inv = stocks.reduce((s, x) => s + x.investedAmount, 0);
+              const cur = stocks.reduce((s, x) => s + x.currentValue, 0);
+              const pnl = cur - inv;
+              const ret = inv > 0 ? (pnl / inv) * 100 : 0;
+              return (
+                <Card className="overflow-hidden p-0">
+                  <div className="grid grid-cols-4 divide-x divide-border">
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
+                      <p className="font-mono font-semibold text-sm">{format(inv)}</p>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
+                      <p className="font-mono font-semibold text-sm">{format(cur)}</p>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
+                      <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{pnl >= 0 ? "+" : ""}{format(pnl)}</p>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
+                      <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{ret >= 0 ? "+" : ""}{ret.toFixed(2)}%</p>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })()}
             {stocks.length === 0 ? (
               <EmptyState
                 icon={BarChart3}
@@ -1483,72 +1564,47 @@ export default function InvestmentsPage() {
                 onAdd={() => openAddDialog("stocks")}
               />
             ) : (
-              stocks.map((s) => {
-                const pnl = s.currentValue - s.investedAmount;
-                const d = pnlInfo(pnl, s.investedAmount);
-                return (
-                  <Card key={s.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-foreground">
-                              {s.name}
-                            </span>
-                            <span className="text-xs font-mono text-muted-foreground">
-                              {s.symbol}
-                            </span>
-                            {s.stockType && (
-                              <Badge
-                                variant="outline"
-                                className="text-xs capitalize"
-                              >
-                                {s.stockType.replace("_", " ")}
-                              </Badge>
-                            )}
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                {stocks.map((s) => {
+                  const pnl = s.currentValue - s.investedAmount;
+                  const d = pnlInfo(pnl, s.investedAmount);
+                  return (
+                    <Card
+                      key={s.id}
+                      className="cursor-pointer hover:border-blue-400/60 transition-colors"
+                      onClick={() => setDetailItem({ type: "stocks", data: s })}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-start justify-between gap-1 mb-1">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm truncate">{s.name}</p>
+                            {s.symbol && <p className="text-xs font-mono text-muted-foreground">{s.symbol}</p>}
                           </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {s.shares} shares
-                            {s.sector
-                              ? ` · ${s.sector.replace(/_/g, " ")}`
-                              : ""}
-                            {s.purchaseDate
-                              ? ` · Bought ${s.purchaseDate}`
-                              : ""}
+                          {s.stockType && (
+                            <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                              {s.stockType.replace("_", " ")}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="mt-2 space-y-0.5">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Invested</span>
+                            <span className="font-mono">{format(s.investedAmount)}</span>
                           </div>
-                          <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-2">
-                            <Metric
-                              label="Invested"
-                              value={format(s.investedAmount)}
-                            />
-                            <Metric
-                              label="Current"
-                              value={format(s.currentValue)}
-                            />
-                            <Metric
-                              label="P&L"
-                              value={d.text}
-                              valueClass={d.color}
-                            />
-                            <Metric
-                              label="Avg Price"
-                              value={format(s.avgPurchasePrice)}
-                            />
-                            <Metric
-                              label="CMP"
-                              value={format(s.currentPrice)}
-                            />
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Current</span>
+                            <span className="font-mono">{format(s.currentValue)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">P&L</span>
+                            <span className={`font-mono font-medium ${d.color}`}>{d.text}</span>
                           </div>
                         </div>
-                        <RowActions
-                          onEdit={() => openEditStock(s)}
-                          onDelete={() => handleDelete("stocks", s.id)}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             )}
           </TabsContent>
 
@@ -1561,6 +1617,34 @@ export default function InvestmentsPage() {
               addLabel="Add Fund"
               onImport={() => openImport("mutual-funds")}
             />
+            {mutualFunds.length > 0 && (() => {
+              const inv = mutualFunds.reduce((s, x) => s + x.investedAmount, 0);
+              const cur = mutualFunds.reduce((s, x) => s + x.currentValue, 0);
+              const pnl = cur - inv;
+              const ret = inv > 0 ? (pnl / inv) * 100 : 0;
+              return (
+                <Card className="overflow-hidden p-0">
+                  <div className="grid grid-cols-4 divide-x divide-border">
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
+                      <p className="font-mono font-semibold text-sm">{format(inv)}</p>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
+                      <p className="font-mono font-semibold text-sm">{format(cur)}</p>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
+                      <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{pnl >= 0 ? "+" : ""}{format(pnl)}</p>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
+                      <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{ret >= 0 ? "+" : ""}{ret.toFixed(2)}%</p>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })()}
             {mutualFunds.length === 0 ? (
               <EmptyState
                 icon={PieChartIcon}
@@ -1568,68 +1652,45 @@ export default function InvestmentsPage() {
                 onAdd={() => openAddDialog("mutual-funds")}
               />
             ) : (
-              mutualFunds.map((f) => {
-                const pnl = f.currentValue - f.investedAmount;
-                const d = pnlInfo(pnl, f.investedAmount);
-                return (
-                  <Card key={f.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-foreground">
-                              {f.name}
-                            </span>
-                            <Badge
-                              variant="outline"
-                              className="text-xs capitalize"
-                            >
-                              {f.category}
-                            </Badge>
-                            {f.subCategory && (
-                              <Badge
-                                variant="outline"
-                                className="text-xs capitalize"
-                              >
-                                {f.subCategory.replace(/_/g, " ")}
-                              </Badge>
-                            )}
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                {mutualFunds.map((f) => {
+                  const pnl = f.currentValue - f.investedAmount;
+                  const d = pnlInfo(pnl, f.investedAmount);
+                  return (
+                    <Card
+                      key={f.id}
+                      className="cursor-pointer hover:border-purple-400/60 transition-colors"
+                      onClick={() => setDetailItem({ type: "mutual-funds", data: f })}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-start justify-between gap-1 mb-1">
+                          <p className="font-semibold text-sm truncate">{f.name}</p>
+                          <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                            {f.category}
+                          </Badge>
+                        </div>
+                        {f.subCategory && (
+                          <p className="text-[10px] text-muted-foreground mb-1">{f.subCategory.replace(/_/g, " ")}</p>
+                        )}
+                        <div className="mt-2 space-y-0.5">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Invested</span>
+                            <span className="font-mono">{format(f.investedAmount)}</span>
                           </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {f.units} units · NAV: {format(f.nav)}
-                            {f.purchaseDate
-                              ? ` · Bought ${f.purchaseDate}`
-                              : ""}
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Current</span>
+                            <span className="font-mono">{format(f.currentValue)}</span>
                           </div>
-                          <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-2">
-                            <Metric
-                              label="Invested"
-                              value={format(f.investedAmount)}
-                            />
-                            <Metric
-                              label="Current"
-                              value={format(f.currentValue)}
-                            />
-                            <Metric
-                              label="P&L"
-                              value={d.text}
-                              valueClass={d.color}
-                            />
-                            <Metric
-                              label="Purchase NAV"
-                              value={format(f.purchaseNav)}
-                            />
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">P&L</span>
+                            <span className={`font-mono font-medium ${d.color}`}>{d.text}</span>
                           </div>
                         </div>
-                        <RowActions
-                          onEdit={() => openEditMf(f)}
-                          onDelete={() => handleDelete("mutual-funds", f.id)}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             )}
           </TabsContent>
 
@@ -1641,6 +1702,35 @@ export default function InvestmentsPage() {
               onAdd={() => openAddDialog("gold")}
               addLabel="Add Gold"
             />
+
+            {holdings.length > 0 && (() => {
+              const inv = holdings.reduce((s, x) => s + x.quantityGrams * x.purchasePricePerGram, 0);
+              const cur = holdings.reduce((s, x) => s + x.quantityGrams * x.currentPricePerGram, 0);
+              const pnl = cur - inv;
+              const ret = inv > 0 ? (pnl / inv) * 100 : 0;
+              return (
+                <Card className="overflow-hidden p-0">
+                  <div className="grid grid-cols-4 divide-x divide-border">
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
+                      <p className="font-mono font-semibold text-sm">{format(inv)}</p>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
+                      <p className="font-mono font-semibold text-sm">{format(cur)}</p>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
+                      <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{pnl >= 0 ? "+" : ""}{format(pnl)}</p>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
+                      <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{ret >= 0 ? "+" : ""}{ret.toFixed(2)}%</p>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })()}
 
             {/* Gold Price Update Section */}
             {holdings.length > 0 && (
@@ -1697,64 +1787,46 @@ export default function InvestmentsPage() {
                 onAdd={() => openAddDialog("gold")}
               />
             ) : (
-              holdings.map((g) => {
-                const invested = g.quantityGrams * g.purchasePricePerGram;
-                const current = g.quantityGrams * g.currentPricePerGram;
-                const pnl = current - invested;
-                const d = pnlInfo(pnl, invested);
-                return (
-                  <Card key={g.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-foreground">
-                              {g.name}
-                            </span>
-                            <Badge
-                              variant="outline"
-                              className="text-xs capitalize"
-                            >
-                              {g.type.replace("_", " ")}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {g.purity}k
-                            </Badge>
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {g.quantityGrams}g
-                            {g.purchaseDate
-                              ? ` · Bought ${g.purchaseDate}`
-                              : ""}
-                            {g.notes ? ` · ${g.notes}` : ""}
-                          </div>
-                          <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-2">
-                            <Metric label="Invested" value={format(invested)} />
-                            <Metric label="Current" value={format(current)} />
-                            <Metric
-                              label="P&L"
-                              value={d.text}
-                              valueClass={d.color}
-                            />
-                            <Metric
-                              label="Buy ₹/g"
-                              value={format(g.purchasePricePerGram)}
-                            />
-                            <Metric
-                              label="Cur ₹/g"
-                              value={format(g.currentPricePerGram)}
-                            />
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                {holdings.map((g) => {
+                  const invested = g.quantityGrams * g.purchasePricePerGram;
+                  const current = g.quantityGrams * g.currentPricePerGram;
+                  const pnl = current - invested;
+                  const d = pnlInfo(pnl, invested);
+                  return (
+                    <Card
+                      key={g.id}
+                      className="cursor-pointer hover:border-yellow-400/60 transition-colors"
+                      onClick={() => setDetailItem({ type: "gold", data: g })}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-start justify-between gap-1 mb-1">
+                          <p className="font-semibold text-sm truncate">{g.name}</p>
+                          <div className="flex gap-1 shrink-0">
+                            <Badge variant="outline" className="text-[10px] capitalize">{g.type.replace("_", " ")}</Badge>
+                            <Badge variant="outline" className="text-[10px]">{g.purity}k</Badge>
                           </div>
                         </div>
-                        <RowActions
-                          onEdit={() => openEditGold(g)}
-                          onDelete={() => handleDelete("gold", g.id)}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
+                        <p className="text-[10px] text-muted-foreground mb-1">{g.quantityGrams}g</p>
+                        <div className="mt-2 space-y-0.5">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Invested</span>
+                            <span className="font-mono">{format(invested)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Current</span>
+                            <span className="font-mono">{format(current)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">P&L</span>
+                            <span className={`font-mono font-medium ${d.color}`}>{d.text}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             )}
           </TabsContent>
 
@@ -1966,6 +2038,117 @@ export default function InvestmentsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Detail Dialog */}
+      <Dialog open={!!detailItem} onOpenChange={() => setDetailItem(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {detailItem?.type === "stocks"
+                ? (detailItem.data as Stock).name
+                : detailItem?.type === "mutual-funds"
+                  ? (detailItem.data as MutualFund).name
+                  : (detailItem?.data as GoldHolding)?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {detailItem?.type === "stocks" && (() => {
+            const s = detailItem.data as Stock;
+            const pnl = s.currentValue - s.investedAmount;
+            const d = pnlInfo(pnl, s.investedAmount);
+            return (
+              <div className="space-y-3 text-sm">
+                <div className="flex flex-wrap gap-1">
+                  {s.symbol && <Badge variant="outline" className="font-mono">{s.symbol}</Badge>}
+                  {s.stockType && <Badge variant="outline" className="capitalize">{s.stockType.replace("_", " ")}</Badge>}
+                  {s.sector && <Badge variant="outline" className="capitalize">{s.sector.replace(/_/g, " ")}</Badge>}
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Shares</p><p className="font-mono font-medium">{s.shares}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Avg Price</p><p className="font-mono font-medium">{format(s.avgPurchasePrice)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">CMP</p><p className="font-mono font-medium">{format(s.currentPrice)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Invested</p><p className="font-mono font-medium">{format(s.investedAmount)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Current Value</p><p className="font-mono font-medium">{format(s.currentValue)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">P&L</p><p className={`font-mono font-medium ${d.color}`}>{d.text}</p></div>
+                  {s.purchaseDate && <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Purchase Date</p><p>{s.purchaseDate}</p></div>}
+                  {s.subSector && <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Sub Sector</p><p className="capitalize">{s.subSector.replace(/_/g, " ")}</p></div>}
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => { setDetailItem(null); openEditStock(s); }}>
+                    <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
+                  </Button>
+                  <Button size="sm" variant="destructive" className="flex-1" onClick={() => { handleDelete("stocks", s.id); setDetailItem(null); }}>
+                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+          {detailItem?.type === "mutual-funds" && (() => {
+            const f = detailItem.data as MutualFund;
+            const pnl = f.currentValue - f.investedAmount;
+            const d = pnlInfo(pnl, f.investedAmount);
+            return (
+              <div className="space-y-3 text-sm">
+                <div className="flex flex-wrap gap-1">
+                  {f.symbol && <Badge variant="outline" className="font-mono">{f.symbol}</Badge>}
+                  <Badge variant="outline" className="capitalize">{f.category}</Badge>
+                  {f.subCategory && <Badge variant="outline" className="capitalize">{f.subCategory.replace(/_/g, " ")}</Badge>}
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Units</p><p className="font-mono font-medium">{f.units}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Purchase NAV</p><p className="font-mono font-medium">{format(f.purchaseNav)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Current NAV</p><p className="font-mono font-medium">{format(f.nav)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Invested</p><p className="font-mono font-medium">{format(f.investedAmount)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Current Value</p><p className="font-mono font-medium">{format(f.currentValue)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">P&L</p><p className={`font-mono font-medium ${d.color}`}>{d.text}</p></div>
+                  {f.purchaseDate && <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Purchase Date</p><p>{f.purchaseDate}</p></div>}
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => { setDetailItem(null); openEditMf(f); }}>
+                    <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
+                  </Button>
+                  <Button size="sm" variant="destructive" className="flex-1" onClick={() => { handleDelete("mutual-funds", f.id); setDetailItem(null); }}>
+                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+          {detailItem?.type === "gold" && (() => {
+            const g = detailItem.data as GoldHolding;
+            const invested = g.quantityGrams * g.purchasePricePerGram;
+            const current = g.quantityGrams * g.currentPricePerGram;
+            const pnl = current - invested;
+            const d = pnlInfo(pnl, invested);
+            return (
+              <div className="space-y-3 text-sm">
+                <div className="flex flex-wrap gap-1">
+                  <Badge variant="outline" className="capitalize">{g.type.replace("_", " ")}</Badge>
+                  <Badge variant="outline">{g.purity}k purity</Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Quantity</p><p className="font-mono font-medium">{g.quantityGrams}g</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Buy ₹/g</p><p className="font-mono font-medium">{format(g.purchasePricePerGram)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Current ₹/g</p><p className="font-mono font-medium">{format(g.currentPricePerGram)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Invested</p><p className="font-mono font-medium">{format(invested)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Current Value</p><p className="font-mono font-medium">{format(current)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">P&L</p><p className={`font-mono font-medium ${d.color}`}>{d.text}</p></div>
+                  {g.purchaseDate && <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Purchase Date</p><p>{g.purchaseDate}</p></div>}
+                  {g.notes && <div className="col-span-2"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Notes</p><p>{g.notes}</p></div>}
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => { setDetailItem(null); openEditGold(g); }}>
+                    <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
+                  </Button>
+                  <Button size="sm" variant="destructive" className="flex-1" onClick={() => { handleDelete("gold", g.id); setDetailItem(null); }}>
+                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {/* CSV Import Dialog */}
       <Dialog
         open={importDialogOpen}
@@ -2157,18 +2340,39 @@ export default function InvestmentsPage() {
                   </p>
                 )}
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setImportDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleImportConfirm} disabled={importSaving}>
-                  {importSaving
-                    ? "Importing..."
-                    : `Import ${importRows.length} rows`}
-                </Button>
+              <div className="flex items-center justify-between pt-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-destructive cursor-pointer"
+                    checked={replaceOnImport}
+                    onChange={(e) => setReplaceOnImport(e.target.checked)}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    Replace existing {importType === "stocks" ? "stocks" : "funds"}
+                    {replaceOnImport && (
+                      <span className="ml-1 text-destructive font-medium">
+                        ({importType === "stocks" ? stocks.length : mutualFunds.length} will be deleted)
+                      </span>
+                    )}
+                  </span>
+                </label>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleImportConfirm}
+                    disabled={importSaving}
+                    variant={replaceOnImport ? "destructive" : "default"}
+                  >
+                    {importSaving
+                      ? "Importing..."
+                      : replaceOnImport
+                        ? `Replace & Import ${importRows.length} rows`
+                        : `Import ${importRows.length} rows`}
+                  </Button>
+                </div>
               </div>
             </div>
           )}

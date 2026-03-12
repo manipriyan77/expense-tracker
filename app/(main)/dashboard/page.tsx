@@ -24,8 +24,7 @@ import {
   Pie,
   Cell,
   ComposedChart,
-  Area,
-  Line,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -284,6 +283,7 @@ export default function Dashboard() {
     fetchLiabilities,
     fetchSnapshots,
     createSnapshot,
+    clearSnapshots,
   } = useNetWorthStore();
   const { debts, fetchDebts } = useDebtTrackerStore();
   const { budgets, fetchBudgets } = useBudgetsStore();
@@ -847,6 +847,9 @@ export default function Dashboard() {
                       </span>
                     </div>
                   )}
+                  <Link href="/health-score" className="mt-2 text-[10px] text-slate-400 hover:text-white flex items-center gap-0.5 underline underline-offset-2">
+                    View details
+                  </Link>
                 </div>
               </div>
 
@@ -924,39 +927,57 @@ export default function Dashboard() {
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                     Net Worth Timeline
                   </p>
-                  <Link
-                    href="/net-worth"
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
-                    View details <ArrowRight className="h-3 w-3" />
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    {snapshots.length > 0 && (
+                      <button
+                        onClick={async () => { await clearSnapshots(); await createSnapshot(); }}
+                        className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        Reset timeline
+                      </button>
+                    )}
+                    <Link
+                      href="/net-worth"
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      View details <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="pt-3 px-4 pb-4">
-                {nwChartData.length > 1 ? (
+                {nwChartData.length > 0 && (
+                  <div className="flex items-center gap-4 mb-2">
+                    {[
+                      { color: "#3b82f6", label: "Assets", shape: "bar" },
+                      { color: "#ef4444", label: "Liabilities", shape: "bar" },
+                      { color: "#22c55e", label: "Net Worth", shape: "bar" },
+                    ].map(({ color, label, shape }) => (
+                      <div key={label} className="flex items-center gap-1.5">
+                        {shape === "bar" ? (
+                          <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color, opacity: 0.85 }} />
+                        ) : (
+                          <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: color }} />
+                        )}
+                        <span className="text-[11px] text-muted-foreground">{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {nwChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={220}>
-                    <ComposedChart data={nwChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="assetsGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.18} />
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="liabGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
+                    <ComposedChart data={nwChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="30%">
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                       <YAxis tickFormatter={formatShort} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={48} />
                       <ReferenceLine y={0} stroke="var(--border)" strokeDasharray="3 3" />
                       <RechartTooltip
                         contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
-                        formatter={(v: unknown) => [format(v as number)]}
+                        formatter={(v: unknown, name?: string) => [format(v as number), name ?? ""]}
                       />
-                      <Area type="monotone" dataKey="Assets" stroke="#3b82f6" strokeWidth={1.5} fill="url(#assetsGrad)" dot={false} />
-                      <Area type="monotone" dataKey="Liabilities" stroke="#ef4444" strokeWidth={1.5} fill="url(#liabGrad)" dot={false} />
-                      <Line type="monotone" dataKey="Net Worth" stroke="#22c55e" strokeWidth={2.5} dot={false} />
+                      <Bar dataKey="Assets" fill="#3b82f6" fillOpacity={0.75} radius={[3, 3, 0, 0]} maxBarSize={32} />
+                      <Bar dataKey="Liabilities" fill="#ef4444" fillOpacity={0.75} radius={[3, 3, 0, 0]} maxBarSize={32} />
+                      <Bar dataKey="Net Worth" fill="#22c55e" fillOpacity={0.85} radius={[3, 3, 0, 0]} maxBarSize={32} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 ) : (

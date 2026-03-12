@@ -36,6 +36,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton, StatsSkeleton } from "@/components/ui/skeleton";
 import {
   Target,
   Plus,
@@ -490,8 +491,30 @@ export default function GoalsPage() {
 
   if (loading && goals.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen bg-background">
+        <div className="bg-slate-900 dark:bg-black px-3 sm:px-6 lg:px-8 pt-5 pb-6">
+          <Skeleton className="h-4 w-16 bg-slate-700 mb-2" />
+          <Skeleton className="h-3 w-48 bg-slate-800" />
+        </div>
+        <div className="px-3 sm:px-6 lg:px-8 py-6 space-y-6">
+          <StatsSkeleton />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="rounded-lg border bg-card p-5 space-y-3">
+                <div className="flex justify-between items-start">
+                  <Skeleton className="h-5 w-36" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-2 w-full" />
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
+                <Skeleton className="h-8 w-full" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -39,7 +39,10 @@ interface Income {
 
 export default function IncomesPage() {
   const { format } = useFormatCurrency();
-  const [incomes, setIncomes] = useState<Income[]>([]);
+  const [incomes, setIncomes] = useState<Income[]>([
+    { id: "1", amount: 1200, description: "Salary", category: "Salary", date: "2024-12-20" },
+    { id: "2", amount: 500, description: "Freelance Project", category: "Freelance", date: "2024-12-15" },
+  ]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showCategoryInput, setShowCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -49,31 +52,6 @@ export default function IncomesPage() {
     description: "",
     category: "",
   });
-
-  useEffect(() => {
-    loadIncomes();
-  }, []);
-
-  const loadIncomes = async () => {
-    // Mock data - will be replaced with actual Supabase query
-    const mockIncomes: Income[] = [
-      {
-        id: "1",
-        amount: 1200,
-        description: "Salary",
-        category: "Salary",
-        date: "2024-12-20",
-      },
-      {
-        id: "2",
-        amount: 500,
-        description: "Freelance Project",
-        category: "Freelance",
-        date: "2024-12-15",
-      },
-    ];
-    setIncomes(mockIncomes);
-  };
 
   const handleAddCustomCategory = () => {
     if (newCategoryName.trim()) {
@@ -136,7 +114,7 @@ export default function IncomesPage() {
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Summary Cards */}
@@ -146,7 +124,7 @@ export default function IncomesPage() {
               <CardTitle className="text-sm font-medium">
                 Total Income
               </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent className="p-2 pt-1.5">
               <div className="text-xl font-bold text-green-600">
@@ -173,8 +151,6 @@ export default function IncomesPage() {
             </CardContent>
           </Card>
         </div>
-
-      <main className="px-3 sm:px-6 lg:px-8 py-4">
         {/* Add Income Button */}
         <div className="mb-4">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>

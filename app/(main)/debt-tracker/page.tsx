@@ -1,13 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +56,7 @@ import {
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useDebtTrackerStore, type Debt } from "@/store/debt-tracker-store";
+import { Skeleton, StatsSkeleton } from "@/components/ui/skeleton";
 
 export default function DebtTrackerPage() {
   const { format } = useFormatCurrency();
@@ -125,6 +123,7 @@ export default function DebtTrackerPage() {
     baselineMonths: number | null;
     interestSaved: number | null;
     totalInterest: number | null;
+    projectionData: { month: number; baseline: number; accelerated: number }[];
     breakdown: {
       id: string;
       name: string;
@@ -139,6 +138,7 @@ export default function DebtTrackerPage() {
     baselineMonths: null,
     interestSaved: null,
     totalInterest: null,
+    projectionData: [],
     breakdown: [],
     error: null,
   });
@@ -642,13 +642,19 @@ export default function DebtTrackerPage() {
   const handleCalculatePayoff = (e?: React.FormEvent) => {
     e?.preventDefault();
 
+    const empty = {
+      months: null,
+      baselineMonths: null,
+      interestSaved: null,
+      totalInterest: null,
+      projectionData: [],
+      breakdown: [],
+      error: null as string | null,
+    };
+
     if (debts.length === 0) {
       setCalculatorResult({
-        months: null,
-        baselineMonths: null,
-        interestSaved: null,
-        totalInterest: null,
-        breakdown: [],
+        ...empty,
         error: "Add at least one debt to run the calculator.",
       });
       return;
@@ -662,11 +668,7 @@ export default function DebtTrackerPage() {
 
     if (acceleratedBudget <= 0) {
       setCalculatorResult({
-        months: null,
-        baselineMonths: null,
-        interestSaved: null,
-        totalInterest: null,
-        breakdown: [],
+        ...empty,
         error: "Enter a monthly payment greater than 0.",
       });
       return;
@@ -675,11 +677,7 @@ export default function DebtTrackerPage() {
     const baseline = simulatePayoff(debts, baselineBudget);
     if (!baseline.success) {
       setCalculatorResult({
-        months: null,
-        baselineMonths: null,
-        interestSaved: null,
-        totalInterest: null,
-        breakdown: [],
+        ...empty,
         error: baseline.message || "Unable to calculate payoff.",
       });
       return;
@@ -692,21 +690,81 @@ export default function DebtTrackerPage() {
     );
     if (!accelerated.success) {
       setCalculatorResult({
-        months: null,
-        baselineMonths: null,
-        interestSaved: null,
-        totalInterest: null,
-        breakdown: [],
+        ...empty,
         error: accelerated.message || "Unable to calculate payoff.",
       });
       return;
     }
 
+    // Build month-by-month balance projection for the chart
+    const buildBalanceProjection = (budget: number, focusId?: string) => {
+      const copy = debts
+        .filter((d) => d.balance > 0)
+        .map((d) => ({
+          id: d.id,
+          balance: d.balance,
+          interest_rate: d.interest_rate,
+          minimum_payment: d.minimum_payment,
+        }));
+      const series: number[] = [];
+      const maxM = Math.max(baseline.months, accelerated.months, 1);
+      for (let m = 0; m < maxM; m++) {
+        series.push(
+          Math.max(
+            0,
+            copy.reduce((s, d) => s + d.balance, 0),
+          ),
+        );
+        let rem = budget;
+        copy.forEach((d) => {
+          if (d.balance <= 0) return;
+          const interest = (d.balance * d.interest_rate) / 100 / 12;
+          d.balance = Math.max(
+            0,
+            d.balance +
+              interest -
+              Math.min(d.minimum_payment, d.balance + interest),
+          );
+          rem -= d.minimum_payment;
+        });
+        if (focusId && focusId !== "all" && rem > 0) {
+          const t = copy.find((d) => d.id === focusId && d.balance > 0);
+          if (t) {
+            const pay = Math.min(t.balance, rem);
+            t.balance = Math.max(0, t.balance - pay);
+            rem -= pay;
+          }
+        }
+        const sorted = [...copy]
+          .filter((d) => d.balance > 0)
+          .sort((a, b) => b.interest_rate - a.interest_rate);
+        for (const d of sorted) {
+          if (rem <= 0) break;
+          const pay = Math.min(rem, d.balance);
+          d.balance = Math.max(0, d.balance - pay);
+          rem -= pay;
+        }
+      }
+      series.push(0);
+      return series;
+    };
+
+    const baselineSeries = buildBalanceProjection(baselineBudget);
+    const acceleratedSeries = buildBalanceProjection(
+      acceleratedBudget,
+      extraFocusDebtId === "all" ? undefined : extraFocusDebtId,
+    );
+    const maxLen = Math.max(baselineSeries.length, acceleratedSeries.length);
+    const projectionData = Array.from({ length: maxLen }, (_, i) => ({
+      month: i,
+      baseline: baselineSeries[i] ?? 0,
+      accelerated: acceleratedSeries[i] ?? 0,
+    }));
+
     const interestSaved = Math.max(
       0,
       baseline.interestPaid - accelerated.interestPaid,
     );
-
     const baselineMap = new Map(baseline.debtDetails.map((d) => [d.id, d]));
 
     setCalculatorResult({
@@ -714,6 +772,7 @@ export default function DebtTrackerPage() {
       baselineMonths: baseline.months,
       interestSaved,
       totalInterest: accelerated.interestPaid,
+      projectionData,
       breakdown: accelerated.debtDetails.map((detail) => ({
         ...detail,
         baselinePayoffMonth: baselineMap.get(detail.id)?.payoffMonth ?? null,
@@ -779,6 +838,35 @@ export default function DebtTrackerPage() {
         return <DollarSign className="h-5 w-5" />;
     }
   };
+
+  if (loading && debts.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="bg-slate-900 dark:bg-black px-3 sm:px-6 lg:px-8 pt-5 pb-6">
+          <Skeleton className="h-4 w-24 bg-slate-700 mb-2" />
+          <Skeleton className="h-3 w-40 bg-slate-800" />
+        </div>
+        <div className="px-3 sm:px-6 lg:px-8 py-6 space-y-6">
+          <StatsSkeleton />
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="rounded-lg border bg-card p-5 space-y-3">
+                <div className="flex justify-between">
+                  <Skeleton className="h-5 w-32" />
+                  <Skeleton className="h-5 w-20" />
+                </div>
+                <Skeleton className="h-2 w-full" />
+                <div className="flex gap-4">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -1033,8 +1121,12 @@ export default function DebtTrackerPage() {
         {/* Payoff Progress Chart */}
         <Card className="mb-4">
           <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Debt Payoff Progress</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Your debt reduction over the past 6 months</p>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Debt Payoff Progress
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Your debt reduction over the past 6 months
+            </p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -1265,8 +1357,12 @@ export default function DebtTrackerPage() {
           <TabsContent value="payoff">
             <Card>
               <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Debt Payoff Strategy</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Choose a strategy to pay off your debts faster</p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Debt Payoff Strategy
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Choose a strategy to pay off your debts faster
+                </p>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex gap-4">
@@ -1339,8 +1435,12 @@ export default function DebtTrackerPage() {
           <TabsContent value="calculator">
             <Card>
               <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Debt Payoff Calculator</p>
-                <p className="text-xs text-muted-foreground mt-0.5">See how extra payments can accelerate your debt freedom</p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Debt Payoff Calculator
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  See how extra payments can accelerate your debt freedom
+                </p>
               </CardHeader>
               <CardContent>
                 <form className="space-y-4" onSubmit={handleCalculatePayoff}>
@@ -1491,6 +1591,73 @@ export default function DebtTrackerPage() {
                     </Card>
                   </div>
 
+                  {calculatorResult.projectionData.length > 0 && (
+                    <div className="pt-2 space-y-2">
+                      <h4 className="font-semibold text-sm">
+                        Balance Over Time
+                      </h4>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart
+                          data={calculatorResult.projectionData}
+                          margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="hsl(var(--border))"
+                          />
+                          <XAxis
+                            dataKey="month"
+                            tick={{ fontSize: 11 }}
+                            label={{
+                              value: "Month",
+                              position: "insideBottom",
+                              offset: -2,
+                              fontSize: 11,
+                            }}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 11 }}
+                            tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+                            width={55}
+                          />
+                          <Tooltip
+                            formatter={(v) => [
+                              `₹${Number(v ?? 0).toLocaleString("en-IN")}`,
+                              "",
+                            ]}
+                            labelFormatter={(l) => `Month ${l}`}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="baseline"
+                            name="Minimum only"
+                            stroke="#ef4444"
+                            dot={false}
+                            strokeWidth={2}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="accelerated"
+                            name="With extra payment"
+                            stroke="#22c55e"
+                            dot={false}
+                            strokeWidth={2}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                      <div className="flex gap-4 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <span className="inline-block w-3 h-0.5 bg-red-500" />{" "}
+                          Minimum only
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="inline-block w-3 h-0.5 bg-green-500" />{" "}
+                          With extra payment
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {calculatorResult.breakdown.length > 0 ? (
                     <div className="pt-1.5 space-y-2">
                       <h4 className="font-semibold">Payoff details</h4>
@@ -1585,8 +1752,12 @@ export default function DebtTrackerPage() {
           <TabsContent value="amortization">
             <Card>
               <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Amortization Schedule</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Month-by-month principal and interest breakdown</p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Amortization Schedule
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Month-by-month principal and interest breakdown
+                </p>
               </CardHeader>
               <CardContent className="space-y-4">
                 {debts.length === 0 ? (

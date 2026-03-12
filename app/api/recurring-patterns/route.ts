@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, type, amount, description, category, subtype, frequency, day_of_month, start_date, end_date, next_date, is_active, auto_create, tags, notes } = body;
+    const { name, type, amount, description, category, subtype, frequency, day_of_month, start_date, end_date, next_date, is_active, auto_create, linked_goal_id, tags, notes } = body;
 
     if (!name || !type || !amount || !description || !category || !subtype || !frequency || !start_date || !next_date) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
         next_date,
         is_active: is_active !== undefined ? is_active : true,
         auto_create: auto_create !== undefined ? auto_create : false,
+        linked_goal_id: linked_goal_id || null,
         tags: tags || [],
         notes: notes || null,
       })

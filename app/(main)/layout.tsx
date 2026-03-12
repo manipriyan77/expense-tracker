@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { useAuthStore } from "@/store/auth-store";
 import { Loader2, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAutoExecuteRecurring } from "@/lib/hooks/useAutoExecuteRecurring";
 
 export default function MainLayout({
   children,
@@ -16,6 +17,7 @@ export default function MainLayout({
   const { user, loading, initialized, initializeAuth } = useAuthStore();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  useAutoExecuteRecurring();
 
   useEffect(() => {
     initializeAuth();

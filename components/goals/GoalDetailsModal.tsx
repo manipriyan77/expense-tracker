@@ -213,22 +213,22 @@ export default function GoalDetailsModal({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Current Amount</p>
-                    <p className="text-2xl font-bold text-blue-600">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-center p-3 bg-blue-50 rounded-lg min-w-0">
+                    <p className="text-xs text-gray-600 mb-1">Current</p>
+                    <p className="text-sm font-bold text-blue-600 break-words leading-tight">
                       {format(goal.currentAmount)}
                     </p>
                   </div>
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Target Amount</p>
-                    <p className="text-2xl font-bold text-green-600">
+                  <div className="text-center p-3 bg-green-50 rounded-lg min-w-0">
+                    <p className="text-xs text-gray-600 mb-1">Target</p>
+                    <p className="text-sm font-bold text-green-600 break-words leading-tight">
                       {format(goal.targetAmount)}
                     </p>
                   </div>
-                  <div className="text-center p-4 bg-orange-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Remaining</p>
-                    <p className="text-2xl font-bold text-orange-600">
+                  <div className="text-center p-3 bg-orange-50 rounded-lg min-w-0">
+                    <p className="text-xs text-gray-600 mb-1">Remaining</p>
+                    <p className="text-sm font-bold text-orange-600 break-words leading-tight">
                       {format(remaining)}
                     </p>
                   </div>
