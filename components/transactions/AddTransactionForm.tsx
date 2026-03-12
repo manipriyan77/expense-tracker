@@ -40,6 +40,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { useCategorizationRulesStore } from "@/store/categorization-rules-store";
+import { useTransactionsStore } from "@/store/transactions-store";
 
 const recurringFrequencyOptions = [
   "daily",
@@ -168,6 +169,7 @@ export default function AddTransactionForm({
     subtype: string | null;
   } | null>(null);
   const { matchRule, fetchRules } = useCategorizationRulesStore();
+  const { transactions } = useTransactionsStore();
 
   useEffect(() => {
     fetchRules();
@@ -208,6 +210,15 @@ export default function AddTransactionForm({
   const isRecurring = watch("isRecurring");
   const formDate = watch("date");
   const recurringFrequency = watch("recurringFrequency");
+
+  const duplicates = !transactionId && amount && selectedCategory && formDate
+    ? transactions.filter(
+        (t) =>
+          Math.abs(t.amount - parseFloat(amount)) < 0.01 &&
+          t.category === selectedCategory &&
+          t.date === formDate
+      )
+    : [];
 
   // Load budgets on mount
   useEffect(() => {
@@ -756,6 +767,23 @@ export default function AddTransactionForm({
               </p>
               <p className="text-sm text-blue-600 dark:text-blue-400">
                 {contextInfo.sourceName}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Detection Warning */}
+      {duplicates.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/30 dark:bg-amber-950/20">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                Possible duplicate
+              </p>
+              <p className="text-sm text-amber-600 dark:text-amber-400">
+                {duplicates[0].description} — same amount, category &amp; date already exists.
               </p>
             </div>
           </div>

@@ -63,8 +63,10 @@ import { useBudgetsStore } from "@/store/budgets-store";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { RecentTransactionsWidget } from "@/components/dashboard/RecentTransactionsWidget";
 import { QuickAddButton } from "@/components/QuickAddButton";
+import { DashboardCustomizer } from "@/components/dashboard/DashboardCustomizer";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { StatsSkeleton } from "@/components/ui/skeleton";
+import { useDashboardPreferencesStore } from "@/store/dashboard-preferences-store";
 // financial health card removed
 // achievements removed from dashboard
 // import { StreaksBadges } from "@/components/streaks-badges";
@@ -292,11 +294,14 @@ export default function Dashboard() {
   const { holdings: goldHoldings, load: loadGold } = useGoldStore();
   const { entries: forexEntries, load: loadForex } = useForexStore();
 
+  const { isVisible, hydrateFromStorage } = useDashboardPreferencesStore();
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [goalBannerDismissed, setGoalBannerDismissed] = useState(false);
   const [takingSnapshot, setTakingSnapshot] = useState(false);
 
   useEffect(() => {
+    hydrateFromStorage();
     fetchTransactions();
     fetchGoals();
     fetchAssets();
@@ -688,21 +693,26 @@ export default function Dashboard() {
                   })}
                 </p>
               </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-slate-600 text-slate-300 bg-transparent hover:bg-slate-800 hover:text-white gap-2 mt-1"
-                    onClick={handleTakeSnapshot}
-                    disabled={takingSnapshot}
-                  >
-                    <Camera className="h-4 w-4" />
-                    {takingSnapshot ? "Saving..." : "Snapshot"}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Save current net worth snapshot</TooltipContent>
-              </Tooltip>
+              <div className="flex items-center gap-2 mt-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-600 text-slate-300 bg-transparent hover:bg-slate-800 hover:text-white gap-2"
+                      onClick={handleTakeSnapshot}
+                      disabled={takingSnapshot}
+                    >
+                      <Camera className="h-4 w-4" />
+                      {takingSnapshot ? "Saving..." : "Snapshot"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Save current net worth snapshot</TooltipContent>
+                </Tooltip>
+                <div className="text-slate-300">
+                  <DashboardCustomizer />
+                </div>
+              </div>
             </div>
 
             {/* Stats strip */}
@@ -813,6 +823,7 @@ export default function Dashboard() {
           )}
 
           {/* Financial Health Score */}
+          {isVisible("financial-health") && (
           <Card className="rounded-lg overflow-hidden">
             <div className="flex flex-col sm:flex-row">
               {/* Score panel */}
@@ -917,8 +928,10 @@ export default function Dashboard() {
               </div>
             )}
           </Card>
+          )}
 
           {/* Charts row */}
+          {isVisible("net-worth-chart") && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {/* Net Worth Timeline */}
             <Card className="lg:col-span-2 rounded-lg">
@@ -1088,7 +1101,10 @@ export default function Dashboard() {
             </Card>
           </div>
 
+          )}
+
           {/* Data row: Holdings · Cashflow · Goals */}
+          {isVisible("investments") && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {/* Top Holdings */}
             <Card className="rounded-lg">
@@ -1293,9 +1309,10 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+          )}
 
           {/* Goal ETAs */}
-          {goalETAs.length > 0 && (
+          {isVisible("goal-etas") && goalETAs.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <TargetIcon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1352,9 +1369,11 @@ export default function Dashboard() {
           )}
 
           {/* Recent Transactions */}
+          {isVisible("recent-transactions") && (
           <div>
             <RecentTransactionsWidget />
           </div>
+          )}
         </main>
 
         <QuickAddButton />

@@ -8,6 +8,9 @@ import { useAuthStore } from "@/store/auth-store";
 import { Loader2, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAutoExecuteRecurring } from "@/lib/hooks/useAutoExecuteRecurring";
+import { useKeyboardShortcuts } from "@/lib/hooks/useKeyboardShortcuts";
+import { useCommandPaletteStore } from "@/store/command-palette-store";
+import CommandPalette from "@/components/CommandPalette";
 
 export default function MainLayout({
   children,
@@ -18,6 +21,11 @@ export default function MainLayout({
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useAutoExecuteRecurring();
+  const { open: openPalette } = useCommandPaletteStore();
+  useKeyboardShortcuts([
+    { key: "k", metaKey: true, action: openPalette, description: "Open command palette" },
+    { key: "k", ctrlKey: true, action: openPalette, description: "Open command palette" },
+  ]);
 
   useEffect(() => {
     initializeAuth();
@@ -81,6 +89,7 @@ export default function MainLayout({
         </header>
         <main id="main-content" className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden" tabIndex={-1}>{children}</main>
       </div>
+      <CommandPalette />
     </div>
   );
 }

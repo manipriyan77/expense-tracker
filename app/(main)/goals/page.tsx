@@ -32,7 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Progress } from "@/components/ui/progress";
+import { AnimatedProgress } from "@/components/ui/animated-progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -65,9 +65,11 @@ import GoalDetailsModal from "@/components/goals/GoalDetailsModal";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { toast, Toaster } from "sonner";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
+import { useConfetti } from "@/lib/hooks/useConfetti";
 
 export default function GoalsPage() {
   const { format } = useFormatCurrency();
+  const { fire: fireConfetti } = useConfetti();
   const { goals, loading, error, fetchGoals, addGoal, updateGoal, deleteGoal } =
     useGoalsStore();
   const { transactions, fetchTransactions } = useTransactionsStore();
@@ -476,8 +478,20 @@ export default function GoalsPage() {
   };
 
   const handleCompleteChallenge = async (id: string) => {
-    try { await completeChallenge(id); toast.success("Challenge complete!"); }
-    catch { toast.error("Failed to complete challenge"); }
+    try {
+      await completeChallenge(id);
+      toast.success("Challenge complete!");
+      fireConfetti();
+    } catch { toast.error("Failed to complete challenge"); }
+  };
+
+  const handleMarkGoalComplete = async (e: React.MouseEvent, goalId: string) => {
+    e.stopPropagation();
+    try {
+      await updateGoal(goalId, { status: "completed" });
+      toast.success("Goal completed!");
+      fireConfetti();
+    } catch { toast.error("Failed to update goal"); }
   };
 
   const openEditChallengeDialog = (challenge: SavingsChallenge) => {
@@ -947,10 +961,18 @@ export default function GoalsPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="default" size="sm" className="h-6 px-2 bg-green-600 hover:bg-green-700 text-[10px]"
-                        onClick={(e) => { e.stopPropagation(); openAddTransactionDialog(goal); }}>
-                        <DollarSign className="h-3 w-3" />
-                      </Button>
+                      {!isCompleted && (
+                        <Button variant="default" size="sm" className="h-6 px-2 bg-green-600 hover:bg-green-700 text-[10px]"
+                          onClick={(e) => { e.stopPropagation(); openAddTransactionDialog(goal); }}>
+                          <DollarSign className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {!isCompleted && progress >= 100 && (
+                        <Button variant="outline" size="sm" className="h-6 px-2 text-green-600 border-green-600"
+                          onClick={(e) => handleMarkGoalComplete(e, goal.id)}>
+                          <Check className="h-3 w-3" />
+                        </Button>
+                      )}
                       <Button variant="outline" size="sm" className="h-6 px-2"
                         onClick={(e) => { e.stopPropagation(); openEditDialog(goal); }}>
                         <Edit className="h-3 w-3" />
@@ -1117,7 +1139,7 @@ export default function GoalsPage() {
                                 <span className="text-gray-500">Progress</span>
                                 <span className="font-medium">{progress.toFixed(0)}%</span>
                               </div>
-                              <Progress value={progress} className="h-3" />
+                              <AnimatedProgress value={progress} className="h-3" />
                             </div>
                             <div className="grid grid-cols-2 gap-4 pt-2 border-t">
                               <div><p className="text-xs text-gray-500">Remaining</p><p className="font-semibold">{format(remaining)}</p></div>
