@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   TrendingUp,
   TrendingDown,
@@ -210,7 +211,10 @@ export default function InvestmentsPage() {
     deleteEntry,
   } = useForexStore();
 
-  const [activeTab, setActiveTab] = useState("all");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(
+    () => searchParams.get("tab") ?? "all"
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogStep, setDialogStep] = useState<1 | 2>(1);
   const [selectedClass, setSelectedClass] = useState<AssetClass | null>(null);
@@ -1021,7 +1025,7 @@ export default function InvestmentsPage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="border-slate-600 text-slate-200 hover:bg-slate-800"
+                className="bg-slate-800 border-slate-600 text-slate-100 hover:bg-slate-700 hover:text-white"
                 onClick={handleRefreshPrices}
                 disabled={refreshingPrices}
                 title="Fetch latest prices from Yahoo Finance"
@@ -1032,7 +1036,7 @@ export default function InvestmentsPage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="border-slate-600 text-slate-200 hover:bg-slate-800"
+                className="bg-slate-800 border-slate-600 text-slate-100 hover:bg-slate-700 hover:text-white"
                 onClick={() => openAddDialog()}
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -1736,6 +1740,15 @@ export default function InvestmentsPage() {
             {holdings.length > 0 && (
               <Card className="bg-amber-50 border-amber-200">
                 <CardContent className="p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-amber-800 uppercase tracking-widest">Gold Price</p>
+                    <div className="text-right">
+                      <p className="text-xs text-amber-600">Current Price / gram</p>
+                      <p className="font-mono font-bold text-amber-900 text-base">
+                        {format(holdings[0]?.currentPricePerGram ?? 0)}
+                      </p>
+                    </div>
+                  </div>
                   <div className="flex items-end gap-3">
                     <div className="flex-1">
                       <Label

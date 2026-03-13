@@ -277,7 +277,7 @@ export function MonthlyReportDownloadButton(props: MonthlyReportProps) {
         </div>
       </div>
 
-      <Button variant="outline" onClick={handleDownload} className="flex items-center gap-2">
+      <Button variant="outline" onClick={handleDownload} className="flex items-center gap-2 border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white bg-transparent">
         <Download className="h-4 w-4" />
         Download Report
       </Button>

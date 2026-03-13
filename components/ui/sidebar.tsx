@@ -22,17 +22,11 @@ import {
   Receipt,
   Repeat,
   Landmark,
-  Users,
-  FileText,
   Banknote,
   Target,
   BarChart3,
   Flag,
   Sparkles,
-  BarChart2,
-  Layers,
-  Coins,
-  Globe,
   Scale,
   Lightbulb,
   Activity,
@@ -67,8 +61,6 @@ const sidebarItems: SidebarItem[] = [
       { title: "Income", href: "/incomes", icon: TrendingUp },
       { title: "Recurring", href: "/recurring", icon: Repeat },
       { title: "Debt Tracker", href: "/debt-tracker", icon: Landmark },
-      { title: "Split Expenses", href: "/split-expenses", icon: Users },
-      { title: "Tax", href: "/tax", icon: FileText },
     ],
   },
   {
@@ -81,17 +73,7 @@ const sidebarItems: SidebarItem[] = [
       { title: "Savings Challenges", href: "/savings-challenges", icon: Sparkles },
     ],
   },
-  {
-    title: "Investments",
-    icon: TrendingUp,
-    subItems: [
-      { title: "Overview", href: "/investments", icon: TrendingUp },
-      { title: "Stocks", href: "/stocks", icon: BarChart2 },
-      { title: "Mutual Funds", href: "/mutual-funds", icon: Layers },
-      { title: "Gold", href: "/gold", icon: Coins },
-      { title: "Forex", href: "/forex", icon: Globe },
-    ],
-  },
+  { title: "Investments", href: "/investments", icon: TrendingUp },
   { title: "Net Worth", href: "/net-worth", icon: Scale },
   {
     title: "Analytics",
@@ -121,6 +103,8 @@ export function Sidebar({
   const pathname = usePathname();
   const { amountsHidden, toggleAmountsHidden, hydrateFromStorage } =
     usePrivacyStore();
+
+  const isSubItemActive = (href: string): boolean => pathname === href;
 
   // Initialize expanded items based on current pathname
   const getExpandedForPath = (path: string): string[] => {
@@ -260,7 +244,7 @@ export function Sidebar({
             const hasSubItems = item.subItems && item.subItems.length > 0;
             const isActive = item.href && pathname === item.href;
             const hasActiveChild =
-              hasSubItems && item.subItems?.some((sub) => pathname === sub.href);
+              hasSubItems && item.subItems?.some((sub) => isSubItemActive(sub.href));
 
             if (hasSubItems) {
               // Collapsed: show Popover with sub-items on click
@@ -289,7 +273,7 @@ export function Sidebar({
                       </p>
                       {item.subItems!.map((subItem) => {
                         const SubIcon = subItem.icon;
-                        const isSubActive = pathname === subItem.href;
+                        const isSubActive = isSubItemActive(subItem.href);
                         return (
                           <Link
                             key={subItem.href}
@@ -336,7 +320,7 @@ export function Sidebar({
                     <div className="ml-3 space-y-0.5 border-l-2 border-sidebar-border pl-3">
                       {item.subItems.map((subItem) => {
                         const SubIcon = subItem.icon;
-                        const isSubActive = pathname === subItem.href;
+                        const isSubActive = isSubItemActive(subItem.href);
                         return (
                           <Link
                             key={subItem.href}

@@ -56,8 +56,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/health-score": "Health Score",
   "/insights": "Insights",
   "/savings-challenges": "Savings Challenges",
-  "/split-expenses": "Split Expenses",
-  "/tax": "Tax",
   "/settings": "Settings",
 };
 

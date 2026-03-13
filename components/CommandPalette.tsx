@@ -11,14 +11,11 @@ import {
   BarChart3,
   RefreshCw,
   CreditCard,
-  Landmark,
   Scale,
   Calendar,
   Settings,
   Search,
   ArrowRight,
-  FileText,
-  Users,
   HeartPulse,
   Lightbulb,
   Coins,
@@ -56,8 +53,6 @@ const NAV_COMMANDS = (router: ReturnType<typeof useRouter>): Command[] => [
   { id: "debt-tracker", label: "Debt Tracker", icon: CreditCard, type: "page", action: () => router.push("/debt-tracker") },
   { id: "cashflow", label: "Cash Flow Planning", icon: HandCoins, type: "page", action: () => router.push("/cashflow-planning") },
   { id: "calendar", label: "Calendar", icon: Calendar, type: "page", action: () => router.push("/calendar") },
-  { id: "tax", label: "Tax Deductions", icon: FileText, type: "page", action: () => router.push("/tax") },
-  { id: "split-expenses", label: "Split Expenses", icon: Users, type: "page", action: () => router.push("/split-expenses") },
   { id: "settings", label: "Settings", icon: Settings, type: "page", action: () => router.push("/settings") },
 ];
 
