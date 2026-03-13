@@ -11,17 +11,37 @@ import {
   ChevronDown,
   ChevronUp,
   Home,
-  Wallet,
   X,
   PieChart,
   Settings,
   ArrowLeftRight,
   TrendingUp,
+  TrendingDown,
   Eye,
   EyeOff,
+  Receipt,
+  Repeat,
+  Landmark,
+  Users,
+  FileText,
+  Banknote,
+  Target,
+  BarChart3,
+  Flag,
+  Sparkles,
+  BarChart2,
+  Layers,
+  Coins,
+  Globe,
+  Scale,
+  Lightbulb,
+  Activity,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "./button";
 import { usePrivacyStore } from "@/store/privacy-store";
+import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
 
 interface SubItem {
   title: string;
@@ -37,42 +57,59 @@ interface SidebarItem {
 }
 
 const sidebarItems: SidebarItem[] = [
+  { title: "Dashboard", href: "/dashboard", icon: Home },
+  { title: "Transactions", href: "/transactions", icon: Receipt },
   {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: Home,
+    title: "Finance",
+    icon: Banknote,
+    subItems: [
+      { title: "Expenses", href: "/expenses", icon: TrendingDown },
+      { title: "Income", href: "/incomes", icon: TrendingUp },
+      { title: "Recurring", href: "/recurring", icon: Repeat },
+      { title: "Debt Tracker", href: "/debt-tracker", icon: Landmark },
+      { title: "Split Expenses", href: "/split-expenses", icon: Users },
+      { title: "Tax", href: "/tax", icon: FileText },
+    ],
   },
   {
-    title: "Net Worth",
-    href: "/net-worth",
-    icon: Wallet,
+    title: "Planning",
+    icon: Target,
+    subItems: [
+      { title: "Budgets", href: "/budgets", icon: BarChart3 },
+      { title: "Goals", href: "/goals", icon: Flag },
+      { title: "Cashflow", href: "/cashflow-planning", icon: ArrowLeftRight },
+      { title: "Savings Challenges", href: "/savings-challenges", icon: Sparkles },
+    ],
   },
   {
     title: "Investments",
-    href: "/investments",
     icon: TrendingUp,
+    subItems: [
+      { title: "Overview", href: "/investments", icon: TrendingUp },
+      { title: "Stocks", href: "/stocks", icon: BarChart2 },
+      { title: "Mutual Funds", href: "/mutual-funds", icon: Layers },
+      { title: "Gold", href: "/gold", icon: Coins },
+      { title: "Forex", href: "/forex", icon: Globe },
+    ],
   },
-  {
-    title: "Cashflow & Planning",
-    href: "/cashflow-planning",
-    icon: ArrowLeftRight,
-  },
+  { title: "Net Worth", href: "/net-worth", icon: Scale },
   {
     title: "Analytics",
-    href: "/analytics",
     icon: PieChart,
+    subItems: [
+      { title: "Reports", href: "/analytics", icon: BarChart3 },
+      { title: "Insights", href: "/insights", icon: Lightbulb },
+      { title: "Health Score", href: "/health-score", icon: Activity },
+      { title: "Calendar", href: "/calendar", icon: CalendarDays },
+    ],
   },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
+  { title: "Settings", href: "/settings", icon: Settings },
 ];
 
 interface SidebarProps {
-  className?: string;
-  mobileOpen?: boolean;
-  onMobileClose?: () => void;
+  readonly className?: string;
+  readonly mobileOpen?: boolean;
+  readonly onMobileClose?: () => void;
 }
 
 export function Sidebar({
@@ -81,16 +118,36 @@ export function Sidebar({
   onMobileClose,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [expandedItems, setExpandedItems] = useState<string[]>([
-    "Investments",
-  ]);
   const pathname = usePathname();
   const { amountsHidden, toggleAmountsHidden, hydrateFromStorage } =
     usePrivacyStore();
 
+  // Initialize expanded items based on current pathname
+  const getExpandedForPath = (path: string): string[] => {
+    return sidebarItems
+      .filter((item) => item.subItems?.some((sub) => path === sub.href))
+      .map((item) => item.title);
+  };
+
+  const [expandedItems, setExpandedItems] = useState<string[]>(() =>
+    getExpandedForPath(pathname)
+  );
+
   useEffect(() => {
     hydrateFromStorage();
   }, [hydrateFromStorage]);
+
+  // Auto-expand the section containing the active page
+  useEffect(() => {
+    const toExpand = getExpandedForPath(pathname);
+    if (toExpand.length > 0) {
+      setExpandedItems((prev) => {
+        const merged = new Set([...prev, ...toExpand]);
+        return Array.from(merged);
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   const toggleExpand = (title: string) => {
     setExpandedItems((prev) =>
@@ -127,7 +184,8 @@ export function Sidebar({
           </Button>
         </div>
       )}
-      {/* Logo Header - Acts as Home Button */}
+
+      {/* Logo Header */}
       <Link
         href="/dashboard"
         onClick={handleLinkClick}
@@ -140,8 +198,7 @@ export function Sidebar({
             isCollapsed ? "justify-center" : "justify-start w-full"
           )}
         >
-          {/* Logo */}
-          <div className="relative flex-shrink-0">
+          <div className="relative shrink-0">
             <Image
               src="/logo-simple.svg"
               alt="Expense Tracker"
@@ -151,8 +208,6 @@ export function Sidebar({
               priority
             />
           </div>
-
-          {/* App Name */}
           {!isCollapsed && (
             <div className="flex flex-col">
               <span className="text-base font-bold text-sidebar-foreground">
@@ -197,94 +252,150 @@ export function Sidebar({
       </div>
 
       {/* Navigation Items */}
-      <nav className="flex-1 p-4 space-y-2">
-        {sidebarItems.map((item) => {
-          const Icon = item.icon;
-          const isExpanded = expandedItems.includes(item.title);
-          const hasSubItems = item.subItems && item.subItems.length > 0;
-          const isActive = item.href && pathname === item.href;
-          const hasActiveChild =
-            hasSubItems && item.subItems?.some((sub) => pathname === sub.href);
+      <nav className="flex-1 p-3 space-y-0.5">
+        <TooltipProvider delayDuration={0}>
+          {sidebarItems.map((item) => {
+            const Icon = item.icon;
+            const isExpanded = expandedItems.includes(item.title);
+            const hasSubItems = item.subItems && item.subItems.length > 0;
+            const isActive = item.href && pathname === item.href;
+            const hasActiveChild =
+              hasSubItems && item.subItems?.some((sub) => pathname === sub.href);
 
-          if (hasSubItems) {
-            return (
-              <div key={item.title} className="space-y-1">
-                <button
-                  onClick={() => !isCollapsed && toggleExpand(item.title)}
-                  className={cn(
-                    "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                    (hasActiveChild || isExpanded) &&
-                      "bg-sidebar-accent text-sidebar-accent-foreground",
-                    isCollapsed && "justify-center px-2"
-                  )}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Icon className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="text-sm font-medium">{item.title}</span>
-                    )}
-                  </div>
-                  {!isCollapsed && (
-                    <>
-                      {isExpanded ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                    </>
-                  )}
-                </button>
-
-                {/* Sub Items */}
-                {isExpanded && !isCollapsed && item.subItems && (
-                  <div className="ml-4 space-y-1 border-l-2 border-sidebar-border pl-4">
-                    {item.subItems.map((subItem) => {
-                      const SubIcon = subItem.icon;
-                      const isSubActive = pathname === subItem.href;
-
-                      return (
-                        <Link
-                          key={subItem.href}
-                          href={subItem.href}
-                          onClick={handleLinkClick}
-                          className={cn(
-                            "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                            isSubActive &&
-                              "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:opacity-90"
-                          )}
-                        >
-                          <SubIcon className="h-4 w-4 flex-shrink-0" />
-                          <span className="text-sm font-medium">
+            if (hasSubItems) {
+              // Collapsed: show Popover with sub-items on click
+              if (isCollapsed) {
+                return (
+                  <Popover key={item.title}>
+                    <PopoverTrigger asChild>
+                      <button
+                        className={cn(
+                          "w-full flex items-center justify-center px-2 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                          hasActiveChild && "bg-sidebar-accent text-sidebar-accent-foreground"
+                        )}
+                        title={item.title}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      side="right"
+                      sideOffset={8}
+                      align="start"
+                      className="w-44 p-1.5 bg-sidebar border-sidebar-border text-sidebar-foreground"
+                    >
+                      <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1 mb-0.5 uppercase tracking-widest">
+                        {item.title}
+                      </p>
+                      {item.subItems!.map((subItem) => {
+                        const SubIcon = subItem.icon;
+                        const isSubActive = pathname === subItem.href;
+                        return (
+                          <Link
+                            key={subItem.href}
+                            href={subItem.href}
+                            onClick={handleLinkClick}
+                            className={cn(
+                              "flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                              isSubActive && "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:opacity-90"
+                            )}
+                          >
+                            <SubIcon className="h-3.5 w-3.5 shrink-0" />
                             {subItem.title}
-                          </span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          }
+                          </Link>
+                        );
+                      })}
+                    </PopoverContent>
+                  </Popover>
+                );
+              }
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href!}
-              onClick={handleLinkClick}
-              className={cn(
-                "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                isActive &&
-                  "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
-                isCollapsed && "justify-center px-2"
-              )}
-            >
-              <Icon className="h-5 w-5 flex-shrink-0" />
-              {!isCollapsed && (
+              // Expanded: accordion behaviour
+              return (
+                <div key={item.title} className="space-y-0.5">
+                  <button
+                    onClick={() => toggleExpand(item.title)}
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      (hasActiveChild || isExpanded) &&
+                        "bg-sidebar-accent text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="text-sm font-medium">{item.title}</span>
+                    </div>
+                    {isExpanded ? (
+                      <ChevronUp className="h-3.5 w-3.5 opacity-60" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                    )}
+                  </button>
+
+                  {isExpanded && item.subItems && (
+                    <div className="ml-3 space-y-0.5 border-l-2 border-sidebar-border pl-3">
+                      {item.subItems.map((subItem) => {
+                        const SubIcon = subItem.icon;
+                        const isSubActive = pathname === subItem.href;
+                        return (
+                          <Link
+                            key={subItem.href}
+                            href={subItem.href}
+                            onClick={handleLinkClick}
+                            className={cn(
+                              "flex items-center space-x-2.5 px-3 py-1.5 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                              isSubActive &&
+                                "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:opacity-90"
+                            )}
+                          >
+                            <SubIcon className="h-3.5 w-3.5 shrink-0" />
+                            <span className="text-sm">{subItem.title}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            // Leaf item — Tooltip in collapsed mode
+            if (isCollapsed) {
+              return (
+                <Tooltip key={item.href}>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={item.href!}
+                      onClick={handleLinkClick}
+                      className={cn(
+                        "flex items-center justify-center px-2 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                        isActive && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{item.title}</TooltipContent>
+                </Tooltip>
+              );
+            }
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href!}
+                onClick={handleLinkClick}
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  isActive && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
                 <span className="text-sm font-medium">{item.title}</span>
-              )}
-            </Link>
-          );
-        })}
+              </Link>
+            );
+          })}
+        </TooltipProvider>
       </nav>
     </div>
   );

@@ -43,6 +43,7 @@ import {
 import { MonthSelector } from "@/components/ui/month-selector";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
+import { Skeleton, TransactionSkeleton } from "@/components/ui/skeleton";
 
 interface Transaction {
   id: string;
@@ -75,6 +76,7 @@ interface TransactionFromDB {
 export default function TransactionsPage() {
   const { format } = useFormatCurrency();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -103,6 +105,7 @@ export default function TransactionsPage() {
   }, []);
 
   const loadTransactions = async () => {
+    setIsLoading(true);
     try {
       const response = await fetch("/api/transactions");
 
@@ -134,6 +137,8 @@ export default function TransactionsPage() {
     } catch (error) {
       console.error("Error loading transactions:", error);
       setTransactions([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -420,6 +425,32 @@ export default function TransactionsPage() {
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
   const balance = totalIncome - totalExpenses;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="bg-slate-900 dark:bg-black">
+          <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-4">
+            <Skeleton className="h-3 w-24 bg-slate-700 mb-2" />
+            <div className="grid grid-cols-3 gap-4 mt-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="px-4 py-3">
+                  <Skeleton className="h-2.5 w-16 bg-slate-700 mb-2" />
+                  <Skeleton className="h-5 w-24 bg-slate-700 mb-1" />
+                  <Skeleton className="h-2 w-12 bg-slate-800" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="px-4 sm:px-6 lg:px-8 py-4 space-y-2">
+          {["a","b","c","d","e","f","g","h"].map((id) => (
+            <TransactionSkeleton key={id} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
