@@ -5,6 +5,8 @@ import Link from "next/link";
 import {
   BarChart,
   Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -192,6 +194,47 @@ export default function CashflowPlanningPage() {
       expenses: vals.reduce((s, m) => s + m.expenses, 0) / vals.length,
     };
   }, [transactions]);
+
+  // ── 6-month cashflow forecast ─────────────────────────
+  const forecastData = useMemo(() => {
+    const toMonthly = (amount: number, freq: string) => {
+      switch (freq) {
+        case "daily": return amount * 30.4;
+        case "weekly": return amount * 4.33;
+        case "biweekly": return amount * 2.17;
+        case "monthly": return amount;
+        case "quarterly": return amount / 3;
+        case "yearly": return amount / 12;
+        default: return amount;
+      }
+    };
+
+    const recurringIncome = patterns
+      .filter((p) => p.is_active && p.type === "income")
+      .reduce((s, p) => s + toMonthly(p.amount, p.frequency), 0);
+
+    const recurringExpenses = patterns
+      .filter((p) => p.is_active && p.type === "expense")
+      .reduce((s, p) => s + toMonthly(p.amount, p.frequency), 0);
+
+    const projIncome = Math.max(sixMonthAvg.income, recurringIncome);
+    const projExpenses = Math.max(sixMonthAvg.expenses, recurringExpenses);
+
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() + 1 + i);
+      const label = d.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+      return {
+        label,
+        Income: Math.round(projIncome),
+        Expenses: Math.round(projExpenses),
+        Surplus: Math.round(projIncome - projExpenses),
+      };
+    });
+  }, [sixMonthAvg, patterns]);
+
+  const projectedAnnualSurplus = forecastData.reduce((s, m) => s + m.Surplus, 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -468,6 +511,90 @@ export default function CashflowPlanningPage() {
               </CardContent>
             </Card>
           )}
+        </section>
+
+        {/* ── Forecast section ── */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+              6-Month Forecast
+            </p>
+            <span className="text-[10px] text-muted-foreground">Based on 6-month avg + recurring</span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Forecast chart */}
+            <Card className="lg:col-span-2 rounded-lg">
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Projected Cashflow
+                  </p>
+                  <span className="text-[10px] font-mono text-muted-foreground italic">Forecast</span>
+                </div>
+              </CardHeader>
+              <CardContent className="px-2 pt-4 pb-2">
+                {forecastData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <AreaChart data={forecastData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#22c55e" stopOpacity={0.2} />
+                          <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                      <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                      <YAxis
+                        tick={{ fontSize: 10 }}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(v) =>
+                          v >= 100_000 ? `${(v / 100_000).toFixed(1)}L` : v >= 1_000 ? `${(v / 1_000).toFixed(0)}K` : `${v}`
+                        }
+                        width={40}
+                      />
+                      <Tooltip formatter={(v: number) => format(v)} contentStyle={{ fontSize: 12 }} />
+                      <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
+                      <Area type="monotone" dataKey="Income" stroke="#22c55e" strokeWidth={2} fill="url(#incomeGrad)" dot={false} />
+                      <Area type="monotone" dataKey="Expenses" stroke="#ef4444" strokeWidth={2} fill="url(#expenseGrad)" dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+                    Add transactions to generate a forecast
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Forecast summary */}
+            <Card className="rounded-lg">
+              <CardHeader className="pb-0 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground pb-2">Projection Summary</p>
+              </CardHeader>
+              <CardContent className="p-0 divide-y divide-border">
+                {forecastData.map((m) => (
+                  <div key={m.label} className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-xs text-muted-foreground font-medium">{m.label}</span>
+                    <span className={`text-xs font-mono font-semibold ${m.Surplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                      {m.Surplus >= 0 ? "+" : ""}{shortAmount(m.Surplus)}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
+                  <span className="text-xs font-semibold">6-month total</span>
+                  <span className={`text-sm font-mono font-bold ${projectedAnnualSurplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                    {projectedAnnualSurplus >= 0 ? "+" : ""}{shortAmount(projectedAnnualSurplus)}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </section>
 
         {/* ── Planning section ── */}

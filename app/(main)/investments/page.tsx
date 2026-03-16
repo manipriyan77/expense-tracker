@@ -61,11 +61,16 @@ import {
 } from "@/store/mutual-funds-store";
 import { useGoldStore, type GoldHolding } from "@/store/gold-store";
 import { useForexStore, type ForexEntry } from "@/store/forex-store";
+import {
+  useOtherInvestmentsStore,
+  type OtherInvestment,
+  type OtherInvestmentType,
+} from "@/store/other-investments-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
 
-type AssetClass = "stocks" | "mutual-funds" | "gold" | "forex";
+type AssetClass = "stocks" | "mutual-funds" | "gold" | "forex" | "other-investments";
 
 const ASSET_CLASSES: {
   key: AssetClass;
@@ -107,6 +112,14 @@ const ASSET_CLASSES: {
     color: "text-green-500",
     bg: "hover:border-green-500/50",
   },
+  {
+    key: "other-investments",
+    label: "Other Investments",
+    icon: Trophy,
+    description: "PPF, EPF, NPS, LIC, Postal",
+    color: "text-indigo-500",
+    bg: "hover:border-indigo-500/50",
+  },
 ];
 
 const TYPE_BADGE: Record<AssetClass, { label: string; className: string }> = {
@@ -129,6 +142,11 @@ const TYPE_BADGE: Record<AssetClass, { label: string; className: string }> = {
     label: "Forex",
     className:
       "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400",
+  },
+  "other-investments": {
+    label: "Other",
+    className:
+      "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400",
   },
 };
 
@@ -175,6 +193,17 @@ const defaultForexForm = {
   notes: "",
 };
 
+const defaultOtherForm = {
+  name: "",
+  type: "ppf" as OtherInvestmentType,
+  investedAmount: "",
+  currentValue: "",
+  startDate: new Date().toISOString().split("T")[0],
+  maturityDate: "",
+  interestRate: "",
+  notes: "",
+};
+
 export default function InvestmentsPage() {
   const { format } = useFormatCurrency();
   const {
@@ -210,6 +239,14 @@ export default function InvestmentsPage() {
     updateEntry,
     deleteEntry,
   } = useForexStore();
+  const {
+    investments: otherInvestments,
+    loading: oLoading,
+    load: loadOther,
+    addInvestment,
+    updateInvestment,
+    deleteInvestment,
+  } = useOtherInvestmentsStore();
 
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(
@@ -226,6 +263,7 @@ export default function InvestmentsPage() {
   const [goldForm, setGoldForm] = useState(defaultGoldForm);
   const [goldPriceUpdate, setGoldPriceUpdate] = useState("");
   const [forexForm, setForexForm] = useState(defaultForexForm);
+  const [otherForm, setOtherForm] = useState(defaultOtherForm);
   const [saving, setSaving] = useState(false);
   const [refreshingPrices, setRefreshingPrices] = useState(false);
   const [detailItem, setDetailItem] = useState<{
@@ -252,6 +290,7 @@ export default function InvestmentsPage() {
     fetchMutualFunds();
     loadGold();
     loadForex();
+    loadOther();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -280,14 +319,24 @@ export default function InvestmentsPage() {
       .reduce((s, e) => s + e.amount, 0);
     const forexBalance = forexDeposited + forexPnl - forexWithdrawn;
 
+    const otherInvested = otherInvestments.reduce(
+      (s, x) => s + x.investedAmount,
+      0,
+    );
+    const otherCurrent = otherInvestments.reduce(
+      (s, x) => s + x.currentValue,
+      0,
+    );
+
     const totalInvested =
-      stockInvested + mfInvested + goldInvested + forexDeposited;
-    const totalCurrent = stockCurrent + mfCurrent + goldCurrent + forexBalance;
+      stockInvested + mfInvested + goldInvested + forexDeposited + otherInvested;
+    const totalCurrent =
+      stockCurrent + mfCurrent + goldCurrent + forexBalance + otherCurrent;
     const totalPnl = totalCurrent - totalInvested;
     const returnPct = totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0;
 
     return { totalInvested, totalCurrent, totalPnl, returnPct };
-  }, [stocks, mutualFunds, holdings, entries]);
+  }, [stocks, mutualFunds, holdings, entries, otherInvestments]);
 
   const pnlInfo = (pnl: number, invested: number) => {
     const pct = invested > 0 ? (pnl / invested) * 100 : 0;
@@ -331,6 +380,7 @@ export default function InvestmentsPage() {
     setMfForm(defaultMfForm);
     setGoldForm(defaultGoldForm);
     setForexForm(defaultForexForm);
+    setOtherForm(defaultOtherForm);
     if (type) {
       setSelectedClass(type);
       setDialogStep(2);
@@ -406,6 +456,24 @@ export default function InvestmentsPage() {
       amount: String(e.amount),
       handler_share_percentage: String(e.handler_share_percentage),
       notes: e.notes ?? "",
+    });
+    setDialogStep(2);
+    setDialogOpen(true);
+  };
+
+  const openEditOther = (o: OtherInvestment) => {
+    setEditMode(true);
+    setEditId(o.id);
+    setSelectedClass("other-investments");
+    setOtherForm({
+      name: o.name,
+      type: o.type,
+      investedAmount: String(o.investedAmount),
+      currentValue: String(o.currentValue),
+      startDate: o.startDate,
+      maturityDate: o.maturityDate ?? "",
+      interestRate: o.interestRate != null ? String(o.interestRate) : "",
+      notes: o.notes ?? "",
     });
     setDialogStep(2);
     setDialogOpen(true);
@@ -512,6 +580,33 @@ export default function InvestmentsPage() {
           await addEntry(payload);
           toast.success("Entry added");
         }
+      } else if (selectedClass === "other-investments") {
+        if (!otherForm.name) {
+          toast.error("Name is required");
+          return;
+        }
+        const payload: Omit<OtherInvestment, "id"> = {
+          name: otherForm.name,
+          type: otherForm.type,
+          investedAmount: parseFloat(otherForm.investedAmount) || 0,
+          currentValue:
+            parseFloat(otherForm.currentValue) ||
+            parseFloat(otherForm.investedAmount) ||
+            0,
+          startDate: otherForm.startDate,
+          maturityDate: otherForm.maturityDate || undefined,
+          interestRate: otherForm.interestRate
+            ? parseFloat(otherForm.interestRate)
+            : undefined,
+          notes: otherForm.notes || undefined,
+        };
+        if (editMode && editId) {
+          await updateInvestment(editId, payload);
+          toast.success("Investment updated");
+        } else {
+          await addInvestment(payload);
+          toast.success("Investment added");
+        }
       }
       setDialogOpen(false);
     } catch {
@@ -527,6 +622,7 @@ export default function InvestmentsPage() {
       else if (type === "mutual-funds") await deleteMutualFund(id);
       else if (type === "gold") await deleteHolding(id);
       else if (type === "forex") await deleteEntry(id);
+      else if (type === "other-investments") await deleteInvestment(id);
       toast.success("Deleted");
     } catch {
       toast.error("Failed to delete");
@@ -770,7 +866,7 @@ export default function InvestmentsPage() {
     }
   };
 
-  const isLoading = sLoading || mLoading || gLoading || fLoading;
+  const isLoading = sLoading || mLoading || gLoading || fLoading || oLoading;
 
   // Forex summary for the forex tab
   const forexSummary = useMemo(() => {
@@ -802,8 +898,13 @@ export default function InvestmentsPage() {
       { name: "Mutual Funds", value: mi, color: "#8b5cf6" },
       { name: "Gold", value: gi, color: "#f59e0b" },
       { name: "Forex", value: fi > 0 ? fi : 0, color: "#22c55e" },
+      {
+        name: "Other",
+        value: otherInvestments.reduce((s, x) => s + x.currentValue, 0),
+        color: "#6366f1",
+      },
     ].filter((d) => d.value > 0);
-  }, [stocks, mutualFunds, holdings, forexSummary]);
+  }, [stocks, mutualFunds, holdings, forexSummary, otherInvestments]);
 
   // Per-asset-type performance
   const assetPerf = useMemo(() => {
@@ -858,8 +959,19 @@ export default function InvestmentsPage() {
         color: "#22c55e",
         count: entries.length,
       },
+      {
+        key: "other-investments",
+        label: "Other",
+        invested: otherInvestments.reduce((s, x) => s + x.investedAmount, 0),
+        current: otherInvestments.reduce((s, x) => s + x.currentValue, 0),
+        pnl:
+          otherInvestments.reduce((s, x) => s + x.currentValue, 0) -
+          otherInvestments.reduce((s, x) => s + x.investedAmount, 0),
+        color: "#6366f1",
+        count: otherInvestments.length,
+      },
     ].filter((a) => a.count > 0);
-  }, [stocks, mutualFunds, holdings, entries, forexSummary]);
+  }, [stocks, mutualFunds, holdings, entries, forexSummary, otherInvestments]);
 
   // Bar chart data: invested vs current per asset type
   const assetBarData = useMemo(
@@ -912,8 +1024,18 @@ export default function InvestmentsPage() {
         color: "#f59e0b",
       }),
     );
+    otherInvestments.forEach((o) =>
+      all.push({
+        name: o.name,
+        type: "other-investments",
+        invested: o.investedAmount,
+        current: o.currentValue,
+        badge: "Other",
+        color: "#6366f1",
+      }),
+    );
     return all.sort((a, b) => b.current - a.current).slice(0, 5);
-  }, [stocks, mutualFunds, holdings]);
+  }, [stocks, mutualFunds, holdings, otherInvestments]);
 
   // Best performers by return %
   const performers = useMemo(() => {
@@ -1005,7 +1127,8 @@ export default function InvestmentsPage() {
     stocks.length > 0 ||
     mutualFunds.length > 0 ||
     holdings.length > 0 ||
-    entries.length > 0;
+    entries.length > 0 ||
+    otherInvestments.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -1090,7 +1213,7 @@ export default function InvestmentsPage() {
       <main className="px-4 sm:px-6 lg:px-8 py-4 space-y-4">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto">
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="stocks">
               Stocks
@@ -1117,6 +1240,14 @@ export default function InvestmentsPage() {
               )}
             </TabsTrigger>
             <TabsTrigger value="forex">Forex</TabsTrigger>
+            <TabsTrigger value="other-investments">
+              Other
+              {otherInvestments.length > 0 && (
+                <span className="ml-1.5 text-xs text-muted-foreground">
+                  {otherInvestments.length}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           {/* ALL TAB — Investment Dashboard */}
@@ -1960,6 +2091,143 @@ export default function InvestmentsPage() {
               ))
             )}
           </TabsContent>
+
+          {/* OTHER INVESTMENTS TAB */}
+          <TabsContent value="other-investments" className="space-y-2 mt-4">
+            <TabHeader
+              count={otherInvestments.length}
+              label="investment"
+              onAdd={() => openAddDialog("other-investments")}
+              addLabel="Add Investment"
+            />
+            {otherInvestments.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  {
+                    label: "Total Invested",
+                    value: otherInvestments.reduce(
+                      (s, x) => s + x.investedAmount,
+                      0,
+                    ),
+                    color: "text-foreground",
+                  },
+                  {
+                    label: "Current Value",
+                    value: otherInvestments.reduce(
+                      (s, x) => s + x.currentValue,
+                      0,
+                    ),
+                    color: "text-foreground",
+                  },
+                ].map((item) => (
+                  <Card key={item.label}>
+                    <CardContent className="p-3">
+                      <div className="text-xs text-muted-foreground">
+                        {item.label}
+                      </div>
+                      <div className={`text-base font-bold font-mono ${item.color}`}>
+                        {format(item.value)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+            {otherInvestments.length === 0 ? (
+              <EmptyState
+                icon={Trophy}
+                label="No other investments yet"
+                onAdd={() => openAddDialog("other-investments")}
+              />
+            ) : (
+              otherInvestments.map((o) => {
+                const pnl = o.currentValue - o.investedAmount;
+                const d = pnlInfo(pnl, o.investedAmount);
+                return (
+                  <Card key={o.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm truncate">
+                              {o.name}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className="text-xs uppercase"
+                            >
+                              {o.type === "epf" ? "EPF/PF" : o.type.toUpperCase()}
+                            </Badge>
+                          </div>
+                          <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">
+                                Invested
+                              </span>
+                              <p className="font-mono font-medium">
+                                {format(o.investedAmount)}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">
+                                Current Value
+                              </span>
+                              <p className="font-mono font-medium">
+                                {format(o.currentValue)}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">
+                                Returns
+                              </span>
+                              <p className={`font-mono font-medium ${d.color}`}>
+                                {d.text}
+                              </p>
+                            </div>
+                            {o.interestRate != null && (
+                              <div>
+                                <span className="text-muted-foreground">
+                                  Rate
+                                </span>
+                                <p className="font-mono font-medium">
+                                  {o.interestRate}%
+                                </p>
+                              </div>
+                            )}
+                            {o.startDate && (
+                              <div>
+                                <span className="text-muted-foreground">
+                                  Start Date
+                                </span>
+                                <p>{o.startDate}</p>
+                              </div>
+                            )}
+                            {o.maturityDate && (
+                              <div>
+                                <span className="text-muted-foreground">
+                                  Maturity
+                                </span>
+                                <p>{o.maturityDate}</p>
+                              </div>
+                            )}
+                          </div>
+                          {o.notes && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {o.notes}
+                            </p>
+                          )}
+                        </div>
+                        <RowActions
+                          onEdit={() => openEditOther(o)}
+                          onDelete={() => handleDelete("other-investments", o.id)}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </TabsContent>
         </Tabs>
       </main>
 
@@ -2022,6 +2290,9 @@ export default function InvestmentsPage() {
           )}
           {dialogStep === 2 && selectedClass === "forex" && (
             <ForexForm form={forexForm} onChange={setForexForm} />
+          )}
+          {dialogStep === 2 && selectedClass === "other-investments" && (
+            <OtherForm form={otherForm} onChange={setOtherForm} />
           )}
 
           {dialogStep === 2 && (
@@ -2920,6 +3191,110 @@ function ForexForm({
           />
         </div>
       )}
+      <div className="space-y-1.5 sm:col-span-2">
+        <Label>Notes</Label>
+        <Input
+          placeholder="Optional"
+          value={form.notes}
+          onChange={(e) => s("notes", e.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function OtherForm({
+  form,
+  onChange,
+}: {
+  form: typeof defaultOtherForm;
+  onChange: (f: typeof defaultOtherForm) => void;
+}) {
+  const s = (k: keyof typeof defaultOtherForm, v: string) =>
+    onChange({ ...form, [k]: v });
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+      <div className="space-y-1.5 sm:col-span-2">
+        <Label>Investment Name *</Label>
+        <Input
+          placeholder="e.g. My PPF Account, Company PF"
+          value={form.name}
+          onChange={(e) => s("name", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Type *</Label>
+        <Select value={form.type} onValueChange={(v) => s("type", v)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[
+              ["ppf", "PPF (Public Provident Fund)"],
+              ["epf", "EPF / PF (Employee Provident Fund)"],
+              ["nps", "NPS (National Pension System)"],
+              ["postal", "Postal Savings (NSC / KVP / MIS)"],
+              ["lic", "LIC / Life Insurance"],
+              ["other", "Other"],
+            ].map(([val, label]) => (
+              <SelectItem key={val} value={val}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Interest / Return Rate (%)</Label>
+        <Input
+          type="number"
+          placeholder="e.g. 7.1"
+          value={form.interestRate}
+          onChange={(e) => s("interestRate", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Amount Invested *</Label>
+        <Input
+          type="number"
+          placeholder="0.00"
+          value={form.investedAmount}
+          onChange={(e) => s("investedAmount", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>
+          Current Value{" "}
+          <span className="text-muted-foreground text-xs">
+            (defaults to invested)
+          </span>
+        </Label>
+        <Input
+          type="number"
+          placeholder="0.00"
+          value={form.currentValue}
+          onChange={(e) => s("currentValue", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Start Date *</Label>
+        <Input
+          type="date"
+          value={form.startDate}
+          onChange={(e) => s("startDate", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>
+          Maturity Date{" "}
+          <span className="text-muted-foreground text-xs">(optional)</span>
+        </Label>
+        <Input
+          type="date"
+          value={form.maturityDate}
+          onChange={(e) => s("maturityDate", e.target.value)}
+        />
+      </div>
       <div className="space-y-1.5 sm:col-span-2">
         <Label>Notes</Label>
         <Input

@@ -23,7 +23,6 @@ import {
   Target,
   AlertCircle,
   Plus,
-  Trophy,
   Sparkles,
   CreditCard,
   PiggyBank,
@@ -67,7 +66,6 @@ const transactionFormSchema = z.object({
   budgetId: z.string().optional(),
   goalId: z.string().optional(),
   debtId: z.string().optional(),
-  savingsChallengeId: z.string().optional(),
   date: z.string().optional(),
   isRecurring: z.boolean().optional(),
   recurringFrequency: z
@@ -102,13 +100,6 @@ interface Debt {
   type: string;
 }
 
-interface SavingsChallenge {
-  id: string;
-  name: string;
-  target_amount: number;
-  current_amount: number;
-  status: string;
-}
 
 interface AddTransactionFormProps {
   onSuccess: () => void;
@@ -122,12 +113,11 @@ interface AddTransactionFormProps {
     budgetId?: string;
     goalId?: string;
     debtId?: string;
-    savingsChallengeId?: string;
     description?: string;
     date?: string;
   };
   contextInfo?: {
-    source?: "budget" | "goal" | "savings-challenge";
+    source?: "budget" | "goal";
     sourceName?: string;
   };
 }
@@ -143,9 +133,6 @@ export default function AddTransactionForm({
   const [goals, setGoals] = useState<Goal[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
-  const [savingsChallenges, setSavingsChallenges] = useState<
-    SavingsChallenge[]
-  >([]);
   const [budgetInfo, setBudgetInfo] = useState<{
     budgetLimit: number;
     totalSpent: number;
@@ -194,7 +181,6 @@ export default function AddTransactionForm({
       budgetId: initialValues?.budgetId || "",
       goalId: initialValues?.goalId || "",
       debtId: initialValues?.debtId || "",
-      savingsChallengeId: initialValues?.savingsChallengeId || "",
       date: initialValues?.date ?? new Date().toISOString().split("T")[0],
       isRecurring: false,
       recurringFrequency: "monthly",
@@ -225,12 +211,11 @@ export default function AddTransactionForm({
     fetchBudgets();
   }, []);
 
-  // Load goals, debts, and savings challenges for expenses
+  // Load goals and debts for expenses
   useEffect(() => {
     if (transactionType === "expense") {
       fetchGoals();
       fetchDebts();
-      fetchSavingsChallenges();
     }
   }, [transactionType]);
 
@@ -316,35 +301,6 @@ export default function AddTransactionForm({
     }
   };
 
-  const fetchSavingsChallenges = async () => {
-    try {
-      const response = await fetch("/api/savings-challenges");
-      if (response.ok) {
-        const data = await response.json();
-        setSavingsChallenges(
-          data
-            .filter((c: { status: string }) => c.status === "active")
-            .map(
-              (c: {
-                id: string;
-                name: string;
-                target_amount: number;
-                current_amount: number;
-                status: string;
-              }) => ({
-                id: c.id,
-                name: c.name,
-                target_amount: c.target_amount,
-                current_amount: c.current_amount,
-                status: c.status,
-              }),
-            ),
-        );
-      }
-    } catch (error) {
-      console.error("Error fetching savings challenges:", error);
-    }
-  };
 
   const checkBudget = async () => {
     try {
@@ -482,8 +438,6 @@ export default function AddTransactionForm({
       }
 
       const hasDebt = data.debtId && data.debtId !== "none";
-      const hasChallenge =
-        data.savingsChallengeId && data.savingsChallengeId !== "none";
 
       if (hasDebt) {
         const debtRes = await fetch(
@@ -507,27 +461,6 @@ export default function AddTransactionForm({
         }
       }
 
-      if (hasChallenge) {
-        const challengeRes = await fetch(
-          `/api/savings-challenges/${data.savingsChallengeId}/contributions`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              amount,
-              contribution_date: txDate,
-              notes: data.description
-                ? `From expense: ${data.description}`
-                : undefined,
-            }),
-          },
-        );
-        if (!challengeRes.ok) {
-          throw new Error(
-            "Transaction saved but failed to record savings challenge contribution.",
-          );
-        }
-      }
 
       reset();
       onSuccess();
@@ -754,16 +687,13 @@ export default function AddTransactionForm({
             {contextInfo.source === "goal" && (
               <Target className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
             )}
-            {contextInfo.source === "savings-challenge" && (
-              <Trophy className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-            )}
             <div>
               <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
                 {contextInfo.source === "budget"
                   ? "Budget context"
                   : contextInfo.source === "goal"
                     ? "Goal context"
-                    : "Savings challenge"}
+                    : "Context"}
               </p>
               <p className="text-sm text-blue-600 dark:text-blue-400">
                 {contextInfo.sourceName}
@@ -1488,41 +1418,6 @@ export default function AddTransactionForm({
             />
           </div>
 
-          {/* Savings Challenge */}
-          <div className="space-y-2">
-            <Label className="text-xs font-medium flex items-center gap-2">
-              <Trophy className="h-3.5 w-3.5" />
-              Savings challenge (optional)
-            </Label>
-            <Controller
-              name="savingsChallengeId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  value={field.value || ""}
-                  onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
-                >
-                  <SelectTrigger className="text-sm">
-                    <SelectValue placeholder="Select a challenge" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No challenge</SelectItem>
-                    {savingsChallenges.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{c.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            ({format(c.current_amount)}/
-                            {format(c.target_amount)})
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
         </div>
       )}
 

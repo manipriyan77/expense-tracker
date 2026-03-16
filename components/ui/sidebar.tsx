@@ -26,7 +26,6 @@ import {
   Target,
   BarChart3,
   Flag,
-  Sparkles,
   Scale,
   Lightbulb,
   Activity,
@@ -70,7 +69,6 @@ const sidebarItems: SidebarItem[] = [
       { title: "Budgets", href: "/budgets", icon: BarChart3 },
       { title: "Goals", href: "/goals", icon: Flag },
       { title: "Cashflow", href: "/cashflow-planning", icon: ArrowLeftRight },
-      { title: "Savings Challenges", href: "/savings-challenges", icon: Sparkles },
     ],
   },
   { title: "Investments", href: "/investments", icon: TrendingUp },
@@ -207,7 +205,7 @@ export function Sidebar({
 
       {/* Collapse + Privacy Toggle (desktop only) */}
       <div className="hidden md:flex items-center justify-end gap-1 px-4 py-2 border-b border-sidebar-border">
-        <Button
+        {/* <Button
           variant="ghost"
           size="sm"
           onClick={() => toggleAmountsHidden()}
@@ -219,7 +217,7 @@ export function Sidebar({
           ) : (
             <Eye className="h-4 w-4" />
           )}
-        </Button>
+        </Button> */}
         <Button
           variant="ghost"
           size="sm"

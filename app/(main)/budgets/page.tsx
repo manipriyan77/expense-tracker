@@ -49,6 +49,16 @@ import { MonthSelector } from "@/components/ui/month-selector";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { DollarSign } from "lucide-react";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 
 const budgetFormSchema = z.object({
   category: z.string().min(1, "Category is required"),
@@ -263,6 +273,17 @@ export default function BudgetsPage() {
 
   const totalBudget = budgets.reduce((sum, b) => sum + b.limit_amount, 0);
   const totalSpent = budgets.reduce((sum, b) => sum + (b.spent_amount || 0), 0);
+
+  const budgetChartData = useMemo(
+    () =>
+      budgets.map((b) => ({
+        name: b.subtype ? `${b.category} · ${b.subtype}` : b.category,
+        Budget: b.limit_amount,
+        Spent: b.spent_amount || 0,
+        Remaining: Math.max(0, b.limit_amount - (b.spent_amount || 0)),
+      })),
+    [budgets],
+  );
   const overallPercentage =
     totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
@@ -757,6 +778,61 @@ export default function BudgetsPage() {
                 </form>
               </DialogContent>
             </Dialog>
+
+            {/* Budget Analysis Chart */}
+            {budgets.length > 0 && (
+              <Card className="mb-4">
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Budget vs Spent
+                  </p>
+                </CardHeader>
+                <CardContent className="px-2 pt-4 pb-2">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart
+                      data={budgetChartData}
+                      margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: 10 }}
+                        tickLine={false}
+                        axisLine={false}
+                        interval={0}
+                        angle={-30}
+                        textAnchor="end"
+                        height={48}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 10 }}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(v) =>
+                          v >= 1_000_000
+                            ? `${(v / 1_000_000).toFixed(1)}M`
+                            : v >= 1_000
+                              ? `${(v / 1_000).toFixed(0)}K`
+                              : `${v}`
+                        }
+                        width={40}
+                      />
+                      <Tooltip
+                        formatter={(value: number) => format(value)}
+                        contentStyle={{ fontSize: 12 }}
+                      />
+                      <Legend
+                        iconType="square"
+                        iconSize={8}
+                        wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
+                      />
+                      <Bar dataKey="Budget" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={40} />
+                      <Bar dataKey="Spent" fill="#ef4444" radius={[3, 3, 0, 0]} maxBarSize={40} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Budget Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

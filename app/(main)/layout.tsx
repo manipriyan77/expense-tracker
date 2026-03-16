@@ -55,7 +55,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/recurring": "Recurring",
   "/health-score": "Health Score",
   "/insights": "Insights",
-  "/savings-challenges": "Savings Challenges",
   "/settings": "Settings",
 };
 

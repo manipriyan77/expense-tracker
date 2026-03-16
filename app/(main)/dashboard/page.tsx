@@ -261,6 +261,18 @@ const PILLAR_RANGES: Record<string, string[]> = {
   ],
 };
 
+function budgetSliceColor(pct: number, idx: number): string {
+  if (pct >= 100) return "#dc2626";
+  if (pct >= 80) return "#f97316";
+  if (pct >= 60) return "#eab308";
+  return ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length];
+}
+function budgetPctTextColor(pct: number): string {
+  if (pct >= 100) return "text-red-600 dark:text-red-400";
+  if (pct >= 80) return "text-orange-500";
+  return "text-muted-foreground";
+}
+
 const ALLOCATION_COLORS = [
   "#16a34a",
   "#2563eb",
@@ -551,6 +563,20 @@ export default function Dashboard() {
     return data;
   }, [stocksValue, mfValue, goldValue, forexValue, assets]);
 
+  // Budget usage pie chart data
+  const budgetPieData = useMemo(
+    () =>
+      budgets
+        .filter((b) => b.limit_amount > 0)
+        .map((b) => ({
+          name: b.subtype ? `${b.category} · ${b.subtype}` : b.category,
+          spent: b.spent_amount || 0,
+          limit: b.limit_amount,
+          pct: Math.round(((b.spent_amount || 0) / b.limit_amount) * 100),
+        }))
+        .filter((b) => b.spent > 0),
+    [budgets],
+  );
   // Net Worth timeline from snapshots
   const nwChartData = useMemo(() => {
     return snapshots
@@ -1366,6 +1392,70 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Budget Usage Pie */}
+          {budgetPieData.length > 0 && (
+            <Card className="rounded-lg">
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Budget Usage by Category
+                  </p>
+                  <Link
+                    href="/budgets"
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    Budgets <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 pt-3">
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <ResponsiveContainer width="100%" height={180} className="shrink-0 sm:max-w-50">
+                    <PieChart>
+                      <Pie
+                        data={budgetPieData}
+                        dataKey="spent"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={2}
+                      >
+                        {budgetPieData.map((entry, i) => (
+                          <Cell
+                            key={entry.name}
+                            fill={budgetSliceColor(entry.pct, i)}
+                          />
+                        ))}
+                      </Pie>
+                      <RechartTooltip
+                        formatter={(v: unknown, _: unknown, props: { payload?: { pct?: number } }) => [
+                          `${format(v as number)} (${props.payload?.pct ?? 0}% used)`,
+                        ]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex-1 w-full space-y-2">
+                    {budgetPieData.map((b, i) => (
+                      <div key={b.name} className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span
+                            className="h-2 w-2 rounded-full shrink-0"
+                            style={{ backgroundColor: budgetSliceColor(b.pct, i) }}
+                          />
+                          <span className="text-xs truncate">{b.name}</span>
+                        </div>
+                        <span className={`text-xs font-mono font-semibold shrink-0 ${budgetPctTextColor(b.pct)}`}>
+                          {b.pct}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Recent Transactions */}
