@@ -558,7 +558,7 @@ export default function CashflowPlanningPage() {
                         }
                         width={40}
                       />
-                      <Tooltip formatter={(v: number) => format(v)} contentStyle={{ fontSize: 12 }} />
+                      <Tooltip formatter={(v: unknown) => format(Number(v ?? 0))} contentStyle={{ fontSize: 12 }} />
                       <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
                       <Area type="monotone" dataKey="Income" stroke="#22c55e" strokeWidth={2} fill="url(#incomeGrad)" dot={false} />
                       <Area type="monotone" dataKey="Expenses" stroke="#ef4444" strokeWidth={2} fill="url(#expenseGrad)" dot={false} />

@@ -61,11 +61,15 @@ import {
   Wallet,
   BarChart3,
   Globe,
+  Shield,
+  Camera,
+  Activity,
+  PiggyBank,
 } from "lucide-react";
 import Link from "next/link";
 import {
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -78,11 +82,11 @@ import {
   Legend,
 } from "recharts";
 
-const ALLOCATION_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#ec4899", "#8b5cf6"];
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
-import { EmptyState } from "@/components/ui/empty-state";
 import { StatsSkeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
+
+const ALLOCATION_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4", "#f97316"];
 
 export default function NetWorthPage() {
   const { format } = useFormatCurrency();
@@ -100,6 +104,7 @@ export default function NetWorthPage() {
     updateLiability,
     deleteAsset,
     deleteLiability,
+    createSnapshot,
   } = useNetWorthStore();
 
   // Investment / asset modules from other parts of the app
@@ -236,6 +241,7 @@ export default function NetWorthPage() {
       },
       { name: "Stocks", value: stockValue, href: "/stocks", icon: BarChart3 },
       { name: "Forex", value: forexValue, href: "/forex", icon: Globe },
+      { name: "Other Investments", value: otherInvestments.reduce((sum, x) => sum + x.currentValue, 0), href: "/investments", icon: Briefcase },
       {
         name: "Other Assets",
         value: totalManualAssets,
@@ -243,7 +249,7 @@ export default function NetWorthPage() {
         icon: DollarSign,
       },
     ];
-  }, [holdings, mutualFunds, stocks, forexEntries, totalManualAssets]);
+  }, [holdings, mutualFunds, stocks, forexEntries, otherInvestments, totalManualAssets]);
 
   // Allocation tab: investment breakdown by category/sector
   const allocationItems = useMemo(() => {
@@ -500,6 +506,10 @@ export default function NetWorthPage() {
     }
   };
 
+  const debtRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
+  const financialHealthColor = debtRatio < 30 ? "text-emerald-400" : debtRatio < 60 ? "text-amber-400" : "text-red-400";
+  const financialHealthLabel = debtRatio < 30 ? "Healthy" : debtRatio < 60 ? "Moderate" : "High Risk";
+
   if (loading && assets.length === 0) {
     return (
       <div className="min-h-screen bg-background p-8">
@@ -510,241 +520,243 @@ export default function NetWorthPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* ── Dark Hero Band ── */}
+      {/* ── Dark Hero ── */}
       <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
-          <div className="mb-4">
-            <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Net Worth Tracking</p>
-            <p className="text-4xl sm:text-5xl font-mono font-bold tracking-tight">
-              {format(netWorth)}
-            </p>
+        <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-0">
+          {/* Header row */}
+          <div className="flex items-start justify-between mb-5">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Total Net Worth · {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
+              <p className={`text-4xl sm:text-5xl font-mono font-bold tracking-tight ${netWorth >= 0 ? "text-white" : "text-red-400"}`}>
+                {format(netWorth)}
+              </p>
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  await createSnapshot();
+                  toast.success("Snapshot saved!");
+                } catch {
+                  toast.error("Failed to save snapshot");
+                }
+              }}
+              className="flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 transition-colors text-white px-3 py-1.5 rounded-lg mt-1"
+            >
+              <Camera className="h-3.5 w-3.5" />
+              Snapshot
+            </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 divide-x divide-slate-700/60 border-t border-slate-700/60">
+
+          {/* KPI strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Assets</p>
-              <p className="font-mono text-base font-semibold text-green-400">{format(totalAssets)}</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Total Assets</p>
+              <p className="font-mono text-lg font-semibold text-emerald-400">{format(totalAssets)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{assets.length + (externalAssetsTotal > 0 ? 1 : 0)} sources</p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Liabilities</p>
-              <p className="font-mono text-base font-semibold text-red-400">{format(totalLiabilities)}</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Total Liabilities</p>
+              <p className="font-mono text-lg font-semibold text-red-400">{format(totalLiabilities)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{liabilities.length} items</p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Net Worth</p>
-              <p className={`font-mono text-base font-semibold ${netWorth >= 0 ? "text-green-400" : "text-red-400"}`}>{format(netWorth)}</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Debt Ratio</p>
+              <p className={`font-mono text-lg font-semibold ${financialHealthColor}`}>{debtRatio.toFixed(1)}%</p>
+              <p className={`text-[10px] mt-0.5 ${financialHealthColor}`}>{financialHealthLabel}</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Investments</p>
+              <p className="font-mono text-lg font-semibold text-blue-400">{format(externalAssetsTotal)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">tracked externally</p>
             </div>
           </div>
         </div>
       </div>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-4">
+      <main className="px-4 sm:px-6 lg:px-8 py-5 space-y-4">
 
-        {/* Asset Breakdown by Category */}
-        <Card className="mb-4">
+        {/* Net Worth Trend */}
+        <Card>
           <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Asset Breakdown</p>
-            <p className="text-xs text-muted-foreground mt-0.5">By category · click to view details</p>
-          </CardHeader>
-          <CardContent className="p-3">
-            {totalAssets === 0 ? (
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center py-6">
-                No assets tracked yet
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {assetBreakdown
-                  .filter((item) => item.value > 0)
-                  .map((item) => {
-                    const percentage =
-                      totalAssets > 0 ? (item.value / totalAssets) * 100 : 0;
-                    const Icon = item.icon;
-                    return (
-                      <Card
-                        key={item.name}
-                        className={`hover:shadow-md transition-shadow ${
-                          item.href ? "cursor-pointer" : ""
-                        }`}
-                      >
-                        <CardContent className="p-3">
-                          {item.href ? (
-                            <Link href={item.href} className="block">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <Icon className="h-4 w-4 text-blue-600" />
-                                  <span className="font-medium text-sm">{item.name}</span>
-                                </div>
-                                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                              </div>
-                              <p className="font-mono font-semibold text-sm text-green-600 dark:text-green-400">{format(item.value)}</p>
-                              <div className="mt-2">
-                                <span className="font-mono text-[10px] text-muted-foreground">{percentage.toFixed(1)}% of total</span>
-                                <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-                                  <div
-                                    className="bg-green-600 h-1.5 rounded-full transition-all"
-                                    style={{ width: `${percentage}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </Link>
-                          ) : (
-                            <>
-                              <div className="flex items-center gap-2 mb-2">
-                                <Icon className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium text-sm">{item.name}</span>
-                              </div>
-                              <p className="font-mono font-semibold text-sm text-green-600 dark:text-green-400">{format(item.value)}</p>
-                              <div className="mt-2">
-                                <span className="font-mono text-[10px] text-muted-foreground">{percentage.toFixed(1)}% of total</span>
-                                <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-                                  <div
-                                    className="bg-primary h-1.5 rounded-full transition-all"
-                                    style={{ width: `${percentage}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Net Worth Trend</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Up to 6 months of history</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Net Worth Trend Chart */}
-        <Card className="mb-4">
-          <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Net Worth Trend</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Up to 6 months · hover a point to see source</p>
+              {historicalData.length > 1 && (() => {
+                const first = historicalData[0]?.netWorth ?? 0;
+                const last = historicalData[historicalData.length - 1]?.netWorth ?? 0;
+                const change = last - first;
+                const pct = first !== 0 ? (change / Math.abs(first)) * 100 : 0;
+                return (
+                  <div className={`flex items-center gap-1 text-sm font-semibold ${change >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                    {change >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    {change >= 0 ? "+" : ""}{pct.toFixed(1)}%
+                  </div>
+                );
+              })()}
+            </div>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart
-                data={historicalData}
-                margin={{ top: 8, right: 8, left: 8, bottom: 8 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+          <CardContent className="pt-4 pb-2 px-2">
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={historicalData} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+                <defs>
+                  <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value: number) => {
-                    const abs = Math.abs(value);
-                    const sign = value < 0 ? "-" : "";
-                    if (abs >= 1e6) return `${sign}₹${(abs / 1e6).toFixed(1)}M`;
-                    if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(0)}L`;
-                    if (abs >= 1000)
-                      return `${sign}₹${(abs / 1000).toFixed(0)}k`;
-                    return `${sign}₹${Math.round(abs)}`;
+                  tick={{ fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={52}
+                  tickFormatter={(v: number) => {
+                    const abs = Math.abs(v);
+                    const s = v < 0 ? "-" : "";
+                    if (abs >= 1e7) return `${s}₹${(abs/1e7).toFixed(1)}Cr`;
+                    if (abs >= 1e5) return `${s}₹${(abs/1e5).toFixed(0)}L`;
+                    if (abs >= 1000) return `${s}₹${(abs/1000).toFixed(0)}k`;
+                    return `${s}₹${Math.round(abs)}`;
                   }}
                 />
                 <Tooltip
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
-                    const p = payload[0].payload as {
-                      month: string;
-                      netWorth: number;
-                      sourceLabel: string;
-                    };
+                    const p = payload[0].payload as { month: string; netWorth: number; sourceLabel: string };
                     return (
-                      <div className="rounded-lg border bg-background px-3 py-2 shadow-md">
-                        <p className="font-semibold text-foreground">{p.month}</p>
-                        <p className="text-indigo-600 font-medium">
-                          Net worth: {format(p.netWorth)}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground max-w-[220px]">
-                          {p.sourceLabel}
-                        </p>
+                      <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-xs">
+                        <p className="font-semibold mb-1">{p.month}</p>
+                        <p className={`font-mono font-bold ${p.netWorth >= 0 ? "text-blue-600" : "text-red-500"}`}>{format(p.netWorth)}</p>
+                        <p className="text-muted-foreground mt-1 max-w-50">{p.sourceLabel}</p>
                       </div>
                     );
                   }}
                 />
                 <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="2 2" />
-                <Bar
-                  dataKey="netWorth"
-                  fill="#3b82f6"
-                  radius={[4, 4, 0, 0]}
-                  name="Net worth"
-                />
-              </BarChart>
+                <Area type="monotone" dataKey="netWorth" stroke="#3b82f6" strokeWidth={2} fill="url(#nwGrad)" dot={{ r: 3, fill: "#3b82f6" }} activeDot={{ r: 5 }} name="Net Worth" />
+              </AreaChart>
             </ResponsiveContainer>
-            {snapshots.length > 0 && (
-              <div className="mt-3 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  Chart values come from:{" "}
-                </span>
-                Either a snapshot on that month, or carried from the last
-                snapshot, or current net worth. Recent snapshots:{" "}
-                {[...snapshots]
-                  .sort(
-                    (a, b) =>
-                      new Date(b.date).getTime() - new Date(a.date).getTime(),
-                  )
-                  .slice(0, 5)
-                  .map((s) => {
-                    const d = new Date(s.date);
-                    return `${d.toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })} → ${format(s.net_worth)}`;
-                  })
-                  .join("; ")}
-              </div>
-            )}
           </CardContent>
         </Card>
 
+        {/* Asset Allocation + Breakdown side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          {/* Donut chart */}
+          <Card className="lg:col-span-2">
+            <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Asset Allocation</p>
+            </CardHeader>
+            <CardContent className="pt-4 pb-2">
+              {allocationItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Activity className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                  <p className="text-xs text-muted-foreground">No assets yet</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <div className="relative">
+                    <ResponsiveContainer width={200} height={200}>
+                      <PieChart>
+                        <Pie data={allocationItems} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={55} paddingAngle={2}>
+                          {allocationItems.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip formatter={(value) => format((value ?? 0) as number)} contentStyle={{ fontSize: 12 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Assets</p>
+                      <p className="font-mono font-bold text-sm">{format(totalAssets)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Asset category list */}
+          <Card className="lg:col-span-3">
+            <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">By Category</p>
+            </CardHeader>
+            <CardContent className="px-4 pt-3 pb-3 space-y-3">
+              {allocationItems.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">No data yet</p>
+              ) : allocationItems.map((item, idx) => {
+                const pct = totalAssets > 0 ? (item.value / totalAssets) * 100 : 0;
+                const color = ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length];
+                const Icon = item.icon;
+                const content = (
+                  <>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-sm font-medium">{item.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="font-mono font-semibold text-foreground">{format(item.value)}</span>
+                        <span>{pct.toFixed(1)}%</span>
+                        {item.href && <ExternalLink className="h-3 w-3" />}
+                      </div>
+                    </div>
+                    <div className="h-1 w-full bg-muted rounded-full">
+                      <div className="h-1 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                    </div>
+                  </>
+                );
+                return item.href ? (
+                  <Link key={item.name} href={item.href}>{content}</Link>
+                ) : (
+                  <div key={item.name}>{content}</div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Assets & Liabilities Tabs */}
         <Tabs defaultValue="assets" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="assets">Assets</TabsTrigger>
-            <TabsTrigger value="liabilities">Liabilities</TabsTrigger>
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="assets">
+              Assets
+              {assets.length > 0 && <span className="ml-1.5 text-[10px] text-muted-foreground">{assets.length}</span>}
+            </TabsTrigger>
+            <TabsTrigger value="liabilities">
+              Liabilities
+              {liabilities.length > 0 && <span className="ml-1.5 text-[10px] text-muted-foreground">{liabilities.length}</span>}
+            </TabsTrigger>
             <TabsTrigger value="breakdown">Breakdown</TabsTrigger>
-            <TabsTrigger value="allocation">Allocation</TabsTrigger>
+            <TabsTrigger value="allocation">MF / Stocks</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="assets" className="space-y-4">
+          {/* ASSETS TAB */}
+          <TabsContent value="assets" className="space-y-3">
             <div className="flex justify-between items-center">
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Your Assets</p>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Manual Assets</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Cash, property, vehicles etc.</p>
+              </div>
               <Dialog open={isAddAssetOpen} onOpenChange={setIsAddAssetOpen}>
                 <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Asset
-                  </Button>
+                  <Button size="sm"><Plus className="h-4 w-4 mr-1" />Add Asset</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Add New Asset</DialogTitle>
-                    <DialogDescription>
-                      Add a new asset to track your net worth
-                    </DialogDescription>
+                    <DialogDescription>Add a new asset to track your net worth</DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleAddAsset} className="space-y-4 py-4">
                     <div className="space-y-2">
                       <Label htmlFor="assetName">Asset Name</Label>
-                      <Input
-                        id="assetName"
-                        placeholder="e.g., Savings Account"
-                        value={assetForm.name}
-                        onChange={(e) =>
-                          setAssetForm({ ...assetForm, name: e.target.value })
-                        }
-                        required
-                      />
+                      <Input id="assetName" placeholder="e.g., Savings Account" value={assetForm.name} onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })} required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="assetType">Type</Label>
-                      <Select
-                        value={assetForm.type}
-                        onValueChange={(value: any) =>
-                          setAssetForm({ ...assetForm, type: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
+                      <Select value={assetForm.type} onValueChange={(value: any) => setAssetForm({ ...assetForm, type: value })}>
+                        <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="cash">Cash</SelectItem>
                           <SelectItem value="bank">Bank Account</SelectItem>
@@ -757,441 +769,285 @@ export default function NetWorthPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="assetValue">Current Value</Label>
-                      <Input
-                        id="assetValue"
-                        type="number"
-                        placeholder="0.00"
-                        step="0.01"
-                        value={assetForm.value}
-                        onChange={(e) =>
-                          setAssetForm({ ...assetForm, value: e.target.value })
-                        }
-                        required
-                      />
+                      <Input id="assetValue" type="number" placeholder="0.00" step="0.01" value={assetForm.value} onChange={(e) => setAssetForm({ ...assetForm, value: e.target.value })} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="assetNotes">Notes (optional)</Label>
+                      <Input id="assetNotes" placeholder="Optional notes" value={assetForm.notes} onChange={(e) => setAssetForm({ ...assetForm, notes: e.target.value })} />
                     </div>
                     <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : null}
-                      Add Asset
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Add Asset
                     </Button>
                   </form>
                 </DialogContent>
               </Dialog>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              {assets.map((asset) => (
-                <Card
-                  key={asset.id}
-                  className="hover:shadow-md transition-shadow"
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-1.5 bg-green-100 dark:bg-green-950/40 rounded-full">
-                          {getAssetIcon(asset.type)}
+            {assets.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <PiggyBank className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                  <p className="text-sm font-medium text-muted-foreground">No manual assets yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Add cash, property, bank accounts etc.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-2 md:grid-cols-2">
+                {assets.map((asset) => {
+                  const pct = totalAssets > 0 ? (asset.value / totalAssets) * 100 : 0;
+                  return (
+                    <Card key={asset.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg shrink-0">
+                              {getAssetIcon(asset.type)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm truncate">{asset.name}</p>
+                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{asset.type.replace("_", " ")}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="text-right">
+                              <p className="font-mono font-semibold text-sm text-emerald-600 dark:text-emerald-400">{format(asset.value)}</p>
+                              <p className="text-[10px] text-muted-foreground">{pct.toFixed(1)}% of assets</p>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreVertical className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEditAssetDialog(asset)}><Edit className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600" onClick={async () => { if (confirm(`Delete ${asset.name}?`)) { try { await deleteAsset(asset.id); toast.success("Asset deleted!"); } catch { toast.error("Failed to delete asset"); } } }}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-sm">{asset.name}</p>
-                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                            {asset.type.replace("_", " ")}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-right">
-                          <p className="font-mono font-semibold text-sm text-green-600 dark:text-green-400">
-                            {format(asset.value)}
-                          </p>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => openEditAssetDialog(asset)}
-                            >
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={async () => {
-                                if (
-                                  confirm(
-                                    `Are you sure you want to delete ${asset.name}?`,
-                                  )
-                                ) {
-                                  try {
-                                    await deleteAsset(asset.id);
-                                    toast.success(
-                                      "Asset deleted successfully!",
-                                    );
-                                  } catch (error) {
-                                    toast.error("Failed to delete asset");
-                                  }
-                                }
-                              }}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
 
-          <TabsContent value="liabilities" className="space-y-4">
+          {/* LIABILITIES TAB */}
+          <TabsContent value="liabilities" className="space-y-3">
             <div className="flex justify-between items-center">
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Your Liabilities</p>
-              <Dialog
-                open={isAddLiabilityOpen}
-                onOpenChange={setIsAddLiabilityOpen}
-              >
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Liabilities</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Loans, credit cards, mortgages</p>
+              </div>
+              <Dialog open={isAddLiabilityOpen} onOpenChange={setIsAddLiabilityOpen}>
                 <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Liability
-                  </Button>
+                  <Button size="sm" variant="destructive"><Plus className="h-4 w-4 mr-1" />Add Liability</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Add New Liability</DialogTitle>
-                    <DialogDescription>
-                      Add a new debt or liability to track
-                    </DialogDescription>
+                    <DialogDescription>Add a new debt or liability to track</DialogDescription>
                   </DialogHeader>
-                  <form
-                    onSubmit={handleAddLiability}
-                    className="space-y-4 py-4"
-                  >
+                  <form onSubmit={handleAddLiability} className="space-y-4 py-4">
                     <div className="space-y-2">
                       <Label htmlFor="liabilityName">Liability Name</Label>
-                      <Input
-                        id="liabilityName"
-                        placeholder="e.g., Car Loan"
-                        value={liabilityForm.name}
-                        onChange={(e) =>
-                          setLiabilityForm({
-                            ...liabilityForm,
-                            name: e.target.value,
-                          })
-                        }
-                        required
-                      />
+                      <Input id="liabilityName" placeholder="e.g., Car Loan" value={liabilityForm.name} onChange={(e) => setLiabilityForm({ ...liabilityForm, name: e.target.value })} required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="liabilityType">Type</Label>
-                      <Select
-                        value={liabilityForm.type}
-                        onValueChange={(value: any) =>
-                          setLiabilityForm({ ...liabilityForm, type: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
+                      <Select value={liabilityForm.type} onValueChange={(value: any) => setLiabilityForm({ ...liabilityForm, type: value })}>
+                        <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="credit_card">
-                            Credit Card
-                          </SelectItem>
+                          <SelectItem value="credit_card">Credit Card</SelectItem>
                           <SelectItem value="loan">Personal Loan</SelectItem>
                           <SelectItem value="mortgage">Mortgage</SelectItem>
                           <SelectItem value="other">Other</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="liabilityBalance">Current Balance</Label>
-                      <Input
-                        id="liabilityBalance"
-                        type="number"
-                        placeholder="0.00"
-                        step="0.01"
-                        value={liabilityForm.balance}
-                        onChange={(e) =>
-                          setLiabilityForm({
-                            ...liabilityForm,
-                            balance: e.target.value,
-                          })
-                        }
-                        required
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="liabilityBalance">Balance</Label>
+                        <Input id="liabilityBalance" type="number" placeholder="0.00" step="0.01" value={liabilityForm.balance} onChange={(e) => setLiabilityForm({ ...liabilityForm, balance: e.target.value })} required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="interestRate">Interest Rate (%)</Label>
+                        <Input id="interestRate" type="number" placeholder="0.0" step="0.1" value={liabilityForm.interest_rate} onChange={(e) => setLiabilityForm({ ...liabilityForm, interest_rate: e.target.value })} />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="interestRate">
-                        Interest Rate (%) - Optional
-                      </Label>
-                      <Input
-                        id="interestRate"
-                        type="number"
-                        placeholder="0.0"
-                        step="0.1"
-                        value={liabilityForm.interest_rate}
-                        onChange={(e) =>
-                          setLiabilityForm({
-                            ...liabilityForm,
-                            interest_rate: e.target.value,
-                          })
-                        }
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="minPayment">Min. Payment</Label>
+                        <Input id="minPayment" type="number" placeholder="0.00" step="0.01" value={liabilityForm.minimum_payment} onChange={(e) => setLiabilityForm({ ...liabilityForm, minimum_payment: e.target.value })} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="dueDate">Due Date</Label>
+                        <Input id="dueDate" type="date" value={liabilityForm.due_date} onChange={(e) => setLiabilityForm({ ...liabilityForm, due_date: e.target.value })} />
+                      </div>
                     </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : null}
-                      Add Liability
+                    <Button type="submit" className="w-full" variant="destructive" disabled={loading}>
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Add Liability
                     </Button>
                   </form>
                 </DialogContent>
               </Dialog>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              {liabilities.map((liability) => (
-                <Card
-                  key={liability.id}
-                  className="hover:shadow-md transition-shadow border-red-100"
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-1.5 bg-red-100 dark:bg-red-950/40 rounded-full">
-                          {getLiabilityIcon(liability.type)}
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{liability.name}</p>
-                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                            {liability.type.replace("_", " ")}
-                            {liability.interest_rate &&
-                              ` · ${liability.interest_rate}% APR`}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-right">
-                          <p className="font-mono font-semibold text-sm text-red-600 dark:text-red-400">
-                            {format(liability.balance)}
-                          </p>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => openEditLiabilityDialog(liability)}
-                            >
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={async () => {
-                                if (
-                                  confirm(
-                                    `Are you sure you want to delete ${liability.name}?`,
-                                  )
-                                ) {
-                                  try {
-                                    await deleteLiability(liability.id);
-                                    toast.success(
-                                      "Liability deleted successfully!",
-                                    );
-                                  } catch (error) {
-                                    toast.error("Failed to delete liability");
-                                  }
-                                }
-                              }}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+            {/* Debt overview bar */}
+            {liabilities.length > 0 && (
+              <Card className="bg-red-50/50 dark:bg-red-950/20 border-red-100 dark:border-red-900/30">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-red-500" />
+                      <span className="text-sm font-medium">Debt Overview</span>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    <span className="font-mono font-bold text-red-600 dark:text-red-400">{format(totalLiabilities)}</span>
+                  </div>
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="h-2 rounded-full bg-red-500 transition-all" style={{ width: `${Math.min(debtRatio, 100)}%` }} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">{debtRatio.toFixed(1)}% debt-to-asset ratio · {financialHealthLabel}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {liabilities.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <CreditCard className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                  <p className="text-sm font-medium text-muted-foreground">No liabilities tracked</p>
+                  <p className="text-xs text-muted-foreground mt-1">Great! Or add loans and credit cards.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-2 md:grid-cols-2">
+                {liabilities.map((liability) => {
+                  const pct = totalLiabilities > 0 ? (liability.balance / totalLiabilities) * 100 : 0;
+                  return (
+                    <Card key={liability.id} className="hover:shadow-md transition-shadow border-l-4 border-l-red-400">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 bg-red-50 dark:bg-red-950/40 rounded-lg shrink-0">
+                              {getLiabilityIcon(liability.type)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm truncate">{liability.name}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{liability.type.replace("_", " ")}</p>
+                                {liability.interest_rate && <span className="text-[10px] text-orange-500 font-medium">{liability.interest_rate}% APR</span>}
+                                {liability.due_date && <span className="text-[10px] text-muted-foreground">Due: {new Date(liability.due_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="text-right">
+                              <p className="font-mono font-semibold text-sm text-red-600 dark:text-red-400">{format(liability.balance)}</p>
+                              {liability.minimum_payment && <p className="text-[10px] text-muted-foreground">Min: {format(liability.minimum_payment)}/mo</p>}
+                              <p className="text-[10px] text-muted-foreground">{pct.toFixed(1)}% of debt</p>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreVertical className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEditLiabilityDialog(liability)}><Edit className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600" onClick={async () => { if (confirm(`Delete ${liability.name}?`)) { try { await deleteLiability(liability.id); toast.success("Liability deleted!"); } catch { toast.error("Failed to delete"); } } }}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* BREAKDOWN TAB */}
+          <TabsContent value="breakdown">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Assets</p>
+                  <p className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{format(totalAssets)}</p>
+                </CardHeader>
+                <CardContent className="px-4 pt-3 pb-4 space-y-3">
+                  {[...assets.map(a => ({ name: a.name, value: a.value })), ...assetBreakdown.filter(i => i.href !== null && i.value > 0).map(i => ({ name: i.name, value: i.value }))].map((item, idx) => {
+                    const pct = totalAssets > 0 ? (item.value / totalAssets) * 100 : 0;
+                    return (
+                      <div key={item.name + idx}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium">{item.name}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="font-mono text-foreground font-semibold">{format(item.value)}</span>
+                            <span>{pct.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                        <div className="h-1.5 w-full bg-muted rounded-full">
+                          <div className="h-1.5 rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Liabilities</p>
+                  <p className="font-mono font-bold text-red-600 dark:text-red-400">{format(totalLiabilities)}</p>
+                </CardHeader>
+                <CardContent className="px-4 pt-3 pb-4 space-y-3">
+                  {liabilities.length === 0 ? <p className="text-xs text-muted-foreground text-center py-4">No liabilities</p> : liabilities.map((l) => {
+                    const pct = totalLiabilities > 0 ? (l.balance / totalLiabilities) * 100 : 0;
+                    return (
+                      <div key={l.id}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium">{l.name}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="font-mono text-foreground font-semibold">{format(l.balance)}</span>
+                            <span>{pct.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                        <div className="h-1.5 w-full bg-muted rounded-full">
+                          <div className="h-1.5 rounded-full bg-red-500 transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
-          <TabsContent value="breakdown">
-            <Card>
-              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Asset & Liability Breakdown</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Detailed view of your financial position</p>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Assets</p>
-                      <span className="font-mono font-semibold text-sm text-green-600 dark:text-green-400">
-                        {format(totalAssets)}
-                      </span>
-                    </div>
-                    {/* Manual Assets */}
-                    {assets.map((asset) => {
-                      const percentage =
-                        totalAssets > 0 ? (asset.value / totalAssets) * 100 : 0;
-                      return (
-                        <div key={asset.id} className="mb-3">
-                          <div className="flex justify-between mb-1">
-                            <span className="font-medium text-sm">{asset.name}</span>
-                            <span className="font-mono text-[10px] text-muted-foreground">
-                              {format(asset.value)} · {percentage.toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="w-full bg-muted rounded-full h-1.5">
-                            <div
-                              className="bg-green-600 h-1.5 rounded-full"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {/* External Assets */}
-                    {assetBreakdown
-                      .filter((item) => item.href !== null)
-                      .map((item) => {
-                        const percentage =
-                          totalAssets > 0
-                            ? (item.value / totalAssets) * 100
-                            : 0;
-                        return (
-                          <div key={item.name} className="mb-3">
-                            <div className="flex justify-between mb-1">
-                              <span className="font-medium text-sm">{item.name}</span>
-                              <span className="font-mono text-[10px] text-muted-foreground">
-                                {format(item.value)} · {percentage.toFixed(1)}%
-                              </span>
-                            </div>
-                            <div className="w-full bg-muted rounded-full h-1.5">
-                              <div
-                                className="bg-green-600 h-1.5 rounded-full"
-                                style={{ width: `${percentage}%` }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-
-                  <div className="pt-4 border-t">
-                    <div className="flex justify-between mb-2">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Liabilities</p>
-                      <span className="font-mono font-semibold text-sm text-red-600 dark:text-red-400">
-                        {format(totalLiabilities)}
-                      </span>
-                    </div>
-                    {liabilities.map((liability) => {
-                      const percentage =
-                        (liability.balance / totalLiabilities) * 100;
-                      return (
-                        <div key={liability.id} className="mb-3">
-                          <div className="flex justify-between mb-1">
-                            <span className="font-medium text-sm">{liability.name}</span>
-                            <span className="font-mono text-[10px] text-muted-foreground">
-                              {percentage.toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="w-full bg-muted rounded-full h-1.5">
-                            <div
-                              className="bg-red-600 h-1.5 rounded-full"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Allocation Tab */}
+          {/* MF / STOCKS TAB */}
           <TabsContent value="allocation" className="space-y-4">
-            <Card>
-              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Asset Allocation</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Distribution of investments by asset class</p>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center p-3">
-                {allocationItems.length === 0 ? (
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center py-6 w-full">No asset data yet</p>
-                ) : (
-                  <>
-                    <div className="h-80">
-                      <ResponsiveContainer>
-                        <PieChart>
-                          <Pie data={allocationItems} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={50} paddingAngle={2} label={({ percent = 0 }) => `${(percent * 100).toFixed(0)}%`}>
-                            {allocationItems.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} />)}
-                          </Pie>
-                          <Tooltip formatter={(value) => format((value ?? 0) as number)} />
-                          <Legend />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="space-y-3">
-                      {allocationItems.map((item, idx) => {
-                        const total = allocationItems.reduce((s, i) => s + i.value, 0);
-                        const share = total ? ((item.value / total) * 100).toFixed(1) : "0";
-                        return (
-                          <div key={item.name} className="flex items-center justify-between px-3 py-2.5 border-b border-border last:border-0">
-                            <div className="flex items-center gap-3">
-                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
-                              <div><p className="font-medium text-sm">{item.name}</p><p className="text-[10px] text-muted-foreground">{share}% of assets</p></div>
-                            </div>
-                            <p className="font-mono font-semibold text-sm">{format(item.value)}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card>
-                <CardHeader className="pb-2 border-b border-border px-4 pt-4"><p className="text-[10px] uppercase tracking-widest text-muted-foreground">Mutual Funds by Category</p><p className="text-xs text-muted-foreground mt-0.5">Breakdown of MF current value</p></CardHeader>
-                <CardContent>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Mutual Funds by Category</p>
+                </CardHeader>
+                <CardContent className="pt-3">
                   {mutualFundCategories.length === 0 ? (
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center py-4">No mutual fund data yet</p>
+                    <p className="text-xs text-muted-foreground text-center py-8">No mutual fund data yet</p>
                   ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
-                      <div className="h-64">
+                      <div className="h-56">
                         <ResponsiveContainer>
                           <PieChart>
-                            <Pie data={mutualFundCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={45} paddingAngle={2} label={({ percent = 0 }) => `${(percent * 100).toFixed(0)}%`}>
+                            <Pie data={mutualFundCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={45} paddingAngle={2}>
                               {mutualFundCategories.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} />)}
                             </Pie>
-                            <Tooltip formatter={(value) => format((value ?? 0) as number)} />
-                            <Legend />
+                            <Tooltip formatter={(value) => format((value ?? 0) as number)} contentStyle={{ fontSize: 12 }} />
+                            <Legend wrapperStyle={{ fontSize: 11 }} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
                       <div className="space-y-2">
                         {mutualFundCategories.map((item, idx) => (
-                          <div key={item.name} className="flex items-center justify-between px-3 py-2.5 border-b border-border last:border-0">
-                            <div className="flex items-center gap-3">
-                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
-                              <p className="font-medium text-sm">{item.name}</p>
+                          <div key={item.name} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                            <div className="flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
+                              <p className="text-sm">{item.name}</p>
                             </div>
                             <p className="font-mono font-semibold text-sm">{format(item.value)}</p>
                           </div>
@@ -1203,29 +1059,31 @@ export default function NetWorthPage() {
               </Card>
 
               <Card>
-                <CardHeader className="pb-2 border-b border-border px-4 pt-4"><p className="text-[10px] uppercase tracking-widest text-muted-foreground">Stocks by Sector</p><p className="text-xs text-muted-foreground mt-0.5">Breakdown of stock current value</p></CardHeader>
-                <CardContent>
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Stocks by Sector</p>
+                </CardHeader>
+                <CardContent className="pt-3">
                   {stockSectors.length === 0 ? (
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center py-4">No stock data yet</p>
+                    <p className="text-xs text-muted-foreground text-center py-8">No stock data yet</p>
                   ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
-                      <div className="h-64">
+                      <div className="h-56">
                         <ResponsiveContainer>
                           <PieChart>
-                            <Pie data={stockSectors} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={45} paddingAngle={2} label={({ percent = 0 }) => `${(percent * 100).toFixed(0)}%`}>
+                            <Pie data={stockSectors} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={45} paddingAngle={2}>
                               {stockSectors.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} />)}
                             </Pie>
-                            <Tooltip formatter={(value) => format((value ?? 0) as number)} />
-                            <Legend />
+                            <Tooltip formatter={(value) => format((value ?? 0) as number)} contentStyle={{ fontSize: 12 }} />
+                            <Legend wrapperStyle={{ fontSize: 11 }} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
                       <div className="space-y-2">
                         {stockSectors.map((item, idx) => (
-                          <div key={item.name} className="flex items-center justify-between px-3 py-2.5 border-b border-border last:border-0">
-                            <div className="flex items-center gap-3">
-                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
-                              <p className="font-medium text-sm">{item.name}</p>
+                          <div key={item.name} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                            <div className="flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
+                              <p className="text-sm">{item.name}</p>
                             </div>
                             <p className="font-mono font-semibold text-sm">{format(item.value)}</p>
                           </div>
@@ -1243,64 +1101,21 @@ export default function NetWorthPage() {
       {/* Edit Asset Dialog */}
       <Dialog open={isEditAssetOpen} onOpenChange={setIsEditAssetOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Asset</DialogTitle>
-            <DialogDescription>Update asset information</DialogDescription>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Edit Asset</DialogTitle><DialogDescription>Update asset information</DialogDescription></DialogHeader>
           <form onSubmit={handleEditAsset} className="space-y-4 py-4">
+            <div className="space-y-2"><Label>Asset Name</Label><Input placeholder="e.g., Savings Account" value={assetForm.name} onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })} required /></div>
             <div className="space-y-2">
-              <Label htmlFor="editAssetName">Asset Name</Label>
-              <Input
-                id="editAssetName"
-                placeholder="e.g., Savings Account"
-                value={assetForm.name}
-                onChange={(e) =>
-                  setAssetForm({ ...assetForm, name: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="editAssetType">Type</Label>
-              <Select
-                value={assetForm.type}
-                onValueChange={(value: any) =>
-                  setAssetForm({ ...assetForm, type: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
+              <Label>Type</Label>
+              <Select value={assetForm.type} onValueChange={(value: any) => setAssetForm({ ...assetForm, type: value })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="bank">Bank Account</SelectItem>
-                  <SelectItem value="investment">Investment</SelectItem>
-                  <SelectItem value="property">Property</SelectItem>
-                  <SelectItem value="vehicle">Vehicle</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem><SelectItem value="bank">Bank Account</SelectItem><SelectItem value="investment">Investment</SelectItem><SelectItem value="property">Property</SelectItem><SelectItem value="vehicle">Vehicle</SelectItem><SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="editAssetValue">Current Value</Label>
-              <Input
-                id="editAssetValue"
-                type="number"
-                placeholder="0.00"
-                step="0.01"
-                value={assetForm.value}
-                onChange={(e) =>
-                  setAssetForm({ ...assetForm, value: e.target.value })
-                }
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              Update Asset
-            </Button>
+            <div className="space-y-2"><Label>Current Value</Label><Input type="number" placeholder="0.00" step="0.01" value={assetForm.value} onChange={(e) => setAssetForm({ ...assetForm, value: e.target.value })} required /></div>
+            <div className="space-y-2"><Label>Notes</Label><Input placeholder="Optional" value={assetForm.notes} onChange={(e) => setAssetForm({ ...assetForm, notes: e.target.value })} /></div>
+            <Button type="submit" className="w-full" disabled={loading}>{loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Update Asset</Button>
           </form>
         </DialogContent>
       </Dialog>
@@ -1308,83 +1123,27 @@ export default function NetWorthPage() {
       {/* Edit Liability Dialog */}
       <Dialog open={isEditLiabilityOpen} onOpenChange={setIsEditLiabilityOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Liability</DialogTitle>
-            <DialogDescription>Update liability information</DialogDescription>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Edit Liability</DialogTitle><DialogDescription>Update liability information</DialogDescription></DialogHeader>
           <form onSubmit={handleEditLiability} className="space-y-4 py-4">
+            <div className="space-y-2"><Label>Liability Name</Label><Input placeholder="e.g., Car Loan" value={liabilityForm.name} onChange={(e) => setLiabilityForm({ ...liabilityForm, name: e.target.value })} required /></div>
             <div className="space-y-2">
-              <Label htmlFor="editLiabilityName">Liability Name</Label>
-              <Input
-                id="editLiabilityName"
-                placeholder="e.g., Car Loan"
-                value={liabilityForm.name}
-                onChange={(e) =>
-                  setLiabilityForm({ ...liabilityForm, name: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="editLiabilityType">Type</Label>
-              <Select
-                value={liabilityForm.type}
-                onValueChange={(value: any) =>
-                  setLiabilityForm({ ...liabilityForm, type: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
+              <Label>Type</Label>
+              <Select value={liabilityForm.type} onValueChange={(value: any) => setLiabilityForm({ ...liabilityForm, type: value })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="credit_card">Credit Card</SelectItem>
-                  <SelectItem value="loan">Personal Loan</SelectItem>
-                  <SelectItem value="mortgage">Mortgage</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="credit_card">Credit Card</SelectItem><SelectItem value="loan">Personal Loan</SelectItem><SelectItem value="mortgage">Mortgage</SelectItem><SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="editLiabilityBalance">Current Balance</Label>
-              <Input
-                id="editLiabilityBalance"
-                type="number"
-                placeholder="0.00"
-                step="0.01"
-                value={liabilityForm.balance}
-                onChange={(e) =>
-                  setLiabilityForm({
-                    ...liabilityForm,
-                    balance: e.target.value,
-                  })
-                }
-                required
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2"><Label>Balance</Label><Input type="number" placeholder="0.00" step="0.01" value={liabilityForm.balance} onChange={(e) => setLiabilityForm({ ...liabilityForm, balance: e.target.value })} required /></div>
+              <div className="space-y-2"><Label>Interest Rate (%)</Label><Input type="number" placeholder="0.0" step="0.1" value={liabilityForm.interest_rate} onChange={(e) => setLiabilityForm({ ...liabilityForm, interest_rate: e.target.value })} /></div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="editInterestRate">
-                Interest Rate (%) - Optional
-              </Label>
-              <Input
-                id="editInterestRate"
-                type="number"
-                placeholder="0.0"
-                step="0.1"
-                value={liabilityForm.interest_rate}
-                onChange={(e) =>
-                  setLiabilityForm({
-                    ...liabilityForm,
-                    interest_rate: e.target.value,
-                  })
-                }
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2"><Label>Min. Payment</Label><Input type="number" placeholder="0.00" step="0.01" value={liabilityForm.minimum_payment} onChange={(e) => setLiabilityForm({ ...liabilityForm, minimum_payment: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Due Date</Label><Input type="date" value={liabilityForm.due_date} onChange={(e) => setLiabilityForm({ ...liabilityForm, due_date: e.target.value })} /></div>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              Update Liability
-            </Button>
+            <Button type="submit" className="w-full" variant="destructive" disabled={loading}>{loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Update Liability</Button>
           </form>
         </DialogContent>
       </Dialog>

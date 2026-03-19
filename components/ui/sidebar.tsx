@@ -51,6 +51,7 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: Home },
+  { title: "Calendar", href: "/calendar", icon: CalendarDays },
   { title: "Transactions", href: "/transactions", icon: Receipt },
   {
     title: "Finance",
@@ -80,7 +81,6 @@ const sidebarItems: SidebarItem[] = [
       { title: "Reports", href: "/analytics", icon: BarChart3 },
       { title: "Insights", href: "/insights", icon: Lightbulb },
       { title: "Health Score", href: "/health-score", icon: Activity },
-      { title: "Calendar", href: "/calendar", icon: CalendarDays },
     ],
   },
   { title: "Settings", href: "/settings", icon: Settings },
