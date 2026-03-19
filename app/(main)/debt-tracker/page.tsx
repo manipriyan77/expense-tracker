@@ -45,6 +45,8 @@ import {
 import {
   LineChart,
   Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -357,75 +359,47 @@ export default function DebtTrackerPage() {
     }
   };
 
-  // Calculate payment history from actual data
+  // Monthly payments — only months in the current year
   const paymentHistory = React.useMemo(() => {
-    // If no debts yet, return empty data
-    if (debts.length === 0) {
-      const result = [];
-      const now = new Date();
-      for (let i = 5; i >= 0; i--) {
-        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthName = date.toLocaleDateString("en-US", { month: "short" });
-        result.push({
-          month: monthName,
-          paid: 0,
-          balance: 0,
-        });
-      }
-      return result;
-    }
-
-    // Group payments by month
-    const monthlyData: { [key: string]: { paid: number } } = {};
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const monthlyData: { [key: string]: number } = {};
 
     payments.forEach((payment) => {
       const date = new Date(payment.payment_date);
-      const monthKey = `${date.getFullYear()}-${String(
-        date.getMonth() + 1,
-      ).padStart(2, "0")}`;
-
-      if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { paid: 0 };
-      }
-
-      monthlyData[monthKey].paid += payment.amount;
+      if (date.getFullYear() !== currentYear) return;
+      const monthKey = `${currentYear}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      monthlyData[monthKey] = (monthlyData[monthKey] || 0) + payment.amount;
     });
 
-    // Get last 6 months and calculate cumulative balance
     const result = [];
-    const now = new Date();
-
-    // Calculate total payments made to adjust starting balance
-    const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0);
-    const startingBalance = totalDebt + totalPayments;
-
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthKey = `${date.getFullYear()}-${String(
-        date.getMonth() + 1,
-      ).padStart(2, "0")}`;
-      const monthName = date.toLocaleDateString("en-US", { month: "short" });
-
-      const monthData = monthlyData[monthKey];
-      const paid = monthData?.paid || 0;
-
-      // Calculate balance for this month (for visualization purposes)
-      // This is a simplified calculation - ideally would track historical balances
-      const monthProgress = (5 - i) / 6;
-      const balanceForMonth = Math.max(
-        0,
-        startingBalance - totalPayments * monthProgress,
-      );
-
+    for (let m = 0; m <= now.getMonth(); m++) {
+      const date = new Date(currentYear, m, 1);
+      const monthKey = `${currentYear}-${String(m + 1).padStart(2, "0")}`;
       result.push({
-        month: monthName,
-        paid: Math.round(paid),
-        balance: Math.round(balanceForMonth),
+        month: date.toLocaleDateString("en-US", { month: "short" }),
+        paid: Math.round(monthlyData[monthKey] || 0),
       });
     }
-
     return result;
-  }, [payments, totalDebt, debts.length]);
+  }, [payments]);
+
+  // Balance forecast — current balance projected forward 6 months using min payments
+  const balanceForecast = React.useMemo(() => {
+    const now = new Date();
+    const result = [];
+    let balance = totalDebt;
+    for (let i = 0; i < 6; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      result.push({
+        month: date.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+        balance: Math.max(0, Math.round(balance)),
+        projected: i > 0,
+      });
+      balance = Math.max(0, balance - totalMinPayment);
+    }
+    return result;
+  }, [totalDebt, totalMinPayment]);
 
   function buildDueDateSchedule(
     startDate: string | null,
@@ -1118,51 +1092,64 @@ export default function DebtTrackerPage() {
       </div>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4">
-        {/* Payoff Progress Chart */}
-        <Card className="mb-4">
-          <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-              Debt Payoff Progress
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Your debt reduction over the past 6 months
-            </p>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={paymentHistory}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis
-                  yAxisId="left"
-                  tickFormatter={(value) => `$${value / 1000}k`}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  tickFormatter={(value) => `$${value}`}
-                />
-                <Tooltip
-                  formatter={(value: number | undefined) =>
-                    value !== undefined ? format(value) : "$0.00"
-                  }
-                />
-                <Bar
-                  yAxisId="left"
-                  dataKey="balance"
-                  fill="#ef4444"
-                  name="Remaining Balance"
-                />
-                <Bar
-                  yAxisId="right"
-                  dataKey="paid"
-                  fill="#10b981"
-                  name="Amount Paid"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {/* Payoff Progress Charts */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <Card>
+            <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Balance Trend
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Projected balance based on minimum payments
+              </p>
+            </CardHeader>
+            <CardContent className="pt-4 px-2 pb-2">
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={balanceForecast} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="balanceGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={(v) => format(v)} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={70} />
+                  <Tooltip
+                    formatter={(v: number | undefined) => [v !== undefined ? format(v) : "—", "Balance"]}
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--border)", background: "var(--background)" }}
+                  />
+                  <Area type="monotone" dataKey="balance" stroke="#ef4444" strokeWidth={2} fill="url(#balanceGrad)" dot={false} name="Remaining Balance" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Monthly Payments
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Amount paid each month
+              </p>
+            </CardHeader>
+            <CardContent className="pt-4 px-2 pb-2">
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={paymentHistory} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={(v) => format(v)} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={70} />
+                  <Tooltip
+                    formatter={(v: number | undefined) => [v !== undefined ? format(v) : "—", "Paid"]}
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--border)", background: "var(--background)" }}
+                  />
+                  <Bar dataKey="paid" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} name="Amount Paid" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
 
         <Tabs defaultValue="active" className="space-y-4">
           <div className="flex items-center justify-between">
