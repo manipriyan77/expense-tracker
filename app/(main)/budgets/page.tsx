@@ -284,6 +284,26 @@ export default function BudgetsPage() {
       })),
     [budgets],
   );
+
+  const CATEGORY_COLORS = [
+    "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6",
+    "#06b6d4", "#f97316", "#ec4899", "#14b8a6", "#84cc16",
+    "#6366f1", "#e11d48", "#ef4444",
+  ];
+
+  const budgetCategoryBreakdown = useMemo(() => {
+    const grouped: Record<string, { total: number; items: { name: string; amount: number }[] }> = {};
+    budgets.filter((b) => b.limit_amount > 0).forEach((b) => {
+      const cat = b.category;
+      if (!grouped[cat]) grouped[cat] = { total: 0, items: [] };
+      grouped[cat].total += b.limit_amount;
+      grouped[cat].items.push({ name: b.subtype || b.category, amount: b.limit_amount });
+    });
+    return Object.entries(grouped)
+      .map(([category, data]) => ({ category, ...data }))
+      .sort((a, b) => b.total - a.total);
+  }, [budgets]);
+
   const overallPercentage =
     totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
@@ -779,59 +799,112 @@ export default function BudgetsPage() {
               </DialogContent>
             </Dialog>
 
-            {/* Budget Analysis Chart */}
+            {/* Budget Analysis Charts */}
             {budgets.length > 0 && (
-              <Card className="mb-4">
-                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    Budget vs Spent
-                  </p>
-                </CardHeader>
-                <CardContent className="px-2 pt-4 pb-2">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart
-                      data={budgetChartData}
-                      margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
-                      <XAxis
-                        dataKey="name"
-                        tick={{ fontSize: 10 }}
-                        tickLine={false}
-                        axisLine={false}
-                        interval={0}
-                        angle={-30}
-                        textAnchor="end"
-                        height={48}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 10 }}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(v) =>
-                          v >= 1_000_000
-                            ? `${(v / 1_000_000).toFixed(1)}M`
-                            : v >= 1_000
-                              ? `${(v / 1_000).toFixed(0)}K`
-                              : `${v}`
-                        }
-                        width={40}
-                      />
-                      <Tooltip
-                        formatter={(value: number) => format(value)}
-                        contentStyle={{ fontSize: 12 }}
-                      />
-                      <Legend
-                        iconType="square"
-                        iconSize={8}
-                        wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
-                      />
-                      <Bar dataKey="Budget" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={40} />
-                      <Bar dataKey="Spent" fill="#ef4444" radius={[3, 3, 0, 0]} maxBarSize={40} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+              <>
+                <Card className="mb-4">
+                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Budget vs Spent
+                    </p>
+                  </CardHeader>
+                  <CardContent className="px-2 pt-4 pb-2">
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart
+                        data={budgetChartData}
+                        margin={{ top: 0, right: 8, left: 0, bottom: 60 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fontSize: 9 }}
+                          tickLine={false}
+                          axisLine={false}
+                          interval={0}
+                          angle={-45}
+                          textAnchor="end"
+                          height={70}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 10 }}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(v) =>
+                            v >= 1_000_000
+                              ? `${(v / 1_000_000).toFixed(1)}M`
+                              : v >= 1_000
+                                ? `${(v / 1_000).toFixed(0)}K`
+                                : `${v}`
+                          }
+                          width={40}
+                        />
+                        <Tooltip
+                          formatter={(value) => format(Number(value ?? 0))}
+                          contentStyle={{ fontSize: 12 }}
+                        />
+                        <Legend
+                          iconType="square"
+                          iconSize={8}
+                          wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
+                        />
+                        <Bar dataKey="Budget" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={40} />
+                        <Bar dataKey="Spent" fill="#ef4444" radius={[3, 3, 0, 0]} maxBarSize={40} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                <Card className="mb-4">
+                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Budget Breakdown by Category
+                    </p>
+                  </CardHeader>
+                  <CardContent className="px-4 pt-4 pb-4 space-y-4">
+                    {budgetCategoryBreakdown.map((group, idx) => {
+                      const catPct = totalBudget > 0 ? (group.total / totalBudget) * 100 : 0;
+                      const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+                      const hasMultiple = group.items.length > 1;
+                      return (
+                        <div key={group.category}>
+                          {/* Category header row */}
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                              <span className="text-sm font-semibold">{group.category}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-muted-foreground">{format(group.total)}</span>
+                              <span className="text-xs font-bold" style={{ color }}>{catPct.toFixed(1)}%</span>
+                            </div>
+                          </div>
+                          {/* Progress bar */}
+                          <div className="h-1.5 w-full rounded-full bg-muted mb-2">
+                            <div className="h-1.5 rounded-full" style={{ width: `${catPct}%`, backgroundColor: color }} />
+                          </div>
+                          {/* Sub-items (only when multiple sub-types) */}
+                          {hasMultiple && (
+                            <div className="ml-4 space-y-1">
+                              {group.items.map((item) => {
+                                const itemPct = totalBudget > 0 ? (item.amount / totalBudget) * 100 : 0;
+                                return (
+                                  <div key={item.name} className="flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground">{item.name}</span>
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-xs text-muted-foreground">{format(item.amount)}</span>
+                                      <span className="text-xs text-muted-foreground w-10 text-right">{itemPct.toFixed(1)}%</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              </>
             )}
 
             {/* Budget Cards */}

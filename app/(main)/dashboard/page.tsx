@@ -59,6 +59,7 @@ import { useStocksStore } from "@/store/stocks-store";
 import { useMutualFundsStore } from "@/store/mutual-funds-store";
 import { useGoldStore } from "@/store/gold-store";
 import { useForexStore } from "@/store/forex-store";
+import { useOtherInvestmentsStore } from "@/store/other-investments-store";
 import { useBudgetsStore } from "@/store/budgets-store";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { RecentTransactionsWidget } from "@/components/dashboard/RecentTransactionsWidget";
@@ -305,6 +306,7 @@ export default function Dashboard() {
   const { mutualFunds, fetchMutualFunds } = useMutualFundsStore();
   const { holdings: goldHoldings, load: loadGold } = useGoldStore();
   const { entries: forexEntries, load: loadForex } = useForexStore();
+  const { investments: otherInvestments, load: loadOtherInvestments } = useOtherInvestmentsStore();
 
   const { isVisible, hydrateFromStorage } = useDashboardPreferencesStore();
 
@@ -324,6 +326,7 @@ export default function Dashboard() {
     fetchMutualFunds();
     loadGold();
     loadForex();
+    loadOtherInvestments();
     fetchBudgets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -378,9 +381,10 @@ export default function Dashboard() {
     return deposits - withdrawals + pnl;
   }, [forexEntries]);
 
+  const otherInvestmentsValue = otherInvestments.reduce((s, x) => s + x.currentValue, 0);
   const manualAssetsTotal = assets.reduce((s, a) => s + a.value, 0);
   const totalAssets =
-    manualAssetsTotal + stocksValue + mfValue + goldValue + forexValue;
+    manualAssetsTotal + stocksValue + mfValue + goldValue + forexValue + otherInvestmentsValue;
 
   const totalLiabilities = liabilities.reduce((s, l) => s + l.balance, 0);
   const netWorth = totalAssets - totalLiabilities;

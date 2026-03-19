@@ -3222,11 +3222,11 @@ function OtherForm({
           onChange={(e) => s("name", e.target.value)}
         />
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 min-w-0">
         <Label>Type *</Label>
         <Select value={form.type} onValueChange={(v) => s("type", v)}>
-          <SelectTrigger>
-            <SelectValue />
+          <SelectTrigger className="w-full truncate">
+            <SelectValue className="truncate" />
           </SelectTrigger>
           <SelectContent>
             {[

@@ -279,7 +279,7 @@ export function Sidebar({
                             onClick={handleLinkClick}
                             className={cn(
                               "flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                              isSubActive && "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:opacity-90"
+                              isSubActive && "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground hover:opacity-90"
                             )}
                           >
                             <SubIcon className="h-3.5 w-3.5 shrink-0" />

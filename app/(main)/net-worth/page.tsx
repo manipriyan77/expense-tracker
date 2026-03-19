@@ -12,6 +12,7 @@ import { useGoldStore } from "@/store/gold-store";
 import { useMutualFundsStore } from "@/store/mutual-funds-store";
 import { useStocksStore } from "@/store/stocks-store";
 import { useForexStore } from "@/store/forex-store";
+import { useOtherInvestmentsStore } from "@/store/other-investments-store";
 import {
   Card,
   CardContent,
@@ -106,6 +107,7 @@ export default function NetWorthPage() {
   const { mutualFunds, fetchMutualFunds } = useMutualFundsStore();
   const { stocks, fetchStocks } = useStocksStore();
   const { entries: forexEntries, load: loadForex } = useForexStore();
+  const { investments: otherInvestments, load: loadOtherInvestments } = useOtherInvestmentsStore();
 
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
   const [isEditAssetOpen, setIsEditAssetOpen] = useState(false);
@@ -160,6 +162,7 @@ export default function NetWorthPage() {
     fetchMutualFunds();
     fetchStocks();
     loadForex();
+    loadOtherInvestments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -190,8 +193,9 @@ export default function NetWorthPage() {
       return sum;
     }, 0);
 
-    return goldValue + mfValue + stockValue + forexValue;
-  }, [holdings, mutualFunds, stocks, forexEntries]);
+    const otherValue = otherInvestments.reduce((sum, x) => sum + x.currentValue, 0);
+    return goldValue + mfValue + stockValue + forexValue + otherValue;
+  }, [holdings, mutualFunds, stocks, forexEntries, otherInvestments]);
 
   const totalAssets = totalManualAssets + externalAssetsTotal;
   const totalLiabilities = liabilities.reduce(
