@@ -34,7 +34,12 @@ import {
 import { Button } from "./button";
 import { usePrivacyStore } from "@/store/privacy-store";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./tooltip";
 
 interface SubItem {
   title: string;
@@ -112,7 +117,7 @@ export function Sidebar({
   };
 
   const [expandedItems, setExpandedItems] = useState<string[]>(() =>
-    getExpandedForPath(pathname)
+    getExpandedForPath(pathname),
   );
 
   useEffect(() => {
@@ -128,12 +133,12 @@ export function Sidebar({
         return Array.from(merged);
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   const toggleExpand = (title: string) => {
     setExpandedItems((prev) =>
-      prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title]
+      prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title],
     );
   };
 
@@ -149,7 +154,7 @@ export function Sidebar({
         mobileOpen && "translate-x-0",
         "w-64",
         isCollapsed && "md:w-16",
-        className
+        className,
       )}
     >
       {/* Close button on mobile */}
@@ -177,7 +182,7 @@ export function Sidebar({
         <div
           className={cn(
             "flex items-center gap-3 transition-all duration-300",
-            isCollapsed ? "justify-center" : "justify-start w-full"
+            isCollapsed ? "justify-center" : "justify-start w-full",
           )}
         >
           <div className="relative shrink-0">
@@ -242,7 +247,8 @@ export function Sidebar({
             const hasSubItems = item.subItems && item.subItems.length > 0;
             const isActive = item.href && pathname === item.href;
             const hasActiveChild =
-              hasSubItems && item.subItems?.some((sub) => isSubItemActive(sub.href));
+              hasSubItems &&
+              item.subItems?.some((sub) => isSubItemActive(sub.href));
 
             if (hasSubItems) {
               // Collapsed: show Popover with sub-items on click
@@ -253,7 +259,8 @@ export function Sidebar({
                       <button
                         className={cn(
                           "w-full flex items-center justify-center px-2 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                          hasActiveChild && "bg-sidebar-accent text-sidebar-accent-foreground"
+                          hasActiveChild &&
+                            "bg-sidebar-accent text-sidebar-accent-foreground",
                         )}
                         title={item.title}
                       >
@@ -279,7 +286,8 @@ export function Sidebar({
                             onClick={handleLinkClick}
                             className={cn(
                               "flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                              isSubActive && "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground hover:opacity-90"
+                              isSubActive &&
+                                "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground hover:opacity-90",
                             )}
                           >
                             <SubIcon className="h-3.5 w-3.5 shrink-0" />
@@ -300,7 +308,7 @@ export function Sidebar({
                     className={cn(
                       "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                       (hasActiveChild || isExpanded) &&
-                        "bg-sidebar-accent text-sidebar-accent-foreground"
+                        "bg-sidebar-accent text-sidebar-accent-foreground",
                     )}
                   >
                     <div className="flex items-center space-x-3">
@@ -327,7 +335,7 @@ export function Sidebar({
                             className={cn(
                               "flex items-center space-x-2.5 px-3 py-1.5 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                               isSubActive &&
-                                "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:opacity-90"
+                                "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:opacity-90 hover:text-sidebar-primary-foreground ",
                             )}
                           >
                             <SubIcon className="h-3.5 w-3.5 shrink-0" />
@@ -351,7 +359,8 @@ export function Sidebar({
                       onClick={handleLinkClick}
                       className={cn(
                         "flex items-center justify-center px-2 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                        isActive && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                        isActive &&
+                          "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
                       )}
                     >
                       <Icon className="h-4 w-4 shrink-0" />
@@ -369,7 +378,8 @@ export function Sidebar({
                 onClick={handleLinkClick}
                 className={cn(
                   "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  isActive && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                  isActive &&
+                    "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
