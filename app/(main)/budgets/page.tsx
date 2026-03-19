@@ -58,6 +58,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  Cell,
 } from "recharts";
 
 const budgetFormSchema = z.object({
@@ -273,17 +274,6 @@ export default function BudgetsPage() {
 
   const totalBudget = budgets.reduce((sum, b) => sum + b.limit_amount, 0);
   const totalSpent = budgets.reduce((sum, b) => sum + (b.spent_amount || 0), 0);
-
-  const budgetChartData = useMemo(
-    () =>
-      budgets.map((b) => ({
-        name: b.subtype ? `${b.category} · ${b.subtype}` : b.category,
-        Budget: b.limit_amount,
-        Spent: b.spent_amount || 0,
-        Remaining: Math.max(0, b.limit_amount - (b.spent_amount || 0)),
-      })),
-    [budgets],
-  );
 
   const CATEGORY_COLORS = [
     "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6",
@@ -805,50 +795,65 @@ export default function BudgetsPage() {
                 <Card className="mb-4">
                   <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Budget vs Spent
+                      Budget vs Spent by Category
                     </p>
                   </CardHeader>
                   <CardContent className="px-2 pt-4 pb-2">
-                    <ResponsiveContainer width="100%" height={260}>
+                    <ResponsiveContainer width="100%" height={Math.max(200, budgetCategoryBreakdown.length * 52)}>
                       <BarChart
-                        data={budgetChartData}
-                        margin={{ top: 0, right: 8, left: 0, bottom: 60 }}
+                        layout="vertical"
+                        data={budgetCategoryBreakdown.map((g, i) => {
+                          const spent = budgets
+                            .filter((b) => b.category === g.category)
+                            .reduce((s, b) => s + (b.spent_amount || 0), 0);
+                          return {
+                            category: g.category,
+                            Budget: g.total,
+                            Spent: spent,
+                            color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+                          };
+                        })}
+                        margin={{ top: 0, right: 16, left: 8, bottom: 0 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
                         <XAxis
-                          dataKey="name"
-                          tick={{ fontSize: 9 }}
-                          tickLine={false}
+                          type="number"
+                          tickFormatter={(v) => format(v)}
+                          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                           axisLine={false}
-                          interval={0}
-                          angle={-45}
-                          textAnchor="end"
-                          height={70}
+                          tickLine={false}
                         />
                         <YAxis
-                          tick={{ fontSize: 10 }}
-                          tickLine={false}
+                          type="category"
+                          dataKey="category"
+                          width={90}
+                          tick={{ fontSize: 11, fill: "var(--foreground)" }}
                           axisLine={false}
-                          tickFormatter={(v) =>
-                            v >= 1_000_000
-                              ? `${(v / 1_000_000).toFixed(1)}M`
-                              : v >= 1_000
-                                ? `${(v / 1_000).toFixed(0)}K`
-                                : `${v}`
-                          }
-                          width={40}
+                          tickLine={false}
                         />
                         <Tooltip
-                          formatter={(value) => format(Number(value ?? 0))}
-                          contentStyle={{ fontSize: 12 }}
+                          formatter={(value: unknown, name?: string) => [format(Number(value ?? 0)), name ?? ""]}
+                          contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--border)", background: "var(--background)" }}
+                          labelStyle={{ fontWeight: 600, marginBottom: 4 }}
                         />
                         <Legend
-                          iconType="square"
+                          iconType="circle"
                           iconSize={8}
-                          wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
+                          wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                          formatter={(value) => (
+                            <span style={{ color: "var(--foreground)" }}>{value}</span>
+                          )}
                         />
-                        <Bar dataKey="Budget" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={40} />
-                        <Bar dataKey="Spent" fill="#ef4444" radius={[3, 3, 0, 0]} maxBarSize={40} />
+                        <Bar dataKey="Budget" radius={[0, 4, 4, 0]} maxBarSize={14}>
+                          {budgetCategoryBreakdown.map((_, i) => (
+                            <Cell key={i} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />
+                          ))}
+                        </Bar>
+                        <Bar dataKey="Spent" radius={[0, 4, 4, 0]} maxBarSize={14}>
+                          {budgetCategoryBreakdown.map((_, i) => (
+                            <Cell key={i} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} opacity={0.45} />
+                          ))}
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </CardContent>
@@ -862,37 +867,55 @@ export default function BudgetsPage() {
                   </CardHeader>
                   <CardContent className="px-4 pt-4 pb-4 space-y-4">
                     {budgetCategoryBreakdown.map((group, idx) => {
-                      const catPct = totalBudget > 0 ? (group.total / totalBudget) * 100 : 0;
                       const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+                      const spent = budgets
+                        .filter((b) => b.category === group.category)
+                        .reduce((s, b) => s + (b.spent_amount || 0), 0);
+                      const spentPct = group.total > 0 ? Math.min((spent / group.total) * 100, 100) : 0;
                       const hasMultiple = group.items.length > 1;
                       return (
                         <div key={group.category}>
-                          {/* Category header row */}
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
                               <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
                               <span className="text-sm font-semibold">{group.category}</span>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="text-xs text-muted-foreground">{format(group.total)}</span>
-                              <span className="text-xs font-bold" style={{ color }}>{catPct.toFixed(1)}%</span>
+                              <span className="text-xs text-muted-foreground">
+                                <span className="text-red-500 font-mono">{format(spent)}</span>
+                                <span className="mx-1 text-muted-foreground/50">/</span>
+                                <span className="font-mono">{format(group.total)}</span>
+                              </span>
+                              <span
+                                className={`text-xs font-bold w-10 text-right ${spentPct >= 100 ? "text-red-500" : spentPct >= 80 ? "text-orange-500" : "text-green-500"}`}
+                              >
+                                {spentPct.toFixed(0)}%
+                              </span>
                             </div>
                           </div>
-                          {/* Progress bar */}
-                          <div className="h-1.5 w-full rounded-full bg-muted mb-2">
-                            <div className="h-1.5 rounded-full" style={{ width: `${catPct}%`, backgroundColor: color }} />
+                          {/* Budget track */}
+                          <div className="h-2 w-full rounded-full bg-muted mb-2 overflow-hidden">
+                            <div
+                              className="h-2 rounded-full transition-all"
+                              style={{
+                                width: `${spentPct}%`,
+                                backgroundColor: spentPct >= 100 ? "#ef4444" : spentPct >= 80 ? "#f97316" : color,
+                              }}
+                            />
                           </div>
-                          {/* Sub-items (only when multiple sub-types) */}
                           {hasMultiple && (
                             <div className="ml-4 space-y-1">
                               {group.items.map((item) => {
-                                const itemPct = totalBudget > 0 ? (item.amount / totalBudget) * 100 : 0;
+                                const itemSpent = budgets
+                                  .filter((b) => b.category === group.category && (b.subtype || b.category) === item.name)
+                                  .reduce((s, b) => s + (b.spent_amount || 0), 0);
                                 return (
                                   <div key={item.name} className="flex items-center justify-between">
                                     <span className="text-xs text-muted-foreground">{item.name}</span>
                                     <div className="flex items-center gap-3">
-                                      <span className="text-xs text-muted-foreground">{format(item.amount)}</span>
-                                      <span className="text-xs text-muted-foreground w-10 text-right">{itemPct.toFixed(1)}%</span>
+                                      <span className="text-xs font-mono text-red-500">{format(itemSpent)}</span>
+                                      <span className="text-xs text-muted-foreground">/</span>
+                                      <span className="text-xs font-mono text-muted-foreground">{format(item.amount)}</span>
                                     </div>
                                   </div>
                                 );

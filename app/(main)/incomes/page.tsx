@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,21 +28,14 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, TrendingUp, Calendar } from "lucide-react";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
-
-interface Income {
-  id: string;
-  amount: number;
-  description: string;
-  category: string;
-  date: string;
-}
+import { useTransactionsStore } from "@/store/transactions-store";
 
 export default function IncomesPage() {
   const { format } = useFormatCurrency();
-  const [incomes, setIncomes] = useState<Income[]>([
-    { id: "1", amount: 1200, description: "Salary", category: "Salary", date: "2024-12-20" },
-    { id: "2", amount: 500, description: "Freelance Project", category: "Freelance", date: "2024-12-15" },
-  ]);
+  const { transactions, fetchTransactions, addTransaction } = useTransactionsStore();
+
+  const incomes = transactions.filter((t) => t.type === "income");
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showCategoryInput, setShowCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -52,6 +45,11 @@ export default function IncomesPage() {
     description: "",
     category: "",
   });
+
+  useEffect(() => {
+    fetchTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAddCustomCategory = () => {
     if (newCategoryName.trim()) {
@@ -73,23 +71,23 @@ export default function IncomesPage() {
     }
   };
 
-  const handleAddIncome = () => {
+  const handleAddIncome = async () => {
     if (!formData.amount || !formData.description || !formData.category) return;
-
-    const newIncome: Income = {
-      id: Date.now().toString(),
+    await addTransaction({
+      type: "income",
       amount: parseFloat(formData.amount),
       description: formData.description,
       category: formData.category,
+      subtype: "",
+      budget_id: "",
+      goal_id: null,
       date: new Date().toISOString().split("T")[0],
-    };
-
-    setIncomes([newIncome, ...incomes]);
+    });
     setFormData({ amount: "", description: "", category: "" });
     setIsAddDialogOpen(false);
   };
 
-  const totalIncome = incomes.reduce((sum, income) => sum + income.amount, 0);
+  const totalIncome = incomes.reduce((sum, t) => sum + t.amount, 0);
   const monthlyAverage = incomes.length > 0 ? totalIncome / incomes.length : 0;
 
   return (
@@ -105,7 +103,7 @@ export default function IncomesPage() {
             <div className="px-4 py-3">
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Income</p>
               <p className="font-mono text-base font-semibold text-green-400">{format(totalIncome)}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">This month</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">All time</p>
             </div>
             <div className="px-4 py-3">
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Avg per Transaction</p>
@@ -121,36 +119,27 @@ export default function IncomesPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Total Income
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Total Income</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent className="p-2 pt-1.5">
-              <div className="text-xl font-bold text-green-600">
-                {format(totalIncome)}
-              </div>
-              <p className="text-xs text-muted-foreground">This month</p>
+              <div className="text-xl font-bold text-green-600">{format(totalIncome)}</div>
+              <p className="text-xs text-muted-foreground">All time</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-0">
-              <CardTitle className="text-sm font-medium">
-                Monthly Average
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Average per Transaction</CardTitle>
               <TrendingUp className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent className="p-3 pt-2">
-              <div className="text-xl font-bold text-green-600">
-                {format(monthlyAverage)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Based on {incomes.length} transactions
-              </p>
+              <div className="text-xl font-bold text-green-600">{format(monthlyAverage)}</div>
+              <p className="text-xs text-muted-foreground">Based on {incomes.length} transactions</p>
             </CardContent>
           </Card>
         </div>
+
         {/* Add Income Button */}
         <div className="mb-4">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -163,9 +152,7 @@ export default function IncomesPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add New Income</DialogTitle>
-                <DialogDescription>
-                  Enter the details of your income below.
-                </DialogDescription>
+                <DialogDescription>Enter the details of your income below.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -176,9 +163,7 @@ export default function IncomesPage() {
                     step="0.01"
                     placeholder="0.00"
                     value={formData.amount}
-                    onChange={(e) =>
-                      setFormData({ ...formData, amount: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   />
                 </div>
 
@@ -188,9 +173,7 @@ export default function IncomesPage() {
                     id="description"
                     placeholder="What was this income for?"
                     value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
 
@@ -213,25 +196,8 @@ export default function IncomesPage() {
                         }}
                         autoFocus
                       />
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleAddCustomCategory}
-                        disabled={!newCategoryName.trim()}
-                      >
-                        Add
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setShowCategoryInput(false);
-                          setNewCategoryName("");
-                        }}
-                      >
-                        Cancel
-                      </Button>
+                      <Button type="button" size="sm" onClick={handleAddCustomCategory} disabled={!newCategoryName.trim()}>Add</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => { setShowCategoryInput(false); setNewCategoryName(""); }}>Cancel</Button>
                     </div>
                   ) : (
                     <Select
@@ -254,14 +220,9 @@ export default function IncomesPage() {
                         <SelectItem value="Business">Business</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
                         {customCategories.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
-                          </SelectItem>
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}
-                        <SelectItem
-                          value="add_custom"
-                          className="text-blue-600 font-medium border-t mt-1 pt-2"
-                        >
+                        <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
                           <div className="flex items-center space-x-2">
                             <Plus className="h-4 w-4" />
                             <span>Add Category</span>
@@ -272,9 +233,7 @@ export default function IncomesPage() {
                   )}
                 </div>
 
-                <Button onClick={handleAddIncome} className="w-full">
-                  Add Income
-                </Button>
+                <Button onClick={handleAddIncome} className="w-full">Add Income</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -294,25 +253,18 @@ export default function IncomesPage() {
                 </p>
               ) : (
                 incomes.map((income) => (
-                  <div
-                    key={income.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
+                  <div key={income.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-4">
                       <div className="p-2 rounded-full bg-green-100 text-green-600">
                         <TrendingUp className="h-4 w-4" />
                       </div>
                       <div>
                         <p className="font-medium">{income.description}</p>
-                        <p className="text-sm text-gray-500">
-                          {income.category}
-                        </p>
+                        <p className="text-sm text-gray-500">{income.category}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-green-600">
-                        +{format(income.amount)}
-                      </p>
+                      <p className="font-semibold text-green-600">+{format(income.amount)}</p>
                       <p className="text-sm text-gray-500 flex items-center">
                         <Calendar className="h-3 w-3 mr-1" />
                         {new Date(income.date).toLocaleDateString()}

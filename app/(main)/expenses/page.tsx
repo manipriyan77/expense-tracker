@@ -28,18 +28,14 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, TrendingDown, Calendar } from "lucide-react";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
-
-interface Expense {
-  id: string;
-  amount: number;
-  description: string;
-  category: string;
-  date: string;
-}
+import { useTransactionsStore } from "@/store/transactions-store";
 
 export default function ExpensesPage() {
   const { format } = useFormatCurrency();
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const { transactions, fetchTransactions, addTransaction } = useTransactionsStore();
+
+  const expenses = transactions.filter((t) => t.type === "expense");
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showCategoryInput, setShowCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -51,36 +47,9 @@ export default function ExpensesPage() {
   });
 
   useEffect(() => {
-    loadExpenses();
+    fetchTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const loadExpenses = async () => {
-    // Mock data - will be replaced with actual Supabase query
-    const mockExpenses: Expense[] = [
-      {
-        id: "1",
-        amount: 50,
-        description: "Groceries",
-        category: "Food",
-        date: "2024-12-23",
-      },
-      {
-        id: "2",
-        amount: 25,
-        description: "Coffee",
-        category: "Food",
-        date: "2024-12-22",
-      },
-      {
-        id: "3",
-        amount: 80,
-        description: "Gas",
-        category: "Transportation",
-        date: "2024-12-21",
-      },
-    ];
-    setExpenses(mockExpenses);
-  };
 
   const handleAddCustomCategory = () => {
     if (newCategoryName.trim()) {
@@ -104,28 +73,24 @@ export default function ExpensesPage() {
     }
   };
 
-  const handleAddExpense = () => {
+  const handleAddExpense = async () => {
     if (!formData.amount || !formData.description || !formData.category) return;
-
-    const newExpense: Expense = {
-      id: Date.now().toString(),
+    await addTransaction({
+      type: "expense",
       amount: parseFloat(formData.amount),
       description: formData.description,
       category: formData.category,
+      subtype: "",
+      budget_id: "",
+      goal_id: null,
       date: new Date().toISOString().split("T")[0],
-    };
-
-    setExpenses([newExpense, ...expenses]);
+    });
     setFormData({ amount: "", description: "", category: "" });
     setIsAddDialogOpen(false);
   };
 
-  const totalExpenses = expenses.reduce(
-    (sum, expense) => sum + expense.amount,
-    0,
-  );
-  const monthlyAverage =
-    expenses.length > 0 ? totalExpenses / expenses.length : 0;
+  const totalExpenses = expenses.reduce((sum, t) => sum + t.amount, 0);
+  const monthlyAverage = expenses.length > 0 ? totalExpenses / expenses.length : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -140,7 +105,7 @@ export default function ExpensesPage() {
             <div className="px-4 py-3">
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Expenses</p>
               <p className="font-mono text-base font-semibold text-red-400">{format(totalExpenses)}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">This month</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">All time</p>
             </div>
             <div className="px-4 py-3">
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Avg per Transaction</p>
@@ -164,9 +129,7 @@ export default function ExpensesPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add New Expense</DialogTitle>
-                <DialogDescription>
-                  Enter the details of your expense below.
-                </DialogDescription>
+                <DialogDescription>Enter the details of your expense below.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -177,9 +140,7 @@ export default function ExpensesPage() {
                     step="0.01"
                     placeholder="0.00"
                     value={formData.amount}
-                    onChange={(e) =>
-                      setFormData({ ...formData, amount: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   />
                 </div>
 
@@ -189,9 +150,7 @@ export default function ExpensesPage() {
                     id="description"
                     placeholder="What was this expense for?"
                     value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
 
@@ -214,25 +173,8 @@ export default function ExpensesPage() {
                         }}
                         autoFocus
                       />
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleAddCustomCategory}
-                        disabled={!newCategoryName.trim()}
-                      >
-                        Add
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setShowCategoryInput(false);
-                          setNewCategoryName("");
-                        }}
-                      >
-                        Cancel
-                      </Button>
+                      <Button type="button" size="sm" onClick={handleAddCustomCategory} disabled={!newCategoryName.trim()}>Add</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => { setShowCategoryInput(false); setNewCategoryName(""); }}>Cancel</Button>
                     </div>
                   ) : (
                     <Select
@@ -250,25 +192,16 @@ export default function ExpensesPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Food">Food</SelectItem>
-                        <SelectItem value="Transportation">
-                          Transportation
-                        </SelectItem>
-                        <SelectItem value="Entertainment">
-                          Entertainment
-                        </SelectItem>
+                        <SelectItem value="Transportation">Transportation</SelectItem>
+                        <SelectItem value="Entertainment">Entertainment</SelectItem>
                         <SelectItem value="Bills">Bills</SelectItem>
                         <SelectItem value="Shopping">Shopping</SelectItem>
                         <SelectItem value="Healthcare">Healthcare</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
                         {customCategories.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
-                          </SelectItem>
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}
-                        <SelectItem
-                          value="add_custom"
-                          className="text-blue-600 font-medium border-t mt-1 pt-2"
-                        >
+                        <SelectItem value="add_custom" className="text-blue-600 font-medium border-t mt-1 pt-2">
                           <div className="flex items-center space-x-2">
                             <Plus className="h-4 w-4" />
                             <span>Add Category</span>
@@ -279,9 +212,7 @@ export default function ExpensesPage() {
                   )}
                 </div>
 
-                <Button onClick={handleAddExpense} className="w-full">
-                  Add Expense
-                </Button>
+                <Button onClick={handleAddExpense} className="w-full">Add Expense</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -301,25 +232,18 @@ export default function ExpensesPage() {
                 </p>
               ) : (
                 expenses.map((expense) => (
-                  <div
-                    key={expense.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
+                  <div key={expense.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-4">
                       <div className="p-2 rounded-full bg-red-100 text-red-600">
                         <TrendingDown className="h-4 w-4" />
                       </div>
                       <div>
                         <p className="font-medium">{expense.description}</p>
-                        <p className="text-sm text-gray-500">
-                          {expense.category}
-                        </p>
+                        <p className="text-sm text-gray-500">{expense.category}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-red-600">
-                        -{format(expense.amount)}
-                      </p>
+                      <p className="font-semibold text-red-600">-{format(expense.amount)}</p>
                       <p className="text-sm text-gray-500 flex items-center">
                         <Calendar className="h-3 w-3 mr-1" />
                         {new Date(expense.date).toLocaleDateString()}

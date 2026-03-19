@@ -589,8 +589,8 @@ export default function Dashboard() {
       .slice(-12)
       .map((s) => ({
         date: new Date(s.date).toLocaleDateString("en-IN", {
+          day: "numeric",
           month: "short",
-          year: "2-digit",
         }),
         "Net Worth": s.net_worth,
         Assets: s.total_assets,

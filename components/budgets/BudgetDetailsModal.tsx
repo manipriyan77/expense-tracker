@@ -162,35 +162,35 @@ export default function BudgetDetailsModal({
           <TabsContent value="details" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <DollarSign className="h-5 w-5" />
+                <CardTitle className="flex items-center space-x-2 text-sm">
+                  <DollarSign className="h-4 w-4" />
                   <span>Budget Information</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-sm text-gray-600">Category</p>
-                    <p className="text-lg font-semibold">{budget.category}</p>
+                    <p className="text-xs text-gray-600">Category</p>
+                    <p className="text-sm font-semibold">{budget.category}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Subtype</p>
-                    <p className="text-lg font-semibold">
+                    <p className="text-xs text-gray-600">Subtype</p>
+                    <p className="text-sm font-semibold">
                       {budget.subtype || "Category-level"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Period</p>
-                    <p className="text-lg font-semibold capitalize">
+                    <p className="text-xs text-gray-600">Period</p>
+                    <p className="text-sm font-semibold capitalize">
                       {budget.period}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Status</p>
+                    <p className="text-xs text-gray-600">Status</p>
                     <div className="flex items-center space-x-2">
                       {getStatusIcon(percentage)}
                       <span
-                        className={`font-semibold ${
+                        className={`text-sm font-semibold ${
                           percentage >= 100
                             ? "text-red-600"
                             : percentage >= 80
@@ -241,23 +241,23 @@ export default function BudgetDetailsModal({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="text-center p-4 bg-red-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Spent</p>
-                    <p className="text-2xl font-bold text-red-600">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-center p-3 bg-red-50 rounded-lg min-w-0">
+                    <p className="text-xs text-gray-600 mb-1">Spent</p>
+                    <p className="text-base font-bold text-red-600 truncate">
                       {format(spent)}
                     </p>
                   </div>
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Limit</p>
-                    <p className="text-2xl font-bold text-blue-600">
+                  <div className="text-center p-3 bg-blue-50 rounded-lg min-w-0">
+                    <p className="text-xs text-gray-600 mb-1">Limit</p>
+                    <p className="text-base font-bold text-blue-600 truncate">
                       {format(budget.limit_amount)}
                     </p>
                   </div>
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Remaining</p>
+                  <div className="text-center p-3 bg-green-50 rounded-lg min-w-0">
+                    <p className="text-xs text-gray-600 mb-1">Remaining</p>
                     <p
-                      className={`text-2xl font-bold ${
+                      className={`text-base font-bold truncate ${
                         remaining < 0 ? "text-red-600" : "text-green-600"
                       }`}
                     >
@@ -283,21 +283,21 @@ export default function BudgetDetailsModal({
 
                 <div className="pt-4 border-t space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-600">Created On</p>
-                    <p className="text-base font-medium">
+                    <p className="text-xs text-gray-600">Created On</p>
+                    <p className="text-xs font-medium">
                       {new Date(budget.created_at).toLocaleDateString("en-US", {
                         year: "numeric",
-                        month: "long",
+                        month: "short",
                         day: "numeric",
                       })}
                     </p>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-600">Last Updated</p>
-                    <p className="text-base font-medium">
+                    <p className="text-xs text-gray-600">Last Updated</p>
+                    <p className="text-xs font-medium">
                       {new Date(budget.updated_at).toLocaleDateString("en-US", {
                         year: "numeric",
-                        month: "long",
+                        month: "short",
                         day: "numeric",
                       })}
                     </p>
