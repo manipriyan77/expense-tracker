@@ -907,8 +907,8 @@ export default function AddTransactionForm({
       {/* Category Selection - Button Grid */}
       <div className="space-y-3">
         <Label className="text-xs font-medium">Category *</Label>
-        <div className="grid grid-cols-3 gap-2">
-          {availableCategories.slice(0, 6).map((cat) => (
+        <div className="grid grid-cols-3 gap-2 max-h-[min(40vh,16rem)] overflow-y-auto pr-1">
+          {availableCategories.map((cat) => (
             <button
               key={cat}
               type="button"
