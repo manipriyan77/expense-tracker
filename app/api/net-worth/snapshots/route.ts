@@ -4,8 +4,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export async function GET() {
   try {
     const supabase = await createSupabaseServerClient();
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -22,7 +25,7 @@ export async function GET() {
   } catch (error) {
     return NextResponse.json(
       { error: (error as Error).message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -30,8 +33,11 @@ export async function GET() {
 export async function POST() {
   try {
     const supabase = await createSupabaseServerClient();
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -52,7 +58,8 @@ export async function POST() {
     const goldValue =
       goldRows?.reduce(
         (sum, r) =>
-          sum + Number(r.quantity_grams || 0) * Number(r.current_price_per_gram || 0),
+          sum +
+          Number(r.quantity_grams || 0) * Number(r.current_price_per_gram || 0),
         0,
       ) || 0;
 
@@ -91,10 +98,8 @@ export async function POST() {
       .select("current_value")
       .eq("user_id", user.id);
     const otherInvestmentsValue =
-      otherInvRows?.reduce(
-        (sum, r) => sum + Number(r.current_value || 0),
-        0,
-      ) || 0;
+      otherInvRows?.reduce((sum, r) => sum + Number(r.current_value || 0), 0) ||
+      0;
 
     // Get all liabilities
     const { data: liabilities } = await supabase
@@ -114,18 +119,20 @@ export async function POST() {
     const netWorth = totalAssets - totalLiabilities;
 
     // Upsert snapshot for today — update if a snapshot already exists for this date
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split("T")[0];
     const { data, error } = await supabase
       .from("net_worth_snapshots")
       .upsert(
-        [{
-          user_id: user.id,
-          date: today,
-          total_assets: totalAssets,
-          total_liabilities: totalLiabilities,
-          net_worth: netWorth,
-        }],
-        { onConflict: "user_id,date" }
+        [
+          {
+            user_id: user.id,
+            date: today,
+            total_assets: totalAssets,
+            total_liabilities: totalLiabilities,
+            net_worth: netWorth,
+          },
+        ],
+        { onConflict: "user_id,date" },
       )
       .select()
       .single();
@@ -136,7 +143,7 @@ export async function POST() {
   } catch (error) {
     return NextResponse.json(
       { error: (error as Error).message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -145,7 +152,10 @@ export async function DELETE() {
   try {
     const supabase = await createSupabaseServerClient();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -161,7 +171,7 @@ export async function DELETE() {
   } catch (error) {
     return NextResponse.json(
       { error: (error as Error).message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

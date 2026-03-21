@@ -151,12 +151,12 @@ export default function GoalDetailsModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-sm text-gray-600">Category</p>
-                    <p className="text-lg font-semibold">{goal.category}</p>
+                    <p className="text-sm font-semibold">{goal.category}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Status</p>
                     <p
-                      className={`text-lg font-semibold capitalize ${
+                      className={`text-sm font-semibold capitalize ${
                         isCompleted
                           ? "text-green-600"
                           : isOverdue
@@ -169,14 +169,14 @@ export default function GoalDetailsModal({
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Target Date</p>
-                    <p className="text-lg font-semibold flex items-center">
+                    <p className="text-sm font-semibold flex items-center">
                       <Calendar className="h-4 w-4 mr-2" />
                       {new Date(goal.targetDate).toLocaleDateString()}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Days Remaining</p>
-                    <p className="text-lg font-semibold">
+                    <p className="text-sm font-semibold">
                       {Math.ceil(
                         (new Date(goal.targetDate).getTime() -
                           new Date().getTime()) /

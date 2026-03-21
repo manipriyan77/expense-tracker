@@ -7,6 +7,8 @@ const OTHER_INVESTMENT_TYPES = [
   "nps",
   "postal",
   "lic",
+  "fd",
+  "rd",
   "other",
 ] as const;
 
@@ -25,6 +27,11 @@ function rowToInvestment(row: Record<string, unknown>) {
     interestRate:
       row.interest_rate != null ? Number(row.interest_rate) : undefined,
     notes: (row.notes as string) ?? undefined,
+    premiumAmount:
+      row.premium_amount != null ? Number(row.premium_amount) : undefined,
+    premiumFrequency: (row.premium_frequency as string) ?? undefined,
+    sumAssured:
+      row.sum_assured != null ? Number(row.sum_assured) : undefined,
   };
 }
 
@@ -94,6 +101,9 @@ export async function PUT(
       maturityDate,
       interestRate,
       notes,
+      premiumAmount,
+      premiumFrequency,
+      sumAssured,
     } = body;
 
     const updates: Record<string, unknown> = {};
@@ -119,6 +129,14 @@ export async function PUT(
         interestRate != null ? parseFloat(String(interestRate)) : null;
     if (notes !== undefined)
       updates.notes = notes ? String(notes).trim() : null;
+    if (premiumAmount !== undefined)
+      updates.premium_amount =
+        premiumAmount != null ? parseFloat(String(premiumAmount)) : null;
+    if (premiumFrequency !== undefined)
+      updates.premium_frequency = premiumFrequency ?? null;
+    if (sumAssured !== undefined)
+      updates.sum_assured =
+        sumAssured != null ? parseFloat(String(sumAssured)) : null;
 
     const { data, error } = await supabase
       .from("other_investments")

@@ -7,6 +7,8 @@ const OTHER_INVESTMENT_TYPES = [
   "nps",
   "postal",
   "lic",
+  "fd",
+  "rd",
   "other",
 ] as const;
 
@@ -25,6 +27,11 @@ function rowToInvestment(row: Record<string, unknown>) {
     interestRate:
       row.interest_rate != null ? Number(row.interest_rate) : undefined,
     notes: (row.notes as string) ?? undefined,
+    premiumAmount:
+      row.premium_amount != null ? Number(row.premium_amount) : undefined,
+    premiumFrequency: (row.premium_frequency as string) ?? undefined,
+    sumAssured:
+      row.sum_assured != null ? Number(row.sum_assured) : undefined,
   };
 }
 
@@ -81,6 +88,9 @@ export async function POST(request: NextRequest) {
       maturityDate,
       interestRate,
       notes,
+      premiumAmount,
+      premiumFrequency,
+      sumAssured,
     } = body;
 
     if (!name || !type || investedAmount == null || !startDate) {
@@ -111,6 +121,11 @@ export async function POST(request: NextRequest) {
         interest_rate:
           interestRate != null ? parseFloat(String(interestRate)) : null,
         notes: notes ? String(notes).trim() : null,
+        premium_amount:
+          premiumAmount != null ? parseFloat(String(premiumAmount)) : null,
+        premium_frequency: premiumFrequency ?? null,
+        sum_assured:
+          sumAssured != null ? parseFloat(String(sumAssured)) : null,
       })
       .select()
       .single();

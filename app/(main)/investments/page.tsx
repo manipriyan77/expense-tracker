@@ -202,6 +202,9 @@ const defaultOtherForm = {
   maturityDate: "",
   interestRate: "",
   notes: "",
+  premiumAmount: "",
+  premiumFrequency: "monthly" as "monthly" | "quarterly" | "semi-annual" | "annual",
+  sumAssured: "",
 };
 
 export default function InvestmentsPage() {
@@ -474,6 +477,9 @@ export default function InvestmentsPage() {
       maturityDate: o.maturityDate ?? "",
       interestRate: o.interestRate != null ? String(o.interestRate) : "",
       notes: o.notes ?? "",
+      premiumAmount: o.premiumAmount != null ? String(o.premiumAmount) : "",
+      premiumFrequency: o.premiumFrequency ?? "monthly",
+      sumAssured: o.sumAssured != null ? String(o.sumAssured) : "",
     });
     setDialogStep(2);
     setDialogOpen(true);
@@ -585,20 +591,51 @@ export default function InvestmentsPage() {
           toast.error("Name is required");
           return;
         }
+        const isFDType = otherForm.type === "fd";
+        const isRDType = otherForm.type === "rd";
+        const fdPrincipal = parseFloat(otherForm.investedAmount) || 0;
+        const fdRate = parseFloat(otherForm.interestRate) || 0;
+        const fdFreq = otherForm.premiumFrequency || "quarterly";
+        const rdInstallment = parseFloat(otherForm.premiumAmount) || 0;
+        const rdRate = parseFloat(otherForm.interestRate) || 0;
+        const rdMonthsElapsed = isRDType && otherForm.startDate
+          ? Math.max(0, Math.floor((new Date().getTime() - new Date(otherForm.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30.44)))
+          : 0;
+        const rdTotalMonths = isRDType && otherForm.startDate && otherForm.maturityDate
+          ? Math.max(0, Math.round((new Date(otherForm.maturityDate).getTime() - new Date(otherForm.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30.44)))
+          : 0;
+
+        const premAmt = (!isFDType && !isRDType && otherForm.premiumAmount)
+          ? parseFloat(otherForm.premiumAmount)
+          : isRDType ? rdInstallment : undefined;
+        const autoInvested = isRDType
+          ? rdInstallment * rdMonthsElapsed
+          : (!isFDType && premAmt && otherForm.startDate)
+            ? calcPremiumsPaid(premAmt, otherForm.premiumFrequency, otherForm.startDate)
+            : 0;
+        const investedAmount = parseFloat(otherForm.investedAmount) || autoInvested || 0;
+
+        const autoCurrentValue = isFDType && fdPrincipal && fdRate && otherForm.startDate
+          ? calcFdValue(fdPrincipal, fdRate, fdFreq, otherForm.startDate)
+          : 0;
+        const autoMaturity = isFDType && fdPrincipal && fdRate && otherForm.startDate && otherForm.maturityDate
+          ? calcFdValue(fdPrincipal, fdRate, fdFreq, otherForm.startDate, otherForm.maturityDate)
+          : isRDType && rdInstallment && rdRate && rdTotalMonths
+            ? calcRdMaturity(rdInstallment, rdRate, rdTotalMonths)
+            : 0;
+
         const payload: Omit<OtherInvestment, "id"> = {
           name: otherForm.name,
           type: otherForm.type,
-          investedAmount: parseFloat(otherForm.investedAmount) || 0,
-          currentValue:
-            parseFloat(otherForm.currentValue) ||
-            parseFloat(otherForm.investedAmount) ||
-            0,
+          investedAmount,
+          currentValue: parseFloat(otherForm.currentValue) || autoCurrentValue || investedAmount || 0,
           startDate: otherForm.startDate,
           maturityDate: otherForm.maturityDate || undefined,
-          interestRate: otherForm.interestRate
-            ? parseFloat(otherForm.interestRate)
-            : undefined,
+          interestRate: otherForm.interestRate ? parseFloat(otherForm.interestRate) : undefined,
           notes: otherForm.notes || undefined,
+          premiumAmount: isRDType ? rdInstallment || undefined : (premAmt || undefined),
+          premiumFrequency: isFDType ? (fdFreq as typeof otherForm.premiumFrequency) : (premAmt ? otherForm.premiumFrequency : undefined),
+          sumAssured: otherForm.sumAssured ? parseFloat(otherForm.sumAssured) : (autoMaturity || undefined),
         };
         if (editMode && editId) {
           await updateInvestment(editId, payload);
@@ -2156,7 +2193,7 @@ export default function InvestmentsPage() {
                               variant="outline"
                               className="text-xs uppercase"
                             >
-                              {o.type === "epf" ? "EPF/PF" : o.type.toUpperCase()}
+                              {o.type === "epf" ? "EPF/PF" : o.type === "fd" ? "FD" : o.type === "rd" ? "RD" : o.type.toUpperCase()}
                             </Badge>
                           </div>
                           <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
@@ -2191,6 +2228,41 @@ export default function InvestmentsPage() {
                                 </span>
                                 <p className="font-mono font-medium">
                                   {o.interestRate}%
+                                </p>
+                              </div>
+                            )}
+                            {o.type === "fd" && o.premiumFrequency && (
+                              <div>
+                                <span className="text-muted-foreground">Compounding</span>
+                                <p className="font-mono font-medium capitalize">
+                                  {o.premiumFrequency === "semi-annual" ? "Semi-Annual" : o.premiumFrequency.charAt(0).toUpperCase() + o.premiumFrequency.slice(1)}
+                                </p>
+                              </div>
+                            )}
+                            {o.type === "rd" && o.premiumAmount != null && (
+                              <div>
+                                <span className="text-muted-foreground">Instalment</span>
+                                <p className="font-mono font-medium">
+                                  {format(o.premiumAmount)}/mo
+                                </p>
+                              </div>
+                            )}
+                            {o.type !== "fd" && o.type !== "rd" && o.premiumAmount != null && (
+                              <div>
+                                <span className="text-muted-foreground">Premium</span>
+                                <p className="font-mono font-medium">
+                                  {format(o.premiumAmount)}/
+                                  {o.premiumFrequency === "monthly" ? "mo" : o.premiumFrequency === "quarterly" ? "qtr" : o.premiumFrequency === "semi-annual" ? "6mo" : "yr"}
+                                </p>
+                              </div>
+                            )}
+                            {o.sumAssured != null && (
+                              <div>
+                                <span className="text-muted-foreground">
+                                  {o.type === "fd" || o.type === "rd" ? "Maturity Amt" : "Sum Assured"}
+                                </span>
+                                <p className="font-mono font-medium">
+                                  {format(o.sumAssured)}
                                 </p>
                               </div>
                             )}
@@ -3203,6 +3275,68 @@ function ForexForm({
   );
 }
 
+function calcPremiumsPaid(
+  premiumAmount: number,
+  frequency: string,
+  startDate: string,
+): number {
+  const start = new Date(startDate);
+  const now = new Date();
+  if (isNaN(start.getTime()) || start > now) return 0;
+  const periodsPerYear =
+    frequency === "monthly"
+      ? 12
+      : frequency === "quarterly"
+        ? 4
+        : frequency === "semi-annual"
+          ? 2
+          : 1;
+  const years =
+    (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+  return Math.floor(years * periodsPerYear) * premiumAmount;
+}
+
+// Compound interest: P × (1 + r/(n×100))^(n×t)
+function calcFdValue(
+  principal: number,
+  annualRate: number,
+  frequency: string,
+  startDate: string,
+  toDate?: string,
+): number {
+  const start = new Date(startDate);
+  const end = toDate ? new Date(toDate) : new Date();
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start >= end) return principal;
+  const n =
+    frequency === "monthly"
+      ? 12
+      : frequency === "quarterly"
+        ? 4
+        : frequency === "semi-annual"
+          ? 2
+          : 1; // annual
+  const t = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+  return principal * Math.pow(1 + annualRate / (n * 100), n * t);
+}
+
+// RD maturity formula: n = months, r = annual rate
+function calcRdMaturity(monthlyInstallment: number, annualRate: number, months: number): number {
+  if (months <= 0) return 0;
+  const r = annualRate / (12 * 100);
+  return monthlyInstallment * ((Math.pow(1 + r, months) - 1) / r) * (1 + r);
+}
+
+const INVESTMENT_TYPES = [
+  ["fd", "FD (Fixed Deposit)"],
+  ["rd", "RD (Recurring Deposit)"],
+  ["ppf", "PPF (Public Provident Fund)"],
+  ["epf", "EPF / PF (Employee Provident Fund)"],
+  ["nps", "NPS (National Pension System)"],
+  ["postal", "Postal Savings (NSC / KVP / MIS)"],
+  ["lic", "LIC / Life Insurance"],
+  ["other", "Other"],
+] as const;
+
 function OtherForm({
   form,
   onChange,
@@ -3212,31 +3346,81 @@ function OtherForm({
 }) {
   const s = (k: keyof typeof defaultOtherForm, v: string) =>
     onChange({ ...form, [k]: v });
+
+  const isFD = form.type === "fd";
+  const isRD = form.type === "rd";
+  const isPremiumBased = !isFD && !isRD && !!form.premiumAmount;
+
+  // FD auto-calculations
+  const fdPrincipal = parseFloat(form.investedAmount) || 0;
+  const fdRate = parseFloat(form.interestRate) || 0;
+  const fdFreq = form.premiumFrequency || "quarterly";
+  const autoFdCurrentValue =
+    isFD && fdPrincipal && fdRate && form.startDate
+      ? calcFdValue(fdPrincipal, fdRate, fdFreq, form.startDate)
+      : 0;
+  const autoFdMaturity =
+    isFD && fdPrincipal && fdRate && form.startDate && form.maturityDate
+      ? calcFdValue(fdPrincipal, fdRate, fdFreq, form.startDate, form.maturityDate)
+      : 0;
+
+  // RD auto-calculations
+  const rdInstallment = parseFloat(form.premiumAmount) || 0;
+  const rdRate = parseFloat(form.interestRate) || 0;
+  const rdMonths =
+    isRD && form.startDate
+      ? Math.max(
+          0,
+          Math.floor(
+            (new Date().getTime() - new Date(form.startDate).getTime()) /
+              (1000 * 60 * 60 * 24 * 30.44),
+          ),
+        )
+      : 0;
+  const autoRdInvested = isRD ? rdInstallment * rdMonths : 0;
+  const rdTotalMonths =
+    isRD && form.startDate && form.maturityDate
+      ? Math.max(
+          0,
+          Math.round(
+            (new Date(form.maturityDate).getTime() - new Date(form.startDate).getTime()) /
+              (1000 * 60 * 60 * 24 * 30.44),
+          ),
+        )
+      : 0;
+  const autoRdMaturity =
+    isRD && rdInstallment && rdRate && rdTotalMonths
+      ? calcRdMaturity(rdInstallment, rdRate, rdTotalMonths)
+      : 0;
+
+  // Premium-based auto-calc (LIC / Postal)
+  const autoPremiumsPaid =
+    isPremiumBased && form.startDate
+      ? calcPremiumsPaid(
+          parseFloat(form.premiumAmount) || 0,
+          form.premiumFrequency,
+          form.startDate,
+        )
+      : 0;
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
       <div className="space-y-1.5 sm:col-span-2">
         <Label>Investment Name *</Label>
         <Input
-          placeholder="e.g. My PPF Account, Company PF"
+          placeholder="e.g. SBI FD, Post Office RD"
           value={form.name}
           onChange={(e) => s("name", e.target.value)}
         />
       </div>
-      <div className="space-y-1.5 min-w-0">
+      <div className="space-y-1.5 min-w-0 sm:col-span-2">
         <Label>Type *</Label>
         <Select value={form.type} onValueChange={(v) => s("type", v)}>
           <SelectTrigger className="w-full truncate">
             <SelectValue className="truncate" />
           </SelectTrigger>
           <SelectContent>
-            {[
-              ["ppf", "PPF (Public Provident Fund)"],
-              ["epf", "EPF / PF (Employee Provident Fund)"],
-              ["nps", "NPS (National Pension System)"],
-              ["postal", "Postal Savings (NSC / KVP / MIS)"],
-              ["lic", "LIC / Life Insurance"],
-              ["other", "Other"],
-            ].map(([val, label]) => (
+            {INVESTMENT_TYPES.map(([val, label]) => (
               <SelectItem key={val} value={val}>
                 {label}
               </SelectItem>
@@ -3244,57 +3428,280 @@ function OtherForm({
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-1.5">
-        <Label>Interest / Return Rate (%)</Label>
-        <Input
-          type="number"
-          placeholder="e.g. 7.1"
-          value={form.interestRate}
-          onChange={(e) => s("interestRate", e.target.value)}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label>Amount Invested *</Label>
-        <Input
-          type="number"
-          placeholder="0.00"
-          value={form.investedAmount}
-          onChange={(e) => s("investedAmount", e.target.value)}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label>
-          Current Value{" "}
-          <span className="text-muted-foreground text-xs">
-            (defaults to invested)
-          </span>
-        </Label>
-        <Input
-          type="number"
-          placeholder="0.00"
-          value={form.currentValue}
-          onChange={(e) => s("currentValue", e.target.value)}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label>Start Date *</Label>
-        <Input
-          type="date"
-          value={form.startDate}
-          onChange={(e) => s("startDate", e.target.value)}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label>
-          Maturity Date{" "}
-          <span className="text-muted-foreground text-xs">(optional)</span>
-        </Label>
-        <Input
-          type="date"
-          value={form.maturityDate}
-          onChange={(e) => s("maturityDate", e.target.value)}
-        />
-      </div>
+
+      {/* ── FD fields ── */}
+      {isFD && (
+        <>
+          <div className="space-y-1.5">
+            <Label>Principal Amount *</Label>
+            <Input
+              type="number"
+              placeholder="e.g. 100000"
+              value={form.investedAmount}
+              onChange={(e) => s("investedAmount", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Interest Rate (% per annum) *</Label>
+            <Input
+              type="number"
+              placeholder="e.g. 7.5"
+              value={form.interestRate}
+              onChange={(e) => s("interestRate", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Interest Compounding</Label>
+            <Select
+              value={form.premiumFrequency || "quarterly"}
+              onValueChange={(v) => s("premiumFrequency", v)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="quarterly">Quarterly</SelectItem>
+                <SelectItem value="semi-annual">Semi-Annual</SelectItem>
+                <SelectItem value="annual">Annual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Current Value{" "}
+              {autoFdCurrentValue > 0 && (
+                <span className="text-muted-foreground text-xs">
+                  (auto: ₹{Math.round(autoFdCurrentValue).toLocaleString("en-IN")})
+                </span>
+              )}
+            </Label>
+            <Input
+              type="number"
+              placeholder={autoFdCurrentValue > 0 ? String(Math.round(autoFdCurrentValue)) : "0.00"}
+              value={form.currentValue}
+              onChange={(e) => s("currentValue", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Start Date *</Label>
+            <Input
+              type="date"
+              value={form.startDate}
+              onChange={(e) => s("startDate", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Maturity Date{" "}
+              <span className="text-muted-foreground text-xs">(optional)</span>
+            </Label>
+            <Input
+              type="date"
+              value={form.maturityDate}
+              onChange={(e) => s("maturityDate", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Maturity Amount{" "}
+              {autoFdMaturity > 0 && (
+                <span className="text-muted-foreground text-xs">
+                  (auto: ₹{Math.round(autoFdMaturity).toLocaleString("en-IN")})
+                </span>
+              )}
+            </Label>
+            <Input
+              type="number"
+              placeholder={autoFdMaturity > 0 ? String(Math.round(autoFdMaturity)) : "e.g. 115000"}
+              value={form.sumAssured}
+              onChange={(e) => s("sumAssured", e.target.value)}
+            />
+          </div>
+        </>
+      )}
+
+      {/* ── RD fields ── */}
+      {isRD && (
+        <>
+          <div className="space-y-1.5">
+            <Label>Monthly Installment *</Label>
+            <Input
+              type="number"
+              placeholder="e.g. 5000"
+              value={form.premiumAmount}
+              onChange={(e) => s("premiumAmount", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Interest Rate (% per annum) *</Label>
+            <Input
+              type="number"
+              placeholder="e.g. 6.8"
+              value={form.interestRate}
+              onChange={(e) => s("interestRate", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Start Date *</Label>
+            <Input
+              type="date"
+              value={form.startDate}
+              onChange={(e) => s("startDate", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Maturity Date{" "}
+              <span className="text-muted-foreground text-xs">(optional)</span>
+            </Label>
+            <Input
+              type="date"
+              value={form.maturityDate}
+              onChange={(e) => s("maturityDate", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Total Invested{" "}
+              {autoRdInvested > 0 && (
+                <span className="text-muted-foreground text-xs">
+                  (auto: ₹{autoRdInvested.toLocaleString("en-IN")} · {rdMonths} instalments)
+                </span>
+              )}
+            </Label>
+            <Input
+              type="number"
+              placeholder={autoRdInvested > 0 ? String(autoRdInvested) : "0.00"}
+              value={form.investedAmount}
+              onChange={(e) => s("investedAmount", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Maturity Amount{" "}
+              {autoRdMaturity > 0 && (
+                <span className="text-muted-foreground text-xs">
+                  (auto: ₹{Math.round(autoRdMaturity).toLocaleString("en-IN")})
+                </span>
+              )}
+            </Label>
+            <Input
+              type="number"
+              placeholder={autoRdMaturity > 0 ? String(Math.round(autoRdMaturity)) : "e.g. 65000"}
+              value={form.sumAssured}
+              onChange={(e) => s("sumAssured", e.target.value)}
+            />
+          </div>
+        </>
+      )}
+
+      {/* ── Generic / PPF / EPF / LIC / Postal fields ── */}
+      {!isFD && !isRD && (
+        <>
+          <div className="space-y-1.5">
+            <Label>Interest / Return Rate (%)</Label>
+            <Input
+              type="number"
+              placeholder="e.g. 7.1"
+              value={form.interestRate}
+              onChange={(e) => s("interestRate", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Premium Amount{" "}
+              <span className="text-muted-foreground text-xs">(optional)</span>
+            </Label>
+            <Input
+              type="number"
+              placeholder="e.g. 1580"
+              value={form.premiumAmount}
+              onChange={(e) => s("premiumAmount", e.target.value)}
+            />
+          </div>
+          {form.premiumAmount && (
+            <div className="space-y-1.5">
+              <Label>Premium Frequency</Label>
+              <Select
+                value={form.premiumFrequency}
+                onValueChange={(v) => s("premiumFrequency", v)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="quarterly">Quarterly</SelectItem>
+                  <SelectItem value="semi-annual">Semi-Annual</SelectItem>
+                  <SelectItem value="annual">Annual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label>Start Date *</Label>
+            <Input
+              type="date"
+              value={form.startDate}
+              onChange={(e) => s("startDate", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Maturity Date{" "}
+              <span className="text-muted-foreground text-xs">(optional)</span>
+            </Label>
+            <Input
+              type="date"
+              value={form.maturityDate}
+              onChange={(e) => s("maturityDate", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              {isPremiumBased ? "Total Invested" : "Amount Invested"}{" "}
+              {isPremiumBased && (
+                <span className="text-muted-foreground text-xs">
+                  (auto: ₹{autoPremiumsPaid.toLocaleString("en-IN")})
+                </span>
+              )}
+              {!isPremiumBased && <span className="text-foreground">*</span>}
+            </Label>
+            <Input
+              type="number"
+              placeholder={isPremiumBased ? String(autoPremiumsPaid) : "0.00"}
+              value={form.investedAmount}
+              onChange={(e) => s("investedAmount", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Current Value{" "}
+              <span className="text-muted-foreground text-xs">(defaults to invested)</span>
+            </Label>
+            <Input
+              type="number"
+              placeholder="0.00"
+              value={form.currentValue}
+              onChange={(e) => s("currentValue", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Sum Assured / Maturity Amount{" "}
+              <span className="text-muted-foreground text-xs">(optional)</span>
+            </Label>
+            <Input
+              type="number"
+              placeholder="e.g. 400000"
+              value={form.sumAssured}
+              onChange={(e) => s("sumAssured", e.target.value)}
+            />
+          </div>
+        </>
+      )}
+
       <div className="space-y-1.5 sm:col-span-2">
         <Label>Notes</Label>
         <Input

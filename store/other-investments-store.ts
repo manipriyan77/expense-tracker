@@ -6,7 +6,11 @@ export type OtherInvestmentType =
   | "nps"
   | "postal"
   | "lic"
+  | "fd"
+  | "rd"
   | "other";
+
+export type PremiumFrequency = "monthly" | "quarterly" | "semi-annual" | "annual";
 
 export interface OtherInvestment {
   id: string;
@@ -18,6 +22,9 @@ export interface OtherInvestment {
   maturityDate?: string;
   interestRate?: number;
   notes?: string;
+  premiumAmount?: number;
+  premiumFrequency?: PremiumFrequency;
+  sumAssured?: number;
 }
 
 interface OtherInvestmentsState {
