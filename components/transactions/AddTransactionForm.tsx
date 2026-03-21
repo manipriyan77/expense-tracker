@@ -62,7 +62,7 @@ const transactionFormSchema = z.object({
     ),
   description: z.string().min(1, "Description is required"),
   category: z.string().min(1, "Category is required"),
-  subtype: z.string().optional().default(""),
+  subtype: z.string(),
   budgetId: z.string().optional(),
   goalId: z.string().optional(),
   debtId: z.string().optional(),
@@ -973,52 +973,68 @@ export default function AddTransactionForm({
         )}
       </div>
 
-      {/* Subcategory dropdown + budget link in one card (easier to find than button grids) */}
-      {selectedCategory && (
-        <div className="space-y-4 rounded-lg border border-muted bg-muted/30 p-4">
-          <div className="space-y-2">
-            <Label className="text-xs font-medium">Subcategory (optional)</Label>
-            <Controller
-              name="subtype"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  value={
-                    field.value?.trim()
-                      ? field.value
-                      : SUBTYPE_SELECT_NONE
-                  }
-                  onValueChange={(v) =>
-                    field.onChange(v === SUBTYPE_SELECT_NONE ? "" : v)
-                  }
-                >
-                  <SelectTrigger className="text-sm w-full">
-                    <SelectValue placeholder="Choose subcategory" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={SUBTYPE_SELECT_NONE}>
-                      None / not specified
+      {/* Subcategory + budget: always visible so users see them; enabled after a category is chosen */}
+      <div className="space-y-4 rounded-lg border border-muted bg-muted/30 p-4">
+        {!selectedCategory && (
+          <p className="text-xs text-muted-foreground rounded-md border border-dashed border-border bg-background/60 px-3 py-2.5">
+            Choose a <span className="font-medium text-foreground">category</span> above
+            first — then you can set a subcategory
+            {transactionType === "expense" && " and link this expense to a budget"}.
+          </p>
+        )}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">Subcategory (optional)</Label>
+          <Controller
+            name="subtype"
+            control={control}
+            render={({ field }) => (
+              <Select
+                disabled={!selectedCategory}
+                value={
+                  field.value?.trim()
+                    ? field.value
+                    : SUBTYPE_SELECT_NONE
+                }
+                onValueChange={(v) =>
+                  field.onChange(v === SUBTYPE_SELECT_NONE ? "" : v)
+                }
+              >
+                <SelectTrigger className="text-sm w-full">
+                  <SelectValue
+                    placeholder={
+                      selectedCategory
+                        ? "Choose subcategory"
+                        : "Select a category first"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SUBTYPE_SELECT_NONE}>
+                    {!selectedCategory
+                      ? "Select a category first"
+                      : "None / not specified"}
+                  </SelectItem>
+                  {subtypeSelectOptions.map((sub) => (
+                    <SelectItem key={sub} value={sub}>
+                      {sub}
                     </SelectItem>
-                    {subtypeSelectOptions.map((sub) => (
-                      <SelectItem key={sub} value={sub}>
-                        {sub}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full sm:w-auto text-xs"
-              onClick={() => setShowSubtypeInput(true)}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              Add custom subcategory
-            </Button>
-            {showSubtypeInput && (
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto text-xs"
+            disabled={!selectedCategory}
+            onClick={() => setShowSubtypeInput(true)}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Add custom subcategory
+          </Button>
+          {selectedCategory && showSubtypeInput && (
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   value={newSubtypeName}
@@ -1058,67 +1074,50 @@ export default function AddTransactionForm({
             )}
           </div>
 
-          {transactionType === "expense" && (
-            <div className="space-y-2 pt-3 border-t border-border">
-              <Label className="text-xs font-medium flex items-center gap-2">
-                <Wallet className="h-4 w-4 shrink-0" />
-                Link to budget (optional)
-              </Label>
-              {allBudgetsForExpense.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No budgets for this month yet.{" "}
-                  <a
-                    href="/budgets"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline font-medium"
+        {transactionType === "expense" && (
+          <div className="space-y-2 pt-3 border-t border-border">
+            <Label className="text-xs font-medium flex items-center gap-2">
+              <Wallet className="h-4 w-4 shrink-0" />
+              Link to budget (optional)
+            </Label>
+            {!selectedCategory ? (
+              <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted/80 px-3 text-sm text-muted-foreground">
+                Select a category first
+              </div>
+            ) : allBudgetsForExpense.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No budgets for this month yet.{" "}
+                <a
+                  href="/budgets"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline font-medium"
+                >
+                  Create a budget
+                </a>
+              </p>
+            ) : (
+              <Controller
+                name="budgetId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value?.trim() ? field.value : "none"}
+                    onValueChange={(v) =>
+                      field.onChange(v === "none" ? "" : v)
+                    }
                   >
-                    Create a budget
-                  </a>
-                </p>
-              ) : (
-                <Controller
-                  name="budgetId"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={
-                        field.value?.trim() ? field.value : "none"
-                      }
-                      onValueChange={(v) =>
-                        field.onChange(v === "none" ? "" : v)
-                      }
-                    >
-                      <SelectTrigger className="text-sm w-full">
-                        <SelectValue placeholder="Select budget (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No budget</SelectItem>
-                        {getMatchingBudgets().length > 0 && (
-                          <SelectGroup>
-                            <SelectLabel className="text-xs font-semibold text-green-600">
-                              Matching your category
-                            </SelectLabel>
-                            {getMatchingBudgets().map((budget) => (
-                              <SelectItem key={budget.id} value={budget.id}>
-                                <span className="font-medium">
-                                  {budget.category}
-                                </span>
-                                {budget.subtype && (
-                                  <span className="text-xs text-muted-foreground ml-1">
-                                    ({budget.subtype})
-                                  </span>
-                                )}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        )}
-                        {allBudgetsForExpense
-                          .filter(
-                            (b) =>
-                              !getMatchingBudgets().some((m) => m.id === b.id),
-                          )
-                          .map((budget) => (
+                    <SelectTrigger className="text-sm w-full">
+                      <SelectValue placeholder="Select budget (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No budget</SelectItem>
+                      {getMatchingBudgets().length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel className="text-xs font-semibold text-green-600">
+                            Matching your category
+                          </SelectLabel>
+                          {getMatchingBudgets().map((budget) => (
                             <SelectItem key={budget.id} value={budget.id}>
                               <span className="font-medium">
                                 {budget.category}
@@ -1130,15 +1129,33 @@ export default function AddTransactionForm({
                               )}
                             </SelectItem>
                           ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              )}
-            </div>
-          )}
-        </div>
-      )}
+                        </SelectGroup>
+                      )}
+                      {allBudgetsForExpense
+                        .filter(
+                          (b) =>
+                            !getMatchingBudgets().some((m) => m.id === b.id),
+                        )
+                        .map((budget) => (
+                          <SelectItem key={budget.id} value={budget.id}>
+                            <span className="font-medium">
+                              {budget.category}
+                            </span>
+                            {budget.subtype && (
+                              <span className="text-xs text-muted-foreground ml-1">
+                                ({budget.subtype})
+                              </span>
+                            )}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Recurring option */}
       {!transactionId && (
