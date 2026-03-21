@@ -44,6 +44,8 @@ import {
 } from "lucide-react";
 import { useBudgetsStore, Budget } from "@/store/budgets-store";
 import { useTransactionsStore } from "@/store/transactions-store";
+import { useGoalsStore } from "@/store/goals-store";
+import { BudgetPlanningTab } from "@/components/budgets/BudgetPlanningTab";
 import BudgetDetailsModal from "@/components/budgets/BudgetDetailsModal";
 import { MonthSelector } from "@/components/ui/month-selector";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
@@ -90,7 +92,8 @@ export default function BudgetsPage() {
     currentYear,
     setMonth,
   } = useBudgetsStore();
-  const { fetchTransactions } = useTransactionsStore();
+  const { transactions, fetchTransactions } = useTransactionsStore();
+  const { goals, fetchGoals } = useGoalsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
@@ -110,7 +113,8 @@ export default function BudgetsPage() {
 
   useEffect(() => {
     fetchTransactions();
-  }, [fetchTransactions]);
+    fetchGoals();
+  }, [fetchTransactions, fetchGoals]);
 
   const {
     control: addControl,
@@ -391,6 +395,7 @@ export default function BudgetsPage() {
         <Tabs defaultValue="budgets" className="space-y-4">
           <TabsList>
             <TabsTrigger value="budgets">Budgets</TabsTrigger>
+            <TabsTrigger value="planning">Planning</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
           </TabsList>
 
@@ -1105,6 +1110,23 @@ export default function BudgetsPage() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="planning" className="space-y-4 mt-0">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <MonthSelector
+                selectedMonth={selectedMonth}
+                onMonthChange={setSelectedMonth}
+                monthsToShow={7}
+              />
+            </div>
+            <BudgetPlanningTab
+              selectedMonth={selectedMonth}
+              budgets={budgets}
+              transactions={transactions}
+              goals={goals}
+              format={format}
+            />
           </TabsContent>
 
           <TabsContent value="templates" className="mt-0">
