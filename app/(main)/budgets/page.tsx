@@ -796,15 +796,18 @@ export default function BudgetsPage() {
 
             {/* Budget Analysis Charts */}
             {budgets.length > 0 && (
-              <>
-                <Card className="mb-4">
+              <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start lg:[&>*]:min-h-0">
+                <Card className="min-w-0">
                   <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                       Budget vs Spent by Category
                     </p>
                   </CardHeader>
                   <CardContent className="px-2 pt-4 pb-2">
-                    <ResponsiveContainer width="100%" height={Math.max(200, budgetCategoryBreakdown.length * 52)}>
+                    <ResponsiveContainer
+                      width="100%"
+                      height={Math.max(200, budgetCategoryBreakdown.length * 48)}
+                    >
                       <BarChart
                         layout="vertical"
                         data={budgetCategoryBreakdown.map((g, i) => {
@@ -864,13 +867,13 @@ export default function BudgetsPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="mb-4">
-                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <Card className="min-h-0 min-w-0 max-h-[min(70vh,720px)] overflow-hidden">
+                  <CardHeader className="shrink-0 pb-2 border-b border-border px-4 pt-4">
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                       Budget Breakdown by Category
                     </p>
                   </CardHeader>
-                  <CardContent className="px-4 pt-4 pb-4 space-y-4">
+                  <CardContent className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-4">
                     {budgetCategoryBreakdown.map((group, idx) => {
                       const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
                       const spent = budgets
@@ -932,7 +935,7 @@ export default function BudgetsPage() {
                     })}
                   </CardContent>
                 </Card>
-              </>
+              </div>
             )}
 
             {/* Budget Cards */}
