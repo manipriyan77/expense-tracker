@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import {
   Line,
+  LineChart,
   BarChart,
   Bar,
   PieChart,
@@ -31,6 +32,10 @@ import {
   Radar,
   ComposedChart,
   ReferenceLine,
+  Area,
+  ScatterChart,
+  Scatter,
+  ZAxis,
 } from "recharts";
 import {
   TrendingUp,
@@ -41,8 +46,9 @@ import {
   AlertCircle,
   ArrowUpRight,
   ArrowDownRight,
-  PieChart as PieChartIcon,
   DollarSign,
+  Info,
+  Clock,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useTransactionsStore } from "@/store/transactions-store";
@@ -309,47 +315,82 @@ export default function AnalyticsPage() {
     };
   }, [filteredTransactions, monthlyData]);
 
-  // Budget vs Actual Analysis
-  const budgetAnalysis = useMemo(() => {
-    return budgets.map((budget) => {
-      const spent = budget.spent_amount || 0;
-      const limit = budget.limit_amount;
-      const percentage = (spent / limit) * 100;
-
-      return {
-        category: budget.category,
-        subtype: budget.subtype,
-        spent,
-        limit,
-        remaining: limit - spent,
-        percentage,
-        status:
-          percentage >= 100 ? "over" : percentage >= 80 ? "warning" : "good",
-      };
-    });
-  }, [budgets]);
-
-  // Goal Progress Analysis (includes percentage for chart so small-value goals are visible)
+  // Goal Progress Analysis (charts, pace vs deadline, scatter plot)
   const goalAnalysis = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     return goals
       .filter((g) => g.status === "active")
       .map((goal) => {
         const percentage = (goal.currentAmount / goal.targetAmount) * 100;
         const remaining = goal.targetAmount - goal.currentAmount;
+        const targetD = new Date(goal.targetDate + "T12:00:00");
+        const daysLeft = Math.ceil(
+          (targetD.getTime() - today.getTime()) / 86400000,
+        );
+        const monthsToDeadline = Math.max(daysLeft / 30.44, 1 / 30.44);
+        const paceNeeded =
+          remaining > 0 && daysLeft > 0 ? remaining / monthsToDeadline : 0;
+        const monthly = goal.monthlyContribution ?? 0;
+        let paceStatus: "on_track" | "behind" | "ahead" | "unknown" =
+          "unknown";
+        if (remaining <= 0) paceStatus = "ahead";
+        else if (daysLeft <= 0) paceStatus = "behind";
+        else if (monthly > 0) {
+          if (monthly >= paceNeeded * 0.9) paceStatus = "on_track";
+          else paceStatus = "behind";
+          if (monthly >= paceNeeded * 1.15 && percentage < 100)
+            paceStatus = "ahead";
+        }
 
         return {
+          id: goal.id,
           title: goal.title,
           current: goal.currentAmount,
           target: goal.targetAmount,
           remaining,
           percentage,
           category: goal.category,
-          // For chart: use 0–100% scale so goals with small amounts (e.g. gold) are visible
           currentPct: Math.min(percentage, 100),
           targetPct: 100,
+          targetDate: goal.targetDate,
+          daysLeft,
+          paceNeeded,
+          monthlyContribution: goal.monthlyContribution,
+          paceStatus,
         };
       });
   }, [goals]);
+
+  const goalsTabStats = useMemo(() => {
+    if (goalAnalysis.length === 0) return null;
+    const totalTarget = goalAnalysis.reduce((s, g) => s + g.target, 0);
+    const totalCurrent = goalAnalysis.reduce((s, g) => s + g.current, 0);
+    const avgPct =
+      goalAnalysis.reduce((s, g) => s + g.percentage, 0) /
+      goalAnalysis.length;
+    const behind = goalAnalysis.filter((g) => g.paceStatus === "behind").length;
+    return { totalTarget, totalCurrent, avgPct, behind };
+  }, [goalAnalysis]);
+
+  const goalScatterData = useMemo(
+    () =>
+      goalAnalysis.map((g) => ({
+        title: g.title,
+        daysLeft: Math.max(0, g.daysLeft),
+        pct: Math.min(g.percentage, 100),
+        remaining: Math.max(0, g.remaining),
+      })),
+    [goalAnalysis],
+  );
+
+  const goalsSortedByDeadline = useMemo(
+    () =>
+      [...goalAnalysis].sort((a, b) =>
+        a.targetDate.localeCompare(b.targetDate),
+      ),
+    [goalAnalysis],
+  );
 
   // Category comparison over months
   const categoryTrends = useMemo(() => {
@@ -443,9 +484,10 @@ export default function AnalyticsPage() {
       predicted: null as number | null,
       lower: null as number | null,
       upper: null as number | null,
+      lowerBase: 0,
+      bandWidth: 0,
     }));
 
-    // Forecast: Jan 2026 onwards (predicted + confidence)
     const forecastChartData = forecast.forecasts.map((f) => ({
       date: new Date(f.date).toLocaleDateString("en-US", {
         month: "short",
@@ -455,6 +497,8 @@ export default function AnalyticsPage() {
       predicted: f.predicted,
       lower: f.lower,
       upper: f.upper,
+      lowerBase: f.lower,
+      bandWidth: Math.max(0, f.upper - f.lower),
     }));
 
     return {
@@ -594,12 +638,6 @@ export default function AnalyticsPage() {
               </TabsTrigger>
               <TabsTrigger value="trends" className="text-xs px-3">
                 Trends
-              </TabsTrigger>
-              <TabsTrigger value="categories" className="text-xs px-3">
-                Categories
-              </TabsTrigger>
-              <TabsTrigger value="budgets" className="text-xs px-3">
-                Budgets
               </TabsTrigger>
               <TabsTrigger value="goals" className="text-xs px-3">
                 Goals
@@ -862,18 +900,18 @@ export default function AnalyticsPage() {
             <Card>
               <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  Category Trends Over Time
+                  Category spending over time
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Compare category spending across months
+                  Lines show each top category per month — easier to compare
+                  than stacked bars.
                 </p>
               </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart
+              <CardContent className="pt-4">
+                <ResponsiveContainer width="100%" height={360}>
+                  <LineChart
                     data={categoryTrends}
-                    barCategoryGap="30%"
-                    barGap={2}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
                   >
                     <CartesianGrid
                       strokeDasharray="3 3"
@@ -905,16 +943,19 @@ export default function AnalyticsPage() {
                         value === undefined ? format(0) : format(value)
                       }
                     />
-                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
                     {categoryData.slice(0, 5).map((cat) => (
-                      <Bar
+                      <Line
                         key={cat.name}
+                        type="monotone"
                         dataKey={cat.name}
-                        fill={cat.color}
-                        radius={[4, 4, 0, 0]}
+                        stroke={cat.color}
+                        strokeWidth={2}
+                        dot={{ r: 3, strokeWidth: 1, fill: cat.color }}
+                        activeDot={{ r: 5 }}
                       />
                     ))}
-                  </BarChart>
+                  </LineChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
@@ -972,370 +1013,377 @@ export default function AnalyticsPage() {
               </Card>
             </div>
 
-            <Card>
-              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  Net Cash Flow
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Monthly surplus/deficit visualization
-                </p>
+            <Card className="border border-border overflow-hidden">
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4 bg-muted/30">
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Net cash flow (monthly)
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      <strong className="text-foreground">Net cash flow</strong>{" "}
+                      is simply{" "}
+                      <strong className="text-foreground">
+                        income minus expenses
+                      </strong>{" "}
+                      for that calendar month (in your selected date range).
+                      Bars above the zero line are a{" "}
+                      <span className="text-green-600 font-medium">
+                        surplus
+                      </span>{" "}
+                      (you kept money); bars below are a{" "}
+                      <span className="text-red-600 font-medium">deficit</span>{" "}
+                      (you spent more than you earned that month).
+                    </p>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={monthlyData}>
+              <CardContent className="pt-4">
+                <ResponsiveContainer width="100%" height={340}>
+                  <ComposedChart
+                    data={monthlyData}
+                    margin={{ top: 12, right: 8, left: 8, bottom: 8 }}
+                  >
                     <CartesianGrid
                       strokeDasharray="3 3"
                       stroke="var(--border)"
+                      vertical={false}
                     />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip
-                      formatter={(value: number | undefined) =>
-                        value !== undefined ? format(value) : format(0)
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) =>
+                        v >= 1000 || v <= -1000
+                          ? `${(v / 1000).toFixed(0)}k`
+                          : String(v)
                       }
                     />
-                    <Bar dataKey="net" fill="#6366f1" radius={[8, 8, 0, 0]}>
+                    <ReferenceLine
+                      y={0}
+                      stroke="var(--foreground)"
+                      strokeOpacity={0.25}
+                      strokeWidth={1}
+                    />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const row = payload[0]?.payload as {
+                          net: number;
+                          income: number;
+                          expenses: number;
+                        };
+                        if (!row) return null;
+                        const n = row.net;
+                        return (
+                          <div className="rounded-lg border bg-card px-3 py-2 text-xs shadow-md">
+                            <p className="font-semibold mb-1">{label}</p>
+                            <p className="text-muted-foreground">
+                              Income:{" "}
+                              <span className="text-green-600 font-mono">
+                                {format(row.income)}
+                              </span>
+                            </p>
+                            <p className="text-muted-foreground">
+                              Expenses:{" "}
+                              <span className="text-red-600 font-mono">
+                                {format(row.expenses)}
+                              </span>
+                            </p>
+                            <p
+                              className={`mt-1 pt-1 border-t font-medium ${n >= 0 ? "text-green-600" : "text-red-600"}`}
+                            >
+                              Net: {format(n)}{" "}
+                              <span className="text-muted-foreground font-normal">
+                                ({n >= 0 ? "surplus" : "deficit"})
+                              </span>
+                            </p>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar dataKey="net" radius={[4, 4, 4, 4]} maxBarSize={48}>
                       {monthlyData.map((entry, index) => (
                         <Cell
-                          key={`cell-${index}`}
+                          key={`net-${index}`}
                           fill={entry.net >= 0 ? "#22c55e" : "#ef4444"}
                         />
                       ))}
                     </Bar>
-                  </BarChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Categories Tab */}
-          <TabsContent value="categories" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    Expense Categories
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Detailed category breakdown
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart
-                      data={categoryData.slice(0, 10)}
-                      layout="vertical"
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        className="stroke-border"
-                        stroke="var(--border)"
-                      />
-                      <XAxis type="number" tick={{ fontSize: 12 }} />
-                      <YAxis
-                        dataKey="name"
-                        type="category"
-                        width={100}
-                        tick={{ fontSize: 11 }}
-                      />
-                      <Tooltip
-                        formatter={(value: number | undefined) =>
-                          value !== undefined ? format(value) : format(0)
-                        }
-                      />
-                      <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                        {categoryData.slice(0, 10).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    Category Percentage
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Relative spending distribution
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-4 items-center">
-                    <ResponsiveContainer width={200} height={200}>
-                      <PieChart>
-                        <Pie
-                          data={categoryData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={55}
-                          outerRadius={88}
-                          paddingAngle={2}
-                          dataKey="value"
-                          labelLine={false}
-                        >
-                          {categoryData.map((entry) => (
-                            <Cell key={entry.name} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "var(--card)",
-                            border: "1px solid var(--border)",
-                            borderRadius: "8px",
-                            fontSize: "12px",
-                          }}
-                          formatter={(value: number | undefined) =>
-                            value === undefined ? format(0) : format(value)
-                          }
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="flex-1 space-y-2 min-w-0">
-                      {categoryData.slice(0, 8).map((cat) => (
-                        <div
-                          key={cat.name}
-                          className="flex items-center gap-2 text-xs"
-                        >
-                          <span
-                            className="w-2 h-2 rounded-full shrink-0"
-                            style={{ background: cat.color }}
-                          />
-                          <span className="truncate text-muted-foreground flex-1">
-                            {cat.name}
-                          </span>
-                          <span className="font-mono font-medium shrink-0">
-                            {cat.percentage.toFixed(1)}%
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* Budget Analysis Tab */}
-          <TabsContent value="budgets" className="space-y-6">
-            {budgetAnalysis.length > 0 ? (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {budgetAnalysis.map((budget, idx) => (
-                    <Card
-                      key={idx}
-                      className={
-                        budget.status === "over" ? "border-red-500" : ""
-                      }
-                    >
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                            {budget.category}
-                          </p>
-                          {budget.status === "over" ? (
-                            <AlertCircle className="h-5 w-5 text-red-600" />
-                          ) : budget.status === "warning" ? (
-                            <AlertCircle className="h-5 w-5 text-orange-500" />
-                          ) : null}
-                        </div>
-                        {budget.subtype && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {budget.subtype}
-                          </p>
-                        )}
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="flex justify-between text-sm">
-                          <span>Spent:</span>
-                          <span className="font-semibold">
-                            {format(budget.spent)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Limit:</span>
-                          <span className="font-semibold">
-                            {format(budget.limit)}
-                          </span>
-                        </div>
-                        <Progress
-                          value={Math.min(budget.percentage, 100)}
-                          className={`h-2 ${
-                            budget.status === "over"
-                              ? "bg-red-200"
-                              : budget.status === "warning"
-                                ? "bg-orange-200"
-                                : ""
-                          }`}
-                        />
-                        <div className="flex justify-between text-xs">
-                          <span
-                            className={
-                              budget.status === "over"
-                                ? "text-red-600 font-semibold"
-                                : budget.status === "warning"
-                                  ? "text-orange-600 font-semibold"
-                                  : "text-muted-foreground"
-                            }
-                          >
-                            {budget.percentage.toFixed(1)}% used
-                          </span>
-                          <span
-                            className={
-                              budget.remaining < 0
-                                ? "text-red-600 font-semibold"
-                                : "text-muted-foreground"
-                            }
-                          >
-                            {format(Math.abs(budget.remaining))}{" "}
-                            {budget.remaining < 0 ? "over" : "left"}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                <Card>
-                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Budget Performance Overview
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Compare all budgets at once
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={350}>
-                      <BarChart data={budgetAnalysis}>
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          className="stroke-border"
-                          stroke="var(--border)"
-                        />
-                        <XAxis
-                          dataKey="category"
-                          tick={{ fontSize: 11 }}
-                          angle={-45}
-                          textAnchor="end"
-                          height={80}
-                        />
-                        <YAxis tick={{ fontSize: 12 }} />
-                        <Tooltip
-                          formatter={(value: number | undefined) =>
-                            value !== undefined ? format(value) : format(0)
-                          }
-                        />
-                        <Legend />
-                        <Bar
-                          dataKey="spent"
-                          fill="#ef4444"
-                          name="Spent"
-                          radius={[8, 8, 0, 0]}
-                        />
-                        <Bar
-                          dataKey="limit"
-                          fill="#22c55e"
-                          name="Limit"
-                          radius={[8, 8, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              </>
-            ) : (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <PieChartIcon className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-lg font-semibold text-foreground mb-2">
-                    No Budgets Set
-                  </p>
-                  <p className="text-muted-foreground mb-2 text-sm">
-                    Create budgets to track your spending limits
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
           {/* Goals Tab */}
           <TabsContent value="goals" className="space-y-6">
-            {goalAnalysis.length > 0 ? (
+            {goalAnalysis.length > 0 && goalsTabStats ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {goalAnalysis.map((goal, idx) => (
-                    <Card key={idx}>
-                      <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                            {goal.title}
-                          </p>
-                          <Target className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {goal.category}
-                        </p>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span>Current:</span>
-                            <span className="font-semibold">
-                              {format(goal.current)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span>Target:</span>
-                            <span className="font-semibold">
-                              {format(goal.target)}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Card>
+                    <CardContent className="pt-4 pb-3 px-4">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Combined target
+                      </p>
+                      <p className="font-mono text-lg font-semibold mt-1">
+                        {format(goalsTabStats.totalTarget)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4 pb-3 px-4">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Saved so far
+                      </p>
+                      <p className="font-mono text-lg font-semibold text-green-600 mt-1">
+                        {format(goalsTabStats.totalCurrent)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4 pb-3 px-4">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Avg completion
+                      </p>
+                      <p className="font-mono text-lg font-semibold text-indigo-600 mt-1">
+                        {goalsTabStats.avgPct.toFixed(1)}%
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    className={
+                      goalsTabStats.behind > 0 ? "border-orange-500/50" : ""
+                    }
+                  >
+                    <CardContent className="pt-4 pb-3 px-4">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Pace alerts
+                      </p>
+                      <p className="font-mono text-lg font-semibold mt-1">
+                        {goalsTabStats.behind > 0 ? (
+                          <span className="text-orange-600">
+                            {goalsTabStats.behind} behind
+                          </span>
+                        ) : (
+                          <span className="text-green-600">All on track</span>
+                        )}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Progress vs time pressure
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Each dot is a goal: horizontal axis = days until target
+                        date; vertical = % funded. Bubble size ≈ amount left to
+                        save. Bottom-right = urgent and incomplete.
+                      </p>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      <ResponsiveContainer width="100%" height={300}>
+                        <ScatterChart margin={{ top: 8, right: 8, bottom: 28, left: 8 }}>
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="var(--border)"
+                          />
+                          <XAxis
+                            type="number"
+                            dataKey="daysLeft"
+                            name="Days left"
+                            tick={{ fontSize: 10 }}
+                            label={{
+                              value: "Days until target date",
+                              position: "bottom",
+                              offset: 12,
+                              fontSize: 10,
+                            }}
+                          />
+                          <YAxis
+                            type="number"
+                            dataKey="pct"
+                            domain={[0, 100]}
+                            name="% funded"
+                            tick={{ fontSize: 10 }}
+                            tickFormatter={(v) => `${v}%`}
+                            label={{
+                              value: "% of target saved",
+                              angle: -90,
+                              position: "insideLeft",
+                              fontSize: 10,
+                            }}
+                          />
+                          <ZAxis
+                            type="number"
+                            dataKey="remaining"
+                            range={[80, 320]}
+                            name="Remaining"
+                          />
+                          <Tooltip
+                            cursor={{ strokeDasharray: "3 3" }}
+                            content={({ active, payload }) => {
+                              if (!active || !payload?.length) return null;
+                              const d = payload[0].payload as {
+                                title: string;
+                                daysLeft: number;
+                                pct: number;
+                                remaining: number;
+                              };
+                              return (
+                                <div className="rounded-lg border bg-card px-3 py-2 text-xs shadow-md">
+                                  <p className="font-semibold mb-1">{d.title}</p>
+                                  <p className="text-muted-foreground">
+                                    {d.pct.toFixed(1)}% funded
+                                  </p>
+                                  <p className="text-muted-foreground">
+                                    {d.daysLeft} days to deadline
+                                  </p>
+                                  <p className="text-muted-foreground">
+                                    {format(d.remaining)} left to save
+                                  </p>
+                                </div>
+                              );
+                            }}
+                          />
+                          <Scatter
+                            name="Goals"
+                            data={goalScatterData}
+                            fill="#6366f1"
+                          />
+                        </ScatterChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5" />
+                        Deadline timeline
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Goals sorted by target date — bar shows progress toward
+                        each target.
+                      </p>
+                    </CardHeader>
+                    <CardContent className="pt-4 space-y-3 max-h-[320px] overflow-y-auto">
+                      {goalsSortedByDeadline.map((goal) => (
+                        <div
+                          key={goal.id}
+                          className="rounded-lg border border-border p-3 space-y-2"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {goal.title}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                Due{" "}
+                                {new Date(
+                                  goal.targetDate + "T12:00:00",
+                                ).toLocaleDateString(undefined, {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
+                                {goal.daysLeft > 0
+                                  ? ` · ${goal.daysLeft}d left`
+                                  : goal.daysLeft <= 0 && goal.remaining > 0
+                                    ? " · overdue"
+                                    : ""}
+                              </p>
+                            </div>
+                            <span
+                              className={`text-[10px] shrink-0 px-2 py-0.5 rounded-full font-medium ${
+                                goal.paceStatus === "behind"
+                                  ? "bg-orange-500/15 text-orange-700 dark:text-orange-400"
+                                  : goal.paceStatus === "ahead"
+                                    ? "bg-green-500/15 text-green-700 dark:text-green-400"
+                                    : goal.paceStatus === "on_track"
+                                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-400"
+                                      : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {goal.paceStatus === "behind"
+                                ? "Behind pace"
+                                : goal.paceStatus === "ahead"
+                                  ? "Ahead of pace"
+                                  : goal.paceStatus === "on_track"
+                                    ? "On track"
+                                    : "Set monthly $"}
                             </span>
                           </div>
                           <Progress
                             value={Math.min(goal.percentage, 100)}
-                            className="h-3"
+                            className="h-2"
                           />
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>{goal.percentage.toFixed(1)}% complete</span>
-                            <span>{format(goal.remaining)} to go</span>
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                            <span>
+                              {format(goal.current)} / {format(goal.target)}
+                            </span>
+                            {goal.remaining > 0 && goal.daysLeft > 0 && (
+                              <span>
+                                Need ~{format(goal.paceNeeded)}/mo to hit date
+                              </span>
+                            )}
+                            {goal.monthlyContribution != null &&
+                              goal.monthlyContribution > 0 && (
+                                <span>
+                                  Plan: {format(goal.monthlyContribution)}/mo
+                                </span>
+                              )}
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                      ))}
+                    </CardContent>
+                  </Card>
                 </div>
 
                 <Card>
                   <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Goal Progress Comparison
+                      Funded % comparison
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Track all your goals together
+                      Blue = saved toward goal; gray bar = full target (100%).
                     </p>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={350}>
-                      <BarChart data={goalAnalysis} layout="vertical">
+                    <ResponsiveContainer width="100%" height={Math.max(220, goalAnalysis.length * 36)}>
+                      <BarChart
+                        data={goalAnalysis}
+                        layout="vertical"
+                        margin={{ left: 4, right: 16, top: 8, bottom: 8 }}
+                      >
                         <CartesianGrid
                           strokeDasharray="3 3"
-                          className="stroke-border"
                           stroke="var(--border)"
+                          horizontal={false}
                         />
                         <XAxis
                           type="number"
                           domain={[0, 100]}
-                          tick={{ fontSize: 12 }}
+                          tick={{ fontSize: 10 }}
                           tickFormatter={(v) => `${v}%`}
                         />
                         <YAxis
                           dataKey="title"
                           type="category"
-                          width={150}
-                          tick={{ fontSize: 11 }}
+                          width={120}
+                          tick={{ fontSize: 10 }}
+                          interval={0}
                         />
                         <Tooltip
                           formatter={(
@@ -1365,18 +1413,18 @@ export default function AnalyticsPage() {
                             ];
                           }}
                         />
-                        <Legend />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
                         <Bar
                           dataKey="currentPct"
                           fill="#3b82f6"
-                          name="Current"
-                          radius={[0, 8, 8, 0]}
+                          name="Funded"
+                          radius={[0, 4, 4, 0]}
                         />
                         <Bar
                           dataKey="targetPct"
                           fill="#e5e7eb"
-                          name="Target"
-                          radius={[0, 8, 8, 0]}
+                          name="Full target"
+                          radius={[0, 4, 4, 0]}
                         />
                       </BarChart>
                     </ResponsiveContainer>
@@ -1407,7 +1455,10 @@ export default function AnalyticsPage() {
                   <span>Financial Forecasting</span>
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Advanced predictions using multiple forecasting models
+                  We project future monthly{" "}
+                  {forecastType === "expense" ? "spending" : "income"} from your
+                  history. The chart shows actual months (blue), then predicted
+                  values (orange) with a shaded band for uncertainty.
                 </p>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1615,12 +1666,43 @@ export default function AnalyticsPage() {
                         </p>
                       </CardHeader>
                       <CardContent>
-                        <ResponsiveContainer width="100%" height={400}>
+                        <ResponsiveContainer width="100%" height={420}>
                           <ComposedChart data={forecastData.chartData}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                            <defs>
+                              <linearGradient
+                                id="forecastBandGrad"
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                              >
+                                <stop
+                                  offset="0%"
+                                  stopColor="#fb923c"
+                                  stopOpacity={0.35}
+                                />
+                                <stop
+                                  offset="100%"
+                                  stopColor="#fb923c"
+                                  stopOpacity={0.08}
+                                />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="var(--border)"
+                              vertical={false}
+                            />
+                            <XAxis
+                              dataKey="date"
+                              tick={{ fontSize: 11 }}
+                              axisLine={false}
+                              tickLine={false}
+                            />
                             <YAxis
-                              tick={{ fontSize: 12 }}
+                              tick={{ fontSize: 11 }}
+                              axisLine={false}
+                              tickLine={false}
                               tickFormatter={(v) =>
                                 v >= 1000
                                   ? `${(v / 1000).toFixed(0)}k`
@@ -1631,7 +1713,7 @@ export default function AnalyticsPage() {
                               formatter={(value: unknown) =>
                                 value != null && typeof value === "number"
                                   ? format(value)
-                                  : "N/A"
+                                  : "—"
                               }
                               contentStyle={{
                                 backgroundColor: "var(--card)",
@@ -1641,7 +1723,27 @@ export default function AnalyticsPage() {
                               }}
                               labelStyle={{ fontWeight: 600 }}
                             />
-                            <Legend />
+                            <Legend wrapperStyle={{ fontSize: 11 }} />
+
+                            <Area
+                              type="monotone"
+                              dataKey="lowerBase"
+                              stackId="fcBand"
+                              stroke="none"
+                              fill="transparent"
+                              isAnimationActive={false}
+                              legendType="none"
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="bandWidth"
+                              stackId="fcBand"
+                              stroke="none"
+                              fill="url(#forecastBandGrad)"
+                              isAnimationActive={false}
+                              name="Uncertainty band"
+                              legendType="rect"
+                            />
 
                             {/* Historical data (blue) */}
                             <Line
