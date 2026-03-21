@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveExpenseBudgetIdForPattern } from "@/lib/server/recurring-pattern-budget";
 
 function computeNextDate(currentNext: string, frequency: string, dayOfMonth: number | null): string {
   const d = new Date(currentNext);
@@ -74,22 +75,49 @@ export async function POST() {
         continue;
       }
 
-      // Create the transaction
-      const { error: txError } = await supabase
-        .from("transactions")
-        .insert({
-          user_id: user.id,
-          type: pattern.type,
-          amount: pattern.amount,
-          description: pattern.description,
-          category: pattern.category,
-          subtype: pattern.subtype,
-          date: pattern.next_date,
-          tags: pattern.tags || [],
-          notes: pattern.notes || null,
-        });
+      const budgetId = await resolveExpenseBudgetIdForPattern(supabase, user.id, {
+        type: pattern.type,
+        linked_budget_id: pattern.linked_budget_id,
+        category: pattern.category,
+        subtype: pattern.subtype,
+      });
+      const goalId = pattern.linked_goal_id || null;
+
+      const { error: txError } = await supabase.from("transactions").insert({
+        user_id: user.id,
+        type: pattern.type,
+        amount: pattern.amount,
+        description: pattern.description,
+        category: pattern.category,
+        subtype: pattern.subtype,
+        date: pattern.next_date,
+        budget_id: budgetId,
+        goal_id: goalId,
+        recurring_pattern_id: pattern.id,
+        tags: pattern.tags || [],
+        notes: pattern.notes || null,
+      });
 
       if (txError) continue;
+
+      if (budgetId && pattern.type === "expense") {
+        const { data: budget } = await supabase
+          .from("budgets")
+          .select("spent_amount")
+          .eq("id", budgetId)
+          .eq("user_id", user.id)
+          .single();
+        if (budget) {
+          const newSpent =
+            parseFloat(String(budget.spent_amount ?? 0)) +
+            parseFloat(String(pattern.amount));
+          await supabase
+            .from("budgets")
+            .update({ spent_amount: newSpent })
+            .eq("id", budgetId)
+            .eq("user_id", user.id);
+        }
+      }
 
       // If linked to a goal, increment goal's current_amount
       if (pattern.linked_goal_id) {

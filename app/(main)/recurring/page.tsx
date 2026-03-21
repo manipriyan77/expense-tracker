@@ -57,6 +57,7 @@ import {
 } from "@/store/recurring-patterns-store";
 import { useTransactionsStore } from "@/store/transactions-store";
 import { useGoalsStore } from "@/store/goals-store";
+import { useBudgetsStore } from "@/store/budgets-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 export default function RecurringPage() {
@@ -73,6 +74,7 @@ export default function RecurringPage() {
   const { transactions: allTransactions, fetchTransactions } =
     useTransactionsStore();
   const { goals, fetchGoals } = useGoalsStore();
+  const { budgets, fetchBudgets } = useBudgetsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingPattern, setEditingPattern] = useState<RecurringPattern | null>(null);
@@ -95,6 +97,7 @@ export default function RecurringPage() {
     end_date: "",
     auto_create: false,
     linked_goal_id: "",
+    linked_budget_id: "",
   });
   const [formData, setFormData] = useState({
     name: "",
@@ -115,13 +118,15 @@ export default function RecurringPage() {
     end_date: "",
     auto_create: false,
     linked_goal_id: "",
+    linked_budget_id: "",
   });
 
   useEffect(() => {
     fetchPatterns();
     fetchTransactions();
     fetchGoals();
-  }, [fetchPatterns, fetchTransactions, fetchGoals]);
+    fetchBudgets();
+  }, [fetchPatterns, fetchTransactions, fetchGoals, fetchBudgets]);
 
   // Smart detection: Find potential recurring transactions
   const potentialRecurring = useMemo(() => {
@@ -281,6 +286,7 @@ export default function RecurringPage() {
         is_active: true,
         auto_create: formData.auto_create,
         linked_goal_id: formData.linked_goal_id || null,
+        linked_budget_id: formData.linked_budget_id || null,
         tags: [],
         notes: null,
       });
@@ -298,6 +304,7 @@ export default function RecurringPage() {
         end_date: "",
         auto_create: false,
         linked_goal_id: "",
+        linked_budget_id: "",
       });
       setIsAddDialogOpen(false);
     } catch (err) {
@@ -357,6 +364,7 @@ export default function RecurringPage() {
       end_date: pattern.end_date || "",
       auto_create: pattern.auto_create,
       linked_goal_id: pattern.linked_goal_id || "",
+      linked_budget_id: pattern.linked_budget_id || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -384,6 +392,7 @@ export default function RecurringPage() {
         end_date: editFormData.end_date || null,
         auto_create: editFormData.auto_create,
         linked_goal_id: editFormData.linked_goal_id || null,
+        linked_budget_id: editFormData.linked_budget_id || null,
       });
       toast.success("Pattern updated successfully!");
       setIsEditDialogOpen(false);
@@ -757,7 +766,12 @@ export default function RecurringPage() {
                       <Select
                         value={formData.type}
                         onValueChange={(value: "income" | "expense") =>
-                          setFormData({ ...formData, type: value })
+                          setFormData({
+                            ...formData,
+                            type: value,
+                            linked_budget_id:
+                              value === "income" ? "" : formData.linked_budget_id,
+                          })
                         }
                       >
                         <SelectTrigger>
@@ -1008,6 +1022,40 @@ export default function RecurringPage() {
                       />
                     </div>
 
+                    {formData.type === "expense" && budgets.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Link to budget (optional)</Label>
+                        <Select
+                          value={formData.linked_budget_id || "none"}
+                          onValueChange={(v) =>
+                            setFormData({
+                              ...formData,
+                              linked_budget_id: v === "none" ? "" : v,
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Auto-match by category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">
+                              Auto-match by category
+                            </SelectItem>
+                            {budgets.map((b) => (
+                              <SelectItem key={b.id} value={b.id}>
+                                {b.category}
+                                {b.subtype ? ` · ${b.subtype}` : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Generated transactions use this budget. If unset, a
+                          matching budget is chosen from category/subtype.
+                        </p>
+                      </div>
+                    )}
+
                     {goals.filter((g) => g.status === "active").length > 0 && (
                       <div className="space-y-2">
                         <Label>Link to Goal (optional)</Label>
@@ -1088,7 +1136,12 @@ export default function RecurringPage() {
                     <Select
                       value={editFormData.type}
                       onValueChange={(value: "income" | "expense") =>
-                        setEditFormData({ ...editFormData, type: value })
+                        setEditFormData({
+                          ...editFormData,
+                          type: value,
+                          linked_budget_id:
+                            value === "income" ? "" : editFormData.linked_budget_id,
+                        })
                       }
                     >
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1205,6 +1258,36 @@ export default function RecurringPage() {
                       min={editFormData.start_date}
                     />
                   </div>
+                  {editFormData.type === "expense" && budgets.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Link to budget (optional)</Label>
+                      <Select
+                        value={editFormData.linked_budget_id || "none"}
+                        onValueChange={(v) =>
+                          setEditFormData({
+                            ...editFormData,
+                            linked_budget_id: v === "none" ? "" : v,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Auto-match by category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">
+                            Auto-match by category
+                          </SelectItem>
+                          {budgets.map((b) => (
+                            <SelectItem key={b.id} value={b.id}>
+                              {b.category}
+                              {b.subtype ? ` · ${b.subtype}` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
                   {goals.filter((g) => g.status === "active").length > 0 && (
                     <div className="space-y-2">
                       <Label>Link to Goal (optional)</Label>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveExpenseBudgetIdForPattern } from "@/lib/server/recurring-pattern-budget";
 
 export async function POST(
   request: NextRequest,
@@ -53,7 +54,14 @@ export async function POST(
       );
     }
 
-    // Create the transaction
+    const budgetId = await resolveExpenseBudgetIdForPattern(supabase, user.id, {
+      type: pattern.type,
+      linked_budget_id: pattern.linked_budget_id,
+      category: pattern.category,
+      subtype: pattern.subtype,
+    });
+    const goalId = pattern.linked_goal_id || null;
+
     const { data: transaction, error: transactionError } = await supabase
       .from("transactions")
       .insert({
@@ -64,6 +72,8 @@ export async function POST(
         category: pattern.category,
         subtype: pattern.subtype,
         date: pattern.next_date,
+        budget_id: budgetId,
+        goal_id: goalId,
         tags: pattern.tags || [],
         notes: pattern.notes || null,
         recurring_pattern_id: id,
@@ -76,6 +86,44 @@ export async function POST(
         { error: transactionError.message },
         { status: 500 },
       );
+    }
+
+    if (budgetId && pattern.type === "expense") {
+      const { data: budget } = await supabase
+        .from("budgets")
+        .select("spent_amount")
+        .eq("id", budgetId)
+        .eq("user_id", user.id)
+        .single();
+      if (budget) {
+        const newSpent =
+          parseFloat(String(budget.spent_amount ?? 0)) +
+          parseFloat(String(pattern.amount));
+        await supabase
+          .from("budgets")
+          .update({ spent_amount: newSpent })
+          .eq("id", budgetId)
+          .eq("user_id", user.id);
+      }
+    }
+
+    if (goalId) {
+      const { data: goal } = await supabase
+        .from("goals")
+        .select("current_amount")
+        .eq("id", goalId)
+        .eq("user_id", user.id)
+        .single();
+      if (goal) {
+        const newAmount =
+          parseFloat(String(goal.current_amount ?? 0)) +
+          parseFloat(String(pattern.amount));
+        await supabase
+          .from("goals")
+          .update({ current_amount: newAmount })
+          .eq("id", goalId)
+          .eq("user_id", user.id);
+      }
     }
 
     // Calculate next date based on frequency

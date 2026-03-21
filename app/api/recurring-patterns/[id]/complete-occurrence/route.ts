@@ -5,6 +5,7 @@ import {
   isOccurrenceInMonth,
   parseLocalDate,
 } from "@/lib/utils/recurring-occurrences";
+import { resolveExpenseBudgetIdForPattern } from "@/lib/server/recurring-pattern-budget";
 
 function parseYmd(occurrenceDate: string): { y: number; m: number } | null {
   const part = occurrenceDate.split("T")[0];
@@ -110,34 +111,15 @@ export async function POST(
       );
     }
 
-    let budgetId: string | null = null;
     const type = pattern.type as "income" | "expense";
     const category = pattern.category as string;
     const subtype = (pattern.subtype as string) || "";
-    if (type === "expense") {
-      if (subtype) {
-        const { data: exactMatch } = await supabase
-          .from("budgets")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("category", category)
-          .eq("subtype", subtype)
-          .limit(1)
-          .maybeSingle();
-        if (exactMatch) budgetId = exactMatch.id;
-      }
-      if (!budgetId) {
-        const { data: categoryMatch } = await supabase
-          .from("budgets")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("category", category)
-          .is("subtype", null)
-          .limit(1)
-          .maybeSingle();
-        if (categoryMatch) budgetId = categoryMatch.id;
-      }
-    }
+    const budgetId = await resolveExpenseBudgetIdForPattern(supabase, user.id, {
+      type,
+      linked_budget_id: pattern.linked_budget_id,
+      category,
+      subtype,
+    });
 
     const goalId = pattern.linked_goal_id || null;
 

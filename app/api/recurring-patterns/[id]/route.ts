@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { verifyUserBudgetId } from "@/lib/server/recurring-pattern-budget";
 
 export async function GET(
   request: NextRequest,
@@ -54,6 +55,20 @@ export async function PATCH(
     }
 
     const body = await request.json();
+
+    if (Object.prototype.hasOwnProperty.call(body, "linked_budget_id")) {
+      const { data: row } = await supabase
+        .from("recurring_patterns")
+        .select("type")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single();
+      const effectiveType = body.type ?? row?.type;
+      body.linked_budget_id =
+        effectiveType === "expense"
+          ? await verifyUserBudgetId(supabase, user.id, body.linked_budget_id)
+          : null;
+    }
 
     const { data, error } = await supabase
       .from("recurring_patterns")

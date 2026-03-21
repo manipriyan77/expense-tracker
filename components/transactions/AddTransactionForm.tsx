@@ -378,6 +378,14 @@ export default function AddTransactionForm({
 
       // Recurring: create pattern, then first transaction, then advance pattern's next_date
       if (data.isRecurring && data.recurringFrequency) {
+        const linkedBudgetId =
+          data.type === "expense" &&
+          data.budgetId &&
+          data.budgetId !== "auto" &&
+          data.budgetId !== "none"
+            ? data.budgetId
+            : null;
+
         const patternRes = await fetch("/api/recurring-patterns", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -398,6 +406,7 @@ export default function AddTransactionForm({
             next_date: txDate,
             is_active: true,
             auto_create: false,
+            linked_budget_id: linkedBudgetId,
             tags: [],
             notes: null,
           }),

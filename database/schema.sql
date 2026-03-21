@@ -217,6 +217,7 @@ UPDATE ON gold_holdings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
 -- COLUMN MIGRATIONS (safe to re-run on existing tables)
 -- ============================================================
 ALTER TABLE recurring_patterns ADD COLUMN IF NOT EXISTS linked_goal_id UUID REFERENCES goals(id) ON DELETE SET NULL;
+ALTER TABLE recurring_patterns ADD COLUMN IF NOT EXISTS linked_budget_id UUID REFERENCES budgets(id) ON DELETE SET NULL;
 
 -- ============================================================
 -- MISSING TABLES (migrations)
@@ -240,6 +241,7 @@ CREATE TABLE IF NOT EXISTS recurring_patterns (
   is_active BOOLEAN DEFAULT true,
   auto_create BOOLEAN DEFAULT false,
   linked_goal_id UUID REFERENCES goals(id) ON DELETE SET NULL,
+  linked_budget_id UUID REFERENCES budgets(id) ON DELETE SET NULL,
   tags TEXT[] DEFAULT '{}',
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
