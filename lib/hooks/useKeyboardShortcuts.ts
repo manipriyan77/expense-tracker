@@ -12,13 +12,32 @@ interface ShortcutConfig {
   description: string;
 }
 
+/** KeyboardEvent.key can be missing with IME, some mobile/WebView quirks, or non-standard events. */
+function safeKeyLower(e: KeyboardEvent): string | null {
+  const k = e.key;
+  if (k == null || typeof k !== "string") return null;
+  const t = k.trim();
+  if (t === "") return null;
+  return t.toLowerCase();
+}
+
+function configKeyLower(config: ShortcutConfig): string | null {
+  const k = config.key;
+  if (k == null || typeof k !== "string") return null;
+  return k.toLowerCase();
+}
+
 export function useKeyboardShortcut(config: ShortcutConfig) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      const { key, ctrlKey, shiftKey, altKey, metaKey } = event;
+      const eventKey = safeKeyLower(event);
+      const wantedKey = configKeyLower(config);
+      if (eventKey == null || wantedKey == null) return;
+
+      const { ctrlKey, shiftKey, altKey, metaKey } = event;
 
       const isMatch =
-        key.toLowerCase() === config.key.toLowerCase() &&
+        eventKey === wantedKey &&
         (config.ctrlKey === undefined || ctrlKey === config.ctrlKey) &&
         (config.shiftKey === undefined || shiftKey === config.shiftKey) &&
         (config.altKey === undefined || altKey === config.altKey) &&
@@ -38,11 +57,17 @@ export function useKeyboardShortcut(config: ShortcutConfig) {
 export function useKeyboardShortcuts(shortcuts: ShortcutConfig[]) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const eventKey = safeKeyLower(event);
+      if (eventKey == null) return;
+
+      const { ctrlKey, shiftKey, altKey, metaKey } = event;
+
       for (const config of shortcuts) {
-        const { key, ctrlKey, shiftKey, altKey, metaKey } = event;
+        const wantedKey = configKeyLower(config);
+        if (wantedKey == null) continue;
 
         const isMatch =
-          key.toLowerCase() === config.key.toLowerCase() &&
+          eventKey === wantedKey &&
           (config.ctrlKey === undefined || ctrlKey === config.ctrlKey) &&
           (config.shiftKey === undefined || shiftKey === config.shiftKey) &&
           (config.altKey === undefined || altKey === config.altKey) &&
