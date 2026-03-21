@@ -332,8 +332,7 @@ export default function AnalyticsPage() {
         const paceNeeded =
           remaining > 0 && daysLeft > 0 ? remaining / monthsToDeadline : 0;
         const monthly = goal.monthlyContribution ?? 0;
-        let paceStatus: "on_track" | "behind" | "ahead" | "unknown" =
-          "unknown";
+        let paceStatus: "on_track" | "behind" | "ahead" | "unknown" = "unknown";
         if (remaining <= 0) paceStatus = "ahead";
         else if (daysLeft <= 0) paceStatus = "behind";
         else if (monthly > 0) {
@@ -367,8 +366,7 @@ export default function AnalyticsPage() {
     const totalTarget = goalAnalysis.reduce((s, g) => s + g.target, 0);
     const totalCurrent = goalAnalysis.reduce((s, g) => s + g.current, 0);
     const avgPct =
-      goalAnalysis.reduce((s, g) => s + g.percentage, 0) /
-      goalAnalysis.length;
+      goalAnalysis.reduce((s, g) => s + g.percentage, 0) / goalAnalysis.length;
     const behind = goalAnalysis.filter((g) => g.paceStatus === "behind").length;
     return { totalTarget, totalCurrent, avgPct, behind };
   }, [goalAnalysis]);
@@ -1194,7 +1192,9 @@ export default function AnalyticsPage() {
                     </CardHeader>
                     <CardContent className="pt-4">
                       <ResponsiveContainer width="100%" height={300}>
-                        <ScatterChart margin={{ top: 8, right: 8, bottom: 28, left: 8 }}>
+                        <ScatterChart
+                          margin={{ top: 8, right: 8, bottom: 28, left: 8 }}
+                        >
                           <CartesianGrid
                             strokeDasharray="3 3"
                             stroke="var(--border)"
@@ -1243,7 +1243,9 @@ export default function AnalyticsPage() {
                               };
                               return (
                                 <div className="rounded-lg border bg-card px-3 py-2 text-xs shadow-md">
-                                  <p className="font-semibold mb-1">{d.title}</p>
+                                  <p className="font-semibold mb-1">
+                                    {d.title}
+                                  </p>
                                   <p className="text-muted-foreground">
                                     {d.pct.toFixed(1)}% funded
                                   </p>
@@ -1361,7 +1363,10 @@ export default function AnalyticsPage() {
                     </p>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={Math.max(220, goalAnalysis.length * 36)}>
+                    <ResponsiveContainer
+                      width="100%"
+                      height={Math.max(220, goalAnalysis.length * 36)}
+                    >
                       <BarChart
                         data={goalAnalysis}
                         layout="vertical"
@@ -1972,7 +1977,6 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
           </TabsContent>
-
         </Tabs>
       </main>
     </div>
