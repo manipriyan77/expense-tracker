@@ -40,6 +40,7 @@ import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import {
   TransactionListItemRow,
   type MergedListItem,
+  type TransactionRowModel,
 } from "@/components/transactions/TransactionListItemRow";
 import { getPendingOccurrencesForMonth } from "@/lib/utils/recurring-occurrences";
 import { useRecurringPatternsStore } from "@/store/recurring-patterns-store";
@@ -159,8 +160,27 @@ export default function TransactionsPage() {
     setEditingTransaction(null);
   };
 
-  const handleEditTransaction = (transaction: Transaction) => {
-    setEditingTransaction(transaction);
+  const handleEditTransaction = (t: TransactionRowModel) => {
+    const full = transactions.find((x) => x.id === t.id);
+    if (full) {
+      setEditingTransaction(full);
+      return;
+    }
+    setEditingTransaction({
+      id: t.id,
+      type: t.type,
+      amount: t.amount,
+      description: t.description,
+      category: t.category,
+      subtype: t.subtype,
+      date: t.date,
+      isRecurring: t.isRecurring ?? false,
+      frequency: t.frequency as Transaction["frequency"] | undefined,
+      nextDate: t.nextDate,
+      budgetId: undefined,
+      goalId: undefined,
+      recurringPatternId: t.recurringPatternId ?? null,
+    });
   };
 
   const handleCompleteRecurring = async (patternId: string, dueDate: string) => {
