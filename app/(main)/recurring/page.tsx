@@ -729,15 +729,16 @@ export default function RecurringPage() {
                     Add Recurring Pattern
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
+                <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+                  <DialogHeader className="shrink-0 space-y-1.5 px-6 pt-6 pb-2 pr-14 text-left">
                     <DialogTitle>Add Recurring Transaction</DialogTitle>
                     <DialogDescription>
                       Set up automatic income or expense tracking. You can set
                       an end date so it repeats until a specific date.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4">
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-2">
+                  <div className="space-y-4 pb-2">
                     <div className="space-y-2">
                       <Label htmlFor="name">Pattern Name *</Label>
                       <Input
@@ -1048,7 +1049,9 @@ export default function RecurringPage() {
                         Auto-create transactions (experimental)
                       </Label>
                     </div>
-
+                  </div>
+                  </div>
+                  <div className="shrink-0 border-t bg-background px-6 py-4">
                     <Button
                       onClick={handleAddTransaction}
                       className="w-full"
@@ -1063,14 +1066,15 @@ export default function RecurringPage() {
 
             {/* Edit Dialog */}
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-              <DialogContent>
-                <DialogHeader>
+              <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+                <DialogHeader className="shrink-0 space-y-1.5 px-6 pt-6 pb-2 pr-14 text-left">
                   <DialogTitle>Edit Recurring Pattern</DialogTitle>
                   <DialogDescription>
                     Update the details of this recurring transaction.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-2">
+                <div className="space-y-4 pb-2">
                   <div className="space-y-2">
                     <Label>Pattern Name *</Label>
                     <Input
@@ -1230,14 +1234,15 @@ export default function RecurringPage() {
                       Auto-create transactions
                     </Label>
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1" onClick={() => setIsEditDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleUpdatePattern} className="flex-1" disabled={loading}>
-                      {loading ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
+                </div>
+                </div>
+                <div className="shrink-0 border-t bg-background px-6 py-4 flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => setIsEditDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleUpdatePattern} className="flex-1" disabled={loading}>
+                    {loading ? "Saving..." : "Save Changes"}
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
