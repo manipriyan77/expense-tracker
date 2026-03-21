@@ -338,7 +338,12 @@ export default function AddTransactionForm({
   const onSubmit = async (data: TransactionFormData) => {
     setIsSubmitting(true);
     const txDate = data.date || new Date().toISOString().split("T")[0];
-    const amount = parseFloat(data.amount);
+    const amount = Number.parseFloat(String(data.amount).replace(/,/g, ""));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setIsSubmitting(false);
+      alert("Enter a valid positive amount.");
+      return;
+    }
     const payload = {
       amount,
       type: data.type,
@@ -346,7 +351,11 @@ export default function AddTransactionForm({
       category: data.category,
       subtype: data.subtype,
       budgetId:
-        data.budgetId && data.budgetId !== "auto" ? data.budgetId : null,
+        data.budgetId &&
+        data.budgetId !== "auto" &&
+        data.budgetId !== "none"
+          ? data.budgetId
+          : null,
       goalId: data.goalId && data.goalId !== "none" ? data.goalId : null,
       date: txDate,
     };
@@ -434,7 +443,8 @@ export default function AddTransactionForm({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to add transaction");
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to add transaction");
       }
 
       const hasDebt = data.debtId && data.debtId !== "none";
@@ -759,12 +769,17 @@ export default function AddTransactionForm({
                 id="amount"
                 type="number"
                 step="0.01"
+                min="0"
+                inputMode="decimal"
                 placeholder="0"
                 className={`border-0 bg-transparent text-5xl font-bold text-center placeholder-muted-foreground/30 focus-visible:ring-0 focus-visible:outline-none ${
                   errors.amount ? "text-red-600" : ""
                 }`}
-                {...field}
-                onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                name={field.name}
+                ref={field.ref}
+                onBlur={field.onBlur}
+                value={field.value ?? ""}
+                onChange={(e) => field.onChange(e.target.value)}
               />
             )}
           />

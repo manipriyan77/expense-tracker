@@ -39,9 +39,32 @@ export async function POST(request: NextRequest) {
     const { amount, description, category, subtype, date, type, goalId } = body;
     let { budgetId } = body;
 
-    if (!amount || !description || !category || !type) {
+    if (
+      amount === undefined ||
+      amount === null ||
+      description == null ||
+      category == null ||
+      type == null
+    ) {
       return NextResponse.json({ error: "Missing required fields (amount, description, category, type)" }, { status: 400 });
     }
+
+    const amountNum = typeof amount === "number" ? amount : Number.parseFloat(String(amount));
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      return NextResponse.json(
+        { error: "Amount must be a positive number" },
+        { status: 400 },
+      );
+    }
+
+    const uuidOrNull = (v: unknown): string | null => {
+      if (v == null || v === "") return null;
+      const s = String(v).trim();
+      if (s === "none" || s === "auto") return null;
+      return s;
+    };
+    budgetId = uuidOrNull(budgetId);
+    const goalIdClean = uuidOrNull(goalId);
 
     // Auto-map to matching budget if not provided
     if (!budgetId && type === "expense") {
@@ -89,12 +112,12 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from("transactions")
       .insert({
-        amount,
+        amount: amountNum,
         description,
         category,
         subtype: subtype || "",
-        budget_id: budgetId || null,
-        goal_id: goalId || null,
+        budget_id: budgetId,
+        goal_id: goalIdClean,
         date: date || new Date().toISOString().split("T")[0],
         type,
         user_id: user.id,
@@ -116,7 +139,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (!budgetFetchError && budget) {
-        const newSpent = parseFloat(budget.spent_amount || 0) + parseFloat(amount);
+        const newSpent = parseFloat(budget.spent_amount || 0) + amountNum;
         
         await supabase
           .from("budgets")
@@ -127,21 +150,21 @@ export async function POST(request: NextRequest) {
     }
 
     // If linked to a goal, update the goal's current_amount
-    if (goalId) {
+    if (goalIdClean) {
       const { data: goal, error: goalFetchError } = await supabase
         .from("goals")
         .select("current_amount")
-        .eq("id", goalId)
+        .eq("id", goalIdClean)
         .eq("user_id", user.id)
         .single();
 
       if (!goalFetchError && goal) {
-        const newAmount = parseFloat(goal.current_amount || 0) + parseFloat(amount);
+        const newAmount = parseFloat(goal.current_amount || 0) + amountNum;
         
         await supabase
           .from("goals")
           .update({ current_amount: newAmount })
-          .eq("id", goalId)
+          .eq("id", goalIdClean)
           .eq("user_id", user.id);
       }
     }
