@@ -85,6 +85,17 @@ export async function POST() {
         return sum;
       }, 0) || 0;
 
+    // Other investments (PPF, EPF, NPS, etc.) — must match dashboard / net-worth page totals
+    const { data: otherInvRows } = await supabase
+      .from("other_investments")
+      .select("current_value")
+      .eq("user_id", user.id);
+    const otherInvestmentsValue =
+      otherInvRows?.reduce(
+        (sum, r) => sum + Number(r.current_value || 0),
+        0,
+      ) || 0;
+
     // Get all liabilities
     const { data: liabilities } = await supabase
       .from("liabilities")
@@ -92,7 +103,12 @@ export async function POST() {
       .eq("user_id", user.id);
 
     const totalAssets =
-      manualAssets + goldValue + mfValue + stockValue + forexValue;
+      manualAssets +
+      goldValue +
+      mfValue +
+      stockValue +
+      forexValue +
+      otherInvestmentsValue;
     const totalLiabilities =
       liabilities?.reduce((sum, l) => sum + Number(l.balance || 0), 0) || 0;
     const netWorth = totalAssets - totalLiabilities;

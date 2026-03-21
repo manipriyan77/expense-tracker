@@ -581,22 +581,51 @@ export default function Dashboard() {
         .filter((b) => b.spent > 0),
     [budgets],
   );
-  // Net Worth timeline from snapshots
+  // Net Worth timeline: historical snapshots, with today's point aligned to live hero totals
+  // (Snapshots are created server-side; live totals include all modules — see createSnapshot API.)
   const nwChartData = useMemo(() => {
-    return snapshots
+    const sorted = snapshots
       .slice()
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(-12)
-      .map((s) => ({
-        date: new Date(s.date).toLocaleDateString("en-IN", {
-          day: "numeric",
-          month: "short",
-        }),
-        "Net Worth": s.net_worth,
-        Assets: s.total_assets,
-        Liabilities: s.total_liabilities,
-      }));
-  }, [snapshots]);
+      .slice(-12);
+
+    const todayIso = new Date().toISOString().split("T")[0];
+    const todayLabel = new Date(`${todayIso}T12:00:00`).toLocaleDateString(
+      "en-IN",
+      { day: "numeric", month: "short" },
+    );
+
+    const rows = sorted.map((s) => ({
+      sortKey: s.date,
+      date: new Date(s.date).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+      }),
+      "Net Worth": s.net_worth,
+      Assets: s.total_assets,
+      Liabilities: s.total_liabilities,
+    }));
+
+    if (rows.length === 0) return [];
+
+    const last = rows[rows.length - 1];
+    if (last.sortKey === todayIso) {
+      last["Net Worth"] = netWorth;
+      last.Assets = totalAssets;
+      last.Liabilities = totalLiabilities;
+    } else {
+      rows.push({
+        sortKey: todayIso,
+        date: todayLabel,
+        "Net Worth": netWorth,
+        Assets: totalAssets,
+        Liabilities: totalLiabilities,
+      });
+      while (rows.length > 12) rows.shift();
+    }
+
+    return rows.map(({ sortKey: _sk, ...rest }) => rest);
+  }, [snapshots, totalAssets, totalLiabilities, netWorth]);
 
   // Top holdings across all investment types
   const topHoldings = useMemo(() => {
