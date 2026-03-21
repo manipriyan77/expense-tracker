@@ -15,15 +15,32 @@ export async function GET(
 
     const params = await context.params;
 
-    // Get current month's start and end dates
-    const now = new Date();
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    
-    const startDate = firstDayOfMonth.toISOString().split('T')[0];
-    const endDate = lastDayOfMonth.toISOString().split('T')[0];
+    const { data: budgetRow, error: budgetError } = await supabase
+      .from("budgets")
+      .select("id, month, year")
+      .eq("id", params.id)
+      .eq("user_id", user.id)
+      .single();
 
-    // Fetch transactions for this budget in the current month
+    if (budgetError || !budgetRow) {
+      return NextResponse.json({ error: "Budget not found" }, { status: 404 });
+    }
+
+    const now = new Date();
+    const y =
+      typeof budgetRow.year === "number"
+        ? budgetRow.year
+        : now.getFullYear();
+    const m =
+      typeof budgetRow.month === "number"
+        ? budgetRow.month
+        : now.getMonth() + 1;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const lastDay = new Date(y, m, 0).getDate();
+    const startDate = `${y}-${pad(m)}-01`;
+    const endDate = `${y}-${pad(m)}-${pad(lastDay)}`;
+
+    // Transactions linked to this budget row whose dates fall in that budget's calendar month
     const { data, error } = await supabase
       .from("transactions")
       .select("*")

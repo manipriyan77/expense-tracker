@@ -55,7 +55,7 @@ export default function BudgetDetailsModal({
     if (budget && isOpen) {
       fetchTransactions();
     }
-  }, [budget, isOpen]);
+  }, [budget?.id, budget?.month, budget?.year, isOpen]);
 
   const fetchTransactions = async () => {
     if (!budget) return;
@@ -129,12 +129,16 @@ export default function BudgetDetailsModal({
     return <CheckCircle2 className="h-5 w-5 text-green-600" />;
   };
 
-  // Calculate current month
-  const currentDate = new Date();
-  const currentMonth = currentDate.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  const budgetPeriodLabel =
+    budget.month != null && budget.year != null
+      ? new Date(budget.year, budget.month - 1, 1).toLocaleDateString(
+          undefined,
+          { month: "long", year: "numeric" },
+        )
+      : new Date().toLocaleDateString(undefined, {
+          month: "long",
+          year: "numeric",
+        });
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -154,7 +158,7 @@ export default function BudgetDetailsModal({
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="transactions">
-              Transactions This Month ({transactions.length})
+              Transactions ({transactions.length})
             </TabsTrigger>
           </TabsList>
 
@@ -313,7 +317,7 @@ export default function BudgetDetailsModal({
               <div className="flex items-center space-x-2">
                 <Calendar className="h-4 w-4 text-blue-600" />
                 <span className="text-sm font-medium text-blue-900">
-                  Showing transactions for: {currentMonth}
+                  Showing transactions for: {budgetPeriodLabel}
                 </span>
               </div>
               <span className="text-xs text-blue-700">
@@ -330,7 +334,7 @@ export default function BudgetDetailsModal({
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <p className="text-gray-500 text-center">
-                    No transactions for this budget in {currentMonth}
+                    No transactions for this budget in {budgetPeriodLabel}
                   </p>
                 </CardContent>
               </Card>
@@ -392,7 +396,7 @@ export default function BudgetDetailsModal({
                 <div className="pt-4 border-t">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">
-                      Total Spent This Month
+                      Total for {budgetPeriodLabel}
                     </span>
                     <span className="text-xl font-bold text-red-600">
                       {format(
