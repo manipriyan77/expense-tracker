@@ -202,19 +202,23 @@ export interface PendingRecurringOccurrence {
   frequency: RecurringFrequency;
 }
 
+/** Transaction shape from API/store (snake_case) or transactions page (camelCase). */
+export type TransactionForOccurrenceDedupe = {
+  date: string;
+  recurring_pattern_id?: string | null;
+  recurringPatternId?: string | null;
+};
+
 /** Occurrences in the month that do not yet have a transaction with recurring_pattern_id + date. */
 export function getPendingOccurrencesForMonth(
   patterns: RecurringPatternForProjection[],
-  transactions: ReadonlyArray<{
-    recurring_pattern_id?: string | null;
-    date: string;
-  }>,
+  transactions: ReadonlyArray<TransactionForOccurrenceDedupe>,
   year: number,
   monthIndex: number,
 ): PendingRecurringOccurrence[] {
   const completed = new Set<string>();
   for (const t of transactions) {
-    const pid = t.recurring_pattern_id;
+    const pid = t.recurring_pattern_id ?? t.recurringPatternId ?? null;
     if (pid && t.date) {
       completed.add(`${pid}:${t.date.split("T")[0]}`);
     }
