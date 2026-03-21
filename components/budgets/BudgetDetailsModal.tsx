@@ -144,10 +144,10 @@ export default function BudgetDetailsModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl flex items-center space-x-2">
+          <DialogTitle className="text-lg font-semibold flex items-center gap-2 flex-wrap">
             <span>{budget.category}</span>
             {budget.subtype && (
-              <span className="text-lg font-normal text-gray-500">
+              <span className="text-sm font-normal text-gray-500">
                 → {budget.subtype}
               </span>
             )}
@@ -313,14 +313,14 @@ export default function BudgetDetailsModal({
 
           {/* Transactions Tab */}
           <TabsContent value="transactions" className="space-y-4">
-            <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-900">
+            <div className="flex items-center justify-between bg-blue-50 p-2.5 rounded-lg">
+              <div className="flex items-center gap-2 min-w-0">
+                <Calendar className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+                <span className="text-xs font-medium text-blue-900 truncate">
                   Showing transactions for: {budgetPeriodLabel}
                 </span>
               </div>
-              <span className="text-xs text-blue-700">
+              <span className="text-[11px] text-blue-700 shrink-0">
                 {transactions.length} transaction
                 {transactions.length !== 1 ? "s" : ""}
               </span>
@@ -333,7 +333,7 @@ export default function BudgetDetailsModal({
             ) : transactions.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <p className="text-gray-500 text-center">
+                  <p className="text-sm text-gray-500 text-center">
                     No transactions for this budget in {budgetPeriodLabel}
                   </p>
                 </CardContent>
@@ -345,16 +345,16 @@ export default function BudgetDetailsModal({
                     key={transaction.id}
                     className="hover:shadow-md transition-shadow"
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-2 h-2 rounded-full bg-red-500" />
-                            <div>
-                              <p className="font-semibold">
+                    <CardContent className="p-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 shrink-0 rounded-full bg-red-500" />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium leading-snug truncate">
                                 {transaction.description}
                               </p>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-xs text-gray-600 leading-snug truncate">
                                 {transaction.category}
                                 {transaction.subtype &&
                                   ` → ${transaction.subtype}`}
@@ -362,20 +362,21 @@ export default function BudgetDetailsModal({
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-4">
+                        <div className="flex items-center gap-2 shrink-0">
                           <div className="text-right">
-                            <p className="text-lg font-bold text-red-600">
+                            <p className="text-sm font-semibold tabular-nums text-red-600">
                               {format(
                                 parseFloat(transaction.amount.toString()),
                               )}
                             </p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-[11px] text-gray-500 tabular-nums">
                               {new Date(transaction.date).toLocaleDateString()}
                             </p>
                           </div>
                           <Button
                             variant="outline"
                             size="sm"
+                            className="h-8 w-8 p-0"
                             onClick={() =>
                               handleDeleteTransaction(transaction.id)
                             }
@@ -393,12 +394,12 @@ export default function BudgetDetailsModal({
                   </Card>
                 ))}
 
-                <div className="pt-4 border-t">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
+                <div className="pt-3 border-t">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-gray-600">
                       Total for {budgetPeriodLabel}
                     </span>
-                    <span className="text-xl font-bold text-red-600">
+                    <span className="text-base font-semibold tabular-nums text-red-600">
                       {format(
                         transactions.reduce(
                           (sum, t) => sum + parseFloat(t.amount.toString()),
