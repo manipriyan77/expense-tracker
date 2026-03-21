@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveBudgetIdForTransactionDate } from "@/lib/server/budget-for-transaction-date";
 
 export async function PUT(
   request: NextRequest,
@@ -30,6 +31,53 @@ export async function PUT(
     const body = await request.json();
     const { amount, description, category, subtype, date, type, goalId, budgetId } = body;
 
+    const uuidOrNull = (v: unknown): string | null => {
+      if (v == null || v === "") return null;
+      const s = String(v).trim();
+      if (s === "none" || s === "auto") return null;
+      return s;
+    };
+
+    const effectiveDate = (date ?? oldTransaction.date).split("T")[0];
+    const effectiveCategory = category ?? oldTransaction.category;
+    const effectiveSubtype =
+      subtype !== undefined ? subtype : oldTransaction.subtype;
+    const effectiveType = type ?? oldTransaction.type;
+
+    const hasBudgetKey = Object.prototype.hasOwnProperty.call(body, "budgetId");
+
+    let resolvedBudgetId: string | null | undefined;
+    if (hasBudgetKey) {
+      const cleaned = uuidOrNull(budgetId);
+      if (cleaned === null) {
+        resolvedBudgetId = null;
+      } else {
+        resolvedBudgetId = await resolveBudgetIdForTransactionDate(
+          supabase,
+          user.id,
+          {
+            type: effectiveType,
+            category: effectiveCategory,
+            subtype: effectiveSubtype,
+            date: effectiveDate,
+            templateBudgetId: cleaned,
+          },
+        );
+      }
+    } else {
+      resolvedBudgetId = await resolveBudgetIdForTransactionDate(
+        supabase,
+        user.id,
+        {
+          type: effectiveType,
+          category: effectiveCategory,
+          subtype: effectiveSubtype,
+          date: effectiveDate,
+          templateBudgetId: oldTransaction.budget_id,
+        },
+      );
+    }
+
     // Update transaction
     const { data, error } = await supabase
       .from("transactions")
@@ -38,7 +86,7 @@ export async function PUT(
         description,
         category,
         subtype,
-        budget_id: budgetId !== undefined ? budgetId : undefined,
+        budget_id: resolvedBudgetId,
         goal_id: goalId !== undefined ? goalId : undefined,
         date,
         type,
@@ -53,7 +101,7 @@ export async function PUT(
     }
 
     // Update budget spent amounts
-    if (type === "expense") {
+    if (effectiveType === "expense") {
       // Subtract old amount from old budget
       if (oldTransaction.budget_id) {
         const { data: oldBudget } = await supabase
@@ -74,11 +122,11 @@ export async function PUT(
       }
 
       // Add new amount to new budget
-      if (budgetId) {
+      if (resolvedBudgetId) {
         const { data: newBudget } = await supabase
           .from("budgets")
           .select("spent_amount")
-          .eq("id", budgetId)
+          .eq("id", resolvedBudgetId)
           .eq("user_id", user.id)
           .single();
 
@@ -87,7 +135,7 @@ export async function PUT(
           await supabase
             .from("budgets")
             .update({ spent_amount: newSpent })
-            .eq("id", budgetId)
+            .eq("id", resolvedBudgetId)
             .eq("user_id", user.id);
         }
       }

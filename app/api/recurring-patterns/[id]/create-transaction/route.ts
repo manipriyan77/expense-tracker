@@ -54,12 +54,17 @@ export async function POST(
       );
     }
 
-    const budgetId = await resolveExpenseBudgetIdForPattern(supabase, user.id, {
-      type: pattern.type,
-      linked_budget_id: pattern.linked_budget_id,
-      category: pattern.category,
-      subtype: pattern.subtype,
-    });
+    const budgetId = await resolveExpenseBudgetIdForPattern(
+      supabase,
+      user.id,
+      {
+        type: pattern.type,
+        linked_budget_id: pattern.linked_budget_id,
+        category: pattern.category,
+        subtype: pattern.subtype,
+      },
+      String(pattern.next_date).split("T")[0],
+    );
     const goalId = pattern.linked_goal_id || null;
 
     const { data: transaction, error: transactionError } = await supabase

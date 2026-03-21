@@ -114,12 +114,17 @@ export async function POST(
     const type = pattern.type as "income" | "expense";
     const category = pattern.category as string;
     const subtype = (pattern.subtype as string) || "";
-    const budgetId = await resolveExpenseBudgetIdForPattern(supabase, user.id, {
-      type,
-      linked_budget_id: pattern.linked_budget_id,
-      category,
-      subtype,
-    });
+    const budgetId = await resolveExpenseBudgetIdForPattern(
+      supabase,
+      user.id,
+      {
+        type,
+        linked_budget_id: pattern.linked_budget_id,
+        category,
+        subtype,
+      },
+      occurrenceDate,
+    );
 
     const goalId = pattern.linked_goal_id || null;
 

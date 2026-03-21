@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveBudgetIdForTransactionDate } from "@/lib/server/budget-for-transaction-date";
 
 export async function GET() {
   try {
@@ -37,7 +38,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { amount, description, category, subtype, date, type, goalId } = body;
-    let { budgetId } = body;
 
     if (
       amount === undefined ||
@@ -63,50 +63,17 @@ export async function POST(request: NextRequest) {
       if (s === "none" || s === "auto") return null;
       return s;
     };
-    budgetId = uuidOrNull(budgetId);
+    const templateBudgetId = uuidOrNull(body.budgetId);
     const goalIdClean = uuidOrNull(goalId);
 
-    // Auto-map to matching budget if not provided
-    if (!budgetId && type === "expense") {
-      // Find matching budget: priority order: exact match (category + subtype) > category-only match
-      let matchingBudget = null;
-      
-      // Try exact match first (category + subtype)
-      if (subtype) {
-        const { data: exactMatch } = await supabase
-          .from("budgets")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("category", category)
-          .eq("subtype", subtype)
-          .limit(1)
-          .single();
-        
-        if (exactMatch) {
-          matchingBudget = exactMatch;
-        }
-      }
-      
-      // If no exact match, try category-only match (with null subtype)
-      if (!matchingBudget) {
-        const { data: categoryMatch } = await supabase
-          .from("budgets")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("category", category)
-          .is("subtype", null)
-          .limit(1)
-          .single();
-        
-        if (categoryMatch) {
-          matchingBudget = categoryMatch;
-        }
-      }
-      
-      if (matchingBudget) {
-        budgetId = matchingBudget.id;
-      }
-    }
+    const txDate = (date || new Date().toISOString().split("T")[0]).split("T")[0];
+    const budgetId = await resolveBudgetIdForTransactionDate(supabase, user.id, {
+      type,
+      category,
+      subtype,
+      date: txDate,
+      templateBudgetId: templateBudgetId,
+    });
 
     // Insert transaction
     const { data, error } = await supabase
@@ -118,7 +85,7 @@ export async function POST(request: NextRequest) {
         subtype: subtype || "",
         budget_id: budgetId,
         goal_id: goalIdClean,
-        date: date || new Date().toISOString().split("T")[0],
+        date: txDate,
         type,
         user_id: user.id,
       })
