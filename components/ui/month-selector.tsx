@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -10,31 +11,50 @@ import {
 } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 
+function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function sameMonth(a: Date, b: Date): boolean {
+  return a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+}
+
 interface MonthSelectorProps {
-  selectedMonth: Date;
-  onMonthChange: (date: Date) => void;
+  readonly selectedMonth: Date;
+  readonly onMonthChange: (date: Date) => void;
+  /** How many months to list going back from today, including the current month (default 7). */
   monthsToShow?: number;
+  /** How many months after the current calendar month to allow (default 24). */
+  monthsFuture?: number;
 }
 
 export function MonthSelector({
   selectedMonth,
   onMonthChange,
   monthsToShow = 7,
+  monthsFuture = 24,
 }: MonthSelectorProps) {
-  // Generate array of last N months
-  const generateMonths = () => {
-    const months = [];
-    const today = new Date();
-    
-    for (let i = 0; i < monthsToShow; i++) {
-      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      months.push(date);
-    }
-    
-    return months;
-  };
+  const today = new Date();
 
-  const months = generateMonths();
+  const oldestMonth = startOfMonth(
+    new Date(today.getFullYear(), today.getMonth() - (monthsToShow - 1), 1),
+  );
+
+  const newestMonth = startOfMonth(
+    new Date(today.getFullYear(), today.getMonth() + monthsFuture, 1),
+  );
+
+  const months = useMemo(() => {
+    const list: Date[] = [];
+    for (
+      let d = new Date(oldestMonth);
+      d.getTime() <= newestMonth.getTime();
+      d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+    ) {
+      list.push(new Date(d));
+    }
+    return list;
+  }, [oldestMonth, newestMonth]);
 
   const formatMonth = (date: Date) => {
     return date.toLocaleDateString("en-US", {
@@ -50,60 +70,36 @@ export function MonthSelector({
     });
   };
 
-  const getOldestAllowedMonth = () => {
-    const today = new Date();
-    return new Date(today.getFullYear(), today.getMonth() - (monthsToShow - 1), 1);
-  };
-
-  const isOldestMonth = () => {
-    const oldestMonth = getOldestAllowedMonth();
-    return (
-      selectedMonth.getMonth() === oldestMonth.getMonth() &&
-      selectedMonth.getFullYear() === oldestMonth.getFullYear()
-    );
-  };
-
   const handlePrevMonth = () => {
-    const newDate = new Date(
-      selectedMonth.getFullYear(),
-      selectedMonth.getMonth() - 1,
-      1
+    const newDate = startOfMonth(
+      new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1),
     );
-    const oldestMonth = getOldestAllowedMonth();
-    
-    // Don't allow going before the oldest allowed month
-    if (newDate >= oldestMonth) {
+    if (newDate.getTime() >= oldestMonth.getTime()) {
       onMonthChange(newDate);
     }
   };
 
   const handleNextMonth = () => {
-    const newDate = new Date(
-      selectedMonth.getFullYear(),
-      selectedMonth.getMonth() + 1,
-      1
+    const newDate = startOfMonth(
+      new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1),
     );
-    const today = new Date();
-    
-    // Don't allow future months
-    if (newDate <= today) {
+    if (newDate.getTime() <= newestMonth.getTime()) {
       onMonthChange(newDate);
     }
   };
 
   const handleMonthSelect = (value: string) => {
     const [year, month] = value.split("-").map(Number);
-    const newDate = new Date(year, month, 1);
+    const newDate = startOfMonth(new Date(year, month, 1));
     onMonthChange(newDate);
   };
 
-  const isCurrentMonth = () => {
-    const today = new Date();
-    return (
-      selectedMonth.getMonth() === today.getMonth() &&
-      selectedMonth.getFullYear() === today.getFullYear()
-    );
+  const isCurrentCalendarMonth = () => {
+    return sameMonth(selectedMonth, today);
   };
+
+  const isOldestMonth = () => sameMonth(selectedMonth, oldestMonth);
+  const isNewestMonth = () => sameMonth(selectedMonth, newestMonth);
 
   const getMonthValue = (date: Date) => {
     return `${date.getFullYear()}-${date.getMonth()}`;
@@ -111,7 +107,6 @@ export function MonthSelector({
 
   return (
     <div className="flex items-center space-x-2">
-      {/* Previous Month Button */}
       <Button
         variant="outline"
         size="icon"
@@ -122,16 +117,13 @@ export function MonthSelector({
         <ChevronLeft className="h-4 w-4" />
       </Button>
 
-      {/* Month Selector Dropdown */}
       <Select
         value={getMonthValue(selectedMonth)}
         onValueChange={handleMonthSelect}
       >
         <SelectTrigger className="w-[180px] h-9">
           <Calendar className="h-4 w-4 mr-2" />
-          <SelectValue>
-            {formatMonthShort(selectedMonth)}
-          </SelectValue>
+          <SelectValue>{formatMonthShort(selectedMonth)}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           {months.map((month) => (
@@ -145,19 +137,17 @@ export function MonthSelector({
         </SelectContent>
       </Select>
 
-      {/* Next Month Button */}
       <Button
         variant="outline"
         size="icon"
         onClick={handleNextMonth}
-        disabled={isCurrentMonth()}
+        disabled={isNewestMonth()}
         className="h-9 w-9"
       >
         <ChevronRight className="h-4 w-4" />
       </Button>
 
-      {/* Current Month Badge */}
-      {isCurrentMonth() && (
+      {isCurrentCalendarMonth() && (
         <span className="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
           Current
         </span>
@@ -165,4 +155,3 @@ export function MonthSelector({
     </div>
   );
 }
-

@@ -83,6 +83,7 @@ If you still can't create budget templates, run:
 Run these in order:
 - `database/migrations/add-monthly-budgets.sql`
 - `database/migrations/add-original-amount-to-liabilities.sql`
+- `database/migrations/add-recurring-pattern-id-to-transactions.sql` (links completed payments to recurring patterns; required for calendar / transactions “Mark paid”)
 
 ### 5. Run the Development Server
 

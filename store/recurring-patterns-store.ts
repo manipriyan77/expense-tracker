@@ -32,6 +32,10 @@ interface RecurringPatternsState {
   updatePattern: (id: string, updates: Partial<RecurringPattern>) => Promise<void>;
   deletePattern: (id: string) => Promise<void>;
   createTransaction: (id: string) => Promise<{ transaction: any; nextDate: string }>;
+  completeOccurrence: (
+    id: string,
+    occurrenceDate: string,
+  ) => Promise<{ transaction: unknown; pattern: unknown }>;
 }
 
 export const useRecurringPatternsStore = create<RecurringPatternsState>((set, get) => ({
@@ -122,6 +126,40 @@ export const useRecurringPatternsStore = create<RecurringPatternsState>((set, ge
         ),
         loading: false,
       });
+      return result;
+    } catch (error) {
+      set({ error: (error as Error).message, loading: false });
+      throw error;
+    }
+  },
+
+  completeOccurrence: async (id, occurrenceDate) => {
+    set({ loading: true, error: null });
+    try {
+      const response = await fetch(
+        `/api/recurring-patterns/${id}/complete-occurrence`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ occurrenceDate }),
+        },
+      );
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error(errBody.error || "Failed to complete occurrence");
+      }
+      const result = await response.json();
+      const updated = result.pattern;
+      if (updated) {
+        set({
+          patterns: get().patterns.map((p) =>
+            p.id === id ? { ...p, ...updated } : p,
+          ),
+          loading: false,
+        });
+      } else {
+        set({ loading: false });
+      }
       return result;
     } catch (error) {
       set({ error: (error as Error).message, loading: false });

@@ -8,6 +8,7 @@ export interface Transaction {
   subtype: string;
   budget_id: string;
   goal_id?: string | null;
+  recurring_pattern_id?: string | null;
   date: string;
   type: "income" | "expense";
   user_id: string;
@@ -50,6 +51,7 @@ export const useTransactionsStore = create<TransactionsState>((set) => ({
         subtype: transaction.subtype || 'Other',
         budget_id: transaction.budget_id,
         goal_id: transaction.goal_id,
+        recurring_pattern_id: transaction.recurring_pattern_id ?? null,
         date: transaction.date,
         type: transaction.type,
         user_id: transaction.user_id,

@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -25,23 +25,24 @@ import {
   Plus,
   TrendingUp,
   TrendingDown,
-  Calendar,
   Repeat,
-  DollarSign,
   IndianRupee,
   Search,
-  Trash2,
-  Loader2,
   Download,
   Filter,
   ChevronLeft,
   ChevronRight,
   X,
-  Pencil,
   ArrowUpDown,
 } from "lucide-react";
 import { MonthSelector } from "@/components/ui/month-selector";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
+import {
+  TransactionListItemRow,
+  type MergedListItem,
+} from "@/components/transactions/TransactionListItemRow";
+import { getPendingOccurrencesForMonth } from "@/lib/utils/recurring-occurrences";
+import { useRecurringPatternsStore } from "@/store/recurring-patterns-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { Skeleton, TransactionSkeleton } from "@/components/ui/skeleton";
 
@@ -58,6 +59,7 @@ interface Transaction {
   nextDate?: string;
   budgetId?: string | null;
   goalId?: string | null;
+  recurringPatternId?: string | null;
 }
 
 interface TransactionFromDB {
@@ -71,6 +73,7 @@ interface TransactionFromDB {
   is_recurring?: boolean;
   frequency?: "daily" | "weekly" | "monthly" | "yearly";
   next_date?: string;
+  recurring_pattern_id?: string | null;
 }
 
 export default function TransactionsPage() {
@@ -82,6 +85,11 @@ export default function TransactionsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [completingRecurringKey, setCompletingRecurringKey] = useState<string | null>(
+    null,
+  );
+  const { patterns, fetchPatterns, completeOccurrence } =
+    useRecurringPatternsStore();
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -102,6 +110,8 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     loadTransactions();
+    fetchPatterns();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadTransactions = async () => {
@@ -130,6 +140,7 @@ export default function TransactionsPage() {
           nextDate: t.next_date,
           budgetId: t.budget_id ?? undefined,
           goalId: t.goal_id ?? undefined,
+          recurringPatternId: t.recurring_pattern_id ?? null,
         }),
       );
 
@@ -150,6 +161,20 @@ export default function TransactionsPage() {
 
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
+  };
+
+  const handleCompleteRecurring = async (patternId: string, dueDate: string) => {
+    const key = `${patternId}:${dueDate}`;
+    setCompletingRecurringKey(key);
+    try {
+      await completeOccurrence(patternId, dueDate);
+      await loadTransactions();
+      toast.success("Payment recorded");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not record payment");
+    } finally {
+      setCompletingRecurringKey(null);
+    }
   };
 
   const handleDeleteTransaction = async (transactionId: string) => {
@@ -231,8 +256,122 @@ export default function TransactionsPage() {
     maxAmount,
   ]);
 
-  // Sorted transactions (applies sort to filtered list)
-  const sortedTransactions = useMemo(() => {
+  const filteredPendingOccurrences = useMemo(() => {
+    const y = selectedMonth.getFullYear();
+    const m = selectedMonth.getMonth();
+    const raw = getPendingOccurrencesForMonth(
+      patterns.map((p) => ({
+        id: p.id,
+        name: p.name,
+        type: p.type,
+        amount:
+          typeof p.amount === "number"
+            ? p.amount
+            : Number.parseFloat(String(p.amount)),
+        description: p.description,
+        category: p.category,
+        subtype: p.subtype || "",
+        frequency: p.frequency,
+        start_date: p.start_date,
+        end_date: p.end_date ?? null,
+        day_of_month: p.day_of_month ?? null,
+        is_active: p.is_active,
+      })),
+      transactions,
+      y,
+      m,
+    );
+    return raw.filter((row) => {
+      const matchesSearch =
+        searchQuery === "" ||
+        row.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        row.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        row.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        row.subtype.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory =
+        filterCategory === "all" || row.category === filterCategory;
+      const matchesType = filterType === "all" || row.type === filterType;
+      const amount = Math.abs(row.amount);
+      const matchesMinAmount =
+        !minAmount || amount >= Number.parseFloat(minAmount);
+      const matchesMaxAmount =
+        !maxAmount || amount <= Number.parseFloat(maxAmount);
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesType &&
+        matchesMinAmount &&
+        matchesMaxAmount
+      );
+    });
+  }, [
+    patterns,
+    transactions,
+    selectedMonth,
+    searchQuery,
+    filterCategory,
+    filterType,
+    minAmount,
+    maxAmount,
+  ]);
+
+  const sortedMergedItems = useMemo(() => {
+    const items: MergedListItem[] = [
+      ...filteredTransactions.map((t) => ({ kind: "transaction" as const, t })),
+      ...filteredPendingOccurrences.map((p) => ({
+        kind: "pending_recurring" as const,
+        p,
+      })),
+    ];
+    const mult = sortOrder === "asc" ? 1 : -1;
+    items.sort((a, b) => {
+      const dateA = a.kind === "transaction" ? a.t.date : a.p.dueDate;
+      const dateB = b.kind === "transaction" ? b.t.date : b.p.dueDate;
+      if (sortBy === "date") {
+        return mult * (new Date(dateA).getTime() - new Date(dateB).getTime());
+      }
+      const amtA = a.kind === "transaction" ? a.t.amount : a.p.amount;
+      const amtB = b.kind === "transaction" ? b.t.amount : b.p.amount;
+      if (sortBy === "amount") {
+        return mult * (Math.abs(amtA) - Math.abs(amtB));
+      }
+      const descA = a.kind === "transaction" ? a.t.description : a.p.description;
+      const descB = b.kind === "transaction" ? b.t.description : b.p.description;
+      if (sortBy === "description") {
+        return mult * descA.localeCompare(descB, undefined, { sensitivity: "base" });
+      }
+      const catA = a.kind === "transaction" ? (a.t.category || "") : a.p.category;
+      const catB = b.kind === "transaction" ? (b.t.category || "") : b.p.category;
+      const catCompare = catA.localeCompare(catB, undefined, {
+        sensitivity: "base",
+      });
+      if (catCompare !== 0) return mult * catCompare;
+      const subA = a.kind === "transaction" ? (a.t.subtype || "") : a.p.subtype;
+      const subB = b.kind === "transaction" ? (b.t.subtype || "") : b.p.subtype;
+      return mult * subA.localeCompare(subB, undefined, { sensitivity: "base" });
+    });
+    return items;
+  }, [filteredTransactions, filteredPendingOccurrences, sortBy, sortOrder]);
+
+  const incomeItems = sortedMergedItems.filter((i) =>
+    i.kind === "pending_recurring" ? i.p.type === "income" : i.t.type === "income",
+  );
+  const expenseItems = sortedMergedItems.filter((i) =>
+    i.kind === "pending_recurring" ? i.p.type === "expense" : i.t.type === "expense",
+  );
+  const recurringItems = sortedMergedItems.filter(
+    (i) =>
+      i.kind === "pending_recurring" ||
+      (i.kind === "transaction" && !!i.t.recurringPatternId),
+  );
+
+  const totalPages = Math.ceil(sortedMergedItems.length / itemsPerPage);
+  const paginatedMergedItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return sortedMergedItems.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedMergedItems, currentPage, itemsPerPage]);
+
+  const sortedBookedForExport = useMemo(() => {
     const list = [...filteredTransactions];
     const mult = sortOrder === "asc" ? 1 : -1;
     list.sort((a, b) => {
@@ -243,30 +382,26 @@ export default function TransactionsPage() {
         return mult * (Math.abs(a.amount) - Math.abs(b.amount));
       }
       if (sortBy === "description") {
-        return mult * (a.description.localeCompare(b.description, undefined, { sensitivity: "base" }));
+        return mult * a.description.localeCompare(b.description, undefined, {
+          sensitivity: "base",
+        });
       }
-      if (sortBy === "category") {
-        const catCompare = (a.category || "").localeCompare(b.category || "", undefined, { sensitivity: "base" });
-        if (catCompare !== 0) return mult * catCompare;
-        return mult * (a.subtype || "").localeCompare(b.subtype || "", undefined, { sensitivity: "base" });
-      }
-      return 0;
+      const catCompare = (a.category || "").localeCompare(b.category || "", undefined, {
+        sensitivity: "base",
+      });
+      if (catCompare !== 0) return mult * catCompare;
+      return mult * (a.subtype || "").localeCompare(b.subtype || "", undefined, {
+        sensitivity: "base",
+      });
     });
     return list;
   }, [filteredTransactions, sortBy, sortOrder]);
-
-  // Pagination (based on sorted list)
-  const totalPages = Math.ceil(sortedTransactions.length / itemsPerPage);
-  const paginatedTransactions = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return sortedTransactions.slice(startIndex, startIndex + itemsPerPage);
-  }, [sortedTransactions, currentPage, itemsPerPage]);
 
   // Reset to page 1 when filters or sort change
   useEffect(() => {
     setCurrentPage(1);
   }, [
-    filteredTransactions.length,
+    sortedMergedItems.length,
     searchQuery,
     filterCategory,
     filterType,
@@ -286,7 +421,7 @@ export default function TransactionsPage() {
       "Subtype",
       "Amount",
     ];
-    const rows = sortedTransactions.map((t) => [
+    const rows = sortedBookedForExport.map((t) => [
       new Date(t.date).toLocaleDateString(),
       t.type,
       t.description,
@@ -315,24 +450,17 @@ export default function TransactionsPage() {
     toast.success("Transactions exported to CSV!");
   };
 
-  const allTransactions = sortedTransactions;
-  const incomeTransactions = sortedTransactions.filter(
-    (t) => t.type === "income",
-  );
-  const expenseTransactions = sortedTransactions.filter(
-    (t) => t.type === "expense",
-  );
-  const recurringTransactions = sortedTransactions.filter(
-    (t) => t.isRecurring,
-  );
+  const allTransactions = sortedMergedItems;
+  const incomeTransactions = incomeItems;
+  const expenseTransactions = expenseItems;
+  const recurringTransactions = recurringItems;
 
-  // Pagination helper function
-  const getPaginatedData = (data: Transaction[]) => {
+  const getPaginatedData = (data: MergedListItem[]) => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return data.slice(startIndex, startIndex + itemsPerPage);
   };
 
-  const getTotalPages = (data: Transaction[]) => {
+  const getTotalPages = (data: MergedListItem[]) => {
     return Math.ceil(data.length / itemsPerPage);
   };
 
@@ -490,9 +618,9 @@ export default function TransactionsPage() {
               onMonthChange={setSelectedMonth}
               monthsToShow={7}
             />
-            <div className="text-sm text-muted-foreground shrink-0" title={`${filteredTransactions.length} transactions`}>
-              <span className="sm:hidden">{filteredTransactions.length}</span>
-              <span className="hidden sm:inline">{filteredTransactions.length} transaction(s)</span>
+            <div className="text-sm text-muted-foreground shrink-0" title={`${sortedMergedItems.length} items (includes due recurring)`}>
+              <span className="sm:hidden">{sortedMergedItems.length}</span>
+              <span className="hidden sm:inline">{sortedMergedItems.length} item(s)</span>
             </div>
           </div>
 
@@ -581,7 +709,7 @@ export default function TransactionsPage() {
                   variant="outline"
                   size="sm"
                   onClick={exportToCSV}
-                  disabled={sortedTransactions.length === 0}
+                  disabled={sortedBookedForExport.length === 0}
                   className="shrink-0"
                 >
                   <Download className="h-4 w-4 sm:mr-2" />
@@ -768,102 +896,37 @@ export default function TransactionsPage() {
 
             {/* All Transactions */}
             <TabsContent value="all" className="mt-0">
-              {paginatedTransactions.length === 0 ? (
+              {sortedMergedItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <IndianRupee className="h-8 w-8 text-muted-foreground/40 mb-3" />
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">No transactions yet</p>
-                  <p className="text-xs text-muted-foreground">Start by adding your first transaction</p>
+                  <p className="text-xs text-muted-foreground">Add transactions or set up recurring items on the Recurring page</p>
                 </div>
               ) : (
                 <>
                   <Card className="overflow-hidden p-0">
                     <div className="divide-y divide-border">
-                      {paginatedTransactions.map((transaction) => (
-                        <div key={transaction.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div
-                              className={`shrink-0 p-1.5 rounded-full ${
-                                transaction.type === "income"
-                                  ? "bg-green-100 text-green-600"
-                                  : "bg-red-100 text-red-600"
-                              }`}
-                            >
-                              {transaction.type === "income" ? (
-                                <TrendingUp className="h-3.5 w-3.5" />
-                              ) : (
-                                <TrendingDown className="h-3.5 w-3.5" />
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-medium text-sm truncate">
-                                  {transaction.description}
-                                </p>
-                                {transaction.isRecurring && (
-                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
-                                    <Repeat className="h-3 w-3" />
-                                    <span>{transaction.frequency}</span>
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                                  {transaction.category}
-                                  {transaction.subtype && ` · ${transaction.subtype}`}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground">
-                                  {new Date(transaction.date).toLocaleDateString()}
-                                </span>
-                                {transaction.isRecurring && transaction.nextDate && (
-                                  <span className="text-[10px] text-blue-500">
-                                    Next: {new Date(transaction.nextDate).toLocaleDateString()}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <p
-                              className={`font-mono font-semibold text-sm ${
-                                transaction.type === "income"
-                                  ? "text-green-600 dark:text-green-400"
-                                  : "text-red-600 dark:text-red-400"
-                              }`}
-                            >
-                              {transaction.type === "income" ? "+" : "−"}
-                              {format(transaction.amount)}
-                            </p>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                              onClick={() => handleEditTransaction(transaction)}
-                              title="Edit"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                              onClick={() => handleDeleteTransaction(transaction.id)}
-                              disabled={deleting === transaction.id}
-                              title="Delete"
-                            >
-                              {deleting === transaction.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-3.5 w-3.5" />
-                              )}
-                            </Button>
-                          </div>
-                        </div>
+                      {paginatedMergedItems.map((item) => (
+                        <TransactionListItemRow
+                          key={
+                            item.kind === "transaction"
+                              ? item.t.id
+                              : `${item.p.patternId}:${item.p.dueDate}`
+                          }
+                          item={item}
+                          format={format}
+                          onEdit={handleEditTransaction}
+                          onDelete={handleDeleteTransaction}
+                          onMarkRecurringComplete={handleCompleteRecurring}
+                          completingKey={completingRecurringKey}
+                          deleting={deleting}
+                        />
                       ))}
                     </div>
                   </Card>
                   <PaginationControls
                     totalPages={totalPages}
-                    dataLength={sortedTransactions.length}
+                    dataLength={sortedMergedItems.length}
                   />
                 </>
               )}
@@ -880,64 +943,21 @@ export default function TransactionsPage() {
                 <>
                   <Card className="overflow-hidden p-0">
                     <div className="divide-y divide-border">
-                      {getPaginatedData(incomeTransactions).map((transaction) => (
-                        <div key={transaction.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="shrink-0 p-1.5 rounded-full bg-green-100 text-green-600">
-                              <TrendingUp className="h-3.5 w-3.5" />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-medium text-sm truncate">
-                                  {transaction.description}
-                                </p>
-                                {transaction.isRecurring && (
-                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
-                                    <Repeat className="h-3 w-3" />
-                                    <span>{transaction.frequency}</span>
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                                  {transaction.category}
-                                  {transaction.subtype && ` · ${transaction.subtype}`}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground">
-                                  {new Date(transaction.date).toLocaleDateString()}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <p className="font-mono font-semibold text-sm text-green-600 dark:text-green-400">
-                              +{format(transaction.amount)}
-                            </p>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                              onClick={() => handleEditTransaction(transaction)}
-                              title="Edit"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                              onClick={() => handleDeleteTransaction(transaction.id)}
-                              disabled={deleting === transaction.id}
-                              title="Delete"
-                            >
-                              {deleting === transaction.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-3.5 w-3.5" />
-                              )}
-                            </Button>
-                          </div>
-                        </div>
+                      {getPaginatedData(incomeTransactions).map((item) => (
+                        <TransactionListItemRow
+                          key={
+                            item.kind === "transaction"
+                              ? item.t.id
+                              : `${item.p.patternId}:${item.p.dueDate}`
+                          }
+                          item={item}
+                          format={format}
+                          onEdit={handleEditTransaction}
+                          onDelete={handleDeleteTransaction}
+                          onMarkRecurringComplete={handleCompleteRecurring}
+                          completingKey={completingRecurringKey}
+                          deleting={deleting}
+                        />
                       ))}
                     </div>
                   </Card>
@@ -960,64 +980,21 @@ export default function TransactionsPage() {
                 <>
                   <Card className="overflow-hidden p-0">
                     <div className="divide-y divide-border">
-                      {getPaginatedData(expenseTransactions).map((transaction) => (
-                        <div key={transaction.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="shrink-0 p-1.5 rounded-full bg-red-100 text-red-600">
-                              <TrendingDown className="h-3.5 w-3.5" />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-medium text-sm truncate">
-                                  {transaction.description}
-                                </p>
-                                {transaction.isRecurring && (
-                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
-                                    <Repeat className="h-3 w-3" />
-                                    <span>{transaction.frequency}</span>
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                                  {transaction.category}
-                                  {transaction.subtype && ` · ${transaction.subtype}`}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground">
-                                  {new Date(transaction.date).toLocaleDateString()}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <p className="font-mono font-semibold text-sm text-red-600 dark:text-red-400">
-                              −{format(transaction.amount)}
-                            </p>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                              onClick={() => handleEditTransaction(transaction)}
-                              title="Edit"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                              onClick={() => handleDeleteTransaction(transaction.id)}
-                              disabled={deleting === transaction.id}
-                              title="Delete"
-                            >
-                              {deleting === transaction.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-3.5 w-3.5" />
-                              )}
-                            </Button>
-                          </div>
-                        </div>
+                      {getPaginatedData(expenseTransactions).map((item) => (
+                        <TransactionListItemRow
+                          key={
+                            item.kind === "transaction"
+                              ? item.t.id
+                              : `${item.p.patternId}:${item.p.dueDate}`
+                          }
+                          item={item}
+                          format={format}
+                          onEdit={handleEditTransaction}
+                          onDelete={handleDeleteTransaction}
+                          onMarkRecurringComplete={handleCompleteRecurring}
+                          completingKey={completingRecurringKey}
+                          deleting={deleting}
+                        />
                       ))}
                     </div>
                   </Card>
@@ -1034,90 +1011,29 @@ export default function TransactionsPage() {
               {recurringTransactions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <Repeat className="h-8 w-8 text-muted-foreground/40 mb-3" />
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">No recurring transactions found</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">No recurring items for this month</p>
+                  <p className="text-xs text-muted-foreground mt-1">Due recurring or completed payments from patterns appear here</p>
                 </div>
               ) : (
                 <>
                   <Card className="overflow-hidden p-0">
                     <div className="divide-y divide-border">
-                      {getPaginatedData(recurringTransactions).map(
-                        (transaction) => (
-                          <div key={transaction.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div
-                                className={`shrink-0 p-1.5 rounded-full ${
-                                  transaction.type === "income"
-                                    ? "bg-green-100 text-green-600"
-                                    : "bg-red-100 text-red-600"
-                                }`}
-                              >
-                                {transaction.type === "income" ? (
-                                  <TrendingUp className="h-3.5 w-3.5" />
-                                ) : (
-                                  <TrendingDown className="h-3.5 w-3.5" />
-                                )}
-                              </div>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="font-medium text-sm truncate">
-                                    {transaction.description}
-                                  </p>
-                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 shrink-0">
-                                    <Repeat className="h-3 w-3" />
-                                    <span>{transaction.frequency}</span>
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                                    {transaction.category}
-                                    {transaction.subtype && ` · ${transaction.subtype}`}
-                                  </span>
-                                  {transaction.nextDate && (
-                                    <span className="text-[10px] text-blue-500">
-                                      Next: {new Date(transaction.nextDate).toLocaleDateString()}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <p
-                                className={`font-mono font-semibold text-sm ${
-                                  transaction.type === "income"
-                                    ? "text-green-600 dark:text-green-400"
-                                    : "text-red-600 dark:text-red-400"
-                                }`}
-                              >
-                                {transaction.type === "income" ? "+" : "−"}
-                                {format(transaction.amount)}
-                              </p>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                onClick={() => handleEditTransaction(transaction)}
-                                title="Edit"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                onClick={() => handleDeleteTransaction(transaction.id)}
-                                disabled={deleting === transaction.id}
-                                title="Delete"
-                              >
-                                {deleting === transaction.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        ),
-                      )}
+                      {getPaginatedData(recurringTransactions).map((item) => (
+                        <TransactionListItemRow
+                          key={
+                            item.kind === "transaction"
+                              ? item.t.id
+                              : `${item.p.patternId}:${item.p.dueDate}`
+                          }
+                          item={item}
+                          format={format}
+                          onEdit={handleEditTransaction}
+                          onDelete={handleDeleteTransaction}
+                          onMarkRecurringComplete={handleCompleteRecurring}
+                          completingKey={completingRecurringKey}
+                          deleting={deleting}
+                        />
+                      ))}
                     </div>
                   </Card>
                   <PaginationControls

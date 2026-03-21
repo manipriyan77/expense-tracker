@@ -66,6 +66,7 @@ export async function POST(
         date: pattern.next_date,
         tags: pattern.tags || [],
         notes: pattern.notes || null,
+        recurring_pattern_id: id,
       })
       .select()
       .single();
