@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type ComponentType } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -21,6 +21,8 @@ import {
   ArrowRight,
   TrendingUp,
   Wallet,
+  Sparkles,
+  ChevronRight,
 } from "lucide-react";
 
 export interface BudgetPlanningTabProps {
@@ -48,6 +50,52 @@ function planningCap(headroom: number, surplus: number): number {
   if (h > 0 && s > 0) return Math.min(h, s);
   if (h > 0) return h;
   return s;
+}
+
+function MetricTile({
+  icon: Icon,
+  label,
+  sublabel,
+  value,
+  valueClassName,
+  footnote,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  sublabel: string;
+  value: React.ReactNode;
+  valueClassName?: string;
+  footnote: string;
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary/40 via-primary/20 to-transparent"
+        aria-hidden
+      />
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+          <Icon className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+            {label}
+          </p>
+          <p className="text-[11px] leading-snug text-muted-foreground/90">
+            {sublabel}
+          </p>
+          <p
+            className={`pt-0.5 font-mono text-xl font-semibold tabular-nums tracking-tight sm:text-2xl ${valueClassName ?? "text-foreground"}`}
+          >
+            {value}
+          </p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {footnote}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function BudgetPlanningTab({
@@ -103,7 +151,10 @@ export function BudgetPlanningTab({
   }
 
   const activeGoals = useMemo(
-    () => goals.filter((g) => g.status === "active" && g.currentAmount < g.targetAmount),
+    () =>
+      goals.filter(
+        (g) => g.status === "active" && g.currentAmount < g.targetAmount,
+      ),
     [goals],
   );
 
@@ -188,82 +239,76 @@ export function BudgetPlanningTab({
   ]);
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Numbers for{" "}
-        <span className="font-medium text-foreground">{monthLabel}</span> use
-        this month&apos;s budgets and transactions. Goal timelines use
-        today&apos;s date.
-      </p>
+    <div className="space-y-6">
+      <div className="rounded-xl border border-border/80 bg-muted/30 px-4 py-3 sm:px-5">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-amber-500/90" />
+          <span>
+            Planning uses{" "}
+            <span className="font-medium text-foreground">{monthLabel}</span>{" "}
+            budgets &amp; transactions. Goal timelines use{" "}
+            <span className="font-medium text-foreground">today</span>.
+          </span>
+        </div>
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-muted-foreground" />
-              Budget headroom
-            </CardTitle>
-            <CardDescription>Caps minus spent (this month)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p
-              className={`text-2xl font-mono font-semibold ${budgetRemaining >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-            >
-              {format(Math.abs(budgetRemaining))}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {budgetRemaining >= 0 ? "Under aggregate budget" : "Over aggregate budget"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              Cash surplus
-            </CardTitle>
-            <CardDescription>Income − expenses (recorded)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p
-              className={`text-2xl font-mono font-semibold ${cashSurplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-            >
-              {monthIncome > 0 || monthExpenses > 0
-                ? format(Math.abs(cashSurplus))
-                : "—"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">{cashFlowNote}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <PiggyBank className="h-4 w-4 text-muted-foreground" />
-              Planning cap
-            </CardTitle>
-            <CardDescription>Conservative ceiling for goal ideas</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-mono font-semibold text-foreground">
-              {format(capForGoals)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              If both headroom and surplus are positive, uses the smaller; otherwise
-              the positive one (or 0).
-            </p>
-          </CardContent>
-        </Card>
+        <MetricTile
+          icon={Wallet}
+          label="Budget headroom"
+          sublabel="Caps minus spent · this month"
+          value={format(Math.abs(budgetRemaining))}
+          valueClassName={
+            budgetRemaining >= 0
+              ? "text-green-600 dark:text-green-400"
+              : "text-red-600 dark:text-red-400"
+          }
+          footnote={
+            budgetRemaining >= 0
+              ? "Under aggregate budget"
+              : "Over aggregate budget"
+          }
+        />
+        <MetricTile
+          icon={TrendingUp}
+          label="Cash surplus"
+          sublabel="Income − expenses (recorded)"
+          value={
+            monthIncome > 0 || monthExpenses > 0 ? (
+              format(Math.abs(cashSurplus))
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )
+          }
+          valueClassName={
+            monthIncome > 0 || monthExpenses > 0
+              ? cashSurplus >= 0
+                ? "text-green-600 dark:text-green-400"
+                : "text-red-600 dark:text-red-400"
+              : undefined
+          }
+          footnote={cashFlowNote}
+        />
+        <MetricTile
+          icon={PiggyBank}
+          label="Planning cap"
+          sublabel="Conservative ceiling for goal ideas"
+          value={format(capForGoals)}
+          footnote="If both headroom and surplus are positive, we use the smaller; otherwise the positive one (or 0)."
+        />
       </div>
 
       {budgets.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Where it&apos;s left</CardTitle>
-            <CardDescription>Per-budget remaining for {monthLabel}</CardDescription>
+        <Card className="overflow-hidden border-border/80 shadow-sm">
+          <CardHeader className="border-b border-border/60 bg-muted/20 px-4 py-3 sm:px-5">
+            <CardTitle className="text-sm font-semibold tracking-tight">
+              Room left by budget
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Remaining vs limit for {monthLabel}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="divide-y divide-border/60 p-0">
             {budgets.map((b) => {
               const spent = b.spent_amount || 0;
               const rem = b.limit_amount - spent;
@@ -271,18 +316,37 @@ export function BudgetPlanningTab({
                 b.limit_amount > 0
                   ? Math.min(100, (spent / b.limit_amount) * 100)
                   : 0;
-              const label = b.subtype ? `${b.category} · ${b.subtype}` : b.category;
+              const label = b.subtype
+                ? `${b.category} · ${b.subtype}`
+                : b.category;
               return (
-                <div key={b.id} className="space-y-1">
-                  <div className="flex justify-between text-sm gap-2">
-                    <span className="truncate font-medium">{label}</span>
-                    <span
-                      className={`font-mono shrink-0 ${rem >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                    >
-                      {rem >= 0 ? format(rem) : `−${format(Math.abs(rem))}`}
-                    </span>
+                <div
+                  key={b.id}
+                  className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium leading-tight">{label}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {format(spent)} of {format(b.limit_amount)} ·{" "}
+                      <span className="tabular-nums">{pct.toFixed(0)}%</span>{" "}
+                      used
+                    </p>
                   </div>
-                  <Progress value={pct} className="h-1.5" />
+                  <div className="flex w-full flex-col gap-1.5 sm:w-52 sm:shrink-0">
+                    <Progress value={pct} className="h-2" />
+                    <p
+                      className={`text-right font-mono text-sm font-semibold tabular-nums ${
+                        rem >= 0
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      {rem >= 0 ? format(rem) : `−${format(Math.abs(rem))}`}{" "}
+                      <span className="text-[10px] font-normal text-muted-foreground">
+                        left
+                      </span>
+                    </p>
+                  </div>
                 </div>
               );
             })}
@@ -290,35 +354,52 @@ export function BudgetPlanningTab({
         </Card>
       )}
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Lightbulb className="h-4 w-4 text-amber-500" />
-            Ideas based on your goals
-          </CardTitle>
-          <CardDescription>
-            Illustrative amounts — not automatic transfers. Each goal is calculated
-            separately, so ideas may add up to more than your planning cap; pick what
-            fits you.
-          </CardDescription>
+      <Card className="overflow-hidden border-border/80 shadow-sm">
+        <CardHeader className="border-b border-border/60 bg-gradient-to-br from-amber-500/5 via-transparent to-orange-500/5 px-4 py-4 sm:px-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+              <Lightbulb className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="text-base font-semibold tracking-tight">
+                Insights &amp; goal ideas
+              </CardTitle>
+              <CardDescription className="text-xs leading-relaxed">
+                Illustrative amounts — not automatic transfers. Each goal is
+                calculated separately; ideas may add up to more than your planning
+                cap. Pick what fits you.
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 px-4 py-5 sm:px-5">
           {ideas.length > 0 && (
-            <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-4">
-              {ideas.map((line) => (
-                <li key={line}>{line}</li>
+            <ul className="space-y-2.5">
+              {ideas.map((line, i) => (
+                <li
+                  key={`${i}-${line.slice(0, 48)}`}
+                  className="flex gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-sm leading-relaxed text-foreground/90"
+                >
+                  <span
+                    className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500/80"
+                    aria-hidden
+                  />
+                  <span>{line}</span>
+                </li>
               ))}
             </ul>
           )}
 
           {activeGoals.length === 0 ? (
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-dashed p-4">
-              <p className="text-sm text-muted-foreground flex-1">
-                No active goals yet. Create one to tie leftover budget to a target.
+            <div className="flex flex-col items-stretch gap-3 rounded-xl border border-dashed border-border bg-muted/10 p-4 sm:flex-row sm:items-center">
+              <p className="flex-1 text-sm text-muted-foreground">
+                No active goals yet. Create one to tie leftover budget to a
+                target.
               </p>
-              <Button asChild size="sm" variant="outline">
+              <Button asChild size="sm" className="shrink-0 gap-1">
                 <Link href="/goals">
-                  Add goal <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                  Add goal
+                  <ChevronRight className="h-4 w-4" />
                 </Link>
               </Button>
             </div>
@@ -336,58 +417,77 @@ export function BudgetPlanningTab({
                 }) => (
                   <div
                     key={g.id}
-                    className="rounded-lg border bg-card/50 p-3 space-y-2"
+                    className="rounded-xl border border-border/80 bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Target className="h-4 w-4 text-primary shrink-0" />
-                        <span className="font-medium truncate">{g.title}</span>
+                    <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border/50 pb-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                          <Target className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium leading-tight">{g.title}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {g.category}
+                          </p>
+                        </div>
                       </div>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        ~{monthsLeft} mo left
+                      <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                        ~{monthsLeft} mo to target
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:text-sm">
-                      <span className="text-muted-foreground">Still needed</span>
-                      <span className="font-mono text-right">{format(remaining)}</span>
-                      <span className="text-muted-foreground">To hit target on time</span>
-                      <span className="font-mono text-right">
-                        ~{format(neededPerMonth)}/mo
-                      </span>
+
+                    <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                      <div className="flex justify-between gap-2 rounded-md bg-muted/30 px-3 py-2">
+                        <dt className="text-muted-foreground">Still needed</dt>
+                        <dd className="font-mono font-semibold tabular-nums">
+                          {format(remaining)}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-2 rounded-md bg-muted/30 px-3 py-2">
+                        <dt className="text-muted-foreground">Pace to hit date</dt>
+                        <dd className="font-mono font-semibold tabular-nums">
+                          ~{format(neededPerMonth)}/mo
+                        </dd>
+                      </div>
                       {planned != null && (
-                        <>
-                          <span className="text-muted-foreground">Your plan</span>
-                          <span className="font-mono text-right">
+                        <div className="flex justify-between gap-2 rounded-md bg-muted/30 px-3 py-2 sm:col-span-2">
+                          <dt className="text-muted-foreground">Your plan</dt>
+                          <dd className="font-mono font-semibold tabular-nums">
                             {format(planned)}/mo
-                          </span>
-                        </>
+                          </dd>
+                        </div>
                       )}
-                    </div>
+                    </dl>
+
                     {gap > 0 && suggestion > 0 && (
-                      <p className="text-sm text-foreground border-t border-border pt-2">
-                        From up to{" "}
-                        <span className="font-mono font-semibold">
-                          {format(capForGoals)}
-                        </span>{" "}
-                        you could steer{" "}
-                        <span className="font-mono font-semibold text-green-600 dark:text-green-400">
-                          {format(suggestion)}
-                        </span>{" "}
-                        toward this goal this month to cover roughly{" "}
-                        <span className="font-medium">
-                          {`${Math.min(100, Math.round((suggestion / gap) * 100))}%`}
-                        </span>{" "}
-                        of the monthly gap vs your plan.
-                      </p>
+                      <div className="mt-3 rounded-lg border border-green-500/20 bg-green-500/5 px-3 py-2.5 text-sm leading-relaxed dark:bg-green-500/10">
+                        <p className="text-foreground">
+                          From up to{" "}
+                          <span className="font-mono font-semibold">
+                            {format(capForGoals)}
+                          </span>{" "}
+                          you could steer{" "}
+                          <span className="font-mono font-semibold text-green-700 dark:text-green-400">
+                            {format(suggestion)}
+                          </span>{" "}
+                          toward this goal this month — roughly{" "}
+                          <span className="font-semibold">
+                            {`${Math.min(100, Math.round((suggestion / gap) * 100))}%`}
+                          </span>{" "}
+                          of the monthly gap vs your plan.
+                        </p>
+                      </div>
                     )}
                     {gap <= 0 && planned != null && (
-                      <p className="text-xs text-green-600 dark:text-green-400 pt-1">
-                        Planned contribution meets or exceeds the pace needed for the target date.
+                      <p className="mt-3 text-xs font-medium text-green-600 dark:text-green-400">
+                        Planned contribution meets or exceeds the pace needed for
+                        the target date.
                       </p>
                     )}
                     {gap > 0 && suggestion <= 0 && (
-                      <p className="text-xs text-muted-foreground pt-1">
-                        Increase budget headroom or cash surplus to fund more toward this goal.
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        Increase budget headroom or cash surplus to fund more
+                        toward this goal.
                       </p>
                     )}
                   </div>
@@ -396,9 +496,10 @@ export function BudgetPlanningTab({
             </div>
           )}
 
-          <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
+          <Button asChild variant="outline" size="sm" className="gap-1">
             <Link href="/goals">
-              Manage goals <ArrowRight className="h-3.5 w-3.5 ml-1" />
+              Manage goals
+              <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </Button>
         </CardContent>
