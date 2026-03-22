@@ -9,7 +9,7 @@ export const goalFormSchema = z.object({
   currentAmount: z.number().min(0, "Current amount cannot be negative"),
   targetDate: z.string().min(1, "Target date is required"),
   category: z.string().min(1, "Category is required"),
-  priority: z.enum(["high", "medium", "low"]).default("medium"),
+  priority: z.enum(["high", "medium", "low"]),
   monthlyContribution: z.number().min(0, "Cannot be negative").optional(),
 });
 
