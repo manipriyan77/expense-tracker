@@ -10,6 +10,7 @@ interface AuthState {
   signUp: (email: string, password: string, userData?: { name?: string }) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   initializeAuth: () => Promise<void>;
+  updateProfile: (data: { name: string }) => Promise<{ error?: string }>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -75,6 +76,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error("Sign out error:", error);
       set({ loading: false });
+    }
+  },
+
+  updateProfile: async (data: { name: string }) => {
+    set({ loading: true });
+    try {
+      const supabase = createClient();
+      const { data: updated, error } = await supabase.auth.updateUser({
+        data: { full_name: data.name, name: data.name },
+      });
+      if (error) {
+        set({ loading: false });
+        return { error: error.message };
+      }
+      set({ user: updated.user, loading: false });
+      return {};
+    } catch (error) {
+      set({ loading: false });
+      return { error: error instanceof Error ? error.message : "Update failed" };
     }
   },
 

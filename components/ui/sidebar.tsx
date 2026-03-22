@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { Button } from "./button";
 import { usePrivacyStore } from "@/store/privacy-store";
+import { ProfileDropdown } from "@/components/ProfileDropdown";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import {
   Tooltip,
@@ -239,7 +240,7 @@ export function Sidebar({
       </div>
 
       {/* Navigation Items */}
-      <nav className="flex-1 p-3 space-y-0.5">
+      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
         <TooltipProvider delayDuration={0}>
           {sidebarItems.map((item) => {
             const Icon = item.icon;
@@ -389,6 +390,11 @@ export function Sidebar({
           })}
         </TooltipProvider>
       </nav>
+
+      {/* Profile section at bottom */}
+      <div className="shrink-0 border-t border-sidebar-border p-2">
+        <ProfileDropdown isCollapsed={isCollapsed} />
+      </div>
     </div>
   );
 }
