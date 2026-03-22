@@ -578,7 +578,7 @@ export default function TransactionsPage() {
     return (
       <div className="min-h-screen bg-background">
         <div className="bg-slate-900 dark:bg-black">
-          <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-4">
+          <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-3">
             <Skeleton className="h-3 w-24 bg-slate-700 mb-2" />
             <div className="grid grid-cols-3 gap-4 mt-4">
               {[0, 1, 2].map((i) => (
@@ -605,7 +605,7 @@ export default function TransactionsPage() {
       <Toaster position="top-right" richColors />
       <div className="min-h-screen bg-background">
         <div className="bg-slate-900 dark:bg-black text-white">
-          <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+          <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
             <div className="mb-4">
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Transactions</p>
               <p className="text-xs text-slate-500">{selectedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
@@ -630,7 +630,7 @@ export default function TransactionsPage() {
           </div>
         </div>
 
-        <main className="px-4 sm:px-6 lg:px-8 py-4">
+        <main className="px-4 sm:px-6 lg:px-8 py-3">
           {/* Month Selector */}
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <MonthSelector

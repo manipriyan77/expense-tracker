@@ -29,7 +29,15 @@ import {
   Trash2,
   DollarSign,
   Check,
+  Flag,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useGoalsStore, Goal } from "@/store/goals-store";
 import { useTransactionsStore } from "@/store/transactions-store";
 import { goalFormSchema, GoalFormData } from "@/lib/schemas/goal-form-schema";
@@ -50,6 +58,10 @@ export default function GoalsPage() {
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+
+  // Priority state for forms
+  const [addPriority, setAddPriority] = useState<"high" | "medium" | "low">("medium");
+  const [editPriority, setEditPriority] = useState<"high" | "medium" | "low">("medium");
 
   // Transaction dialog
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
@@ -198,6 +210,7 @@ export default function GoalsPage() {
       currentAmount: 0,
       targetDate: "",
       category: "General",
+      priority: "medium",
       monthlyContribution: 0,
     },
   });
@@ -210,6 +223,7 @@ export default function GoalsPage() {
       currentAmount: 0,
       targetDate: "",
       category: "General",
+      priority: "medium",
       monthlyContribution: 0,
     },
   });
@@ -235,12 +249,14 @@ export default function GoalsPage() {
       currentAmount: data.currentAmount || 0,
       targetDate: data.targetDate,
       category: data.category || "General",
+      priority: addPriority,
       monthlyContribution: data.monthlyContribution ?? 0,
       status: "active" as const,
     };
 
     await addGoal(newGoal);
     resetAdd();
+    setAddPriority("medium");
     setIsAddDialogOpen(false);
   };
 
@@ -253,6 +269,7 @@ export default function GoalsPage() {
       currentAmount: data.currentAmount || 0,
       targetDate: data.targetDate,
       category: data.category || "General",
+      priority: editPriority,
       monthlyContribution: data.monthlyContribution ?? 0,
     });
     resetEdit();
@@ -280,12 +297,14 @@ export default function GoalsPage() {
 
   const openEditDialog = (goal: Goal) => {
     setEditingGoalId(goal.id);
+    setEditPriority(goal.priority ?? "medium");
     resetEdit({
       title: goal.title,
       targetAmount: goal.targetAmount,
       currentAmount: goal.currentAmount,
       targetDate: goal.targetDate,
       category: goal.category,
+      priority: goal.priority ?? "medium",
       monthlyContribution: goal.monthlyContribution ?? 0,
     });
     setIsEditDialogOpen(true);
@@ -331,11 +350,11 @@ export default function GoalsPage() {
   if (loading && goals.length === 0) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="bg-slate-900 dark:bg-black px-3 sm:px-6 lg:px-8 pt-5 pb-6">
+        <div className="bg-slate-900 dark:bg-black px-3 sm:px-6 lg:px-8 pt-4 pb-4">
           <Skeleton className="h-4 w-16 bg-slate-700 mb-2" />
           <Skeleton className="h-3 w-48 bg-slate-800" />
         </div>
-        <div className="px-3 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="px-3 sm:px-6 lg:px-8 py-4 space-y-4">
           <StatsSkeleton />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[...Array(3)].map((_, i) => (
@@ -371,6 +390,21 @@ export default function GoalsPage() {
     );
   }
 
+  const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  const STATUS_ORDER: Record<string, number> = { active: 0, overdue: 1, completed: 2 };
+  const sortedGoals = [...goals].sort((a, b) => {
+    const statusDiff = (STATUS_ORDER[a.status] ?? 0) - (STATUS_ORDER[b.status] ?? 0);
+    if (statusDiff !== 0) return statusDiff;
+    return (PRIORITY_ORDER[a.priority ?? "medium"] ?? 1) - (PRIORITY_ORDER[b.priority ?? "medium"] ?? 1);
+  });
+
+  const PRIORITY_LABEL: Record<string, string> = { high: "High", medium: "Medium", low: "Low" };
+  const PRIORITY_COLOR: Record<string, string> = {
+    high: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    medium: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    low: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  };
+
   const totalGoals = goals.length;
   const completedGoals = goals.filter(
     (goal) => goal.status === "completed",
@@ -388,7 +422,7 @@ export default function GoalsPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+        <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Goals</p>
@@ -512,6 +546,33 @@ export default function GoalsPage() {
                         {addErrors.category.message}
                       </p>
                     )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Priority</Label>
+                    <Select value={addPriority} onValueChange={(v) => setAddPriority(v as "high" | "medium" | "low")}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">
+                          <span className="flex items-center gap-1.5">
+                            <Flag className="h-3 w-3 text-red-500" /> High — Must achieve first
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="medium">
+                          <span className="flex items-center gap-1.5">
+                            <Flag className="h-3 w-3 text-amber-500" /> Medium — Important but flexible
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="low">
+                          <span className="flex items-center gap-1.5">
+                            <Flag className="h-3 w-3 text-blue-500" /> Low — Nice to have
+                          </span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Higher priority goals appear first and are highlighted in budget planning.</p>
                   </div>
 
                   <Button
@@ -669,6 +730,32 @@ export default function GoalsPage() {
               )}
             </div>
 
+            <div className="space-y-2">
+              <Label>Priority</Label>
+              <Select value={editPriority} onValueChange={(v) => setEditPriority(v as "high" | "medium" | "low")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">
+                    <span className="flex items-center gap-1.5">
+                      <Flag className="h-3 w-3 text-red-500" /> High — Must achieve first
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="medium">
+                    <span className="flex items-center gap-1.5">
+                      <Flag className="h-3 w-3 text-amber-500" /> Medium — Important but flexible
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="low">
+                    <span className="flex items-center gap-1.5">
+                      <Flag className="h-3 w-3 text-blue-500" /> Low — Nice to have
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <Button
               type="submit"
               className="w-full"
@@ -688,119 +775,158 @@ export default function GoalsPage() {
       </Dialog>
 
       <main className="px-4 sm:px-6 lg:px-8 py-4 min-w-0 overflow-x-hidden">
-        <div className="space-y-3">
-        {/* Goals List */}
         {goals.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Circle className="h-8 w-8 text-muted-foreground/40 mb-3" />
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Circle className="h-10 w-10 text-muted-foreground/30 mb-3" />
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">No goals yet</p>
             <p className="text-xs text-muted-foreground">Add your first goal to start tracking</p>
           </div>
         ) : (
-          goals.map((goal) => {
-            const progress = (goal.currentAmount / goal.targetAmount) * 100;
-            const isCompleted = goal.status === "completed";
-            const isOverdue = new Date(goal.targetDate) < new Date() && !isCompleted;
-            const probability = calculateGoalProbability(goal);
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sortedGoals.map((goal) => {
+              const progress = Math.min(100, (goal.currentAmount / goal.targetAmount) * 100);
+              const isCompleted = goal.status === "completed";
+              const isOverdue = new Date(goal.targetDate) < new Date() && !isCompleted;
+              const probability = calculateGoalProbability(goal);
+              const priority = goal.priority ?? "medium";
 
-            return (
-              <Card
-                key={goal.id}
-                className={`cursor-pointer hover:shadow-md transition-shadow ${
-                  probability.status === "at-risk"
-                    ? "border-orange-200 dark:border-orange-800"
-                    : probability.status === "unlikely"
-                      ? "border-red-200 dark:border-red-800"
-                      : ""
-                }`}
-                onClick={() => openDetailsModal(goal)}
-              >
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      {isCompleted ? (
-                        <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
-                      ) : (
-                        <Circle className="h-4 w-4 text-muted-foreground/60 shrink-0" />
-                      )}
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm truncate">{goal.title}</p>
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              // Top accent color by priority / status
+              const accentColor = isCompleted
+                ? "bg-emerald-500"
+                : isOverdue
+                  ? "bg-red-500"
+                  : priority === "high"
+                    ? "bg-rose-500"
+                    : priority === "medium"
+                      ? "bg-amber-500"
+                      : "bg-blue-400";
+
+              // Progress bar color
+              const barColor = isCompleted
+                ? "bg-emerald-500"
+                : isOverdue
+                  ? "bg-red-500"
+                  : "bg-blue-500";
+
+              // Chance badge color
+              const chanceCls =
+                isCompleted
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : probability.status === "on-track"
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : probability.status === "at-risk"
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-red-600 dark:text-red-400";
+
+              return (
+                <Card
+                  key={goal.id}
+                  className="relative flex flex-col overflow-hidden cursor-pointer border-border/70 shadow-sm transition-all duration-200 hover:shadow-md hover:border-border"
+                  onClick={() => openDetailsModal(goal)}
+                >
+                  {/* priority / status accent bar */}
+                  <div className={`h-0.5 w-full ${accentColor}`} />
+
+                  <CardContent className="flex flex-1 flex-col gap-3 p-4">
+                    {/* ── Header ── */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {isCompleted
+                            ? <CheckCircle className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                            : <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                          }
+                          <p className="truncate text-sm font-semibold">{goal.title}</p>
+                        </div>
+                        <p className="mt-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
                           {goal.category}
-                          {!isCompleted && (
-                            <span className={`ml-2 ${
-                              probability.status === "on-track" ? "text-green-600" :
-                              probability.status === "at-risk" ? "text-orange-600" : "text-red-600"
-                            }`}>
-                              · {probability.probability.toFixed(0)}% chance
-                            </span>
-                          )}
                         </p>
                       </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-mono font-semibold text-sm">
-                        {format(goal.currentAmount)}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">of {format(goal.targetAmount)}</p>
-                    </div>
-                  </div>
 
-                  <div className="space-y-1 mb-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Progress</span>
-                      <span className="font-mono text-[10px] font-semibold">{progress.toFixed(1)}%</span>
+                      {/* Priority badge */}
+                      {!isCompleted && (
+                        <span className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${PRIORITY_COLOR[priority]}`}>
+                          <Flag className="h-2.5 w-2.5" />
+                          {PRIORITY_LABEL[priority]}
+                        </span>
+                      )}
                     </div>
-                    <div className="w-full bg-muted rounded-full h-1.5">
-                      <div
-                        className={`h-1.5 rounded-full transition-all ${
-                          isCompleted ? "bg-green-600" : isOverdue ? "bg-red-600" : "bg-blue-600"
-                        }`}
-                        style={{ width: `${Math.min(progress, 100)}%` }}
-                      />
-                    </div>
-                  </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      <span>
-                        {isOverdue ? (
-                          <span className="text-red-500 font-medium">Overdue · {new Date(goal.targetDate).toLocaleDateString()}</span>
-                        ) : (
-                          new Date(goal.targetDate).toLocaleDateString()
-                        )}
+                    {/* ── Amount + progress ── */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-end justify-between">
+                        <div>
+                          <p className="font-mono text-lg font-bold leading-none">
+                            {format(goal.currentAmount)}
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-muted-foreground">
+                            of {format(goal.targetAmount)}
+                          </p>
+                        </div>
+                        <span className="font-mono text-sm font-semibold tabular-nums">
+                          {progress.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${barColor}`}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* ── Chance + date ── */}
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className={`font-semibold ${chanceCls}`}>
+                        {isCompleted ? "Completed!" : `${probability.probability.toFixed(0)}% chance`}
+                      </span>
+                      <span className={`flex items-center gap-1 ${isOverdue ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
+                        <Calendar className="h-3 w-3" />
+                        {isOverdue ? "Overdue · " : ""}
+                        {new Date(goal.targetDate).toLocaleDateString()}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1">
+
+                    {/* ── Actions ── */}
+                    <div className="mt-auto flex items-center justify-end gap-1 border-t border-border/50 pt-2.5">
                       {!isCompleted && (
-                        <Button variant="default" size="sm" className="h-6 px-2 bg-green-600 hover:bg-green-700 text-[10px]"
-                          onClick={(e) => { e.stopPropagation(); openAddTransactionDialog(goal); }}>
+                        <Button
+                          variant="default" size="sm"
+                          className="h-7 gap-1 bg-emerald-600 px-2 text-[10px] hover:bg-emerald-700"
+                          onClick={(e) => { e.stopPropagation(); openAddTransactionDialog(goal); }}
+                        >
                           <DollarSign className="h-3 w-3" />
+                          Add
                         </Button>
                       )}
                       {!isCompleted && progress >= 100 && (
-                        <Button variant="outline" size="sm" className="h-6 px-2 text-green-600 border-green-600"
-                          onClick={(e) => handleMarkGoalComplete(e, goal.id)}>
+                        <Button
+                          variant="outline" size="sm"
+                          className="h-7 px-2 text-emerald-600 border-emerald-600"
+                          onClick={(e) => handleMarkGoalComplete(e, goal.id)}
+                        >
                           <Check className="h-3 w-3" />
                         </Button>
                       )}
-                      <Button variant="outline" size="sm" className="h-6 px-2"
-                        onClick={(e) => { e.stopPropagation(); openEditDialog(goal); }}>
+                      <Button
+                        variant="outline" size="sm" className="h-7 px-2"
+                        onClick={(e) => { e.stopPropagation(); openEditDialog(goal); }}
+                      >
                         <Edit className="h-3 w-3" />
                       </Button>
-                      <Button variant="outline" size="sm" className="h-6 px-2"
-                        onClick={(e) => { e.stopPropagation(); handleDeleteGoal(goal.id); }}>
+                      <Button
+                        variant="outline" size="sm" className="h-7 px-2"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteGoal(goal.id); }}
+                      >
                         <Trash2 className="h-3 w-3 text-red-500" />
                       </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         )}
-        </div>
       </main>
 
       {/* Goal Details Modal */}

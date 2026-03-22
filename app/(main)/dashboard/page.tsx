@@ -725,7 +725,7 @@ export default function Dashboard() {
 
   if (loading && transactions.length === 0) {
     return (
-      <div className="min-h-screen bg-background p-8">
+      <div className="min-h-screen bg-background p-4">
         <StatsSkeleton />
       </div>
     );
@@ -756,7 +756,7 @@ export default function Dashboard() {
       <div className="min-h-screen bg-background">
         {/* ── Dark Hero Band ── */}
         <div className="bg-slate-900 dark:bg-black text-white">
-          <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+          <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
@@ -876,7 +876,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <main className="px-3 sm:px-6 lg:px-8 py-4 space-y-4">
+        <main className="px-3 sm:px-6 lg:px-8 py-3 space-y-3">
           {/* Goal prompt banner */}
           {hasNoGoals && !goalBannerDismissed && (
             <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 flex items-center gap-3">

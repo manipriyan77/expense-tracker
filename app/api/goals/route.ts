@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       targetDate,
       category,
       status,
+      priority,
       monthlyContribution,
     } = body;
 
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
         target_date: targetDate,
         category: category || "General",
         status: status || "active",
+        priority: priority || "medium",
         monthly_contribution: monthlyContribution ?? 0,
         user_id: user.id,
       })

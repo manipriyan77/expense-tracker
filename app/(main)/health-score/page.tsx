@@ -429,7 +429,7 @@ export default function HealthScorePage() {
         <h1 className="font-semibold text-base">Financial Health Score</h1>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
 
         {/* Score hero */}
         <Card className="overflow-hidden">

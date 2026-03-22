@@ -263,7 +263,7 @@ export default function CalendarPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="px-4 sm:px-6 lg:px-8 py-5 space-y-4">
+      <main className="px-4 sm:px-6 lg:px-8 py-3 space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Transaction Calendar</p>
@@ -380,7 +380,7 @@ export default function CalendarPage() {
           </DialogHeader>
           <div className="overflow-y-auto flex-1 min-h-0 -mx-6 px-6">
             {calSelectedDate && calGetTransactionsForDate(calSelectedDate).length === 0 ? (
-              <p className="text-muted-foreground text-center py-8 text-sm">Nothing on this date</p>
+              <p className="text-muted-foreground text-center py-4 text-sm">Nothing on this date</p>
             ) : (
               calSelectedDate && (
                 <div className="space-y-2">

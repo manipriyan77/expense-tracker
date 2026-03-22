@@ -8,6 +8,7 @@ export interface Goal {
   targetDate: string;
   category: string;
   status: "active" | "completed" | "overdue";
+  priority: "high" | "medium" | "low";
   monthlyContribution?: number;
   user_id: string;
   created_at: string;
@@ -51,6 +52,7 @@ export const useGoalsStore = create<GoalsState>((set) => ({
         targetDate: goal.target_date as string,
         category: goal.category as string,
         status: goal.status as "active" | "completed" | "overdue",
+        priority: (goal.priority as "high" | "medium" | "low") ?? "medium",
         monthlyContribution:
           goal.monthly_contribution != null
             ? parseFloat(String(goal.monthly_contribution))
@@ -97,6 +99,7 @@ export const useGoalsStore = create<GoalsState>((set) => ({
         targetDate: data.target_date,
         category: data.category,
         status: data.status,
+        priority: data.priority ?? "medium",
         monthlyContribution:
           data.monthly_contribution != null
             ? parseFloat(data.monthly_contribution)
@@ -146,6 +149,7 @@ export const useGoalsStore = create<GoalsState>((set) => ({
         targetDate: data.target_date,
         category: data.category,
         status: data.status,
+        priority: data.priority ?? "medium",
         monthlyContribution:
           data.monthly_contribution != null
             ? parseFloat(data.monthly_contribution)

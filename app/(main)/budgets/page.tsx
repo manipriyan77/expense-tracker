@@ -342,7 +342,7 @@ export default function BudgetsPage() {
     <div className="min-h-screen bg-background">
       <Toaster position="top-right" />
       <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+        <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
           <div className="mb-4">
             <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
               Budget Management
@@ -391,7 +391,7 @@ export default function BudgetsPage() {
         </div>
       </div>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-4">
+      <main className="px-4 sm:px-6 lg:px-8 py-3">
         <Tabs defaultValue="budgets" className="space-y-4">
           <TabsList>
             <TabsTrigger value="budgets">Budgets</TabsTrigger>
@@ -1102,7 +1102,7 @@ export default function BudgetsPage() {
 
             {budgets.length === 0 && (
               <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
+                <CardContent className="flex flex-col items-center justify-center py-6">
                   <TrendingDown className="h-10 w-10 text-muted-foreground mb-3" />
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
                     No budgets created yet

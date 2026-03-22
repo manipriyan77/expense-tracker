@@ -1171,7 +1171,7 @@ export default function InvestmentsPage() {
     <div className="min-h-screen bg-background">
       <Toaster richColors />
       <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+        <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
@@ -1247,7 +1247,7 @@ export default function InvestmentsPage() {
         </div>
       </div>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-4 space-y-4">
+      <main className="px-4 sm:px-6 lg:px-8 py-3 space-y-3">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-6 lg:w-auto">
@@ -2734,7 +2734,7 @@ export default function InvestmentsPage() {
           )}
 
           {importStep === "done" && (
-            <div className="py-10 text-center space-y-3">
+            <div className="py-6 text-center space-y-3">
               <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
               <p className="font-semibold text-foreground text-lg">
                 Import Complete
@@ -2799,7 +2799,7 @@ function EmptyState({
 }) {
   return (
     <Card>
-      <CardContent className="py-10 text-center">
+      <CardContent className="py-6 text-center">
         <Icon className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
         <p className="text-sm text-muted-foreground mb-3">{label}</p>
         <Button size="sm" onClick={onAdd}>

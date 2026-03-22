@@ -559,7 +559,7 @@ export default function RecurringPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+        <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
           <div className="mb-4">
             <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
               Recurring & Bills
@@ -608,7 +608,7 @@ export default function RecurringPage() {
         </div>
       </div>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-4">
+      <main className="px-4 sm:px-6 lg:px-8 py-3">
         <Tabs defaultValue="recurring" className="space-y-4">
           <TabsList>
             <TabsTrigger value="recurring">Recurring Patterns</TabsTrigger>
@@ -1584,7 +1584,7 @@ export default function RecurringPage() {
               </CardHeader>
               <CardContent className="p-2 pt-0">
                 {loading ? (
-                  <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center justify-center py-5">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : allBills.length === 0 ? (

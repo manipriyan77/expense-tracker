@@ -517,7 +517,7 @@ export default function AnalyticsPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+        <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
@@ -627,7 +627,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-4">
+      <main className="px-4 sm:px-6 lg:px-8 py-3">
         <Tabs defaultValue="overview" className="space-y-4">
           <div className="overflow-x-auto -mx-1 px-1">
             <TabsList className="flex w-max gap-0.5 h-9">
@@ -894,7 +894,7 @@ export default function AnalyticsPage() {
           </TabsContent>
 
           {/* Trends Tab */}
-          <TabsContent value="trends" className="space-y-6">
+          <TabsContent value="trends" className="space-y-4">
             <Card>
               <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -1122,7 +1122,7 @@ export default function AnalyticsPage() {
           </TabsContent>
 
           {/* Goals Tab */}
-          <TabsContent value="goals" className="space-y-6">
+          <TabsContent value="goals" className="space-y-4">
             {goalAnalysis.length > 0 && goalsTabStats ? (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1438,7 +1438,7 @@ export default function AnalyticsPage() {
               </>
             ) : (
               <Card>
-                <CardContent className="py-12 text-center">
+                <CardContent className="py-6 text-center">
                   <Target className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
                   <p className="text-lg font-semibold text-foreground mb-2">
                     No Active Goals
@@ -1452,7 +1452,7 @@ export default function AnalyticsPage() {
           </TabsContent>
 
           {/* Forecast Tab */}
-          <TabsContent value="forecast" className="space-y-6">
+          <TabsContent value="forecast" className="space-y-4">
             <Card>
               <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
@@ -1466,7 +1466,7 @@ export default function AnalyticsPage() {
                   values (orange) with a shaded band for uncertainty.
                 </p>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
                 {/* Forecast Controls */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-muted/50 rounded-lg">
                   <div className="space-y-2">
@@ -1962,7 +1962,7 @@ export default function AnalyticsPage() {
                   </>
                 ) : (
                   <Card>
-                    <CardContent className="py-12 text-center">
+                    <CardContent className="py-6 text-center">
                       <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
                       <p className="text-lg font-semibold text-foreground mb-2">
                         Insufficient Data

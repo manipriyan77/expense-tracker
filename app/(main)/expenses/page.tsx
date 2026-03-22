@@ -98,7 +98,7 @@ export default function ExpensesPage() {
     <div className="min-h-screen bg-background">
       {/* Dark Hero Band */}
       <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+        <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
           <div className="mb-4">
             <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
               Expenses
@@ -132,7 +132,7 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      <main className="px-3 sm:px-6 lg:px-8 py-4">
+      <main className="px-3 sm:px-6 lg:px-8 py-3">
         {/* Add Expense Button */}
         <div className="mb-4">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>

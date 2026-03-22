@@ -512,7 +512,7 @@ export default function NetWorthPage() {
 
   if (loading && assets.length === 0) {
     return (
-      <div className="min-h-screen bg-background p-8">
+      <div className="min-h-screen bg-background p-4">
         <StatsSkeleton />
       </div>
     );
@@ -522,7 +522,7 @@ export default function NetWorthPage() {
     <div className="min-h-screen bg-background">
       {/* ── Dark Hero ── */}
       <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-0">
+        <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-0">
           {/* Header row */}
           <div className="flex items-start justify-between mb-5">
             <div>
@@ -573,7 +573,7 @@ export default function NetWorthPage() {
         </div>
       </div>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-5 space-y-4">
+      <main className="px-4 sm:px-6 lg:px-8 py-3 space-y-3">
 
         {/* Net Worth Trend */}
         <Card>
@@ -651,7 +651,7 @@ export default function NetWorthPage() {
             </CardHeader>
             <CardContent className="pt-4 pb-2">
               {allocationItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="flex flex-col items-center justify-center py-6 text-center">
                   <Activity className="h-8 w-8 text-muted-foreground/40 mb-2" />
                   <p className="text-xs text-muted-foreground">No assets yet</p>
                 </div>
@@ -785,7 +785,7 @@ export default function NetWorthPage() {
 
             {assets.length === 0 ? (
               <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <CardContent className="flex flex-col items-center justify-center py-6 text-center">
                   <PiggyBank className="h-10 w-10 text-muted-foreground/40 mb-3" />
                   <p className="text-sm font-medium text-muted-foreground">No manual assets yet</p>
                   <p className="text-xs text-muted-foreground mt-1">Add cash, property, bank accounts etc.</p>
@@ -912,7 +912,7 @@ export default function NetWorthPage() {
 
             {liabilities.length === 0 ? (
               <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <CardContent className="flex flex-col items-center justify-center py-6 text-center">
                   <CreditCard className="h-10 w-10 text-muted-foreground/40 mb-3" />
                   <p className="text-sm font-medium text-muted-foreground">No liabilities tracked</p>
                   <p className="text-xs text-muted-foreground mt-1">Great! Or add loans and credit cards.</p>
@@ -1028,7 +1028,7 @@ export default function NetWorthPage() {
                 </CardHeader>
                 <CardContent className="pt-3">
                   {mutualFundCategories.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-8">No mutual fund data yet</p>
+                    <p className="text-xs text-muted-foreground text-center py-5">No mutual fund data yet</p>
                   ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
                       <div className="h-56">
@@ -1064,7 +1064,7 @@ export default function NetWorthPage() {
                 </CardHeader>
                 <CardContent className="pt-3">
                   {stockSectors.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-8">No stock data yet</p>
+                    <p className="text-xs text-muted-foreground text-center py-5">No stock data yet</p>
                   ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
                       <div className="h-56">

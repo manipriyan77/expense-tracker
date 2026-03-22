@@ -25,6 +25,7 @@ export async function PUT(
       targetDate,
       category,
       status,
+      priority,
       monthlyContribution,
     } = body;
 
@@ -37,6 +38,7 @@ export async function PUT(
         target_date: targetDate,
         category,
         status,
+        ...(priority !== undefined && { priority }),
         ...(monthlyContribution !== undefined && {
           monthly_contribution: monthlyContribution,
         }),

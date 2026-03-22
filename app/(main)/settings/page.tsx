@@ -77,7 +77,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+        <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
           <div className="mb-4">
             <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Settings</p>
             <p className="text-lg font-semibold text-white">{displayName}</p>
@@ -103,7 +103,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-4">
+      <main className="px-4 sm:px-6 lg:px-8 py-3">
         <Tabs defaultValue="general" className="space-y-4">
           <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="general">General</TabsTrigger>

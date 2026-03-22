@@ -25,6 +25,7 @@ import {
   CalendarClock,
   ReceiptText,
   Lightbulb,
+  Flag,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -148,10 +149,27 @@ export default function CashflowPlanningPage() {
   );
 
   // ── Planning data ─────────────────────────────────────
+  const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  const GOAL_PRIORITY_COLOR: Record<string, string> = {
+    high: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    medium:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    low: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  };
+
   const activeGoals = useMemo(
-    () => goals.filter((g) => g.status === "active"),
+    () =>
+      goals
+        .filter((g) => g.status === "active")
+        .sort(
+          (a, b) =>
+            (PRIORITY_ORDER[a.priority ?? "medium"] ?? 1) -
+            (PRIORITY_ORDER[b.priority ?? "medium"] ?? 1),
+        ),
     [goals],
   );
+
+  const highPriorityGoals = activeGoals.filter((g) => g.priority === "high");
 
   const sortedBudgets = useMemo(
     () =>
@@ -199,13 +217,20 @@ export default function CashflowPlanningPage() {
   const forecastData = useMemo(() => {
     const toMonthly = (amount: number, freq: string) => {
       switch (freq) {
-        case "daily": return amount * 30.4;
-        case "weekly": return amount * 4.33;
-        case "biweekly": return amount * 2.17;
-        case "monthly": return amount;
-        case "quarterly": return amount / 3;
-        case "yearly": return amount / 12;
-        default: return amount;
+        case "daily":
+          return amount * 30.4;
+        case "weekly":
+          return amount * 4.33;
+        case "biweekly":
+          return amount * 2.17;
+        case "monthly":
+          return amount;
+        case "quarterly":
+          return amount / 3;
+        case "yearly":
+          return amount / 12;
+        default:
+          return amount;
       }
     };
 
@@ -224,7 +249,10 @@ export default function CashflowPlanningPage() {
       const d = new Date();
       d.setDate(1);
       d.setMonth(d.getMonth() + 1 + i);
-      const label = d.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+      const label = d.toLocaleDateString("en-IN", {
+        month: "short",
+        year: "2-digit",
+      });
       return {
         label,
         Income: Math.round(projIncome),
@@ -234,14 +262,16 @@ export default function CashflowPlanningPage() {
     });
   }, [sixMonthAvg, patterns]);
 
-  const projectedAnnualSurplus = forecastData.reduce((s, m) => s + m.Surplus, 0);
+  const projectedAnnualSurplus = forecastData.reduce(
+    (s, m) => s + m.Surplus,
+    0,
+  );
 
   return (
     <div className="min-h-screen bg-background">
-
       {/* ── Hero Band ── */}
       <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+        <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
           <div className="mb-4">
             <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
               Cashflow & Planning
@@ -300,8 +330,7 @@ export default function CashflowPlanningPage() {
         </div>
       </div>
 
-      <main className="px-3 sm:px-6 lg:px-8 py-4 space-y-6">
-
+      <main className="px-3 sm:px-6 lg:px-8 py-3 space-y-4">
         {/* ── Cashflow section ── */}
         <section>
           <div className="flex items-center justify-between mb-3">
@@ -331,7 +360,6 @@ export default function CashflowPlanningPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
             {/* 6-month chart */}
             <Card className="lg:col-span-2 rounded-lg">
               <CardHeader className="pb-2 border-b border-border px-4 pt-4">
@@ -516,52 +544,130 @@ export default function CashflowPlanningPage() {
         {/* ── Forecast section ── */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-              6-Month Forecast
-            </p>
-            <span className="text-[10px] text-muted-foreground">Based on 6-month avg + recurring</span>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                6-Month Forecast
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                What your finances may look like in the next 6 months, based on
+                past averages and recurring bills
+              </p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Forecast chart */}
             <Card className="lg:col-span-2 rounded-lg">
               <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    Projected Cashflow
-                  </p>
-                  <span className="text-[10px] font-mono text-muted-foreground italic">Forecast</span>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Income vs Expenses — Next 6 Months
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Estimated using your 6-month average + recurring bills.
+                      Green = income, Red = expenses.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono text-muted-foreground italic shrink-0">
+                    Forecast
+                  </span>
                 </div>
               </CardHeader>
               <CardContent className="px-2 pt-4 pb-2">
                 {forecastData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
-                    <AreaChart data={forecastData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                    <AreaChart
+                      data={forecastData}
+                      margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
+                    >
                       <defs>
-                        <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#22c55e" stopOpacity={0.2} />
-                          <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                        <linearGradient
+                          id="incomeGrad"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="#22c55e"
+                            stopOpacity={0.2}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="#22c55e"
+                            stopOpacity={0}
+                          />
                         </linearGradient>
-                        <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
-                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                        <linearGradient
+                          id="expenseGrad"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="#ef4444"
+                            stopOpacity={0.2}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="#ef4444"
+                            stopOpacity={0}
+                          />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
-                      <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        className="stroke-muted"
+                      />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fontSize: 10 }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
                       <YAxis
                         tick={{ fontSize: 10 }}
                         tickLine={false}
                         axisLine={false}
                         tickFormatter={(v) =>
-                          v >= 100_000 ? `${(v / 100_000).toFixed(1)}L` : v >= 1_000 ? `${(v / 1_000).toFixed(0)}K` : `${v}`
+                          v >= 100_000
+                            ? `${(v / 100_000).toFixed(1)}L`
+                            : v >= 1_000
+                              ? `${(v / 1_000).toFixed(0)}K`
+                              : `${v}`
                         }
                         width={40}
                       />
-                      <Tooltip formatter={(v: unknown) => format(Number(v ?? 0))} contentStyle={{ fontSize: 12 }} />
-                      <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
-                      <Area type="monotone" dataKey="Income" stroke="#22c55e" strokeWidth={2} fill="url(#incomeGrad)" dot={false} />
-                      <Area type="monotone" dataKey="Expenses" stroke="#ef4444" strokeWidth={2} fill="url(#expenseGrad)" dot={false} />
+                      <Tooltip
+                        formatter={(v: unknown) => format(Number(v ?? 0))}
+                        contentStyle={{ fontSize: 12 }}
+                      />
+                      <Legend
+                        iconType="square"
+                        iconSize={8}
+                        wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="Income"
+                        stroke="#22c55e"
+                        strokeWidth={2}
+                        fill="url(#incomeGrad)"
+                        dot={false}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="Expenses"
+                        stroke="#ef4444"
+                        strokeWidth={2}
+                        fill="url(#expenseGrad)"
+                        dot={false}
+                      />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
@@ -575,21 +681,57 @@ export default function CashflowPlanningPage() {
             {/* Forecast summary */}
             <Card className="rounded-lg">
               <CardHeader className="pb-0 border-b border-border px-4 pt-4">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground pb-2">Projection Summary</p>
+                <div className="pb-2">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Monthly Savings Forecast
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    How much you&apos;re expected to save each month (Income −
+                    Expenses)
+                  </p>
+                </div>
               </CardHeader>
-              <CardContent className="p-0 divide-y divide-border">
-                {forecastData.map((m) => (
-                  <div key={m.label} className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-xs text-muted-foreground font-medium">{m.label}</span>
-                    <span className={`text-xs font-mono font-semibold ${m.Surplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                      {m.Surplus >= 0 ? "+" : ""}{shortAmount(m.Surplus)}
+              <CardContent className="p-0 flex flex-col">
+                <div className="overflow-y-auto divide-y divide-border max-h-52">
+                  {forecastData.map((m) => (
+                    <div key={m.label} className="px-4 py-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">{m.label}</span>
+                        <span
+                          className={`text-xs font-mono font-semibold ${m.Surplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {m.Surplus >= 0 ? "+" : ""}
+                          {shortAmount(m.Surplus)} saved
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground font-mono">
+                        <span className="text-green-600 dark:text-green-400">
+                          ↑{shortAmount(m.Income)}
+                        </span>
+                        <span className="text-muted-foreground">income</span>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="text-red-500">
+                          ↓{shortAmount(m.Expenses)}
+                        </span>
+                        <span className="text-muted-foreground">expenses</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-t border-border shrink-0">
+                  <div>
+                    <span className="text-xs font-semibold">
+                      6-month total savings
                     </span>
+                    <p className="text-[10px] text-muted-foreground">
+                      Expected cumulative surplus
+                    </p>
                   </div>
-                ))}
-                <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
-                  <span className="text-xs font-semibold">6-month total</span>
-                  <span className={`text-sm font-mono font-bold ${projectedAnnualSurplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                    {projectedAnnualSurplus >= 0 ? "+" : ""}{shortAmount(projectedAnnualSurplus)}
+                  <span
+                    className={`text-sm font-mono font-bold ${projectedAnnualSurplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                  >
+                    {projectedAnnualSurplus >= 0 ? "+" : ""}
+                    {shortAmount(projectedAnnualSurplus)}
                   </span>
                 </div>
               </CardContent>
@@ -626,7 +768,6 @@ export default function CashflowPlanningPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
             {/* Goals */}
             <Card className="rounded-lg">
               <CardHeader className="pb-0 border-b border-border px-4 pt-4">
@@ -650,10 +791,10 @@ export default function CashflowPlanningPage() {
                   </Link>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 overflow-y-auto max-h-72">
                 {activeGoals.length > 0 ? (
                   <div className="divide-y divide-border">
-                    {activeGoals.slice(0, 4).map((g) => {
+                    {activeGoals.map((g) => {
                       const pct = Math.min(
                         100,
                         (g.currentAmount / g.targetAmount) * 100,
@@ -714,10 +855,10 @@ export default function CashflowPlanningPage() {
                   </Link>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 overflow-y-auto max-h-72">
                 {sortedBudgets.length > 0 ? (
                   <div className="divide-y divide-border">
-                    {sortedBudgets.slice(0, 4).map((b) => {
+                    {sortedBudgets.map((b) => {
                       const spent = b.spent_amount || 0;
                       const pct =
                         b.limit_amount > 0
@@ -786,10 +927,10 @@ export default function CashflowPlanningPage() {
                   </Link>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 flex flex-col">
                 {debts.length > 0 ? (
-                  <div className="divide-y divide-border">
-                    <div className="px-4 py-3 bg-muted/30">
+                  <div className="divide-y divide-border flex flex-col">
+                    <div className="px-4 py-3 bg-muted/30 shrink-0">
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
                           Total Outstanding
@@ -804,36 +945,38 @@ export default function CashflowPlanningPage() {
                         </p>
                       )}
                     </div>
-                    {debts.slice(0, 3).map((d) => {
-                      const paidPct =
-                        d.original_amount > 0
-                          ? Math.min(
-                              100,
-                              ((d.original_amount - d.balance) /
-                                d.original_amount) *
+                    <div className="overflow-y-auto max-h-55 divide-y divide-border">
+                      {debts.map((d) => {
+                        const paidPct =
+                          d.original_amount > 0
+                            ? Math.min(
                                 100,
-                            )
-                          : 0;
-                      return (
-                        <div key={d.id} className="px-4 py-3">
-                          <div className="flex justify-between items-center mb-1.5">
-                            <span className="text-sm font-medium truncate max-w-[140px]">
-                              {d.name}
-                            </span>
-                            <span className="text-xs font-mono text-muted-foreground ml-2">
-                              {format(d.balance)}
-                            </span>
+                                ((d.original_amount - d.balance) /
+                                  d.original_amount) *
+                                  100,
+                              )
+                            : 0;
+                        return (
+                          <div key={d.id} className="px-4 py-3">
+                            <div className="flex justify-between items-center mb-1.5">
+                              <span className="text-sm font-medium truncate max-w-[140px]">
+                                {d.name}
+                              </span>
+                              <span className="text-xs font-mono text-muted-foreground ml-2">
+                                {format(d.balance)}
+                              </span>
+                            </div>
+                            <Progress
+                              value={paidPct}
+                              className="h-1 [&>div]:bg-blue-500"
+                            />
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              {paidPct.toFixed(0)}% paid off
+                            </p>
                           </div>
-                          <Progress
-                            value={paidPct}
-                            className="h-1 [&>div]:bg-blue-500"
-                          />
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {paidPct.toFixed(0)}% paid off
-                          </p>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : (
                   <div className="h-[140px] flex flex-col items-center justify-center text-muted-foreground gap-2">

@@ -816,11 +816,11 @@ export default function DebtTrackerPage() {
   if (loading && debts.length === 0) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="bg-slate-900 dark:bg-black px-3 sm:px-6 lg:px-8 pt-5 pb-6">
+        <div className="bg-slate-900 dark:bg-black px-3 sm:px-6 lg:px-8 pt-4 pb-4">
           <Skeleton className="h-4 w-24 bg-slate-700 mb-2" />
           <Skeleton className="h-3 w-40 bg-slate-800" />
         </div>
-        <div className="px-3 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="px-3 sm:px-6 lg:px-8 py-4 space-y-4">
           <StatsSkeleton />
           <div className="space-y-3">
             {[...Array(3)].map((_, i) => (
@@ -845,7 +845,7 @@ export default function DebtTrackerPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+        <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
@@ -1091,7 +1091,7 @@ export default function DebtTrackerPage() {
         </div>
       </div>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-4">
+      <main className="px-4 sm:px-6 lg:px-8 py-3">
         {/* Payoff Progress Charts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <Card>
@@ -1351,7 +1351,7 @@ export default function DebtTrackerPage() {
                   Choose a strategy to pay off your debts faster
                 </p>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
                 <div className="flex gap-4">
                   <Button
                     variant={

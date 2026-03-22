@@ -94,7 +94,7 @@ export default function IncomesPage() {
     <div className="min-h-screen bg-background">
       {/* Dark Hero Band */}
       <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-3 sm:px-6 lg:px-8 pt-5 pb-0">
+        <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
           <div className="mb-4">
             <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Incomes</p>
             <p className="text-xs text-slate-500">Track and manage your income sources</p>
@@ -114,7 +114,7 @@ export default function IncomesPage() {
         </div>
       </div>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-4">
+      <main className="px-4 sm:px-6 lg:px-8 py-3">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
           <Card>
