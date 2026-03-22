@@ -70,7 +70,12 @@ import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
 
-type AssetClass = "stocks" | "mutual-funds" | "gold" | "forex" | "other-investments";
+type AssetClass =
+  | "stocks"
+  | "mutual-funds"
+  | "gold"
+  | "forex"
+  | "other-investments";
 
 const ASSET_CLASSES: {
   key: AssetClass;
@@ -203,7 +208,11 @@ const defaultOtherForm = {
   interestRate: "",
   notes: "",
   premiumAmount: "",
-  premiumFrequency: "monthly" as "monthly" | "quarterly" | "semi-annual" | "annual",
+  premiumFrequency: "monthly" as
+    | "monthly"
+    | "quarterly"
+    | "semi-annual"
+    | "annual",
   sumAssured: "",
 };
 
@@ -253,7 +262,7 @@ export default function InvestmentsPage() {
 
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(
-    () => searchParams.get("tab") ?? "all"
+    () => searchParams.get("tab") ?? "all",
   );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogStep, setDialogStep] = useState<1 | 2>(1);
@@ -332,7 +341,11 @@ export default function InvestmentsPage() {
     );
 
     const totalInvested =
-      stockInvested + mfInvested + goldInvested + forexDeposited + otherInvested;
+      stockInvested +
+      mfInvested +
+      goldInvested +
+      forexDeposited +
+      otherInvested;
     const totalCurrent =
       stockCurrent + mfCurrent + goldCurrent + forexBalance + otherCurrent;
     const totalPnl = totalCurrent - totalInvested;
@@ -363,11 +376,15 @@ export default function InvestmentsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to refresh prices");
       if (data.updated > 0) {
-        toast.success(`Updated ${data.updated} price${data.updated > 1 ? "s" : ""} from market`);
+        toast.success(
+          `Updated ${data.updated} price${data.updated > 1 ? "s" : ""} from market`,
+        );
         fetchStocks();
         fetchMutualFunds();
       } else {
-        toast.info("No prices updated — check that symbols match Yahoo Finance format (e.g. RELIANCE.NS)");
+        toast.info(
+          "No prices updated — check that symbols match Yahoo Finance format (e.g. RELIANCE.NS)",
+        );
       }
     } catch (err) {
       toast.error((err as Error).message);
@@ -598,44 +615,94 @@ export default function InvestmentsPage() {
         const fdFreq = otherForm.premiumFrequency || "quarterly";
         const rdInstallment = parseFloat(otherForm.premiumAmount) || 0;
         const rdRate = parseFloat(otherForm.interestRate) || 0;
-        const rdMonthsElapsed = isRDType && otherForm.startDate
-          ? Math.max(0, Math.floor((new Date().getTime() - new Date(otherForm.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30.44)))
-          : 0;
-        const rdTotalMonths = isRDType && otherForm.startDate && otherForm.maturityDate
-          ? Math.max(0, Math.round((new Date(otherForm.maturityDate).getTime() - new Date(otherForm.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30.44)))
-          : 0;
+        const rdMonthsElapsed =
+          isRDType && otherForm.startDate
+            ? Math.max(
+                0,
+                Math.floor(
+                  (new Date().getTime() -
+                    new Date(otherForm.startDate).getTime()) /
+                    (1000 * 60 * 60 * 24 * 30.44),
+                ),
+              )
+            : 0;
+        const rdTotalMonths =
+          isRDType && otherForm.startDate && otherForm.maturityDate
+            ? Math.max(
+                0,
+                Math.round(
+                  (new Date(otherForm.maturityDate).getTime() -
+                    new Date(otherForm.startDate).getTime()) /
+                    (1000 * 60 * 60 * 24 * 30.44),
+                ),
+              )
+            : 0;
 
-        const premAmt = (!isFDType && !isRDType && otherForm.premiumAmount)
-          ? parseFloat(otherForm.premiumAmount)
-          : isRDType ? rdInstallment : undefined;
+        const premAmt =
+          !isFDType && !isRDType && otherForm.premiumAmount
+            ? parseFloat(otherForm.premiumAmount)
+            : isRDType
+              ? rdInstallment
+              : undefined;
         const autoInvested = isRDType
           ? rdInstallment * rdMonthsElapsed
-          : (!isFDType && premAmt && otherForm.startDate)
-            ? calcPremiumsPaid(premAmt, otherForm.premiumFrequency, otherForm.startDate)
+          : !isFDType && premAmt && otherForm.startDate
+            ? calcPremiumsPaid(
+                premAmt,
+                otherForm.premiumFrequency,
+                otherForm.startDate,
+              )
             : 0;
-        const investedAmount = parseFloat(otherForm.investedAmount) || autoInvested || 0;
+        const investedAmount =
+          parseFloat(otherForm.investedAmount) || autoInvested || 0;
 
-        const autoCurrentValue = isFDType && fdPrincipal && fdRate && otherForm.startDate
-          ? calcFdValue(fdPrincipal, fdRate, fdFreq, otherForm.startDate)
-          : 0;
-        const autoMaturity = isFDType && fdPrincipal && fdRate && otherForm.startDate && otherForm.maturityDate
-          ? calcFdValue(fdPrincipal, fdRate, fdFreq, otherForm.startDate, otherForm.maturityDate)
-          : isRDType && rdInstallment && rdRate && rdTotalMonths
-            ? calcRdMaturity(rdInstallment, rdRate, rdTotalMonths)
+        const autoCurrentValue =
+          isFDType && fdPrincipal && fdRate && otherForm.startDate
+            ? calcFdValue(fdPrincipal, fdRate, fdFreq, otherForm.startDate)
             : 0;
+        const autoMaturity =
+          isFDType &&
+          fdPrincipal &&
+          fdRate &&
+          otherForm.startDate &&
+          otherForm.maturityDate
+            ? calcFdValue(
+                fdPrincipal,
+                fdRate,
+                fdFreq,
+                otherForm.startDate,
+                otherForm.maturityDate,
+              )
+            : isRDType && rdInstallment && rdRate && rdTotalMonths
+              ? calcRdMaturity(rdInstallment, rdRate, rdTotalMonths)
+              : 0;
 
         const payload: Omit<OtherInvestment, "id"> = {
           name: otherForm.name,
           type: otherForm.type,
           investedAmount,
-          currentValue: parseFloat(otherForm.currentValue) || autoCurrentValue || investedAmount || 0,
+          currentValue:
+            parseFloat(otherForm.currentValue) ||
+            autoCurrentValue ||
+            investedAmount ||
+            0,
           startDate: otherForm.startDate,
           maturityDate: otherForm.maturityDate || undefined,
-          interestRate: otherForm.interestRate ? parseFloat(otherForm.interestRate) : undefined,
+          interestRate: otherForm.interestRate
+            ? parseFloat(otherForm.interestRate)
+            : undefined,
           notes: otherForm.notes || undefined,
-          premiumAmount: isRDType ? rdInstallment || undefined : (premAmt || undefined),
-          premiumFrequency: isFDType ? (fdFreq as typeof otherForm.premiumFrequency) : (premAmt ? otherForm.premiumFrequency : undefined),
-          sumAssured: otherForm.sumAssured ? parseFloat(otherForm.sumAssured) : (autoMaturity || undefined),
+          premiumAmount: isRDType
+            ? rdInstallment || undefined
+            : premAmt || undefined,
+          premiumFrequency: isFDType
+            ? (fdFreq as typeof otherForm.premiumFrequency)
+            : premAmt
+              ? otherForm.premiumFrequency
+              : undefined,
+          sumAssured: otherForm.sumAssured
+            ? parseFloat(otherForm.sumAssured)
+            : autoMaturity || undefined,
         };
         if (editMode && editId) {
           await updateInvestment(editId, payload);
@@ -741,7 +808,8 @@ export default function InvestmentsPage() {
     const today = new Date().toISOString().split("T")[0]!;
     if (!val) return today;
     // Must contain at least one letter or dash/slash separator and match a date-like pattern
-    if (!/\d{1,4}[-/]\d{1,2}[-/]\d{1,4}/.test(val) && !/[a-zA-Z]/.test(val)) return today;
+    if (!/\d{1,4}[-/]\d{1,2}[-/]\d{1,4}/.test(val) && !/[a-zA-Z]/.test(val))
+      return today;
     const d = new Date(val);
     return isNaN(d.getTime()) ? today : d.toISOString().split("T")[0]!;
   };
@@ -813,7 +881,9 @@ export default function InvestmentsPage() {
               currentPrice: curP,
               investedAmount: shares * avgP,
               currentValue: shares * curP,
-              purchaseDate: parseDate(findCol(row, "purchase_date", "date", "invested since")),
+              purchaseDate: parseDate(
+                findCol(row, "purchase_date", "date", "invested since"),
+              ),
               sector: findCol(row, "sector") || null,
               subSector: null,
             });
@@ -871,7 +941,15 @@ export default function InvestmentsPage() {
                 .toLowerCase()
                 .replace(/[^a-z0-9]+/g, "_")
                 .replace(/(^_|_$)/g, "") || "other";
-            const purchaseDateVal = parseDate(findCol(row, "invested since", "purchase_date", "purchase date", "date"));
+            const purchaseDateVal = parseDate(
+              findCol(
+                row,
+                "invested since",
+                "purchase_date",
+                "purchase date",
+                "date",
+              ),
+            );
 
             await addMutualFund({
               name: nameVal,
@@ -1190,7 +1268,9 @@ export default function InvestmentsPage() {
                 disabled={refreshingPrices}
                 title="Fetch latest prices from Yahoo Finance"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${refreshingPrices ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`h-4 w-4 mr-2 ${refreshingPrices ? "animate-spin" : ""}`}
+                />
                 {refreshingPrices ? "Refreshing..." : "Refresh Prices"}
               </Button>
               <Button
@@ -1623,28 +1703,50 @@ export default function InvestmentsPage() {
                     {sectorData.length > 0 && (
                       <Card className="overflow-hidden p-0">
                         <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Stock Sector Allocation</p>
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                            Stock Sector Allocation
+                          </p>
                         </CardHeader>
                         <div className="divide-y divide-border">
                           {(() => {
-                            const total = sectorData.reduce((s, d) => s + d.value, 0);
+                            const total = sectorData.reduce(
+                              (s, d) => s + d.value,
+                              0,
+                            );
                             return sectorData.slice(0, 6).map((item, i) => {
-                              const pct = total > 0 ? (item.value / total) * 100 : 0;
-                              const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
+                              const pct =
+                                total > 0 ? (item.value / total) * 100 : 0;
+                              const color =
+                                SECTOR_COLORS[i % SECTOR_COLORS.length];
                               return (
                                 <div key={item.name} className="px-4 py-2.5">
                                   <div className="flex items-center justify-between mb-1.5">
                                     <div className="flex items-center gap-2">
-                                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                                      <span className="text-sm font-medium capitalize">{item.name}</span>
+                                      <span
+                                        className="w-2 h-2 rounded-full shrink-0"
+                                        style={{ backgroundColor: color }}
+                                      />
+                                      <span className="text-sm font-medium capitalize">
+                                        {item.name}
+                                      </span>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                      <span className="font-mono text-[10px] text-muted-foreground">{pct.toFixed(1)}%</span>
-                                      <span className="font-mono font-semibold text-sm">{format(item.value)}</span>
+                                      <span className="font-mono text-[10px] text-muted-foreground">
+                                        {pct.toFixed(1)}%
+                                      </span>
+                                      <span className="font-mono font-semibold text-sm">
+                                        {format(item.value)}
+                                      </span>
                                     </div>
                                   </div>
                                   <div className="h-1 rounded-full bg-muted overflow-hidden">
-                                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                                    <div
+                                      className="h-full rounded-full"
+                                      style={{
+                                        width: `${pct}%`,
+                                        backgroundColor: color,
+                                      }}
+                                    />
                                   </div>
                                 </div>
                               );
@@ -1657,28 +1759,50 @@ export default function InvestmentsPage() {
                     {mfCategoryData.length > 0 && (
                       <Card className="overflow-hidden p-0">
                         <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Mutual Fund Categories</p>
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                            Mutual Fund Categories
+                          </p>
                         </CardHeader>
                         <div className="divide-y divide-border">
                           {(() => {
-                            const total = mfCategoryData.reduce((s, d) => s + d.value, 0);
+                            const total = mfCategoryData.reduce(
+                              (s, d) => s + d.value,
+                              0,
+                            );
                             return mfCategoryData.map((item, i) => {
-                              const pct = total > 0 ? (item.value / total) * 100 : 0;
-                              const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
+                              const pct =
+                                total > 0 ? (item.value / total) * 100 : 0;
+                              const color =
+                                SECTOR_COLORS[i % SECTOR_COLORS.length];
                               return (
                                 <div key={item.name} className="px-4 py-2.5">
                                   <div className="flex items-center justify-between mb-1.5">
                                     <div className="flex items-center gap-2">
-                                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                                      <span className="text-sm font-medium">{item.name}</span>
+                                      <span
+                                        className="w-2 h-2 rounded-full shrink-0"
+                                        style={{ backgroundColor: color }}
+                                      />
+                                      <span className="text-sm font-medium">
+                                        {item.name}
+                                      </span>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                      <span className="font-mono text-[10px] text-muted-foreground">{pct.toFixed(1)}%</span>
-                                      <span className="font-mono font-semibold text-sm">{format(item.value)}</span>
+                                      <span className="font-mono text-[10px] text-muted-foreground">
+                                        {pct.toFixed(1)}%
+                                      </span>
+                                      <span className="font-mono font-semibold text-sm">
+                                        {format(item.value)}
+                                      </span>
                                     </div>
                                   </div>
                                   <div className="h-1 rounded-full bg-muted overflow-hidden">
-                                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                                    <div
+                                      className="h-full rounded-full"
+                                      style={{
+                                        width: `${pct}%`,
+                                        backgroundColor: color,
+                                      }}
+                                    />
                                   </div>
                                 </div>
                               );
@@ -1701,34 +1825,57 @@ export default function InvestmentsPage() {
               onAdd={() => openAddDialog("stocks")}
               onImport={() => openImport("stocks")}
             />
-            {stocks.length > 0 && (() => {
-              const inv = stocks.reduce((s, x) => s + x.investedAmount, 0);
-              const cur = stocks.reduce((s, x) => s + x.currentValue, 0);
-              const pnl = cur - inv;
-              const ret = inv > 0 ? (pnl / inv) * 100 : 0;
-              return (
-                <Card className="overflow-hidden p-0">
-                  <div className="grid grid-cols-4 divide-x divide-border">
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
-                      <p className="font-mono font-semibold text-sm">{format(inv)}</p>
+            {stocks.length > 0 &&
+              (() => {
+                const inv = stocks.reduce((s, x) => s + x.investedAmount, 0);
+                const cur = stocks.reduce((s, x) => s + x.currentValue, 0);
+                const pnl = cur - inv;
+                const ret = inv > 0 ? (pnl / inv) * 100 : 0;
+                return (
+                  <Card className="overflow-hidden p-0">
+                    <div className="grid grid-cols-4 divide-x divide-border">
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Invested
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(inv)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Current Value
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(cur)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Returns
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {pnl >= 0 ? "+" : ""}
+                          {format(pnl)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Overall Return
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {ret >= 0 ? "+" : ""}
+                          {ret.toFixed(2)}%
+                        </p>
+                      </div>
                     </div>
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
-                      <p className="font-mono font-semibold text-sm">{format(cur)}</p>
-                    </div>
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
-                      <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{pnl >= 0 ? "+" : ""}{format(pnl)}</p>
-                    </div>
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
-                      <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{ret >= 0 ? "+" : ""}{ret.toFixed(2)}%</p>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })()}
+                  </Card>
+                );
+              })()}
             {stocks.length === 0 ? (
               <EmptyState
                 icon={BarChart3}
@@ -1749,27 +1896,48 @@ export default function InvestmentsPage() {
                       <CardContent className="p-3">
                         <div className="flex items-start justify-between gap-1 mb-1">
                           <div className="min-w-0">
-                            <p className="font-semibold text-sm truncate">{s.name}</p>
-                            {s.symbol && <p className="text-xs font-mono text-muted-foreground">{s.symbol}</p>}
+                            <p className="font-semibold text-sm truncate">
+                              {s.name}
+                            </p>
+                            {s.symbol && (
+                              <p className="text-xs font-mono text-muted-foreground">
+                                {s.symbol}
+                              </p>
+                            )}
                           </div>
                           {s.stockType && (
-                            <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] capitalize shrink-0"
+                            >
                               {s.stockType.replace("_", " ")}
                             </Badge>
                           )}
                         </div>
                         <div className="mt-2 space-y-0.5">
                           <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">Invested</span>
-                            <span className="font-mono">{format(s.investedAmount)}</span>
+                            <span className="text-muted-foreground">
+                              Invested
+                            </span>
+                            <span className="font-mono">
+                              {format(s.investedAmount)}
+                            </span>
                           </div>
                           <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">Current</span>
-                            <span className="font-mono">{format(s.currentValue)}</span>
+                            <span className="text-muted-foreground">
+                              Current
+                            </span>
+                            <span className="font-mono">
+                              {format(s.currentValue)}
+                            </span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">P&L</span>
-                            <span className={`font-mono font-medium ${d.color}`}>{d.text}</span>
+                            <span
+                              className={`font-mono font-medium ${d.color}`}
+                            >
+                              {d.text}
+                            </span>
                           </div>
                         </div>
                       </CardContent>
@@ -1789,34 +1957,60 @@ export default function InvestmentsPage() {
               addLabel="Add Fund"
               onImport={() => openImport("mutual-funds")}
             />
-            {mutualFunds.length > 0 && (() => {
-              const inv = mutualFunds.reduce((s, x) => s + x.investedAmount, 0);
-              const cur = mutualFunds.reduce((s, x) => s + x.currentValue, 0);
-              const pnl = cur - inv;
-              const ret = inv > 0 ? (pnl / inv) * 100 : 0;
-              return (
-                <Card className="overflow-hidden p-0">
-                  <div className="grid grid-cols-4 divide-x divide-border">
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
-                      <p className="font-mono font-semibold text-sm">{format(inv)}</p>
+            {mutualFunds.length > 0 &&
+              (() => {
+                const inv = mutualFunds.reduce(
+                  (s, x) => s + x.investedAmount,
+                  0,
+                );
+                const cur = mutualFunds.reduce((s, x) => s + x.currentValue, 0);
+                const pnl = cur - inv;
+                const ret = inv > 0 ? (pnl / inv) * 100 : 0;
+                return (
+                  <Card className="overflow-hidden p-0">
+                    <div className="grid grid-cols-4 divide-x divide-border">
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Invested
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(inv)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Current Value
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(cur)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Returns
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {pnl >= 0 ? "+" : ""}
+                          {format(pnl)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Overall Return
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {ret >= 0 ? "+" : ""}
+                          {ret.toFixed(2)}%
+                        </p>
+                      </div>
                     </div>
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
-                      <p className="font-mono font-semibold text-sm">{format(cur)}</p>
-                    </div>
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
-                      <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{pnl >= 0 ? "+" : ""}{format(pnl)}</p>
-                    </div>
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
-                      <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{ret >= 0 ? "+" : ""}{ret.toFixed(2)}%</p>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })()}
+                  </Card>
+                );
+              })()}
             {mutualFunds.length === 0 ? (
               <EmptyState
                 icon={PieChartIcon}
@@ -1832,30 +2026,51 @@ export default function InvestmentsPage() {
                     <Card
                       key={f.id}
                       className="cursor-pointer hover:border-purple-400/60 transition-colors"
-                      onClick={() => setDetailItem({ type: "mutual-funds", data: f })}
+                      onClick={() =>
+                        setDetailItem({ type: "mutual-funds", data: f })
+                      }
                     >
                       <CardContent className="p-3">
                         <div className="flex items-start justify-between gap-1 mb-1">
-                          <p className="font-semibold text-sm truncate">{f.name}</p>
-                          <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                          <p className="font-semibold text-sm truncate">
+                            {f.name}
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] capitalize shrink-0"
+                          >
                             {f.category}
                           </Badge>
                         </div>
                         {f.subCategory && (
-                          <p className="text-[10px] text-muted-foreground mb-1">{f.subCategory.replace(/_/g, " ")}</p>
+                          <p className="text-[10px] text-muted-foreground mb-1">
+                            {f.subCategory.replace(/_/g, " ")}
+                          </p>
                         )}
                         <div className="mt-2 space-y-0.5">
                           <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">Invested</span>
-                            <span className="font-mono">{format(f.investedAmount)}</span>
+                            <span className="text-muted-foreground">
+                              Invested
+                            </span>
+                            <span className="font-mono">
+                              {format(f.investedAmount)}
+                            </span>
                           </div>
                           <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">Current</span>
-                            <span className="font-mono">{format(f.currentValue)}</span>
+                            <span className="text-muted-foreground">
+                              Current
+                            </span>
+                            <span className="font-mono">
+                              {format(f.currentValue)}
+                            </span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">P&L</span>
-                            <span className={`font-mono font-medium ${d.color}`}>{d.text}</span>
+                            <span
+                              className={`font-mono font-medium ${d.color}`}
+                            >
+                              {d.text}
+                            </span>
                           </div>
                         </div>
                       </CardContent>
@@ -1875,43 +2090,76 @@ export default function InvestmentsPage() {
               addLabel="Add Gold"
             />
 
-            {holdings.length > 0 && (() => {
-              const inv = holdings.reduce((s, x) => s + x.quantityGrams * x.purchasePricePerGram, 0);
-              const cur = holdings.reduce((s, x) => s + x.quantityGrams * x.currentPricePerGram, 0);
-              const pnl = cur - inv;
-              const ret = inv > 0 ? (pnl / inv) * 100 : 0;
-              return (
-                <Card className="overflow-hidden p-0">
-                  <div className="grid grid-cols-4 divide-x divide-border">
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
-                      <p className="font-mono font-semibold text-sm">{format(inv)}</p>
+            {holdings.length > 0 &&
+              (() => {
+                const inv = holdings.reduce(
+                  (s, x) => s + x.quantityGrams * x.purchasePricePerGram,
+                  0,
+                );
+                const cur = holdings.reduce(
+                  (s, x) => s + x.quantityGrams * x.currentPricePerGram,
+                  0,
+                );
+                const pnl = cur - inv;
+                const ret = inv > 0 ? (pnl / inv) * 100 : 0;
+                return (
+                  <Card className="overflow-hidden p-0">
+                    <div className="grid grid-cols-4 divide-x divide-border">
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Invested
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(inv)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Current Value
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(cur)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Returns
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {pnl >= 0 ? "+" : ""}
+                          {format(pnl)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Overall Return
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {ret >= 0 ? "+" : ""}
+                          {ret.toFixed(2)}%
+                        </p>
+                      </div>
                     </div>
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
-                      <p className="font-mono font-semibold text-sm">{format(cur)}</p>
-                    </div>
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
-                      <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{pnl >= 0 ? "+" : ""}{format(pnl)}</p>
-                    </div>
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
-                      <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{ret >= 0 ? "+" : ""}{ret.toFixed(2)}%</p>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })()}
+                  </Card>
+                );
+              })()}
 
             {/* Gold Price Update Section */}
             {holdings.length > 0 && (
               <Card className="bg-amber-50 border-amber-200">
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-semibold text-amber-800 uppercase tracking-widest">Gold Price</p>
+                    <p className="text-xs font-semibold text-amber-800 uppercase tracking-widest">
+                      Gold Price
+                    </p>
                     <div className="text-right">
-                      <p className="text-xs text-amber-600">Current Price / gram</p>
+                      <p className="text-xs text-amber-600">
+                        Current Price / gram
+                      </p>
                       <p className="font-mono font-bold text-amber-900 text-base">
                         {format(holdings[0]?.currentPricePerGram ?? 0)}
                       </p>
@@ -1982,25 +2230,46 @@ export default function InvestmentsPage() {
                     >
                       <CardContent className="p-3">
                         <div className="flex items-start justify-between gap-1 mb-1">
-                          <p className="font-semibold text-sm truncate">{g.name}</p>
+                          <p className="font-semibold text-sm truncate">
+                            {g.name}
+                          </p>
                           <div className="flex gap-1 shrink-0">
-                            <Badge variant="outline" className="text-[10px] capitalize">{g.type.replace("_", " ")}</Badge>
-                            <Badge variant="outline" className="text-[10px]">{g.purity}k</Badge>
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] capitalize"
+                            >
+                              {g.type.replace("_", " ")}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px]">
+                              {g.purity}k
+                            </Badge>
                           </div>
                         </div>
-                        <p className="text-[10px] text-muted-foreground mb-1">{g.quantityGrams}g</p>
+                        <p className="text-[10px] text-muted-foreground mb-1">
+                          {g.quantityGrams}g
+                        </p>
                         <div className="mt-2 space-y-0.5">
                           <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">Invested</span>
-                            <span className="font-mono">{format(invested)}</span>
+                            <span className="text-muted-foreground">
+                              Invested
+                            </span>
+                            <span className="font-mono">
+                              {format(invested)}
+                            </span>
                           </div>
                           <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">Current</span>
+                            <span className="text-muted-foreground">
+                              Current
+                            </span>
                             <span className="font-mono">{format(current)}</span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">P&L</span>
-                            <span className={`font-mono font-medium ${d.color}`}>{d.text}</span>
+                            <span
+                              className={`font-mono font-medium ${d.color}`}
+                            >
+                              {d.text}
+                            </span>
                           </div>
                         </div>
                       </CardContent>
@@ -2162,7 +2431,9 @@ export default function InvestmentsPage() {
                       <div className="text-xs text-muted-foreground">
                         {item.label}
                       </div>
-                      <div className={`text-base font-bold font-mono ${item.color}`}>
+                      <div
+                        className={`text-base font-bold font-mono ${item.color}`}
+                      >
                         {format(item.value)}
                       </div>
                     </CardContent>
@@ -2193,7 +2464,13 @@ export default function InvestmentsPage() {
                               variant="outline"
                               className="text-xs uppercase"
                             >
-                              {o.type === "epf" ? "EPF/PF" : o.type === "fd" ? "FD" : o.type === "rd" ? "RD" : o.type.toUpperCase()}
+                              {o.type === "epf"
+                                ? "EPF/PF"
+                                : o.type === "fd"
+                                  ? "FD"
+                                  : o.type === "rd"
+                                    ? "RD"
+                                    : o.type.toUpperCase()}
                             </Badge>
                           </div>
                           <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
@@ -2233,33 +2510,54 @@ export default function InvestmentsPage() {
                             )}
                             {o.type === "fd" && o.premiumFrequency && (
                               <div>
-                                <span className="text-muted-foreground">Compounding</span>
+                                <span className="text-muted-foreground">
+                                  Compounding
+                                </span>
                                 <p className="font-mono font-medium capitalize">
-                                  {o.premiumFrequency === "semi-annual" ? "Semi-Annual" : o.premiumFrequency.charAt(0).toUpperCase() + o.premiumFrequency.slice(1)}
+                                  {o.premiumFrequency === "semi-annual"
+                                    ? "Semi-Annual"
+                                    : o.premiumFrequency
+                                        .charAt(0)
+                                        .toUpperCase() +
+                                      o.premiumFrequency.slice(1)}
                                 </p>
                               </div>
                             )}
                             {o.type === "rd" && o.premiumAmount != null && (
                               <div>
-                                <span className="text-muted-foreground">Instalment</span>
+                                <span className="text-muted-foreground">
+                                  Instalment
+                                </span>
                                 <p className="font-mono font-medium">
                                   {format(o.premiumAmount)}/mo
                                 </p>
                               </div>
                             )}
-                            {o.type !== "fd" && o.type !== "rd" && o.premiumAmount != null && (
-                              <div>
-                                <span className="text-muted-foreground">Premium</span>
-                                <p className="font-mono font-medium">
-                                  {format(o.premiumAmount)}/
-                                  {o.premiumFrequency === "monthly" ? "mo" : o.premiumFrequency === "quarterly" ? "qtr" : o.premiumFrequency === "semi-annual" ? "6mo" : "yr"}
-                                </p>
-                              </div>
-                            )}
+                            {o.type !== "fd" &&
+                              o.type !== "rd" &&
+                              o.premiumAmount != null && (
+                                <div>
+                                  <span className="text-muted-foreground">
+                                    Premium
+                                  </span>
+                                  <p className="font-mono font-medium">
+                                    {format(o.premiumAmount)}/
+                                    {o.premiumFrequency === "monthly"
+                                      ? "mo"
+                                      : o.premiumFrequency === "quarterly"
+                                        ? "qtr"
+                                        : o.premiumFrequency === "semi-annual"
+                                          ? "6mo"
+                                          : "yr"}
+                                  </p>
+                                </div>
+                              )}
                             {o.sumAssured != null && (
                               <div>
                                 <span className="text-muted-foreground">
-                                  {o.type === "fd" || o.type === "rd" ? "Maturity Amt" : "Sum Assured"}
+                                  {o.type === "fd" || o.type === "rd"
+                                    ? "Maturity Amt"
+                                    : "Sum Assured"}
                                 </span>
                                 <p className="font-mono font-medium">
                                   {format(o.sumAssured)}
@@ -2291,7 +2589,9 @@ export default function InvestmentsPage() {
                         </div>
                         <RowActions
                           onEdit={() => openEditOther(o)}
-                          onDelete={() => handleDelete("other-investments", o.id)}
+                          onDelete={() =>
+                            handleDelete("other-investments", o.id)
+                          }
                         />
                       </div>
                     </CardContent>
@@ -2406,102 +2706,332 @@ export default function InvestmentsPage() {
                   : (detailItem?.data as GoldHolding)?.name}
             </DialogTitle>
           </DialogHeader>
-          {detailItem?.type === "stocks" && (() => {
-            const s = detailItem.data as Stock;
-            const pnl = s.currentValue - s.investedAmount;
-            const d = pnlInfo(pnl, s.investedAmount);
-            return (
-              <div className="space-y-3 text-sm">
-                <div className="flex flex-wrap gap-1">
-                  {s.symbol && <Badge variant="outline" className="font-mono">{s.symbol}</Badge>}
-                  {s.stockType && <Badge variant="outline" className="capitalize">{s.stockType.replace("_", " ")}</Badge>}
-                  {s.sector && <Badge variant="outline" className="capitalize">{s.sector.replace(/_/g, " ")}</Badge>}
+          {detailItem?.type === "stocks" &&
+            (() => {
+              const s = detailItem.data as Stock;
+              const pnl = s.currentValue - s.investedAmount;
+              const d = pnlInfo(pnl, s.investedAmount);
+              return (
+                <div className="space-y-3 text-sm">
+                  <div className="flex flex-wrap gap-1">
+                    {s.symbol && (
+                      <Badge variant="outline" className="font-mono">
+                        {s.symbol}
+                      </Badge>
+                    )}
+                    {s.stockType && (
+                      <Badge variant="outline" className="capitalize">
+                        {s.stockType.replace("_", " ")}
+                      </Badge>
+                    )}
+                    {s.sector && (
+                      <Badge variant="outline" className="capitalize">
+                        {s.sector.replace(/_/g, " ")}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Shares
+                      </p>
+                      <p className="font-mono font-medium">{s.shares}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Avg Price
+                      </p>
+                      <p className="font-mono font-medium">
+                        {format(s.avgPurchasePrice)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        CMP
+                      </p>
+                      <p className="font-mono font-medium">
+                        {format(s.currentPrice)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Invested
+                      </p>
+                      <p className="font-mono font-medium">
+                        {format(s.investedAmount)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Current Value
+                      </p>
+                      <p className="font-mono font-medium">
+                        {format(s.currentValue)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        P&L
+                      </p>
+                      <p className={`font-mono font-medium ${d.color}`}>
+                        {d.text}
+                      </p>
+                    </div>
+                    {s.purchaseDate && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Purchase Date
+                        </p>
+                        <p>{s.purchaseDate}</p>
+                      </div>
+                    )}
+                    {s.subSector && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Sub Sector
+                        </p>
+                        <p className="capitalize">
+                          {s.subSector.replace(/_/g, " ")}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setDetailItem(null);
+                        openEditStock(s);
+                      }}
+                    >
+                      <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => {
+                        handleDelete("stocks", s.id);
+                        setDetailItem(null);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                    </Button>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Shares</p><p className="font-mono font-medium">{s.shares}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Avg Price</p><p className="font-mono font-medium">{format(s.avgPurchasePrice)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">CMP</p><p className="font-mono font-medium">{format(s.currentPrice)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Invested</p><p className="font-mono font-medium">{format(s.investedAmount)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Current Value</p><p className="font-mono font-medium">{format(s.currentValue)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">P&L</p><p className={`font-mono font-medium ${d.color}`}>{d.text}</p></div>
-                  {s.purchaseDate && <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Purchase Date</p><p>{s.purchaseDate}</p></div>}
-                  {s.subSector && <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Sub Sector</p><p className="capitalize">{s.subSector.replace(/_/g, " ")}</p></div>}
+              );
+            })()}
+          {detailItem?.type === "mutual-funds" &&
+            (() => {
+              const f = detailItem.data as MutualFund;
+              const pnl = f.currentValue - f.investedAmount;
+              const d = pnlInfo(pnl, f.investedAmount);
+              return (
+                <div className="space-y-3 text-sm">
+                  <div className="flex flex-wrap gap-1">
+                    {f.symbol && (
+                      <Badge variant="outline" className="font-mono">
+                        {f.symbol}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="capitalize">
+                      {f.category}
+                    </Badge>
+                    {f.subCategory && (
+                      <Badge variant="outline" className="capitalize">
+                        {f.subCategory.replace(/_/g, " ")}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Units
+                      </p>
+                      <p className="font-mono font-medium">{f.units}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Purchase NAV
+                      </p>
+                      <p className="font-mono font-medium">
+                        {format(f.purchaseNav)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Current NAV
+                      </p>
+                      <p className="font-mono font-medium">{format(f.nav)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Invested
+                      </p>
+                      <p className="font-mono font-medium">
+                        {format(f.investedAmount)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Current Value
+                      </p>
+                      <p className="font-mono font-medium">
+                        {format(f.currentValue)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        P&L
+                      </p>
+                      <p className={`font-mono font-medium ${d.color}`}>
+                        {d.text}
+                      </p>
+                    </div>
+                    {f.purchaseDate && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Purchase Date
+                        </p>
+                        <p>{f.purchaseDate}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setDetailItem(null);
+                        openEditMf(f);
+                      }}
+                    >
+                      <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => {
+                        handleDelete("mutual-funds", f.id);
+                        setDetailItem(null);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-2 pt-1">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => { setDetailItem(null); openEditStock(s); }}>
-                    <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
-                  </Button>
-                  <Button size="sm" variant="destructive" className="flex-1" onClick={() => { handleDelete("stocks", s.id); setDetailItem(null); }}>
-                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
-                  </Button>
+              );
+            })()}
+          {detailItem?.type === "gold" &&
+            (() => {
+              const g = detailItem.data as GoldHolding;
+              const invested = g.quantityGrams * g.purchasePricePerGram;
+              const current = g.quantityGrams * g.currentPricePerGram;
+              const pnl = current - invested;
+              const d = pnlInfo(pnl, invested);
+              return (
+                <div className="space-y-3 text-sm">
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="outline" className="capitalize">
+                      {g.type.replace("_", " ")}
+                    </Badge>
+                    <Badge variant="outline">{g.purity}k purity</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Quantity
+                      </p>
+                      <p className="font-mono font-medium">
+                        {g.quantityGrams}g
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Buy ₹/g
+                      </p>
+                      <p className="font-mono font-medium">
+                        {format(g.purchasePricePerGram)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Current ₹/g
+                      </p>
+                      <p className="font-mono font-medium">
+                        {format(g.currentPricePerGram)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Invested
+                      </p>
+                      <p className="font-mono font-medium">
+                        {format(invested)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Current Value
+                      </p>
+                      <p className="font-mono font-medium">{format(current)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        P&L
+                      </p>
+                      <p className={`font-mono font-medium ${d.color}`}>
+                        {d.text}
+                      </p>
+                    </div>
+                    {g.purchaseDate && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Purchase Date
+                        </p>
+                        <p>{g.purchaseDate}</p>
+                      </div>
+                    )}
+                    {g.notes && (
+                      <div className="col-span-2">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Notes
+                        </p>
+                        <p>{g.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setDetailItem(null);
+                        openEditGold(g);
+                      }}
+                    >
+                      <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => {
+                        handleDelete("gold", g.id);
+                        setDetailItem(null);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            );
-          })()}
-          {detailItem?.type === "mutual-funds" && (() => {
-            const f = detailItem.data as MutualFund;
-            const pnl = f.currentValue - f.investedAmount;
-            const d = pnlInfo(pnl, f.investedAmount);
-            return (
-              <div className="space-y-3 text-sm">
-                <div className="flex flex-wrap gap-1">
-                  {f.symbol && <Badge variant="outline" className="font-mono">{f.symbol}</Badge>}
-                  <Badge variant="outline" className="capitalize">{f.category}</Badge>
-                  {f.subCategory && <Badge variant="outline" className="capitalize">{f.subCategory.replace(/_/g, " ")}</Badge>}
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Units</p><p className="font-mono font-medium">{f.units}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Purchase NAV</p><p className="font-mono font-medium">{format(f.purchaseNav)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Current NAV</p><p className="font-mono font-medium">{format(f.nav)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Invested</p><p className="font-mono font-medium">{format(f.investedAmount)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Current Value</p><p className="font-mono font-medium">{format(f.currentValue)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">P&L</p><p className={`font-mono font-medium ${d.color}`}>{d.text}</p></div>
-                  {f.purchaseDate && <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Purchase Date</p><p>{f.purchaseDate}</p></div>}
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => { setDetailItem(null); openEditMf(f); }}>
-                    <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
-                  </Button>
-                  <Button size="sm" variant="destructive" className="flex-1" onClick={() => { handleDelete("mutual-funds", f.id); setDetailItem(null); }}>
-                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
-                  </Button>
-                </div>
-              </div>
-            );
-          })()}
-          {detailItem?.type === "gold" && (() => {
-            const g = detailItem.data as GoldHolding;
-            const invested = g.quantityGrams * g.purchasePricePerGram;
-            const current = g.quantityGrams * g.currentPricePerGram;
-            const pnl = current - invested;
-            const d = pnlInfo(pnl, invested);
-            return (
-              <div className="space-y-3 text-sm">
-                <div className="flex flex-wrap gap-1">
-                  <Badge variant="outline" className="capitalize">{g.type.replace("_", " ")}</Badge>
-                  <Badge variant="outline">{g.purity}k purity</Badge>
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Quantity</p><p className="font-mono font-medium">{g.quantityGrams}g</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Buy ₹/g</p><p className="font-mono font-medium">{format(g.purchasePricePerGram)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Current ₹/g</p><p className="font-mono font-medium">{format(g.currentPricePerGram)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Invested</p><p className="font-mono font-medium">{format(invested)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Current Value</p><p className="font-mono font-medium">{format(current)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">P&L</p><p className={`font-mono font-medium ${d.color}`}>{d.text}</p></div>
-                  {g.purchaseDate && <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Purchase Date</p><p>{g.purchaseDate}</p></div>}
-                  {g.notes && <div className="col-span-2"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Notes</p><p>{g.notes}</p></div>}
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => { setDetailItem(null); openEditGold(g); }}>
-                    <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
-                  </Button>
-                  <Button size="sm" variant="destructive" className="flex-1" onClick={() => { handleDelete("gold", g.id); setDetailItem(null); }}>
-                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
-                  </Button>
-                </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
         </DialogContent>
       </Dialog>
 
@@ -2705,16 +3235,24 @@ export default function InvestmentsPage() {
                     onChange={(e) => setReplaceOnImport(e.target.checked)}
                   />
                   <span className="text-sm text-muted-foreground">
-                    Replace existing {importType === "stocks" ? "stocks" : "funds"}
+                    Replace existing{" "}
+                    {importType === "stocks" ? "stocks" : "funds"}
                     {replaceOnImport && (
                       <span className="ml-1 text-destructive font-medium">
-                        ({importType === "stocks" ? stocks.length : mutualFunds.length} will be deleted)
+                        (
+                        {importType === "stocks"
+                          ? stocks.length
+                          : mutualFunds.length}{" "}
+                        will be deleted)
                       </span>
                     )}
                   </span>
                 </label>
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setImportDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
                   <Button
@@ -3019,7 +3557,10 @@ function StockForm({
         </Select>
       </div>
       <div className="space-y-1.5">
-        <Label>Sub-sector <span className="text-muted-foreground text-xs">(optional)</span></Label>
+        <Label>
+          Sub-sector{" "}
+          <span className="text-muted-foreground text-xs">(optional)</span>
+        </Label>
         <Input
           placeholder="e.g. Software, Banking, EV"
           value={form.subSector}
@@ -3306,7 +3847,8 @@ function calcFdValue(
 ): number {
   const start = new Date(startDate);
   const end = toDate ? new Date(toDate) : new Date();
-  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start >= end) return principal;
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start >= end)
+    return principal;
   const n =
     frequency === "monthly"
       ? 12
@@ -3320,7 +3862,11 @@ function calcFdValue(
 }
 
 // RD maturity formula: n = months, r = annual rate
-function calcRdMaturity(monthlyInstallment: number, annualRate: number, months: number): number {
+function calcRdMaturity(
+  monthlyInstallment: number,
+  annualRate: number,
+  months: number,
+): number {
   if (months <= 0) return 0;
   const r = annualRate / (12 * 100);
   return monthlyInstallment * ((Math.pow(1 + r, months) - 1) / r) * (1 + r);
@@ -3361,7 +3907,13 @@ function OtherForm({
       : 0;
   const autoFdMaturity =
     isFD && fdPrincipal && fdRate && form.startDate && form.maturityDate
-      ? calcFdValue(fdPrincipal, fdRate, fdFreq, form.startDate, form.maturityDate)
+      ? calcFdValue(
+          fdPrincipal,
+          fdRate,
+          fdFreq,
+          form.startDate,
+          form.maturityDate,
+        )
       : 0;
 
   // RD auto-calculations
@@ -3383,7 +3935,8 @@ function OtherForm({
       ? Math.max(
           0,
           Math.round(
-            (new Date(form.maturityDate).getTime() - new Date(form.startDate).getTime()) /
+            (new Date(form.maturityDate).getTime() -
+              new Date(form.startDate).getTime()) /
               (1000 * 60 * 60 * 24 * 30.44),
           ),
         )
@@ -3472,13 +4025,18 @@ function OtherForm({
               Current Value{" "}
               {autoFdCurrentValue > 0 && (
                 <span className="text-muted-foreground text-xs">
-                  (auto: ₹{Math.round(autoFdCurrentValue).toLocaleString("en-IN")})
+                  (auto: ₹
+                  {Math.round(autoFdCurrentValue).toLocaleString("en-IN")})
                 </span>
               )}
             </Label>
             <Input
               type="number"
-              placeholder={autoFdCurrentValue > 0 ? String(Math.round(autoFdCurrentValue)) : "0.00"}
+              placeholder={
+                autoFdCurrentValue > 0
+                  ? String(Math.round(autoFdCurrentValue))
+                  : "0.00"
+              }
               value={form.currentValue}
               onChange={(e) => s("currentValue", e.target.value)}
             />
@@ -3513,7 +4071,11 @@ function OtherForm({
             </Label>
             <Input
               type="number"
-              placeholder={autoFdMaturity > 0 ? String(Math.round(autoFdMaturity)) : "e.g. 115000"}
+              placeholder={
+                autoFdMaturity > 0
+                  ? String(Math.round(autoFdMaturity))
+                  : "e.g. 115000"
+              }
               value={form.sumAssured}
               onChange={(e) => s("sumAssured", e.target.value)}
             />
@@ -3566,7 +4128,8 @@ function OtherForm({
               Total Invested{" "}
               {autoRdInvested > 0 && (
                 <span className="text-muted-foreground text-xs">
-                  (auto: ₹{autoRdInvested.toLocaleString("en-IN")} · {rdMonths} instalments)
+                  (auto: ₹{autoRdInvested.toLocaleString("en-IN")} · {rdMonths}{" "}
+                  instalments)
                 </span>
               )}
             </Label>
@@ -3588,7 +4151,11 @@ function OtherForm({
             </Label>
             <Input
               type="number"
-              placeholder={autoRdMaturity > 0 ? String(Math.round(autoRdMaturity)) : "e.g. 65000"}
+              placeholder={
+                autoRdMaturity > 0
+                  ? String(Math.round(autoRdMaturity))
+                  : "e.g. 65000"
+              }
               value={form.sumAssured}
               onChange={(e) => s("sumAssured", e.target.value)}
             />
@@ -3678,7 +4245,9 @@ function OtherForm({
           <div className="space-y-1.5">
             <Label>
               Current Value{" "}
-              <span className="text-muted-foreground text-xs">(defaults to invested)</span>
+              <span className="text-muted-foreground text-xs">
+                (defaults to invested)
+              </span>
             </Label>
             <Input
               type="number"
