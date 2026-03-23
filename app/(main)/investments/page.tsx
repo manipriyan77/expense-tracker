@@ -28,6 +28,8 @@ import {
   Cell,
   BarChart,
   Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -1818,7 +1820,7 @@ export default function InvestmentsPage() {
           </TabsContent>
 
           {/* STOCKS TAB */}
-          <TabsContent value="stocks" className="space-y-2 mt-4">
+          <TabsContent value="stocks" className="space-y-3 mt-4">
             <TabHeader
               count={stocks.length}
               label="holding"
@@ -1833,49 +1835,107 @@ export default function InvestmentsPage() {
                 const ret = inv > 0 ? (pnl / inv) * 100 : 0;
                 return (
                   <Card className="overflow-hidden p-0">
-                    <div className="grid grid-cols-4 divide-x divide-border">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border">
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
-                          Invested
-                        </p>
-                        <p className="font-mono font-semibold text-sm">
-                          {format(inv)}
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
+                        <p className="font-mono font-semibold text-sm">{format(inv)}</p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
+                        <p className="font-mono font-semibold text-sm">{format(cur)}</p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
+                        <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                          {pnl >= 0 ? "+" : ""}{format(pnl)}
                         </p>
                       </div>
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
-                          Current Value
-                        </p>
-                        <p className="font-mono font-semibold text-sm">
-                          {format(cur)}
-                        </p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
-                          Total Returns
-                        </p>
-                        <p
-                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                        >
-                          {pnl >= 0 ? "+" : ""}
-                          {format(pnl)}
-                        </p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
-                          Overall Return
-                        </p>
-                        <p
-                          className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                        >
-                          {ret >= 0 ? "+" : ""}
-                          {ret.toFixed(2)}%
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
+                        <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                          {ret >= 0 ? "+" : ""}{ret.toFixed(2)}%
                         </p>
                       </div>
                     </div>
                   </Card>
                 );
               })()}
+
+            {/* Sector chart + performance ranking */}
+            {stocks.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {sectorData.length > 0 && (
+                  <Card className="overflow-hidden p-0">
+                    <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                      <CardTitle className="text-sm font-semibold">Sector Allocation</CardTitle>
+                    </CardHeader>
+                    <div className="divide-y divide-border">
+                      {(() => {
+                        const total = sectorData.reduce((s, d) => s + d.value, 0);
+                        return sectorData.slice(0, 7).map((item, i) => {
+                          const pct = total > 0 ? (item.value / total) * 100 : 0;
+                          const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
+                          return (
+                            <div key={item.name} className="px-4 py-2.5">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                  <span className="text-sm font-medium capitalize">{item.name.replace(/_/g, " ")}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="font-mono text-[10px] text-muted-foreground">{pct.toFixed(1)}%</span>
+                                  <span className="font-mono font-semibold text-sm">{format(item.value)}</span>
+                                </div>
+                              </div>
+                              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </Card>
+                )}
+
+                <Card className="overflow-hidden p-0">
+                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                    <CardTitle className="text-sm font-semibold">Performance Ranking</CardTitle>
+                  </CardHeader>
+                  <div className="divide-y divide-border">
+                    {[...stocks]
+                      .sort((a, b) => {
+                        const ra = a.investedAmount > 0 ? (a.currentValue - a.investedAmount) / a.investedAmount : 0;
+                        const rb = b.investedAmount > 0 ? (b.currentValue - b.investedAmount) / b.investedAmount : 0;
+                        return rb - ra;
+                      })
+                      .slice(0, 7)
+                      .map((s, i) => {
+                        const pnl = s.currentValue - s.investedAmount;
+                        const ret = s.investedAmount > 0 ? (pnl / s.investedAmount) * 100 : 0;
+                        return (
+                          <div key={s.id} className="px-4 py-2.5 flex items-center gap-3">
+                            <span className="text-[10px] font-mono text-muted-foreground w-4 shrink-0">{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{s.name}</p>
+                              {s.symbol && <p className="text-[10px] font-mono text-muted-foreground">{s.symbol}</p>}
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className={`font-mono text-sm font-semibold ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                                {ret >= 0 ? "+" : ""}{ret.toFixed(1)}%
+                              </p>
+                              <p className={`font-mono text-[10px] ${pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                {pnl >= 0 ? "+" : ""}{format(pnl)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </Card>
+              </div>
+            )}
+
             {stocks.length === 0 ? (
               <EmptyState
                 icon={BarChart3}
@@ -1883,73 +1943,74 @@ export default function InvestmentsPage() {
                 onAdd={() => openAddDialog("stocks")}
               />
             ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                {stocks.map((s) => {
-                  const pnl = s.currentValue - s.investedAmount;
-                  const d = pnlInfo(pnl, s.investedAmount);
-                  return (
-                    <Card
-                      key={s.id}
-                      className="cursor-pointer hover:border-blue-400/60 transition-colors"
-                      onClick={() => setDetailItem({ type: "stocks", data: s })}
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between gap-1 mb-1">
-                          <div className="min-w-0">
-                            <p className="font-semibold text-sm truncate">
-                              {s.name}
-                            </p>
-                            {s.symbol && (
-                              <p className="text-xs font-mono text-muted-foreground">
-                                {s.symbol}
-                              </p>
-                            )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {[...stocks]
+                  .sort((a, b) => b.currentValue - a.currentValue)
+                  .map((s) => {
+                    const pnl = s.currentValue - s.investedAmount;
+                    const isPos = pnl >= 0;
+                    const d = pnlInfo(pnl, s.investedAmount);
+                    return (
+                      <Card
+                        key={s.id}
+                        className="cursor-pointer hover:border-blue-400/60 transition-colors overflow-hidden"
+                        onClick={() => setDetailItem({ type: "stocks", data: s })}
+                      >
+                        <CardContent className="p-0">
+                          <div className={`h-1 w-full ${isPos ? "bg-green-500" : "bg-red-500"}`} />
+                          <div className="p-3">
+                            <div className="flex items-start justify-between gap-1 mb-2">
+                              <div className="min-w-0">
+                                <p className="font-semibold text-sm truncate leading-tight">{s.name}</p>
+                                {s.symbol && <p className="text-[10px] font-mono text-muted-foreground">{s.symbol}</p>}
+                              </div>
+                              {s.stockType && (
+                                <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                                  {s.stockType.replace("_", " ")}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between text-xs mb-2 bg-muted/40 rounded px-2 py-1.5">
+                              <div className="text-center">
+                                <p className="text-muted-foreground text-[10px]">Shares</p>
+                                <p className="font-mono font-medium">{s.shares}</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-muted-foreground text-[10px]">Avg Cost</p>
+                                <p className="font-mono font-medium">{format(s.avgPurchasePrice)}</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-muted-foreground text-[10px]">LTP</p>
+                                <p className={`font-mono font-medium ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                                  {format(s.currentPrice)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="space-y-0.5">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Invested</span>
+                                <span className="font-mono">{format(s.investedAmount)}</span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Current</span>
+                                <span className="font-mono font-semibold">{format(s.currentValue)}</span>
+                              </div>
+                            </div>
+                            <div className={`mt-2 flex items-center justify-between rounded px-2 py-1 ${isPos ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}`}>
+                              <span className={`text-xs font-medium ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>P&L</span>
+                              <p className={`font-mono text-xs font-semibold ${d.color}`}>{d.text}</p>
+                            </div>
                           </div>
-                          {s.stockType && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] capitalize shrink-0"
-                            >
-                              {s.stockType.replace("_", " ")}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="mt-2 space-y-0.5">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              Invested
-                            </span>
-                            <span className="font-mono">
-                              {format(s.investedAmount)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              Current
-                            </span>
-                            <span className="font-mono">
-                              {format(s.currentValue)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">P&L</span>
-                            <span
-                              className={`font-mono font-medium ${d.color}`}
-                            >
-                              {d.text}
-                            </span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
               </div>
             )}
           </TabsContent>
 
           {/* MUTUAL FUNDS TAB */}
-          <TabsContent value="mutual-funds" className="space-y-2 mt-4">
+          <TabsContent value="mutual-funds" className="space-y-3 mt-4">
             <TabHeader
               count={mutualFunds.length}
               label="fund"
@@ -1959,58 +2020,113 @@ export default function InvestmentsPage() {
             />
             {mutualFunds.length > 0 &&
               (() => {
-                const inv = mutualFunds.reduce(
-                  (s, x) => s + x.investedAmount,
-                  0,
-                );
+                const inv = mutualFunds.reduce((s, x) => s + x.investedAmount, 0);
                 const cur = mutualFunds.reduce((s, x) => s + x.currentValue, 0);
                 const pnl = cur - inv;
                 const ret = inv > 0 ? (pnl / inv) * 100 : 0;
                 return (
                   <Card className="overflow-hidden p-0">
-                    <div className="grid grid-cols-4 divide-x divide-border">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border">
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
-                          Invested
-                        </p>
-                        <p className="font-mono font-semibold text-sm">
-                          {format(inv)}
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
+                        <p className="font-mono font-semibold text-sm">{format(inv)}</p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
+                        <p className="font-mono font-semibold text-sm">{format(cur)}</p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
+                        <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                          {pnl >= 0 ? "+" : ""}{format(pnl)}
                         </p>
                       </div>
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
-                          Current Value
-                        </p>
-                        <p className="font-mono font-semibold text-sm">
-                          {format(cur)}
-                        </p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
-                          Total Returns
-                        </p>
-                        <p
-                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                        >
-                          {pnl >= 0 ? "+" : ""}
-                          {format(pnl)}
-                        </p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
-                          Overall Return
-                        </p>
-                        <p
-                          className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                        >
-                          {ret >= 0 ? "+" : ""}
-                          {ret.toFixed(2)}%
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
+                        <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                          {ret >= 0 ? "+" : ""}{ret.toFixed(2)}%
                         </p>
                       </div>
                     </div>
                   </Card>
                 );
               })()}
+
+            {/* Category chart + performance ranking */}
+            {mutualFunds.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {mfCategoryData.length > 0 && (
+                  <Card className="overflow-hidden p-0">
+                    <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                      <CardTitle className="text-sm font-semibold">Category Breakdown</CardTitle>
+                    </CardHeader>
+                    <div className="divide-y divide-border">
+                      {(() => {
+                        const total = mfCategoryData.reduce((s, d) => s + d.value, 0);
+                        return mfCategoryData.map((item, i) => {
+                          const pct = total > 0 ? (item.value / total) * 100 : 0;
+                          const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
+                          return (
+                            <div key={item.name} className="px-4 py-2.5">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                  <span className="text-sm font-medium capitalize">{item.name}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="font-mono text-[10px] text-muted-foreground">{pct.toFixed(1)}%</span>
+                                  <span className="font-mono font-semibold text-sm">{format(item.value)}</span>
+                                </div>
+                              </div>
+                              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </Card>
+                )}
+
+                <Card className="overflow-hidden p-0">
+                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                    <CardTitle className="text-sm font-semibold">Performance Ranking</CardTitle>
+                  </CardHeader>
+                  <div className="divide-y divide-border">
+                    {[...mutualFunds]
+                      .sort((a, b) => {
+                        const ra = a.investedAmount > 0 ? (a.currentValue - a.investedAmount) / a.investedAmount : 0;
+                        const rb = b.investedAmount > 0 ? (b.currentValue - b.investedAmount) / b.investedAmount : 0;
+                        return rb - ra;
+                      })
+                      .slice(0, 7)
+                      .map((f, i) => {
+                        const pnl = f.currentValue - f.investedAmount;
+                        const ret = f.investedAmount > 0 ? (pnl / f.investedAmount) * 100 : 0;
+                        return (
+                          <div key={f.id} className="px-4 py-2.5 flex items-center gap-3">
+                            <span className="text-[10px] font-mono text-muted-foreground w-4 shrink-0">{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate leading-tight">{f.name}</p>
+                              <p className="text-[10px] text-muted-foreground capitalize">{f.category}{f.subCategory ? ` · ${f.subCategory.replace(/_/g, " ")}` : ""}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className={`font-mono text-sm font-semibold ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                                {ret >= 0 ? "+" : ""}{ret.toFixed(1)}%
+                              </p>
+                              <p className={`font-mono text-[10px] ${pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                {pnl >= 0 ? "+" : ""}{format(pnl)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </Card>
+              </div>
+            )}
+
             {mutualFunds.length === 0 ? (
               <EmptyState
                 icon={PieChartIcon}
@@ -2018,71 +2134,70 @@ export default function InvestmentsPage() {
                 onAdd={() => openAddDialog("mutual-funds")}
               />
             ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                {mutualFunds.map((f) => {
-                  const pnl = f.currentValue - f.investedAmount;
-                  const d = pnlInfo(pnl, f.investedAmount);
-                  return (
-                    <Card
-                      key={f.id}
-                      className="cursor-pointer hover:border-purple-400/60 transition-colors"
-                      onClick={() =>
-                        setDetailItem({ type: "mutual-funds", data: f })
-                      }
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between gap-1 mb-1">
-                          <p className="font-semibold text-sm truncate">
-                            {f.name}
-                          </p>
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] capitalize shrink-0"
-                          >
-                            {f.category}
-                          </Badge>
-                        </div>
-                        {f.subCategory && (
-                          <p className="text-[10px] text-muted-foreground mb-1">
-                            {f.subCategory.replace(/_/g, " ")}
-                          </p>
-                        )}
-                        <div className="mt-2 space-y-0.5">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              Invested
-                            </span>
-                            <span className="font-mono">
-                              {format(f.investedAmount)}
-                            </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {[...mutualFunds]
+                  .sort((a, b) => b.currentValue - a.currentValue)
+                  .map((f) => {
+                    const pnl = f.currentValue - f.investedAmount;
+                    const isPos = pnl >= 0;
+                    const d = pnlInfo(pnl, f.investedAmount);
+                    const navChangePct = f.purchaseNav > 0 ? ((f.nav - f.purchaseNav) / f.purchaseNav) * 100 : 0;
+                    return (
+                      <Card
+                        key={f.id}
+                        className="cursor-pointer hover:border-purple-400/60 transition-colors overflow-hidden"
+                        onClick={() => setDetailItem({ type: "mutual-funds", data: f })}
+                      >
+                        <CardContent className="p-0">
+                          <div className={`h-1 w-full ${isPos ? "bg-green-500" : "bg-red-500"}`} />
+                          <div className="p-3">
+                            <div className="mb-2">
+                              <p className="font-semibold text-sm leading-tight line-clamp-2">{f.name}</p>
+                              <p className="text-[10px] text-muted-foreground capitalize mt-0.5">
+                                {f.category}{f.subCategory ? ` · ${f.subCategory.replace(/_/g, " ")}` : ""}
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-between text-xs mb-2 bg-muted/40 rounded px-2 py-1.5">
+                              <div className="text-center">
+                                <p className="text-muted-foreground text-[10px]">Units</p>
+                                <p className="font-mono font-medium">{f.units.toFixed(3)}</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-muted-foreground text-[10px]">Buy NAV</p>
+                                <p className="font-mono font-medium">{format(f.purchaseNav)}</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-muted-foreground text-[10px]">Curr NAV</p>
+                                <p className={`font-mono font-medium ${navChangePct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                                  {format(f.nav)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="space-y-0.5">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Invested</span>
+                                <span className="font-mono">{format(f.investedAmount)}</span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Current</span>
+                                <span className="font-mono font-semibold">{format(f.currentValue)}</span>
+                              </div>
+                            </div>
+                            <div className={`mt-2 flex items-center justify-between rounded px-2 py-1 ${isPos ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}`}>
+                              <span className={`text-xs font-medium ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>P&L</span>
+                              <p className={`font-mono text-xs font-semibold ${d.color}`}>{d.text}</p>
+                            </div>
                           </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              Current
-                            </span>
-                            <span className="font-mono">
-                              {format(f.currentValue)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">P&L</span>
-                            <span
-                              className={`font-mono font-medium ${d.color}`}
-                            >
-                              {d.text}
-                            </span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
               </div>
             )}
           </TabsContent>
 
           {/* GOLD TAB */}
-          <TabsContent value="gold" className="space-y-2 mt-4">
+          <TabsContent value="gold" className="space-y-3 mt-4">
             <TabHeader
               count={holdings.length}
               label="holding"
@@ -2092,55 +2207,36 @@ export default function InvestmentsPage() {
 
             {holdings.length > 0 &&
               (() => {
-                const inv = holdings.reduce(
-                  (s, x) => s + x.quantityGrams * x.purchasePricePerGram,
-                  0,
-                );
-                const cur = holdings.reduce(
-                  (s, x) => s + x.quantityGrams * x.currentPricePerGram,
-                  0,
-                );
+                const inv = holdings.reduce((s, x) => s + x.quantityGrams * x.purchasePricePerGram, 0);
+                const cur = holdings.reduce((s, x) => s + x.quantityGrams * x.currentPricePerGram, 0);
                 const pnl = cur - inv;
                 const ret = inv > 0 ? (pnl / inv) * 100 : 0;
+                const totalGrams = holdings.reduce((s, x) => s + x.quantityGrams, 0);
                 return (
                   <Card className="overflow-hidden p-0">
-                    <div className="grid grid-cols-4 divide-x divide-border">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-border">
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
-                          Invested
-                        </p>
-                        <p className="font-mono font-semibold text-sm">
-                          {format(inv)}
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Weight</p>
+                        <p className="font-mono font-semibold text-sm">{totalGrams.toFixed(2)}g</p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
+                        <p className="font-mono font-semibold text-sm">{format(inv)}</p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
+                        <p className="font-mono font-semibold text-sm">{format(cur)}</p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
+                        <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                          {pnl >= 0 ? "+" : ""}{format(pnl)}
                         </p>
                       </div>
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
-                          Current Value
-                        </p>
-                        <p className="font-mono font-semibold text-sm">
-                          {format(cur)}
-                        </p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
-                          Total Returns
-                        </p>
-                        <p
-                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                        >
-                          {pnl >= 0 ? "+" : ""}
-                          {format(pnl)}
-                        </p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
-                          Overall Return
-                        </p>
-                        <p
-                          className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                        >
-                          {ret >= 0 ? "+" : ""}
-                          {ret.toFixed(2)}%
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
+                        <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                          {ret >= 0 ? "+" : ""}{ret.toFixed(2)}%
                         </p>
                       </div>
                     </div>
@@ -2148,65 +2244,102 @@ export default function InvestmentsPage() {
                 );
               })()}
 
-            {/* Gold Price Update Section */}
             {holdings.length > 0 && (
-              <Card className="bg-amber-50 border-amber-200">
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-semibold text-amber-800 uppercase tracking-widest">
-                      Gold Price
-                    </p>
-                    <div className="text-right">
-                      <p className="text-xs text-amber-600">
-                        Current Price / gram
-                      </p>
-                      <p className="font-mono font-bold text-amber-900 text-base">
-                        {format(holdings[0]?.currentPricePerGram ?? 0)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-end gap-3">
-                    <div className="flex-1">
-                      <Label
-                        htmlFor="gold-price"
-                        className="text-xs font-medium mb-1 block"
-                      >
-                        Update Current Gold Price (₹/gram)
-                      </Label>
-                      <Input
-                        id="gold-price"
-                        type="number"
-                        placeholder="Enter current price per gram"
-                        value={goldPriceUpdate}
-                        onChange={(e) => setGoldPriceUpdate(e.target.value)}
-                        className="text-sm h-8"
-                        step="0.01"
-                      />
-                    </div>
-                    <Button
-                      size="sm"
-                      className="h-8 bg-amber-600 hover:bg-amber-700"
-                      onClick={async () => {
-                        const priceValue =
-                          parseFloat(goldPriceUpdate) ||
-                          holdings[0]?.currentPricePerGram ||
-                          0;
-                        try {
-                          await updateAllGoldPrices(priceValue);
-                          setGoldPriceUpdate("");
-                          toast.success(
-                            "Gold prices updated for all holdings!",
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {/* Type breakdown */}
+                <Card className="overflow-hidden p-0">
+                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                    <CardTitle className="text-sm font-semibold">Holdings by Type</CardTitle>
+                  </CardHeader>
+                  <div className="divide-y divide-border">
+                    {(() => {
+                      const typeMap: Record<string, { grams: number; value: number }> = {};
+                      holdings.forEach((g) => {
+                        if (!typeMap[g.type]) typeMap[g.type] = { grams: 0, value: 0 };
+                        typeMap[g.type].grams += g.quantityGrams;
+                        typeMap[g.type].value += g.quantityGrams * g.currentPricePerGram;
+                      });
+                      const total = Object.values(typeMap).reduce((s, v) => s + v.value, 0);
+                      const typeColors: Record<string, string> = { physical: "#f59e0b", etf: "#3b82f6", sov: "#8b5cf6", other: "#6b7280" };
+                      const typeLabels: Record<string, string> = { physical: "Physical Gold", etf: "Gold ETF", sov: "Sovereign Bond (SGB)", other: "Other" };
+                      return Object.entries(typeMap)
+                        .sort(([, a], [, b]) => b.value - a.value)
+                        .map(([type, data]) => {
+                          const pct = total > 0 ? (data.value / total) * 100 : 0;
+                          const color = typeColors[type] ?? "#6b7280";
+                          return (
+                            <div key={type} className="px-4 py-2.5">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                  <span className="text-sm font-medium">{typeLabels[type] ?? type}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="font-mono text-[10px] text-muted-foreground">{data.grams.toFixed(2)}g</span>
+                                  <span className="font-mono text-[10px] text-muted-foreground">{pct.toFixed(1)}%</span>
+                                  <span className="font-mono font-semibold text-sm">{format(data.value)}</span>
+                                </div>
+                              </div>
+                              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                              </div>
+                            </div>
                           );
-                        } catch (error) {
-                          toast.error("Failed to update gold prices");
-                        }
-                      }}
-                    >
-                      Update All
-                    </Button>
+                        });
+                    })()}
                   </div>
-                </CardContent>
-              </Card>
+                </Card>
+
+                {/* Gold Price Update */}
+                <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-widest">Gold Price</p>
+                        <p className="text-[10px] text-amber-600 dark:text-amber-500 mt-0.5">Updates all holding values at once</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-amber-600 dark:text-amber-500">Current / gram</p>
+                        <p className="font-mono font-bold text-amber-900 dark:text-amber-300 text-xl">
+                          {format(holdings[0]?.currentPricePerGram ?? 0)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-end gap-3">
+                      <div className="flex-1">
+                        <Label htmlFor="gold-price" className="text-xs font-medium mb-1 block text-amber-800 dark:text-amber-300">
+                          New Price (₹/gram)
+                        </Label>
+                        <Input
+                          id="gold-price"
+                          type="number"
+                          placeholder="Enter current price per gram"
+                          value={goldPriceUpdate}
+                          onChange={(e) => setGoldPriceUpdate(e.target.value)}
+                          className="text-sm h-9"
+                          step="0.01"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        className="h-9 bg-amber-600 hover:bg-amber-700"
+                        onClick={async () => {
+                          const priceValue = parseFloat(goldPriceUpdate) || holdings[0]?.currentPricePerGram || 0;
+                          try {
+                            await updateAllGoldPrices(priceValue);
+                            setGoldPriceUpdate("");
+                            toast.success("Gold prices updated for all holdings!");
+                          } catch (error) {
+                            toast.error("Failed to update gold prices");
+                          }
+                        }}
+                      >
+                        Update All
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             )}
 
             {holdings.length === 0 ? (
@@ -2216,60 +2349,58 @@ export default function InvestmentsPage() {
                 onAdd={() => openAddDialog("gold")}
               />
             ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {holdings.map((g) => {
                   const invested = g.quantityGrams * g.purchasePricePerGram;
                   const current = g.quantityGrams * g.currentPricePerGram;
                   const pnl = current - invested;
+                  const isPos = pnl >= 0;
                   const d = pnlInfo(pnl, invested);
                   return (
                     <Card
                       key={g.id}
-                      className="cursor-pointer hover:border-yellow-400/60 transition-colors"
+                      className="cursor-pointer hover:border-yellow-400/60 transition-colors overflow-hidden"
                       onClick={() => setDetailItem({ type: "gold", data: g })}
                     >
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between gap-1 mb-1">
-                          <p className="font-semibold text-sm truncate">
-                            {g.name}
-                          </p>
-                          <div className="flex gap-1 shrink-0">
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] capitalize"
-                            >
-                              {g.type.replace("_", " ")}
-                            </Badge>
-                            <Badge variant="outline" className="text-[10px]">
-                              {g.purity}k
-                            </Badge>
+                      <CardContent className="p-0">
+                        <div className="h-1 w-full bg-amber-400" />
+                        <div className="p-3">
+                          <div className="flex items-start justify-between gap-1 mb-2">
+                            <p className="font-semibold text-sm truncate">{g.name}</p>
+                            <div className="flex gap-1 shrink-0">
+                              <Badge variant="outline" className="text-[10px] capitalize">{g.type.replace("_", " ")}</Badge>
+                              <Badge variant="outline" className="text-[10px]">{g.purity}k</Badge>
+                            </div>
                           </div>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mb-1">
-                          {g.quantityGrams}g
-                        </p>
-                        <div className="mt-2 space-y-0.5">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              Invested
-                            </span>
-                            <span className="font-mono">
-                              {format(invested)}
-                            </span>
+                          <div className="flex items-center justify-between text-xs mb-2 bg-amber-50 dark:bg-amber-950/30 rounded px-2 py-1.5">
+                            <div className="text-center">
+                              <p className="text-muted-foreground text-[10px]">Weight</p>
+                              <p className="font-mono font-medium">{g.quantityGrams}g</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-muted-foreground text-[10px]">Buy/g</p>
+                              <p className="font-mono font-medium">{format(g.purchasePricePerGram)}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-muted-foreground text-[10px]">Curr/g</p>
+                              <p className={`font-mono font-medium ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                                {format(g.currentPricePerGram)}
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              Current
-                            </span>
-                            <span className="font-mono">{format(current)}</span>
+                          <div className="space-y-0.5">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">Invested</span>
+                              <span className="font-mono">{format(invested)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">Current</span>
+                              <span className="font-mono font-semibold">{format(current)}</span>
+                            </div>
                           </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">P&L</span>
-                            <span
-                              className={`font-mono font-medium ${d.color}`}
-                            >
-                              {d.text}
-                            </span>
+                          <div className={`mt-2 flex items-center justify-between rounded px-2 py-1 ${isPos ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}`}>
+                            <span className={`text-xs font-medium ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>P&L</span>
+                            <p className={`font-mono text-xs font-semibold ${d.color}`}>{d.text}</p>
                           </div>
                         </div>
                       </CardContent>
@@ -2281,7 +2412,7 @@ export default function InvestmentsPage() {
           </TabsContent>
 
           {/* FOREX TAB */}
-          <TabsContent value="forex" className="space-y-2 mt-4">
+          <TabsContent value="forex" className="space-y-3 mt-4">
             <TabHeader
               count={entries.length}
               label="entry"
@@ -2289,45 +2420,106 @@ export default function InvestmentsPage() {
               addLabel="Add Entry"
             />
             {entries.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  {
-                    label: "Deposited",
-                    value: format(forexSummary.deposited),
-                    color: "text-blue-600",
-                  },
-                  {
-                    label: "P&L",
-                    value: `${forexSummary.pnl >= 0 ? "+" : ""}${format(forexSummary.pnl)}`,
-                    color:
-                      forexSummary.pnl >= 0 ? "text-green-600" : "text-red-600",
-                  },
-                  {
-                    label: "Withdrawn",
-                    value: format(forexSummary.withdrawn),
-                    color: "text-orange-600",
-                  },
-                  {
-                    label: "Balance",
-                    value: format(forexSummary.balance),
-                    color:
-                      forexSummary.balance >= 0
-                        ? "text-green-600"
-                        : "text-red-600",
-                  },
-                ].map((item) => (
-                  <Card key={item.label}>
-                    <CardContent className="p-3">
-                      <div className="text-xs text-muted-foreground">
-                        {item.label}
-                      </div>
-                      <div className={`text-base font-bold ${item.color}`}>
-                        {item.value}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { label: "Deposited", value: format(forexSummary.deposited), color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/20" },
+                    { label: "P&L", value: `${forexSummary.pnl >= 0 ? "+" : ""}${format(forexSummary.pnl)}`, color: forexSummary.pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400", bg: forexSummary.pnl >= 0 ? "bg-green-50 dark:bg-green-950/20" : "bg-red-50 dark:bg-red-950/20" },
+                    { label: "Withdrawn", value: format(forexSummary.withdrawn), color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-950/20" },
+                    { label: "Balance", value: format(forexSummary.balance), color: forexSummary.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400", bg: "bg-muted/40" },
+                  ].map((item) => (
+                    <Card key={item.label} className={`overflow-hidden ${item.bg}`}>
+                      <CardContent className="p-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">{item.label}</p>
+                        <p className={`text-base font-bold font-mono ${item.color}`}>{item.value}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Portfolio breakdown donut */}
+                {(() => {
+                  const totalPnl = entries.filter((e) => e.type === "pnl").reduce((s, e) => s + e.amount, 0);
+                  const donutData = [
+                    { name: "Deposited", value: forexSummary.deposited, color: "#3b82f6" },
+                    { name: "P&L", value: Math.abs(totalPnl), color: totalPnl >= 0 ? "#22c55e" : "#ef4444" },
+                    { name: "Withdrawn", value: forexSummary.withdrawn, color: "#f97316" },
+                  ].filter((d) => d.value > 0);
+
+                  if (donutData.length === 0) return null;
+
+                  const total = forexSummary.deposited + Math.abs(totalPnl) + forexSummary.withdrawn;
+
+                  return (
+                    <Card>
+                      <CardHeader className="pb-0">
+                        <CardTitle className="text-sm font-semibold">Portfolio Breakdown</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-col sm:flex-row items-center gap-6">
+                          {/* Donut with center balance label */}
+                          <div className="relative shrink-0">
+                            <ResponsiveContainer width={200} height={200}>
+                              <PieChart>
+                                <Pie
+                                  data={donutData}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={62}
+                                  outerRadius={90}
+                                  paddingAngle={3}
+                                  dataKey="value"
+                                  startAngle={90}
+                                  endAngle={-270}
+                                >
+                                  {donutData.map((entry, i) => (
+                                    <Cell key={i} fill={entry.color} strokeWidth={0} />
+                                  ))}
+                                </Pie>
+                                <Tooltip
+                                  formatter={(v: unknown) => [format(v as number)]}
+                                  contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            {/* Center label */}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Balance</p>
+                              <p className={`font-mono font-bold text-base leading-tight ${forexSummary.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                                {format(forexSummary.balance)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Legend with amounts and % */}
+                          <div className="flex-1 space-y-3 w-full">
+                            {donutData.map((item) => {
+                              const pct = total > 0 ? (item.value / total) * 100 : 0;
+                              return (
+                                <div key={item.name}>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                                      <span className="text-sm font-medium">{item.name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-[10px] text-muted-foreground font-mono">{pct.toFixed(1)}%</span>
+                                      <span className="font-mono font-semibold text-sm">{format(item.value)}</span>
+                                    </div>
+                                  </div>
+                                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: item.color }} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+              </>
             )}
             {entries.length === 0 ? (
               <EmptyState
@@ -2336,111 +2528,136 @@ export default function InvestmentsPage() {
                 onAdd={() => openAddDialog("forex")}
               />
             ) : (
-              entries.map((e) => (
-                <Card key={e.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
+              <div className="space-y-1.5">
+                {entries.map((e) => (
+                  <Card key={e.id} className="overflow-hidden">
+                    <CardContent className="p-0">
+                      <div className={`h-0.5 w-full ${e.type === "deposit" ? "bg-blue-500" : e.type === "withdrawal" ? "bg-orange-500" : e.amount >= 0 ? "bg-green-500" : "bg-red-500"}`} />
+                      <div className="px-3 py-2 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           <Badge
                             variant="outline"
-                            className={`text-xs capitalize ${
-                              e.type === "deposit"
-                                ? "text-blue-600"
-                                : e.type === "withdrawal"
-                                  ? "text-orange-600"
-                                  : e.amount >= 0
-                                    ? "text-green-600"
-                                    : "text-red-600"
+                            className={`text-[10px] capitalize font-medium shrink-0 ${
+                              e.type === "deposit" ? "text-blue-600 border-blue-200"
+                              : e.type === "withdrawal" ? "text-orange-600 border-orange-200"
+                              : e.amount >= 0 ? "text-green-600 border-green-200"
+                              : "text-red-600 border-red-200"
                             }`}
                           >
                             {e.type}
                           </Badge>
-                          <span className="text-sm text-muted-foreground">
-                            {e.month}
+                          <span className="text-xs text-muted-foreground shrink-0">{e.month}</span>
+                          <span className={`font-semibold text-sm font-mono ${e.type === "pnl" ? (e.amount >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400") : "text-foreground"}`}>
+                            {e.type === "pnl" && e.amount >= 0 ? "+" : ""}{format(e.amount)}
                           </span>
-                        </div>
-                        <div
-                          className={`font-semibold mt-1 ${
-                            e.type === "pnl"
-                              ? e.amount >= 0
-                                ? "text-green-600"
-                                : "text-red-600"
-                              : "text-foreground"
-                          }`}
-                        >
-                          {e.type === "pnl" && e.amount >= 0 ? "+" : ""}
-                          {format(e.amount)}
-                        </div>
-                        {e.type === "withdrawal" &&
-                          e.handler_share_percentage > 0 && (
-                            <div className="text-xs text-muted-foreground">
-                              Handler {e.handler_share_percentage}% ={" "}
-                              {format(
-                                (e.amount * e.handler_share_percentage) / 100,
-                              )}
-                            </div>
+                          {e.type === "withdrawal" && e.handler_share_percentage > 0 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              Handler {e.handler_share_percentage}% = {format((e.amount * e.handler_share_percentage) / 100)}
+                            </span>
                           )}
-                        {e.notes && (
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {e.notes}
-                          </div>
-                        )}
-                      </div>
-                      <RowActions
-                        onEdit={() => openEditForex(e)}
-                        onDelete={() => handleDelete("forex", e.id)}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </TabsContent>
-
-          {/* OTHER INVESTMENTS TAB */}
-          <TabsContent value="other-investments" className="space-y-2 mt-4">
-            <TabHeader
-              count={otherInvestments.length}
-              label="investment"
-              onAdd={() => openAddDialog("other-investments")}
-              addLabel="Add Investment"
-            />
-            {otherInvestments.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  {
-                    label: "Total Invested",
-                    value: otherInvestments.reduce(
-                      (s, x) => s + x.investedAmount,
-                      0,
-                    ),
-                    color: "text-foreground",
-                  },
-                  {
-                    label: "Current Value",
-                    value: otherInvestments.reduce(
-                      (s, x) => s + x.currentValue,
-                      0,
-                    ),
-                    color: "text-foreground",
-                  },
-                ].map((item) => (
-                  <Card key={item.label}>
-                    <CardContent className="p-3">
-                      <div className="text-xs text-muted-foreground">
-                        {item.label}
-                      </div>
-                      <div
-                        className={`text-base font-bold font-mono ${item.color}`}
-                      >
-                        {format(item.value)}
+                          {e.notes && <span className="text-[10px] text-muted-foreground truncate">{e.notes}</span>}
+                        </div>
+                        <RowActions
+                          onEdit={() => openEditForex(e)}
+                          onDelete={() => handleDelete("forex", e.id)}
+                        />
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          {/* OTHER INVESTMENTS TAB */}
+          <TabsContent value="other-investments" className="space-y-3 mt-4">
+            <TabHeader
+              count={otherInvestments.length}
+              label="investment"
+              onAdd={() => openAddDialog("other-investments")}
+              addLabel="Add Investment"
+            />
+            {otherInvestments.length > 0 && (() => {
+              const inv = otherInvestments.reduce((s, x) => s + x.investedAmount, 0);
+              const cur = otherInvestments.reduce((s, x) => s + x.currentValue, 0);
+              const pnl = cur - inv;
+              const ret = inv > 0 ? (pnl / inv) * 100 : 0;
+              return (
+                <Card className="overflow-hidden p-0">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border">
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Invested</p>
+                      <p className="font-mono font-semibold text-sm">{format(inv)}</p>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
+                      <p className="font-mono font-semibold text-sm">{format(cur)}</p>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
+                      <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                        {pnl >= 0 ? "+" : ""}{format(pnl)}
+                      </p>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
+                      <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                        {ret >= 0 ? "+" : ""}{ret.toFixed(2)}%
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })()}
+
+            {/* Type breakdown chart */}
+            {otherInvestments.length > 0 && (() => {
+              const typeMap: Record<string, { invested: number; current: number; count: number }> = {};
+              otherInvestments.forEach((o) => {
+                if (!typeMap[o.type]) typeMap[o.type] = { invested: 0, current: 0, count: 0 };
+                typeMap[o.type].invested += o.investedAmount;
+                typeMap[o.type].current += o.currentValue;
+                typeMap[o.type].count += 1;
+              });
+              const typeLabels: Record<string, string> = { fd: "Fixed Deposit", rd: "Recurring Deposit", ppf: "PPF", epf: "EPF / PF", nps: "NPS", postal: "Postal Savings", lic: "LIC / Insurance", other: "Other" };
+              const total = Object.values(typeMap).reduce((s, v) => s + v.current, 0);
+              const sorted = Object.entries(typeMap).sort(([, a], [, b]) => b.current - a.current);
+              return (
+                <Card className="overflow-hidden p-0">
+                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                    <CardTitle className="text-sm font-semibold">Breakdown by Type</CardTitle>
+                  </CardHeader>
+                  <div className="divide-y divide-border">
+                    {sorted.map(([type, data], i) => {
+                      const pct = total > 0 ? (data.current / total) * 100 : 0;
+                      const pnl = data.current - data.invested;
+                      const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
+                      return (
+                        <div key={type} className="px-4 py-2.5">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                              <div>
+                                <span className="text-sm font-medium">{typeLabels[type] ?? type.toUpperCase()}</span>
+                                <span className="text-[10px] text-muted-foreground ml-2">{data.count} holding{data.count > 1 ? "s" : ""}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 text-right">
+                              <span className={`font-mono text-[10px] ${pnl >= 0 ? "text-green-600" : "text-red-600"}`}>{pnl >= 0 ? "+" : ""}{format(pnl)}</span>
+                              <span className="font-mono text-[10px] text-muted-foreground">{pct.toFixed(1)}%</span>
+                              <span className="font-mono font-semibold text-sm">{format(data.current)}</span>
+                            </div>
+                          </div>
+                          <div className="h-1 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              );
+            })()}
             {otherInvestments.length === 0 ? (
               <EmptyState
                 icon={Trophy}

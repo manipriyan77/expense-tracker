@@ -939,7 +939,7 @@ export default function BudgetsPage() {
             )}
 
             {/* Budget Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
               {budgets.map((budget) => {
                 const spent = budget.spent_amount || 0;
                 const percentage = (spent / budget.limit_amount) * 100;
@@ -988,14 +988,14 @@ export default function BudgetsPage() {
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="p-2 pt-0.5 space-y-2">
+                    <CardContent className="p-2 pt-0.5 space-y-1">
                       {/* Stats row */}
-                      <div className="grid grid-cols-3 gap-2 pt-0">
+                      <div className="grid grid-cols-3 gap-1 pt-0">
                         <div>
                           <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0">
                             Spent
                           </p>
-                          <p className="font-mono font-semibold text-sm text-red-600 dark:text-red-400">
+                          <p className="font-mono font-semibold text-xs text-red-600 dark:text-red-400">
                             {format(spent)}
                           </p>
                         </div>
@@ -1003,7 +1003,7 @@ export default function BudgetsPage() {
                           <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0">
                             Limit
                           </p>
-                          <p className="font-mono font-semibold text-sm">
+                          <p className="font-mono font-semibold text-xs">
                             {format(budget.limit_amount)}
                           </p>
                         </div>
@@ -1012,7 +1012,7 @@ export default function BudgetsPage() {
                             Left
                           </p>
                           <p
-                            className={`font-mono font-semibold text-sm ${remaining < 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
+                            className={`font-mono font-semibold text-xs ${remaining < 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
                           >
                             {remaining < 0 ? "-" : ""}
                             {format(Math.abs(remaining))}
@@ -1059,7 +1059,7 @@ export default function BudgetsPage() {
                       )}
 
                       {/* Action buttons */}
-                      <div className="flex justify-end gap-1.5 pt-0.5 border-t border-border/50">
+                      <div className="flex justify-end gap-1.5 pt-0 border-t border-border/50">
                         <Button
                           variant="default"
                           size="sm"
