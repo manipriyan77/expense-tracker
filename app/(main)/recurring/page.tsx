@@ -683,51 +683,6 @@ export default function RecurringPage() {
               </Card>
             )}
 
-            {/* Smart Detection */}
-            {potentialRecurring.length > 0 && (
-              <Card className="mb-4 border-yellow-200 bg-yellow-50">
-                <CardHeader className="p-2 pb-1">
-                  <CardTitle className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Lightbulb className="h-4 w-4 text-yellow-600" />
-                    Smart Detection
-                  </CardTitle>
-                  <CardDescription>
-                    We found potential recurring transactions in your history
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {potentialRecurring.map((potential, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between border-b border-border/40 last:border-0 py-2.5"
-                      >
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">
-                            {potential.description}
-                          </p>
-                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
-                            {potential.category} •{" "}
-                            <span className="font-mono font-semibold normal-case tracking-normal">
-                              {format(potential.amount)}
-                            </span>{" "}
-                            • {potential.frequency} • {potential.count}x
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleSmartDetect(potential)}
-                        >
-                          <Zap className="h-4 w-4 mr-2" />
-                          Create Pattern
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             {/* Add Button */}
             <div className="mb-6 flex gap-2">

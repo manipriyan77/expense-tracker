@@ -197,22 +197,24 @@ export default function CashflowPlanningPage() {
 
   // ── 6-month averages ──────────────────────────────────
   const sixMonthAvg = useMemo(() => {
-    const months: Record<string, { income: number; expenses: number }> = {};
+    const months: Record<string, { income: number; expenses: number; savings: number }> = {};
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - 6);
     transactions.forEach((t) => {
       const d = new Date(t.date);
       if (d < cutoff) return;
       const key = `${d.getFullYear()}-${d.getMonth()}`;
-      if (!months[key]) months[key] = { income: 0, expenses: 0 };
+      if (!months[key]) months[key] = { income: 0, expenses: 0, savings: 0 };
       if (t.type === "income") months[key].income += t.amount;
+      else if (t.category === "Savings") months[key].savings += t.amount;
       else months[key].expenses += t.amount;
     });
     const vals = Object.values(months);
-    if (vals.length === 0) return { income: 0, expenses: 0 };
+    if (vals.length === 0) return { income: 0, expenses: 0, savings: 0 };
     return {
       income: vals.reduce((s, m) => s + m.income, 0) / vals.length,
       expenses: vals.reduce((s, m) => s + m.expenses, 0) / vals.length,
+      savings: vals.reduce((s, m) => s + m.savings, 0) / vals.length,
     };
   }, [transactions]);
 
@@ -284,8 +286,29 @@ export default function CashflowPlanningPage() {
       .filter((p) => p.is_active && p.type === "expense")
       .reduce((s, p) => s + toMonthly(p.amount, p.frequency), 0);
 
+    const recurringPatternSavings = patterns
+      .filter((p) => p.is_active && p.category === "Savings")
+      .reduce((s, p) => s + toMonthly(p.amount, p.frequency), 0);
+
     const baseIncome = Math.max(sixMonthAvg.income, recurringIncome);
     const baseExpenses = Math.max(sixMonthAvg.expenses, recurringExpenses);
+    const baseSavings = Math.max(sixMonthAvg.savings, recurringPatternSavings);
+
+    // Recurring patterns that end within the 18-month forecast window
+    const forecastStart = new Date();
+    forecastStart.setDate(1);
+    forecastStart.setHours(0, 0, 0, 0);
+    const endingPatterns = patterns
+      .filter((p) => p.is_active && p.end_date)
+      .map((p) => {
+        const endDate = new Date(p.end_date!);
+        endDate.setDate(1);
+        const monthsFromNow =
+          (endDate.getFullYear() - forecastStart.getFullYear()) * 12 +
+          (endDate.getMonth() - forecastStart.getMonth());
+        return { ...p, monthsFromNow, monthlyAmount: toMonthly(p.amount, p.frequency) };
+      })
+      .filter((p) => p.monthsFromNow >= 1 && p.monthsFromNow <= 18);
 
     // Compute months remaining for each debt using amortization
     const debtTimelines = debts.map((d) => {
@@ -309,24 +332,41 @@ export default function CashflowPlanningPage() {
       return { ...d, monthsLeft: Math.min(monthsLeft, 999) };
     });
 
+
     let cumSurplus = 0;
+    let cumSaved = 0;
     const months = Array.from({ length: 18 }, (_, i) => {
       const d = new Date();
       d.setDate(1);
       d.setMonth(d.getMonth() + 1 + i);
       const label = d.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
 
-      // EMIs that close by end of this month (index i = month i+1)
-      const closedByNow = debtTimelines.filter((dt) => dt.monthsLeft <= i + 1);
+      // EMIs that closed before this month — freed amount applies from next month after closure
+      const closedByNow = debtTimelines.filter((dt) => dt.monthsLeft <= i);
       const closedEMI = closedByNow.reduce((s, dt) => s + dt.minimum_payment, 0);
 
-      // EMIs closing exactly this month
+      // EMIs closing exactly this month (for event display only)
       const closingThisMonth = debtTimelines.filter((dt) => dt.monthsLeft === i + 1);
 
+      // Recurring patterns ending exactly this month (for event display only)
+      const patternsEndingThisMonth = endingPatterns.filter((p) => p.monthsFromNow === i + 1);
+
+      // Savings patterns that ended before this month — reduction applies from next month
+      const endedSavingsReduction = endingPatterns
+        .filter((p) => p.category === "Savings" && p.monthsFromNow <= i)
+        .reduce((s, p) => s + p.monthlyAmount, 0);
+
+      // Non-savings expense patterns that ended before this month — reduction applies from next month
+      const endedExpenseReduction = endingPatterns
+        .filter((p) => p.type === "expense" && p.category !== "Savings" && p.monthsFromNow <= i)
+        .reduce((s, p) => s + p.monthlyAmount, 0);
+
       const projIncome = Math.round(baseIncome);
-      const projExpenses = Math.round(Math.max(baseExpenses - closedEMI, 0));
+      const projExpenses = Math.round(Math.max(baseExpenses - closedEMI - endedExpenseReduction - endedSavingsReduction, 0));
+      const monthSavings = Math.round(Math.max(baseSavings - endedSavingsReduction, 0));
       const monthSurplus = projIncome - projExpenses;
       cumSurplus += monthSurplus;
+      cumSaved += monthSavings;
 
       return {
         label,
@@ -335,13 +375,23 @@ export default function CashflowPlanningPage() {
         Expenses: projExpenses,
         Surplus: monthSurplus,
         CumulativeSurplus: Math.round(cumSurplus),
+        Saved: monthSavings,
+        CumulativeSaved: Math.round(cumSaved),
+        TotalForecast: Math.round(cumSurplus + cumSaved),
         freedEMI: Math.round(closedEMI),
         closingThisMonth: closingThisMonth.map((dt) => ({
           id: dt.id,
           name: dt.name,
           payment: dt.minimum_payment,
         })),
-        hasEvent: closingThisMonth.length > 0,
+        patternsEndingThisMonth: patternsEndingThisMonth.map((p) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          type: p.type,
+          amount: p.monthlyAmount,
+        })),
+        hasEvent: closingThisMonth.length > 0 || patternsEndingThisMonth.length > 0,
       };
     });
 
@@ -1043,6 +1093,8 @@ export default function CashflowPlanningPage() {
                         <th className="text-right px-4 py-2 font-medium text-muted-foreground">Surplus</th>
                         <th className="text-right px-4 py-2 font-medium text-muted-foreground">Cumulative</th>
                         <th className="text-right px-4 py-2 font-medium text-muted-foreground">EMI Freed</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Saved</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Total Forecast</th>
                         <th className="px-4 py-2 font-medium text-muted-foreground">Event</th>
                       </tr>
                     </thead>
@@ -1072,11 +1124,27 @@ export default function CashflowPlanningPage() {
                               <span className="text-muted-foreground">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-2.5">
+                          <td className="px-4 py-2.5 text-right font-mono">
+                            {m.Saved > 0 ? (
+                              <span className="text-blue-600 dark:text-blue-400">+{shortAmount(m.Saved)}</span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-mono font-semibold text-purple-600 dark:text-purple-400">
+                            {shortAmount(m.TotalForecast)}
+                          </td>
+                          <td className="px-4 py-2.5 space-y-0.5">
                             {m.closingThisMonth.map((c) => (
-                              <span key={c.id} className="inline-flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400 font-medium">
+                              <span key={c.id} className="flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400 font-medium">
                                 <CheckCircle2 className="h-3 w-3 shrink-0" />
                                 {c.name} done
+                              </span>
+                            ))}
+                            {m.patternsEndingThisMonth.map((p) => (
+                              <span key={p.id} className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                                <Target className="h-3 w-3 shrink-0" />
+                                {p.name} ends
                               </span>
                             ))}
                           </td>
