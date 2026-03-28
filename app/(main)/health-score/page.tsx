@@ -487,7 +487,7 @@ export default function HealthScorePage() {
 
         {/* Top Recommendations */}
         {(() => {
-          const tips: { icon: (props: { className?: string }) => React.ReactNode; title: string; desc: string; href: string }[] = [];
+          const tips: { icon: React.ComponentType<{ className?: string }>; title: string; desc: string; href: string }[] = [];
           const savings = pillars.find((p) => p.key === "Savings")!;
           const budgetP = pillars.find((p) => p.key === "Budgets")!;
           const debtP = pillars.find((p) => p.key === "Debt")!;
