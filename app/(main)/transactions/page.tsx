@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -77,8 +78,17 @@ interface TransactionFromDB {
   recurring_pattern_id?: string | null;
 }
 
-export default function TransactionsPage() {
+function TransactionsPageInner() {
   const { format } = useFormatCurrency();
+  const searchParams = useSearchParams();
+  const initialTab = (() => {
+    const t = searchParams.get("tab");
+    if (t === "expenses") return "expense";
+    if (t === "incomes") return "income";
+    if (t === "recurring") return "recurring";
+    return "all";
+  })();
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -896,7 +906,7 @@ export default function TransactionsPage() {
           </div>
 
           {/* Transactions Tabs */}
-          <Tabs defaultValue="all" className="space-y-4 min-w-0">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 min-w-0">
             <div className="overflow-x-auto -mx-1 px-1">
               <TabsList className="w-max min-w-0">
                 <TabsTrigger value="all">
@@ -1067,5 +1077,13 @@ export default function TransactionsPage() {
         </main>
       </div>
     </>
+  );
+}
+
+export default function TransactionsPage() {
+  return (
+    <Suspense>
+      <TransactionsPageInner />
+    </Suspense>
   );
 }

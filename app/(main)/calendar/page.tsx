@@ -271,7 +271,7 @@ export default function CalendarPage() {
               {calCurrentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
             </h1>
           </div>
-          <Button size="sm" onClick={() => setIsAddCalDialogOpen(true)}>
+          <Button size="sm" onClick={() => { setCalSelectedDate(new Date()); setIsAddCalDialogOpen(true); }}>
             <Plus className="h-4 w-4 mr-1" />
             Add Transaction
           </Button>
@@ -464,6 +464,20 @@ export default function CalendarPage() {
               )
             )}
           </div>
+          {/* Footer: add for this date */}
+          <div className="border-t pt-3 mt-2 shrink-0">
+            <Button
+              size="sm"
+              className="w-full gap-1"
+              onClick={() => {
+                setIsDayModalOpen(false);
+                setIsAddCalDialogOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Add transaction for this date
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -471,7 +485,11 @@ export default function CalendarPage() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Transaction</DialogTitle>
-            <DialogDescription>Add a new income or expense transaction</DialogDescription>
+            <DialogDescription>
+              {calSelectedDate
+                ? `Adding for ${calSelectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`
+                : "Add a new income or expense transaction"}
+            </DialogDescription>
           </DialogHeader>
           {isAddCalDialogOpen && (
             <AddTransactionForm
@@ -480,6 +498,9 @@ export default function CalendarPage() {
                 fetchTransactions();
               }}
               onCancel={() => setIsAddCalDialogOpen(false)}
+              initialValues={calSelectedDate ? {
+                date: `${calSelectedDate.getFullYear()}-${String(calSelectedDate.getMonth() + 1).padStart(2, "0")}-${String(calSelectedDate.getDate()).padStart(2, "0")}`,
+              } : undefined}
             />
           )}
         </DialogContent>

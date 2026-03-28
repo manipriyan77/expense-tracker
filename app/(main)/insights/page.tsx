@@ -14,8 +14,6 @@ import {
 import {
   TrendingUp,
   TrendingDown,
-  RefreshCw,
-  Percent,
   ChevronDown,
   ChevronUp,
   LayoutGrid,
@@ -50,7 +48,7 @@ function formatShort(value: number): string {
 
 export default function InsightsPage() {
   const { format } = useFormatCurrency();
-  const { transactions, loading, fetchTransactions } = useTransactionsStore();
+  const { transactions, fetchTransactions } = useTransactionsStore();
   const [categorySettingsOpen, setCategorySettingsOpen] = useState(false);
 
   useEffect(() => {

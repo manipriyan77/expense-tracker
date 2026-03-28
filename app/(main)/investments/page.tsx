@@ -1006,7 +1006,11 @@ export default function InvestmentsPage() {
     const withdrawn = entries
       .filter((e) => e.type === "withdrawal")
       .reduce((s, e) => s + e.amount, 0);
-    return { deposited, pnl, withdrawn, balance: deposited + pnl - withdrawn };
+    const handlerShare = entries
+      .filter((e) => e.type === "withdrawal")
+      .reduce((s, e) => s + (e.amount * e.handler_share_percentage) / 100, 0);
+    const myProfit = withdrawn - handlerShare;
+    return { deposited, pnl, withdrawn, balance: deposited + pnl - withdrawn, handlerShare, myProfit };
   }, [entries]);
 
   // ── Analytics data ────────────────────────────────────────────────────────
@@ -2536,17 +2540,21 @@ export default function InvestmentsPage() {
             />
             {entries.length > 0 && (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                   {[
                     { label: "Deposited", value: format(forexSummary.deposited), color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/20" },
                     { label: "P&L", value: `${forexSummary.pnl >= 0 ? "+" : ""}${format(forexSummary.pnl)}`, color: forexSummary.pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400", bg: forexSummary.pnl >= 0 ? "bg-green-50 dark:bg-green-950/20" : "bg-red-50 dark:bg-red-950/20" },
                     { label: "Withdrawn", value: format(forexSummary.withdrawn), color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-950/20" },
+                    { label: "My Profit", value: `${forexSummary.myProfit >= 0 ? "+" : ""}${format(forexSummary.myProfit)}`, color: forexSummary.myProfit >= 0 ? "text-violet-600 dark:text-violet-400" : "text-red-600 dark:text-red-400", bg: forexSummary.myProfit >= 0 ? "bg-violet-50 dark:bg-violet-950/20" : "bg-red-50 dark:bg-red-950/20" },
                     { label: "Balance", value: format(forexSummary.balance), color: forexSummary.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400", bg: "bg-muted/40" },
                   ].map((item) => (
                     <Card key={item.label} className={`overflow-hidden ${item.bg}`}>
                       <CardContent className="p-3">
                         <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">{item.label}</p>
                         <p className={`text-base font-bold font-mono ${item.color}`}>{item.value}</p>
+                        {item.label === "My Profit" && forexSummary.handlerShare > 0 && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">After {format(forexSummary.handlerShare)} handler cut</p>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
@@ -2558,12 +2566,13 @@ export default function InvestmentsPage() {
                   const donutData = [
                     { name: "Deposited", value: forexSummary.deposited, color: "#3b82f6" },
                     { name: "P&L", value: Math.abs(totalPnl), color: totalPnl >= 0 ? "#22c55e" : "#ef4444" },
-                    { name: "Withdrawn", value: forexSummary.withdrawn, color: "#f97316" },
+                    { name: "My Profit", value: forexSummary.myProfit > 0 ? forexSummary.myProfit : 0, color: "#10b981" },
+                    { name: "Handler Share", value: forexSummary.handlerShare, color: "#a855f7" },
                   ].filter((d) => d.value > 0);
 
                   if (donutData.length === 0) return null;
 
-                  const total = forexSummary.deposited + Math.abs(totalPnl) + forexSummary.withdrawn;
+                  const total = forexSummary.deposited + Math.abs(totalPnl) + forexSummary.myProfit + forexSummary.handlerShare;
 
                   return (
                     <Card>
@@ -2643,43 +2652,85 @@ export default function InvestmentsPage() {
                 onAdd={() => openAddDialog("forex")}
               />
             ) : (
-              <div className="space-y-1.5">
-                {entries.map((e) => (
-                  <Card key={e.id} className="overflow-hidden">
-                    <CardContent className="p-0">
-                      <div className={`h-0.5 w-full ${e.type === "deposit" ? "bg-blue-500" : e.type === "withdrawal" ? "bg-orange-500" : e.amount >= 0 ? "bg-green-500" : "bg-red-500"}`} />
-                      <div className="px-3 py-2 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] capitalize font-medium shrink-0 ${
-                              e.type === "deposit" ? "text-blue-600 border-blue-200"
-                              : e.type === "withdrawal" ? "text-orange-600 border-orange-200"
-                              : e.amount >= 0 ? "text-green-600 border-green-200"
-                              : "text-red-600 border-red-200"
-                            }`}
-                          >
-                            {e.type}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground shrink-0">{e.month}</span>
-                          <span className={`font-semibold text-sm font-mono ${e.type === "pnl" ? (e.amount >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400") : "text-foreground"}`}>
-                            {e.type === "pnl" && e.amount >= 0 ? "+" : ""}{format(e.amount)}
-                          </span>
-                          {e.type === "withdrawal" && e.handler_share_percentage > 0 && (
-                            <span className="text-[10px] text-muted-foreground">
-                              Handler {e.handler_share_percentage}% = {format((e.amount * e.handler_share_percentage) / 100)}
-                            </span>
-                          )}
-                          {e.notes && <span className="text-[10px] text-muted-foreground truncate">{e.notes}</span>}
+              <div className="space-y-2">
+                {[...entries].sort((a, b) => b.month.localeCompare(a.month)).map((e) => {
+                  const isDeposit = e.type === "deposit";
+                  const isWithdrawal = e.type === "withdrawal";
+                  const isPnlPos = e.type === "pnl" && e.amount >= 0;
+                  const isPnlNeg = e.type === "pnl" && e.amount < 0;
+                  const handlerAmt = isWithdrawal && e.handler_share_percentage > 0
+                    ? (e.amount * e.handler_share_percentage) / 100
+                    : 0;
+                  const myNet = isWithdrawal ? e.amount - handlerAmt : 0;
+
+                  const accent = isDeposit ? "#3b82f6"
+                    : isWithdrawal ? "#f97316"
+                    : isPnlPos ? "#22c55e"
+                    : "#ef4444";
+
+                  const typeBg = isDeposit ? "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300"
+                    : isWithdrawal ? "bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300"
+                    : isPnlPos ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300"
+                    : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300";
+
+                  const amountColor = isDeposit ? "text-blue-600 dark:text-blue-400"
+                    : isWithdrawal ? "text-orange-600 dark:text-orange-400"
+                    : isPnlPos ? "text-green-600 dark:text-green-400"
+                    : "text-red-600 dark:text-red-400";
+
+                  return (
+                    <div key={e.id} className="flex items-stretch gap-0 rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                      {/* Left accent bar */}
+                      <div className="w-1 shrink-0" style={{ backgroundColor: accent }} />
+
+                      {/* Content */}
+                      <div className="flex-1 px-4 py-3 min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            {/* Top row: type badge + month */}
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${typeBg}`}>
+                                {e.type === "pnl" ? "P&L" : e.type}
+                              </span>
+                              <span className="text-xs text-muted-foreground font-mono">{e.month}</span>
+                            </div>
+
+                            {/* Amount */}
+                            <p className={`font-bold text-lg font-mono leading-none ${amountColor}`}>
+                              {(e.type === "pnl" && e.amount >= 0) ? "+" : ""}{format(e.amount)}
+                            </p>
+
+                            {/* Withdrawal breakdown */}
+                            {isWithdrawal && handlerAmt > 0 && (
+                              <div className="flex items-center gap-3 mt-2">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+                                  <span className="text-[11px] text-muted-foreground">My net</span>
+                                  <span className="text-[11px] font-semibold font-mono text-violet-600 dark:text-violet-400">{format(myNet)}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                                  <span className="text-[11px] text-muted-foreground">Handler {e.handler_share_percentage}%</span>
+                                  <span className="text-[11px] font-semibold font-mono text-purple-500">{format(handlerAmt)}</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Notes */}
+                            {e.notes && (
+                              <p className="text-[11px] text-muted-foreground mt-1.5 truncate">{e.notes}</p>
+                            )}
+                          </div>
+
+                          <RowActions
+                            onEdit={() => openEditForex(e)}
+                            onDelete={() => handleDelete("forex", e.id)}
+                          />
                         </div>
-                        <RowActions
-                          onEdit={() => openEditForex(e)}
-                          onDelete={() => handleDelete("forex", e.id)}
-                        />
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </TabsContent>

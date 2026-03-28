@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   BarChart,
@@ -13,7 +13,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-  ReferenceLine,
 } from "recharts";
 import {
   TrendingUp,
@@ -56,6 +55,10 @@ export default function CashflowPlanningPage() {
   const { budgets, fetchBudgets } = useBudgetsStore();
   const { goals, fetchGoals } = useGoalsStore();
   const { debts, fetchDebts } = useDebtTrackerStore();
+
+  // Forecast scenario controls
+  const [scenarioIncomeBoost, setScenarioIncomeBoost] = useState(0);   // % boost
+  const [scenarioExtraExpense, setScenarioExtraExpense] = useState(0); // flat extra/mo
 
   useEffect(() => {
     fetchTransactions();
@@ -290,8 +293,8 @@ export default function CashflowPlanningPage() {
       .filter((p) => p.is_active && p.category === "Savings")
       .reduce((s, p) => s + toMonthly(p.amount, p.frequency), 0);
 
-    const baseIncome = Math.max(sixMonthAvg.income, recurringIncome);
-    const baseExpenses = Math.max(sixMonthAvg.expenses, recurringExpenses);
+    const baseIncome = Math.max(sixMonthAvg.income, recurringIncome) * (1 + scenarioIncomeBoost / 100);
+    const baseExpenses = Math.max(sixMonthAvg.expenses, recurringExpenses) + scenarioExtraExpense;
     const baseSavings = Math.max(sixMonthAvg.savings, recurringPatternSavings);
 
     // Recurring patterns that end within the 18-month forecast window
@@ -368,6 +371,27 @@ export default function CashflowPlanningPage() {
       cumSurplus += monthSurplus;
       cumSaved += monthSavings;
 
+      const savingsRatePct = projIncome > 0 ? Math.round((monthSurplus / projIncome) * 100) : 0;
+      const debtToIncomePct = projIncome > 0 ? Math.round((closedEMI > 0 ? (baseExpenses - closedEMI - endedExpenseReduction - endedSavingsReduction) : projExpenses) / projIncome * 100) : 0;
+      // Health score: savings rate (40pts) + low debt-to-income (40pts) + positive surplus (20pts)
+      const healthScore = Math.min(100, Math.max(0,
+        Math.min(40, savingsRatePct * 2) +
+        Math.max(0, 40 - Math.max(0, debtToIncomePct - 30)) +
+        (monthSurplus > 0 ? 20 : 0)
+      ));
+
+      // Running debt balance: subtract payments made up to this month
+      const runningDebtBalance = debtTimelines.reduce((sum, dt) => {
+        if (dt.monthsLeft <= i + 1) return sum; // fully paid
+        const paymentsLeft = dt.monthsLeft - (i + 1);
+        const r = dt.interest_rate / (12 * 100);
+        if (r > 0 && dt.minimum_payment > 0) {
+          const remainingBal = dt.minimum_payment * ((1 - Math.pow(1 + r, -paymentsLeft)) / r);
+          return sum + Math.max(0, remainingBal);
+        }
+        return sum + Math.max(0, dt.balance - dt.minimum_payment * (i + 1));
+      }, 0);
+
       return {
         label,
         month: i + 1,
@@ -379,6 +403,9 @@ export default function CashflowPlanningPage() {
         CumulativeSaved: Math.round(cumSaved),
         TotalForecast: Math.round(cumSurplus + cumSaved),
         freedEMI: Math.round(closedEMI),
+        savingsRatePct,
+        healthScore,
+        runningDebtBalance: Math.round(runningDebtBalance),
         closingThisMonth: closingThisMonth.map((dt) => ({
           id: dt.id,
           name: dt.name,
@@ -398,9 +425,18 @@ export default function CashflowPlanningPage() {
     const closingIn18 = debtTimelines.filter((dt) => dt.monthsLeft <= 18 && dt.monthsLeft < 999);
     const totalFreedEMI = closingIn18.reduce((s, dt) => s + dt.minimum_payment, 0);
     const total18Surplus = months.reduce((s, m) => s + m.Surplus, 0);
+    const breakEvenMonth = months.find((m) => m.CumulativeSurplus > 0);
+    const avgHealthScore = Math.round(months.reduce((s, m) => s + m.healthScore, 0) / months.length);
+    const total18Saved = months.reduce((s, m) => s + m.Saved, 0);
+    const allMilestones = months
+      .filter((m) => m.hasEvent)
+      .flatMap((m) => [
+        ...m.closingThisMonth.map((c) => ({ month: m.label, type: "emi" as const, name: c.name, amount: c.payment })),
+        ...m.patternsEndingThisMonth.map((p) => ({ month: m.label, type: "pattern" as const, name: p.name, amount: p.amount })),
+      ]);
 
-    return { months, debtTimelines, closingIn18, totalFreedEMI, total18Surplus };
-  }, [sixMonthAvg, patterns, debts]);
+    return { months, debtTimelines, closingIn18, totalFreedEMI, total18Surplus, breakEvenMonth, avgHealthScore, total18Saved, allMilestones };
+  }, [sixMonthAvg, patterns, debts, scenarioIncomeBoost, scenarioExtraExpense]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -616,12 +652,12 @@ export default function CashflowPlanningPage() {
                         <AreaChart data={forecastData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
                           <defs>
                             <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#22c55e" stopOpacity={0.2} />
-                              <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                              <stop offset="5%" stopColor="#22c55e" stopOpacity={0.45} />
+                              <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
                             </linearGradient>
                             <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
-                              <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                              <stop offset="5%" stopColor="#ef4444" stopOpacity={0.45} />
+                              <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
@@ -853,7 +889,59 @@ export default function CashflowPlanningPage() {
           {/* ══════════════ 18-MONTH FORECAST TAB ══════════════ */}
           <TabsContent value="forecast" className="space-y-4">
 
-            {/* Summary stats */}
+            {/* ── Scenario Controls ── */}
+            <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+              <CardHeader className="pb-2 px-4 pt-3">
+                <CardTitle className="text-xs font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-2">
+                  <Lightbulb className="h-3.5 w-3.5" /> What-If Scenario
+                </CardTitle>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Adjust to model different income or expense scenarios live</p>
+              </CardHeader>
+              <CardContent className="px-4 pb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground font-medium">Income Boost</span>
+                      <span className={`font-mono font-semibold ${scenarioIncomeBoost > 0 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+                        {scenarioIncomeBoost > 0 ? `+${scenarioIncomeBoost}%` : "None"}
+                      </span>
+                    </div>
+                    <input
+                      type="range" min={0} max={50} step={1}
+                      value={scenarioIncomeBoost}
+                      onChange={(e) => setScenarioIncomeBoost(Number(e.target.value))}
+                      className="w-full accent-green-500"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground"><span>0%</span><span>+50%</span></div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground font-medium">Extra Expense</span>
+                      <span className={`font-mono font-semibold ${scenarioExtraExpense > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
+                        {scenarioExtraExpense > 0 ? `+${shortAmount(scenarioExtraExpense)}/mo` : "None"}
+                      </span>
+                    </div>
+                    <input
+                      type="range" min={0} max={100000} step={1000}
+                      value={scenarioExtraExpense}
+                      onChange={(e) => setScenarioExtraExpense(Number(e.target.value))}
+                      className="w-full accent-red-500"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground"><span>₹0</span><span>₹1L/mo</span></div>
+                  </div>
+                </div>
+                {(scenarioIncomeBoost > 0 || scenarioExtraExpense > 0) && (
+                  <button
+                    onClick={() => { setScenarioIncomeBoost(0); setScenarioExtraExpense(0); }}
+                    className="mt-2 text-[10px] text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    Reset to baseline
+                  </button>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* ── Summary Stats ── */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Card>
                 <CardContent className="p-3">
@@ -864,43 +952,41 @@ export default function CashflowPlanningPage() {
               </Card>
               <Card>
                 <CardContent className="p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Closing in 18 Months</p>
-                  <p className="font-mono font-bold text-base text-amber-600 dark:text-amber-400">
-                    {forecast18.closingIn18.length} loan{forecast18.closingIn18.length !== 1 ? "s" : ""}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {forecast18.debtTimelines.filter(d => d.monthsLeft >= 999).length} ongoing beyond 18mo
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Cash Freed by Month 18</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Cash Freed by Mo 18</p>
                   <p className="font-mono font-bold text-base text-green-600 dark:text-green-400">
                     {format(forecast18.totalFreedEMI)}<span className="text-xs font-normal">/mo</span>
                   </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">After all closing EMIs end</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{forecast18.closingIn18.length} loan{forecast18.closingIn18.length !== 1 ? "s" : ""} closing</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Projected 18-Mo Savings</p>
-                  <p className={`font-mono font-bold text-base ${forecast18.total18Surplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                    {forecast18.total18Surplus >= 0 ? "+" : ""}{shortAmount(forecast18.total18Surplus)}
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Forecast</p>
+                  <p className={`font-mono font-bold text-base ${forecast18.total18Surplus + forecast18.total18Saved >= 0 ? "text-purple-600 dark:text-purple-400" : "text-red-600 dark:text-red-400"}`}>
+                    {shortAmount(forecast18.total18Surplus + forecast18.total18Saved)}
                   </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Cumulative surplus</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Surplus + Savings</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Avg Health Score</p>
+                  <p className={`font-mono font-bold text-base ${forecast18.avgHealthScore >= 70 ? "text-green-600 dark:text-green-400" : forecast18.avgHealthScore >= 45 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"}`}>
+                    {forecast18.avgHealthScore}/100
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {forecast18.avgHealthScore >= 70 ? "Strong cashflow" : forecast18.avgHealthScore >= 45 ? "Moderate" : "Needs attention"}
+                  </p>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Loan closure timeline */}
+            {/* ── EMI Payoff Timeline ── */}
             {debts.length > 0 && (
               <Card>
                 <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                   <CardTitle className="text-sm font-semibold">EMI Payoff Timeline</CardTitle>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Calculated using amortization formula. Months remaining = based on current balance, rate & EMI.
-                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Amortization-based payoff schedule. Progress bar = % of original loan paid.</p>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-border">
@@ -918,19 +1004,13 @@ export default function CashflowPlanningPage() {
                           cd.setMonth(cd.getMonth() + d.monthsLeft);
                           return cd.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
                         })();
-
                         return (
                           <div key={d.id} className="px-4 py-3">
                             <div className="flex items-start justify-between gap-3 mb-2">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-sm font-medium truncate">{d.name}</span>
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-[10px] capitalize ${closesIn18 ? "text-green-600 border-green-200 dark:border-green-800" : "text-muted-foreground"}`}
-                                  >
-                                    {d.type}
-                                  </Badge>
+                                  <Badge variant="outline" className={`text-[10px] capitalize ${closesIn18 ? "text-green-600 border-green-200 dark:border-green-800" : "text-muted-foreground"}`}>{d.type}</Badge>
                                   {closesIn18 ? (
                                     <span className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400 font-medium">
                                       <CheckCircle2 className="h-3 w-3" /> Closes {closeDate}
@@ -950,9 +1030,7 @@ export default function CashflowPlanningPage() {
                                 <p className="font-mono text-sm font-semibold text-red-600 dark:text-red-400">
                                   {format(d.minimum_payment)}<span className="text-[10px] font-normal text-muted-foreground">/mo</span>
                                 </p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  {d.monthsLeft < 999 ? `${d.monthsLeft} mo left` : "Ongoing"}
-                                </p>
+                                <p className="text-[10px] text-muted-foreground">{d.monthsLeft < 999 ? `${d.monthsLeft} mo left` : "Ongoing"}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-3">
@@ -968,119 +1046,40 @@ export default function CashflowPlanningPage() {
               </Card>
             )}
 
-            {/* 18-month chart */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Card className="lg:col-span-2">
-                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                  <CardTitle className="text-sm font-semibold">Income vs Expenses — Next 18 Months</CardTitle>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Expenses drop as EMIs close. Dashed line = surplus.
-                  </p>
-                </CardHeader>
-                <CardContent className="px-2 pt-4 pb-2">
-                  <ResponsiveContainer width="100%" height={260}>
-                    <AreaChart data={forecast18.months} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="f18incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#22c55e" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="f18expGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="f18surpGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="label" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} interval={1} />
-                      <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={shortAmount} width={44} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 11 }}
-                        formatter={(v: unknown, name: unknown) => [format(v as number), name as string]}
-                        content={({ active, payload, label: l }) => {
-                          if (!active || !payload?.length) return null;
-                          const monthData = forecast18.months.find(m => m.label === l);
-                          return (
-                            <div className="bg-card border border-border rounded-lg p-2.5 text-xs shadow-md min-w-[160px]">
-                              <p className="font-semibold mb-1.5 text-foreground">{l}</p>
-                              {payload.map((p) => (
-                                <div key={p.name} className="flex justify-between gap-4">
-                                  <span style={{ color: p.color }}>{p.name}</span>
-                                  <span className="font-mono font-medium">{format(p.value as number)}</span>
-                                </div>
-                              ))}
-                              {monthData?.hasEvent && (
-                                <div className="mt-1.5 pt-1.5 border-t border-border">
-                                  {monthData.closingThisMonth.map(c => (
-                                    <p key={c.id} className="text-green-600 dark:text-green-400 font-medium">
-                                      ✓ {c.name} EMI closes ({format(c.payment)}/mo freed)
-                                    </p>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        }}
-                      />
-                      <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
-                      {/* Reference lines for EMI closure events */}
-                      {forecast18.months.filter(m => m.hasEvent).map(m => (
-                        <ReferenceLine
-                          key={m.label}
-                          x={m.label}
-                          stroke="#22c55e"
-                          strokeDasharray="4 2"
-                          strokeWidth={1.5}
-                          strokeOpacity={0.6}
-                        />
-                      ))}
-                      <Area type="monotone" dataKey="Income" stroke="#22c55e" strokeWidth={2} fill="url(#f18incomeGrad)" dot={false} />
-                      <Area type="monotone" dataKey="Expenses" stroke="#ef4444" strokeWidth={2} fill="url(#f18expGrad)" dot={false} />
-                      <Area type="monotone" dataKey="Surplus" stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="4 2" fill="url(#f18surpGrad)" dot={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Cumulative savings chart */}
+            {/* ── Milestone Timeline ── */}
+            {forecast18.allMilestones.length > 0 && (
               <Card>
                 <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                  <CardTitle className="text-sm font-semibold">Cumulative Savings</CardTitle>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Projected savings build-up over 18 months</p>
+                  <CardTitle className="text-sm font-semibold">Upcoming Milestones</CardTitle>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Key cashflow events over the next 18 months</p>
                 </CardHeader>
-                <CardContent className="px-2 pt-4 pb-2">
-                  <ResponsiveContainer width="100%" height={260}>
-                    <AreaChart data={forecast18.months} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="cumGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.25} />
-                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="label" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} interval={2} />
-                      <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={shortAmount} width={44} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 11 }}
-                        formatter={(v: unknown) => [format(v as number), "Cumulative Savings"]}
-                      />
-                      <Area type="monotone" dataKey="CumulativeSurplus" name="Cumulative Savings" stroke="#8b5cf6" strokeWidth={2} fill="url(#cumGrad)" dot={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                <CardContent className="px-4 py-3">
+                  <div className="relative pl-5">
+                    <div className="absolute left-1.5 top-0 bottom-0 w-px bg-border" />
+                    {forecast18.allMilestones.map((ms, idx) => (
+                      <div key={idx} className="relative mb-3 last:mb-0">
+                        <div className={`absolute -left-3.5 top-1 h-3 w-3 rounded-full border-2 border-background ${ms.type === "emi" ? "bg-green-500" : "bg-blue-500"}`} />
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-xs font-medium">{ms.name} {ms.type === "emi" ? "EMI closes" : "ends"}</p>
+                            <p className="text-[10px] text-muted-foreground">{ms.month}</p>
+                          </div>
+                          <span className={`text-xs font-mono font-semibold shrink-0 ${ms.type === "emi" ? "text-green-600 dark:text-green-400" : "text-blue-600 dark:text-blue-400"}`}>
+                            +{format(ms.amount)}/mo freed
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
-            </div>
+            )}
 
-            {/* Month-by-month table */}
+            {/* ── Month-by-Month Table ── */}
             <Card>
               <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                 <CardTitle className="text-sm font-semibold">Month-by-Month Breakdown</CardTitle>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  Green rows indicate months when an EMI closes and cash flow improves.
-                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Green rows = EMI closes. Blue = pattern ends. Health score out of 100.</p>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
@@ -1091,10 +1090,12 @@ export default function CashflowPlanningPage() {
                         <th className="text-right px-4 py-2 font-medium text-muted-foreground">Income</th>
                         <th className="text-right px-4 py-2 font-medium text-muted-foreground">Expenses</th>
                         <th className="text-right px-4 py-2 font-medium text-muted-foreground">Surplus</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Sav Rate</th>
                         <th className="text-right px-4 py-2 font-medium text-muted-foreground">Cumulative</th>
                         <th className="text-right px-4 py-2 font-medium text-muted-foreground">EMI Freed</th>
                         <th className="text-right px-4 py-2 font-medium text-muted-foreground">Saved</th>
                         <th className="text-right px-4 py-2 font-medium text-muted-foreground">Total Forecast</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Health</th>
                         <th className="px-4 py-2 font-medium text-muted-foreground">Event</th>
                       </tr>
                     </thead>
@@ -1102,49 +1103,41 @@ export default function CashflowPlanningPage() {
                       {forecast18.months.map((m) => (
                         <tr
                           key={m.label}
-                          className={`border-b border-border transition-colors ${m.hasEvent ? "bg-green-50 dark:bg-green-950/20" : "hover:bg-muted/30"}`}
+                          className={`border-b border-border transition-colors ${m.hasEvent ? (m.closingThisMonth.length > 0 ? "bg-green-50 dark:bg-green-950/20" : "bg-blue-50 dark:bg-blue-950/20") : "hover:bg-muted/30"}`}
                         >
                           <td className="px-4 py-2.5 font-medium">{m.label}</td>
-                          <td className="px-4 py-2.5 text-right font-mono text-green-600 dark:text-green-400">
-                            {shortAmount(m.Income)}
-                          </td>
-                          <td className="px-4 py-2.5 text-right font-mono text-red-600 dark:text-red-400">
-                            {shortAmount(m.Expenses)}
-                          </td>
+                          <td className="px-4 py-2.5 text-right font-mono text-green-600 dark:text-green-400">{shortAmount(m.Income)}</td>
+                          <td className="px-4 py-2.5 text-right font-mono text-red-600 dark:text-red-400">{shortAmount(m.Expenses)}</td>
                           <td className={`px-4 py-2.5 text-right font-mono font-semibold ${m.Surplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                             {m.Surplus >= 0 ? "+" : ""}{shortAmount(m.Surplus)}
+                          </td>
+                          <td className={`px-4 py-2.5 text-right font-mono text-xs ${m.savingsRatePct >= 20 ? "text-green-600 dark:text-green-400" : m.savingsRatePct >= 10 ? "text-yellow-600 dark:text-yellow-400" : "text-red-500"}`}>
+                            {m.savingsRatePct}%
                           </td>
                           <td className={`px-4 py-2.5 text-right font-mono ${m.CumulativeSurplus >= 0 ? "text-foreground" : "text-red-600 dark:text-red-400"}`}>
                             {shortAmount(m.CumulativeSurplus)}
                           </td>
                           <td className="px-4 py-2.5 text-right font-mono">
-                            {m.freedEMI > 0 ? (
-                              <span className="text-green-600 dark:text-green-400">+{shortAmount(m.freedEMI)}</span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
+                            {m.freedEMI > 0 ? <span className="text-green-600 dark:text-green-400">+{shortAmount(m.freedEMI)}</span> : <span className="text-muted-foreground">—</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right font-mono">
-                            {m.Saved > 0 ? (
-                              <span className="text-blue-600 dark:text-blue-400">+{shortAmount(m.Saved)}</span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
+                            {m.Saved > 0 ? <span className="text-blue-600 dark:text-blue-400">+{shortAmount(m.Saved)}</span> : <span className="text-muted-foreground">—</span>}
                           </td>
-                          <td className="px-4 py-2.5 text-right font-mono font-semibold text-purple-600 dark:text-purple-400">
-                            {shortAmount(m.TotalForecast)}
+                          <td className="px-4 py-2.5 text-right font-mono font-semibold text-purple-600 dark:text-purple-400">{shortAmount(m.TotalForecast)}</td>
+                          <td className="px-4 py-2.5 text-right">
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono ${m.healthScore >= 70 ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400" : m.healthScore >= 45 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-400" : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"}`}>
+                              {m.healthScore}
+                            </span>
                           </td>
                           <td className="px-4 py-2.5 space-y-0.5">
                             {m.closingThisMonth.map((c) => (
                               <span key={c.id} className="flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400 font-medium">
-                                <CheckCircle2 className="h-3 w-3 shrink-0" />
-                                {c.name} done
+                                <CheckCircle2 className="h-3 w-3 shrink-0" />{c.name} done
                               </span>
                             ))}
                             {m.patternsEndingThisMonth.map((p) => (
                               <span key={p.id} className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium">
-                                <Target className="h-3 w-3 shrink-0" />
-                                {p.name} ends
+                                <Target className="h-3 w-3 shrink-0" />{p.name} ends
                               </span>
                             ))}
                           </td>

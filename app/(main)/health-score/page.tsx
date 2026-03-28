@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   PiggyBank,
@@ -484,6 +484,69 @@ export default function HealthScorePage() {
             })}
           </div>
         </Card>
+
+        {/* Top Recommendations */}
+        {(() => {
+          const tips: { icon: (props: { className?: string }) => React.ReactNode; title: string; desc: string; href: string }[] = [];
+          const savings = pillars.find((p) => p.key === "Savings")!;
+          const budgetP = pillars.find((p) => p.key === "Budgets")!;
+          const debtP = pillars.find((p) => p.key === "Debt")!;
+          const goalsP = pillars.find((p) => p.key === "Goals")!;
+          const investP = pillars.find((p) => p.key === "Investments")!;
+
+          if (savings.pts < savings.max) {
+            const gap = savings.max - savings.pts;
+            tips.push({ icon: PILLAR_META.Savings.icon, href: "/transactions", title: "Boost your savings rate", desc: income > 0 ? `You're saving ${savingsRate.toFixed(1)}% — target 20%+ for full points (+${gap} pts available)` : "Add income transactions this month to calculate your savings rate" });
+          }
+          if (budgetP.pts < budgetP.max && budgets.length === 0) {
+            tips.push({ icon: PILLAR_META.Budgets.icon, href: "/budgets", title: "Set up spending budgets", desc: `You have no budgets yet — create category budgets to earn up to ${budgetP.max} pts` });
+          } else if (budgetP.pts < budgetP.max && budgets.length > 0) {
+            const over = budgets.length - budgetUnderCount;
+            tips.push({ icon: PILLAR_META.Budgets.icon, href: "/budgets", title: "Reduce overspending", desc: `${over} budget${over > 1 ? "s are" : " is"} over their limit this month — bring them under to gain points` });
+          }
+          if (debtP.pts < debtP.max && totalAssets > 0) {
+            tips.push({ icon: PILLAR_META.Debt.icon, href: "/debt-tracker", title: "Pay down high-interest debt", desc: `Debt-to-asset ratio is ${debtRatio.toFixed(1)}% — reducing debt below 10% earns full ${debtP.max} pts` });
+          }
+          if (goalsP.pts < goalsP.max && activeGoals.length === 0) {
+            tips.push({ icon: PILLAR_META.Goals.icon, href: "/goals", title: "Create financial goals", desc: "Set at least one savings goal to start earning up to 15 pts in this pillar" });
+          } else if (goalsP.pts < goalsP.max && avgGoalPct !== null && avgGoalPct < 75) {
+            tips.push({ icon: PILLAR_META.Goals.icon, href: "/goals", title: "Contribute to your goals", desc: `Average goal progress is ${avgGoalPct.toFixed(0)}% — reach 75% to earn full ${goalsP.max} pts` });
+          }
+          if (investP.pts < investP.max) {
+            const needed = investTypes === 0 ? "any investment" : investTypes === 1 ? "a second asset type" : "a third asset type";
+            tips.push({ icon: PILLAR_META.Investments.icon, href: "/investments", title: "Diversify investments", desc: `Add ${needed} (stocks, mutual funds, gold, or forex) to increase your investment score` });
+          }
+
+          if (tips.length === 0) return null;
+          const topTips = tips.slice(0, 3);
+          return (
+            <Card>
+              <CardHeader className="pb-2 border-b border-border">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-green-500" />
+                  Top {topTips.length} Action{topTips.length > 1 ? "s" : ""} to Improve Your Score
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-3">
+                {topTips.map((tip, i) => {
+                  const Icon = tip.icon;
+                  return (
+                    <button key={i} onClick={() => router.push(tip.href)} className="w-full flex items-start gap-3 text-left p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                      <div className="p-2 rounded-lg bg-muted shrink-0">
+                        <Icon className="h-3.5 w-3.5 text-foreground" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">{tip.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{tip.desc}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                    </button>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Pillar cards */}
         {pillars.map((p) => {

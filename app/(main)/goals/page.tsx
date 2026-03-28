@@ -40,12 +40,14 @@ import {
 } from "@/components/ui/select";
 import { useGoalsStore, Goal } from "@/store/goals-store";
 import { useTransactionsStore } from "@/store/transactions-store";
+import { useBudgetsStore } from "@/store/budgets-store";
 import { goalFormSchema, GoalFormData } from "@/lib/schemas/goal-form-schema";
 import GoalDetailsModal from "@/components/goals/GoalDetailsModal";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { toast, Toaster } from "sonner";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { useConfetti } from "@/lib/hooks/useConfetti";
+import Link from "next/link";
 
 export default function GoalsPage() {
   const { format } = useFormatCurrency();
@@ -53,6 +55,7 @@ export default function GoalsPage() {
   const { goals, loading, error, fetchGoals, addGoal, updateGoal, deleteGoal } =
     useGoalsStore();
   const { transactions, fetchTransactions } = useTransactionsStore();
+  const { budgets, fetchBudgets } = useBudgetsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
@@ -70,6 +73,7 @@ export default function GoalsPage() {
   useEffect(() => {
     fetchGoals();
     fetchTransactions();
+    fetchBudgets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -874,6 +878,42 @@ export default function GoalsPage() {
                         />
                       </div>
                     </div>
+
+                    {/* ── Budget link ── */}
+                    {(() => {
+                      const matchedBudget = budgets.find(
+                        (b) => b.category.toLowerCase() === goal.category?.toLowerCase() ||
+                               b.category.toLowerCase() === goal.title.toLowerCase()
+                      );
+                      if (matchedBudget) {
+                        const used = matchedBudget.spent_amount || 0;
+                        const over = used > matchedBudget.limit_amount;
+                        return (
+                          <Link
+                            href="/budgets"
+                            onClick={(e) => e.stopPropagation()}
+                            className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border w-fit ${over ? "border-red-200 bg-red-50 text-red-600 dark:bg-red-950/30 dark:border-red-900/40 dark:text-red-400" : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-900/40 dark:text-emerald-400"}`}
+                          >
+                            <DollarSign className="h-3 w-3" />
+                            Budget: {format(used)} / {format(matchedBudget.limit_amount)}
+                            {over && " (over!)"}
+                          </Link>
+                        );
+                      }
+                      if (!isCompleted) {
+                        return (
+                          <Link
+                            href="/budgets"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary w-fit transition-colors"
+                          >
+                            <Plus className="h-3 w-3" />
+                            Add budget for this goal
+                          </Link>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {/* ── Chance + date ── */}
                     <div className="flex items-center justify-between text-[10px]">

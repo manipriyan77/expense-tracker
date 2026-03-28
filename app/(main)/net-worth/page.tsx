@@ -13,6 +13,7 @@ import { useMutualFundsStore } from "@/store/mutual-funds-store";
 import { useStocksStore } from "@/store/stocks-store";
 import { useForexStore } from "@/store/forex-store";
 import { useOtherInvestmentsStore } from "@/store/other-investments-store";
+import { useDebtTrackerStore } from "@/store/debt-tracker-store";
 import {
   Card,
   CardContent,
@@ -113,6 +114,7 @@ export default function NetWorthPage() {
   const { stocks, fetchStocks } = useStocksStore();
   const { entries: forexEntries, load: loadForex } = useForexStore();
   const { investments: otherInvestments, load: loadOtherInvestments } = useOtherInvestmentsStore();
+  const { debts, fetchDebts } = useDebtTrackerStore();
 
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
   const [isEditAssetOpen, setIsEditAssetOpen] = useState(false);
@@ -168,6 +170,7 @@ export default function NetWorthPage() {
     fetchStocks();
     loadForex();
     loadOtherInvestments();
+    fetchDebts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -203,10 +206,12 @@ export default function NetWorthPage() {
   }, [holdings, mutualFunds, stocks, forexEntries, otherInvestments]);
 
   const totalAssets = totalManualAssets + externalAssetsTotal;
-  const totalLiabilities = liabilities.reduce(
+  const manualLiabilitiesTotal = liabilities.reduce(
     (sum, liability) => sum + liability.balance,
     0,
   );
+  const debtTrackerTotal = debts.reduce((sum, d) => sum + d.balance, 0);
+  const totalLiabilities = manualLiabilitiesTotal + debtTrackerTotal;
   const netWorth = totalAssets - totalLiabilities;
 
   // Asset breakdown by category for drill-down
@@ -910,7 +915,7 @@ export default function NetWorthPage() {
               </Card>
             )}
 
-            {liabilities.length === 0 ? (
+            {liabilities.length === 0 && debts.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-6 text-center">
                   <CreditCard className="h-10 w-10 text-muted-foreground/40 mb-3" />
@@ -919,7 +924,8 @@ export default function NetWorthPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-2 md:grid-cols-2">
+              <div className="space-y-4">
+              {liabilities.length > 0 && <div className="grid gap-2 md:grid-cols-2">
                 {liabilities.map((liability) => {
                   const pct = totalLiabilities > 0 ? (liability.balance / totalLiabilities) * 100 : 0;
                   return (
@@ -958,6 +964,55 @@ export default function NetWorthPage() {
                     </Card>
                   );
                 })}
+              </div>}
+
+              {/* Debt Tracker section */}
+              {debts.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">From Debt Tracker</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Debts managed in Debt Tracker</p>
+                    </div>
+                    <Link href="/debt-tracker">
+                      <Button variant="ghost" size="sm" className="text-xs gap-1">
+                        <ExternalLink className="h-3 w-3" />
+                        Manage
+                      </Button>
+                    </Link>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {debts.map((debt) => {
+                      const pct = totalLiabilities > 0 ? (debt.balance / totalLiabilities) * 100 : 0;
+                      return (
+                        <Card key={debt.id} className="hover:shadow-md transition-shadow border-l-4 border-l-orange-400">
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="p-2 bg-orange-50 dark:bg-orange-950/40 rounded-lg shrink-0">
+                                  <CreditCard className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-sm truncate">{debt.name}</p>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{debt.type.replace("_", " ")}</p>
+                                    {debt.interest_rate > 0 && <span className="text-[10px] text-orange-500 font-medium">{debt.interest_rate}% APR</span>}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="font-mono font-semibold text-sm text-orange-600 dark:text-orange-400">{format(debt.balance)}</p>
+                                {debt.minimum_payment > 0 && <p className="text-[10px] text-muted-foreground">Min: {format(debt.minimum_payment)}/mo</p>}
+                                <p className="text-[10px] text-muted-foreground">{pct.toFixed(1)}% of debt</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               </div>
             )}
           </TabsContent>

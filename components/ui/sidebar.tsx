@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   ChevronLeft,
@@ -17,8 +17,6 @@ import {
   ArrowLeftRight,
   TrendingUp,
   TrendingDown,
-  Eye,
-  EyeOff,
   Receipt,
   Repeat,
   Landmark,
@@ -27,8 +25,8 @@ import {
   BarChart3,
   Flag,
   Scale,
-  Lightbulb,
   Activity,
+  Lightbulb,
   CalendarDays,
 } from "lucide-react";
 import { Button } from "./button";
@@ -105,20 +103,27 @@ export function Sidebar({
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
-  const { amountsHidden, toggleAmountsHidden, hydrateFromStorage } =
-    usePrivacyStore();
+  const searchParams = useSearchParams();
+  const { hydrateFromStorage } = usePrivacyStore();
 
-  const isSubItemActive = (href: string): boolean => pathname === href;
+  const currentHref = searchParams.toString()
+    ? `${pathname}?${searchParams.toString()}`
+    : pathname;
+
+  const isSubItemActive = (href: string): boolean => {
+    if (href.includes("?")) return currentHref === href;
+    return pathname === href;
+  };
 
   // Initialize expanded items based on current pathname
-  const getExpandedForPath = (path: string): string[] => {
+  const getExpandedForPath = (): string[] => {
     return sidebarItems
-      .filter((item) => item.subItems?.some((sub) => path === sub.href))
+      .filter((item) => item.subItems?.some((sub) => isSubItemActive(sub.href)))
       .map((item) => item.title);
   };
 
   const [expandedItems, setExpandedItems] = useState<string[]>(() =>
-    getExpandedForPath(pathname),
+    getExpandedForPath(),
   );
 
   useEffect(() => {
@@ -127,7 +132,7 @@ export function Sidebar({
 
   // Auto-expand the section containing the active page
   useEffect(() => {
-    const toExpand = getExpandedForPath(pathname);
+    const toExpand = getExpandedForPath();
     if (toExpand.length > 0) {
       setExpandedItems((prev) => {
         const merged = new Set([...prev, ...toExpand]);
