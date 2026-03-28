@@ -22,6 +22,10 @@ import {
   CheckCircle2,
   RefreshCw,
   Calculator,
+  Download,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   PieChart,
@@ -31,11 +35,14 @@ import {
   Bar,
   AreaChart,
   Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -278,6 +285,10 @@ export default function InvestmentsPage() {
   const [goldForm, setGoldForm] = useState(defaultGoldForm);
   const [goldPriceUpdate, setGoldPriceUpdate] = useState("");
   const [forexForm, setForexForm] = useState(defaultForexForm);
+  const [forexFilterType, setForexFilterType] = useState<"all" | "deposit" | "withdrawal" | "pnl">("all");
+  const [forexFilterMonth, setForexFilterMonth] = useState("");
+  const [forexSortBy, setForexSortBy] = useState<"month-desc" | "month-asc" | "amount-desc" | "amount-asc">("month-desc");
+  const [forexCollapsed, setForexCollapsed] = useState<Set<string>>(new Set());
   const [otherForm, setOtherForm] = useState(defaultOtherForm);
   const [saving, setSaving] = useState(false);
   const [refreshingPrices, setRefreshingPrices] = useState(false);
@@ -491,6 +502,32 @@ export default function InvestmentsPage() {
     });
     setDialogStep(2);
     setDialogOpen(true);
+  };
+
+  const exportForexCSV = () => {
+    const rows = [
+      ["Month", "Type", "Amount", "Handler Share %", "Handler Share Amount", "My Net", "Notes"],
+      ...entries.map((e) => {
+        const hs = e.type === "withdrawal" ? (e.amount * e.handler_share_percentage) / 100 : 0;
+        return [
+          e.month,
+          e.type,
+          e.amount,
+          e.handler_share_percentage,
+          hs.toFixed(2),
+          e.type === "withdrawal" ? (e.amount - hs).toFixed(2) : e.amount,
+          e.notes ?? "",
+        ];
+      }),
+    ];
+    const csv = rows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "forex-entries.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const openEditOther = (o: OtherInvestment) => {
@@ -1012,6 +1049,59 @@ export default function InvestmentsPage() {
     const myProfit = withdrawn - handlerShare;
     return { deposited, pnl, withdrawn, balance: deposited + pnl - withdrawn, handlerShare, myProfit };
   }, [entries]);
+
+  // Forex monthly aggregation for charts
+  const forexMonthlyData = useMemo(() => {
+    const map: Record<string, { month: string; pnl: number; deposited: number; withdrawn: number; handlerShare: number; myProfit: number }> = {};
+    for (const e of entries) {
+      if (!map[e.month]) map[e.month] = { month: e.month, pnl: 0, deposited: 0, withdrawn: 0, handlerShare: 0, myProfit: 0 };
+      if (e.type === "pnl") map[e.month].pnl += e.amount;
+      if (e.type === "deposit") map[e.month].deposited += e.amount;
+      if (e.type === "withdrawal") {
+        const hs = (e.amount * e.handler_share_percentage) / 100;
+        map[e.month].withdrawn += e.amount;
+        map[e.month].handlerShare += hs;
+        map[e.month].myProfit += e.amount - hs;
+      }
+    }
+    return Object.values(map).sort((a, b) => a.month.localeCompare(b.month));
+  }, [entries]);
+
+  // Forex running balance over months
+  const forexRunningBalance = useMemo(() => {
+    let balance = 0;
+    return forexMonthlyData.map((m) => {
+      balance += m.deposited + m.pnl - m.withdrawn;
+      return { month: m.month, balance };
+    });
+  }, [forexMonthlyData]);
+
+  // Filtered + sorted forex entries
+  const filteredForexEntries = useMemo(() => {
+    let result = [...entries];
+    if (forexFilterType !== "all") result = result.filter((e) => e.type === forexFilterType);
+    if (forexFilterMonth) result = result.filter((e) => e.month === forexFilterMonth);
+    result.sort((a, b) => {
+      if (forexSortBy === "month-desc") return b.month.localeCompare(a.month);
+      if (forexSortBy === "month-asc") return a.month.localeCompare(b.month);
+      if (forexSortBy === "amount-desc") return b.amount - a.amount;
+      return a.amount - b.amount;
+    });
+    return result;
+  }, [entries, forexFilterType, forexFilterMonth, forexSortBy]);
+
+  // Grouped by month for the entries list
+  const forexGroupedEntries = useMemo(() => {
+    const groups: Record<string, typeof filteredForexEntries> = {};
+    for (const e of filteredForexEntries) {
+      if (!groups[e.month]) groups[e.month] = [];
+      groups[e.month].push(e);
+    }
+    const sortedMonths = Object.keys(groups).sort((a, b) =>
+      forexSortBy === "month-asc" ? a.localeCompare(b) : b.localeCompare(a)
+    );
+    return sortedMonths.map((month) => ({ month, entries: groups[month] }));
+  }, [filteredForexEntries, forexSortBy]);
 
   // ── Analytics data ────────────────────────────────────────────────────────
 
@@ -2540,26 +2630,33 @@ export default function InvestmentsPage() {
             />
             {entries.length > 0 && (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {[
-                    { label: "Deposited", value: format(forexSummary.deposited), color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/20" },
-                    { label: "P&L", value: `${forexSummary.pnl >= 0 ? "+" : ""}${format(forexSummary.pnl)}`, color: forexSummary.pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400", bg: forexSummary.pnl >= 0 ? "bg-green-50 dark:bg-green-950/20" : "bg-red-50 dark:bg-red-950/20" },
-                    { label: "Withdrawn", value: format(forexSummary.withdrawn), color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-950/20" },
-                    { label: "My Profit", value: `${forexSummary.myProfit >= 0 ? "+" : ""}${format(forexSummary.myProfit)}`, color: forexSummary.myProfit >= 0 ? "text-violet-600 dark:text-violet-400" : "text-red-600 dark:text-red-400", bg: forexSummary.myProfit >= 0 ? "bg-violet-50 dark:bg-violet-950/20" : "bg-red-50 dark:bg-red-950/20" },
-                    { label: "Balance", value: format(forexSummary.balance), color: forexSummary.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400", bg: "bg-muted/40" },
-                  ].map((item) => (
-                    <Card key={item.label} className={`overflow-hidden ${item.bg}`}>
-                      <CardContent className="p-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">{item.label}</p>
-                        <p className={`text-base font-bold font-mono ${item.color}`}>{item.value}</p>
-                        {item.label === "My Profit" && forexSummary.handlerShare > 0 && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5">After {format(forexSummary.handlerShare)} handler cut</p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                {(() => {
+                  const profitRate = forexSummary.deposited > 0 ? (forexSummary.pnl / forexSummary.deposited) * 100 : 0;
+                  const summaryCards = [
+                    { label: "Deposited", value: format(forexSummary.deposited), color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/20", sub: null },
+                    { label: "P&L", value: `${forexSummary.pnl >= 0 ? "+" : ""}${format(forexSummary.pnl)}`, color: forexSummary.pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400", bg: forexSummary.pnl >= 0 ? "bg-green-50 dark:bg-green-950/20" : "bg-red-50 dark:bg-red-950/20", sub: `${profitRate >= 0 ? "+" : ""}${profitRate.toFixed(1)}% return` },
+                    { label: "Withdrawn", value: format(forexSummary.withdrawn), color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-950/20", sub: null },
+                    { label: "My Profit", value: `${forexSummary.myProfit >= 0 ? "+" : ""}${format(forexSummary.myProfit)}`, color: forexSummary.myProfit >= 0 ? "text-violet-600 dark:text-violet-400" : "text-red-600 dark:text-red-400", bg: forexSummary.myProfit >= 0 ? "bg-violet-50 dark:bg-violet-950/20" : "bg-red-50 dark:bg-red-950/20", sub: forexSummary.handlerShare > 0 ? `After ${format(forexSummary.handlerShare)} handler cut` : null },
+                    { label: "Handler Paid", value: format(forexSummary.handlerShare), color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-950/20", sub: forexSummary.withdrawn > 0 ? `${((forexSummary.handlerShare / forexSummary.withdrawn) * 100).toFixed(1)}% of withdrawals` : null },
+                    { label: "Balance", value: format(forexSummary.balance), color: forexSummary.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400", bg: "bg-muted/40", sub: null },
+                  ];
+                  return (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                      {summaryCards.map((item) => (
+                        <Card key={item.label} className={`overflow-hidden ${item.bg}`}>
+                          <CardContent className="p-3">
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">{item.label}</p>
+                            <p className={`text-base font-bold font-mono ${item.color}`}>{item.value}</p>
+                            {item.sub && <p className="text-[10px] text-muted-foreground mt-0.5">{item.sub}</p>}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  );
+                })()}
 
+                {/* Portfolio Breakdown + Monthly Performance side by side */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {/* Portfolio breakdown donut */}
                 {(() => {
                   const totalPnl = entries.filter((e) => e.type === "pnl").reduce((s, e) => s + e.amount, 0);
@@ -2643,6 +2740,43 @@ export default function InvestmentsPage() {
                     </Card>
                   );
                 })()}
+
+                {/* P&L vs My Profit grouped bar chart */}
+                {forexMonthlyData.length > 1 && (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-semibold">Monthly Performance</CardTitle>
+                        <div className="flex items-center gap-3">
+                          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><span className="w-2.5 h-2.5 rounded-sm bg-green-500 inline-block" />P&L</span>
+                          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><span className="w-2.5 h-2.5 rounded-sm bg-violet-500 inline-block" />My Profit</span>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={forexMonthlyData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="30%" barGap={4}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                          <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} axisLine={false} tickLine={false} />
+                          <Tooltip
+                            formatter={(v: unknown, name: string) => [format(v as number), name]}
+                            contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }}
+                            cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
+                          />
+                          <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                          <Bar dataKey="pnl" name="P&L" radius={[4, 4, 0, 0]}>
+                            {forexMonthlyData.map((m, i) => (
+                              <Cell key={i} fill={m.pnl >= 0 ? "#22c55e" : "#ef4444"} />
+                            ))}
+                          </Bar>
+                          <Bar dataKey="myProfit" name="My Profit" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                )}
+                </div>
               </>
             )}
             {entries.length === 0 ? (
@@ -2652,82 +2786,158 @@ export default function InvestmentsPage() {
                 onAdd={() => openAddDialog("forex")}
               />
             ) : (
-              <div className="space-y-2">
-                {[...entries].sort((a, b) => b.month.localeCompare(a.month)).map((e) => {
-                  const isDeposit = e.type === "deposit";
-                  const isWithdrawal = e.type === "withdrawal";
-                  const isPnlPos = e.type === "pnl" && e.amount >= 0;
-                  const isPnlNeg = e.type === "pnl" && e.amount < 0;
-                  const handlerAmt = isWithdrawal && e.handler_share_percentage > 0
-                    ? (e.amount * e.handler_share_percentage) / 100
-                    : 0;
-                  const myNet = isWithdrawal ? e.amount - handlerAmt : 0;
+              <div className="space-y-3">
+                {/* Filter / Sort / Export bar */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Type filter pills */}
+                  <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+                    {(["all", "deposit", "withdrawal", "pnl"] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setForexFilterType(t)}
+                        className={`text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors ${forexFilterType === t ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        {t === "all" ? "All" : t === "pnl" ? "P&L" : t.charAt(0).toUpperCase() + t.slice(1)}
+                      </button>
+                    ))}
+                  </div>
 
-                  const accent = isDeposit ? "#3b82f6"
-                    : isWithdrawal ? "#f97316"
-                    : isPnlPos ? "#22c55e"
-                    : "#ef4444";
+                  {/* Month filter */}
+                  <input
+                    type="month"
+                    value={forexFilterMonth}
+                    onChange={(e) => setForexFilterMonth(e.target.value)}
+                    className="text-xs border rounded-lg px-2.5 py-1.5 bg-background text-foreground h-8"
+                  />
+                  {forexFilterMonth && (
+                    <button onClick={() => setForexFilterMonth("")} className="text-[11px] text-muted-foreground hover:text-foreground underline">
+                      Clear
+                    </button>
+                  )}
 
-                  const typeBg = isDeposit ? "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300"
-                    : isWithdrawal ? "bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300"
-                    : isPnlPos ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300"
-                    : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300";
+                  {/* Sort */}
+                  <div className="flex items-center gap-1 ml-auto">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" />
+                    <select
+                      value={forexSortBy}
+                      onChange={(e) => setForexSortBy(e.target.value as typeof forexSortBy)}
+                      className="text-xs border rounded-lg px-2 py-1.5 bg-background text-foreground h-8"
+                    >
+                      <option value="month-desc">Month ↓</option>
+                      <option value="month-asc">Month ↑</option>
+                      <option value="amount-desc">Amount ↓</option>
+                      <option value="amount-asc">Amount ↑</option>
+                    </select>
+                  </div>
 
-                  const amountColor = isDeposit ? "text-blue-600 dark:text-blue-400"
-                    : isWithdrawal ? "text-orange-600 dark:text-orange-400"
-                    : isPnlPos ? "text-green-600 dark:text-green-400"
-                    : "text-red-600 dark:text-red-400";
+                  {/* Export CSV */}
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={exportForexCSV}>
+                    <Download className="w-3.5 h-3.5" />
+                    Export CSV
+                  </Button>
+                </div>
+
+                {/* Empty filter result */}
+                {filteredForexEntries.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-8">No entries match the current filter.</p>
+                )}
+
+                {/* Grouped by month */}
+                {forexGroupedEntries.map(({ month, entries: monthEntries }) => {
+                  const isCollapsed = forexCollapsed.has(month);
+                  const monthPnl = monthEntries.filter((e) => e.type === "pnl").reduce((s, e) => s + e.amount, 0);
+                  const monthDeposited = monthEntries.filter((e) => e.type === "deposit").reduce((s, e) => s + e.amount, 0);
+                  const monthWithdrawn = monthEntries.filter((e) => e.type === "withdrawal").reduce((s, e) => s + e.amount, 0);
+                  const monthHandlerShare = monthEntries.filter((e) => e.type === "withdrawal").reduce((s, e) => s + (e.amount * e.handler_share_percentage) / 100, 0);
+                  const monthMyProfit = monthWithdrawn - monthHandlerShare;
 
                   return (
-                    <div key={e.id} className="flex items-stretch gap-0 rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                      {/* Left accent bar */}
-                      <div className="w-1 shrink-0" style={{ backgroundColor: accent }} />
+                    <div key={month} className="space-y-1.5">
+                      {/* Month group header */}
+                      <button
+                        onClick={() => setForexCollapsed((prev) => {
+                          const next = new Set(prev);
+                          next.has(month) ? next.delete(month) : next.add(month);
+                          return next;
+                        })}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/70 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="font-semibold text-sm font-mono">{month}</span>
+                          <span className="text-[10px] text-muted-foreground">{monthEntries.length} {monthEntries.length === 1 ? "entry" : "entries"}</span>
+                          {monthDeposited > 0 && <span className="text-[10px] font-mono text-blue-600">+{format(monthDeposited)}</span>}
+                          {monthWithdrawn > 0 && <span className="text-[10px] font-mono text-orange-500">-{format(monthWithdrawn)}</span>}
+                          <span className={`text-[10px] font-semibold font-mono ${monthPnl >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            P&L {monthPnl >= 0 ? "+" : ""}{format(monthPnl)}
+                          </span>
+                          {monthMyProfit > 0 && (
+                            <span className="text-[10px] font-semibold font-mono text-violet-600 dark:text-violet-400">
+                              My Profit +{format(monthMyProfit)}
+                            </span>
+                          )}
+                        </div>
+                        {isCollapsed ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
+                      </button>
 
-                      {/* Content */}
-                      <div className="flex-1 px-4 py-3 min-w-0">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            {/* Top row: type badge + month */}
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${typeBg}`}>
-                                {e.type === "pnl" ? "P&L" : e.type}
-                              </span>
-                              <span className="text-xs text-muted-foreground font-mono">{e.month}</span>
-                            </div>
+                      {/* Entries in this month */}
+                      {!isCollapsed && (
+                        <div className="space-y-1.5 pl-2">
+                          {monthEntries.map((e) => {
+                            const isDeposit = e.type === "deposit";
+                            const isWithdrawal = e.type === "withdrawal";
+                            const isPnlPos = e.type === "pnl" && e.amount >= 0;
+                            const handlerAmt = isWithdrawal && e.handler_share_percentage > 0
+                              ? (e.amount * e.handler_share_percentage) / 100 : 0;
+                            const myNet = isWithdrawal ? e.amount - handlerAmt : 0;
 
-                            {/* Amount */}
-                            <p className={`font-bold text-lg font-mono leading-none ${amountColor}`}>
-                              {(e.type === "pnl" && e.amount >= 0) ? "+" : ""}{format(e.amount)}
-                            </p>
+                            const accent = isDeposit ? "#3b82f6" : isWithdrawal ? "#f97316" : isPnlPos ? "#22c55e" : "#ef4444";
+                            const typeBg = isDeposit ? "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300"
+                              : isWithdrawal ? "bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300"
+                              : isPnlPos ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300"
+                              : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300";
+                            const amountColor = isDeposit ? "text-blue-600 dark:text-blue-400"
+                              : isWithdrawal ? "text-orange-600 dark:text-orange-400"
+                              : isPnlPos ? "text-green-600 dark:text-green-400"
+                              : "text-red-600 dark:text-red-400";
 
-                            {/* Withdrawal breakdown */}
-                            {isWithdrawal && handlerAmt > 0 && (
-                              <div className="flex items-center gap-3 mt-2">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
-                                  <span className="text-[11px] text-muted-foreground">My net</span>
-                                  <span className="text-[11px] font-semibold font-mono text-violet-600 dark:text-violet-400">{format(myNet)}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-                                  <span className="text-[11px] text-muted-foreground">Handler {e.handler_share_percentage}%</span>
-                                  <span className="text-[11px] font-semibold font-mono text-purple-500">{format(handlerAmt)}</span>
+                            return (
+                              <div key={e.id} className="flex items-stretch rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                <div className="w-1 shrink-0" style={{ backgroundColor: accent }} />
+                                <div className="flex-1 px-4 py-3 min-w-0">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1.5">
+                                        <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${typeBg}`}>
+                                          {e.type === "pnl" ? "P&L" : e.type}
+                                        </span>
+                                      </div>
+                                      <p className={`font-bold text-lg font-mono leading-none ${amountColor}`}>
+                                        {(e.type === "pnl" && e.amount >= 0) ? "+" : ""}{format(e.amount)}
+                                      </p>
+                                      {isWithdrawal && handlerAmt > 0 && (
+                                        <div className="flex items-center gap-3 mt-2">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+                                            <span className="text-[11px] text-muted-foreground">My net</span>
+                                            <span className="text-[11px] font-semibold font-mono text-violet-600 dark:text-violet-400">{format(myNet)}</span>
+                                          </div>
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                                            <span className="text-[11px] text-muted-foreground">Handler {e.handler_share_percentage}%</span>
+                                            <span className="text-[11px] font-semibold font-mono text-purple-500">{format(handlerAmt)}</span>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {e.notes && <p className="text-[11px] text-muted-foreground mt-1.5 truncate">{e.notes}</p>}
+                                    </div>
+                                    <RowActions onEdit={() => openEditForex(e)} onDelete={() => handleDelete("forex", e.id)} />
+                                  </div>
                                 </div>
                               </div>
-                            )}
-
-                            {/* Notes */}
-                            {e.notes && (
-                              <p className="text-[11px] text-muted-foreground mt-1.5 truncate">{e.notes}</p>
-                            )}
-                          </div>
-
-                          <RowActions
-                            onEdit={() => openEditForex(e)}
-                            onDelete={() => handleDelete("forex", e.id)}
-                          />
+                            );
+                          })}
                         </div>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
