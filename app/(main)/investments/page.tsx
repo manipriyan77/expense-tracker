@@ -2760,7 +2760,7 @@ export default function InvestmentsPage() {
                           <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                           <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} axisLine={false} tickLine={false} />
                           <Tooltip
-                            formatter={(v: unknown, name: string) => [format(v as number), name]}
+                            formatter={(v: unknown, name: string | undefined) => [format(v as number), name ?? ""]}
                             contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }}
                             cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
                           />
