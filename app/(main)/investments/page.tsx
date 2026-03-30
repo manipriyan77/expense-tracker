@@ -21,7 +21,6 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   RefreshCw,
-  Calculator,
   Download,
   ChevronDown,
   ChevronUp,
@@ -70,6 +69,7 @@ import {
   type MutualFund,
 } from "@/store/mutual-funds-store";
 import { useGoldStore, type GoldHolding } from "@/store/gold-store";
+import { useSilverStore, type SilverHolding } from "@/store/silver-store";
 import { useForexStore, type ForexEntry } from "@/store/forex-store";
 import {
   useOtherInvestmentsStore,
@@ -84,6 +84,7 @@ type AssetClass =
   | "stocks"
   | "mutual-funds"
   | "gold"
+  | "silver"
   | "forex"
   | "other-investments";
 
@@ -120,6 +121,14 @@ const ASSET_CLASSES: {
     bg: "hover:border-yellow-500/50",
   },
   {
+    key: "silver",
+    label: "Silver",
+    icon: Gem,
+    description: "Physical, ETF",
+    color: "text-slate-500",
+    bg: "hover:border-slate-500/50",
+  },
+  {
     key: "forex",
     label: "Forex",
     icon: Globe,
@@ -152,6 +161,11 @@ const TYPE_BADGE: Record<AssetClass, { label: string; className: string }> = {
     label: "Gold",
     className:
       "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400",
+  },
+  silver: {
+    label: "Silver",
+    className:
+      "bg-slate-100 text-slate-700 dark:bg-slate-900/40 dark:text-slate-400",
   },
   forex: {
     label: "Forex",
@@ -194,6 +208,17 @@ const defaultGoldForm = {
   type: "physical",
   quantityGrams: "",
   purity: "24",
+  purchasePricePerGram: "",
+  currentPricePerGram: "",
+  purchaseDate: new Date().toISOString().split("T")[0],
+  notes: "",
+};
+
+const defaultSilverForm = {
+  name: "",
+  type: "physical",
+  quantityGrams: "",
+  purity: "999",
   purchasePricePerGram: "",
   currentPricePerGram: "",
   purchaseDate: new Date().toISOString().split("T")[0],
@@ -254,6 +279,14 @@ export default function InvestmentsPage() {
     updateAllGoldPrices,
   } = useGoldStore();
   const {
+    holdings: silverHoldings,
+    load: loadSilver,
+    addHolding: addSilverHolding,
+    updateHolding: updateSilverHolding,
+    deleteHolding: deleteSilverHolding,
+    updateAllSilverPrices,
+  } = useSilverStore();
+  const {
     entries,
     loading: fLoading,
     load: loadForex,
@@ -284,26 +317,24 @@ export default function InvestmentsPage() {
   const [mfForm, setMfForm] = useState(defaultMfForm);
   const [goldForm, setGoldForm] = useState(defaultGoldForm);
   const [goldPriceUpdate, setGoldPriceUpdate] = useState("");
+  const [silverForm, setSilverForm] = useState(defaultSilverForm);
+  const [silverPriceUpdate, setSilverPriceUpdate] = useState("");
   const [forexForm, setForexForm] = useState(defaultForexForm);
-  const [forexFilterType, setForexFilterType] = useState<"all" | "deposit" | "withdrawal" | "pnl">("all");
+  const [forexFilterType, setForexFilterType] = useState<
+    "all" | "deposit" | "withdrawal" | "pnl"
+  >("all");
   const [forexFilterMonth, setForexFilterMonth] = useState("");
-  const [forexSortBy, setForexSortBy] = useState<"month-desc" | "month-asc" | "amount-desc" | "amount-asc">("month-desc");
+  const [forexSortBy, setForexSortBy] = useState<
+    "month-desc" | "month-asc" | "amount-desc" | "amount-asc"
+  >("month-desc");
   const [forexCollapsed, setForexCollapsed] = useState<Set<string>>(new Set());
   const [otherForm, setOtherForm] = useState(defaultOtherForm);
   const [saving, setSaving] = useState(false);
   const [refreshingPrices, setRefreshingPrices] = useState(false);
 
-  // SIP Calculator state
-  const [sipMonthly, setSipMonthly] = useState(10000);
-  const [sipReturn, setSipReturn] = useState(12);
-  const [sipYears, setSipYears] = useState(10);
-  const [sipStepUp, setSipStepUp] = useState(0);
-
-  // MF Portfolio forecast state
-  const [mfForecastYears, setMfForecastYears] = useState(5);
   const [detailItem, setDetailItem] = useState<{
-    type: "stocks" | "mutual-funds" | "gold";
-    data: Stock | MutualFund | GoldHolding;
+    type: "stocks" | "mutual-funds" | "gold" | "silver";
+    data: Stock | MutualFund | GoldHolding | SilverHolding;
   } | null>(null);
 
   // CSV Import state
@@ -324,6 +355,7 @@ export default function InvestmentsPage() {
     fetchStocks();
     fetchMutualFunds();
     loadGold();
+    loadSilver();
     loadForex();
     loadOther();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -422,6 +454,7 @@ export default function InvestmentsPage() {
     setStockForm(defaultStockForm);
     setMfForm(defaultMfForm);
     setGoldForm(defaultGoldForm);
+    setSilverForm(defaultSilverForm);
     setForexForm(defaultForexForm);
     setOtherForm(defaultOtherForm);
     if (type) {
@@ -489,6 +522,24 @@ export default function InvestmentsPage() {
     setDialogOpen(true);
   };
 
+  const openEditSilver = (g: SilverHolding) => {
+    setEditMode(true);
+    setEditId(g.id);
+    setSelectedClass("silver");
+    setSilverForm({
+      name: g.name,
+      type: g.type,
+      quantityGrams: String(g.quantityGrams),
+      purity: String(g.purity),
+      purchasePricePerGram: String(g.purchasePricePerGram),
+      currentPricePerGram: String(g.currentPricePerGram),
+      purchaseDate: g.purchaseDate,
+      notes: g.notes ?? "",
+    });
+    setDialogStep(2);
+    setDialogOpen(true);
+  };
+
   const openEditForex = (e: ForexEntry) => {
     setEditMode(true);
     setEditId(e.id);
@@ -506,9 +557,20 @@ export default function InvestmentsPage() {
 
   const exportForexCSV = () => {
     const rows = [
-      ["Month", "Type", "Amount", "Handler Share %", "Handler Share Amount", "My Net", "Notes"],
+      [
+        "Month",
+        "Type",
+        "Amount",
+        "Handler Share %",
+        "Handler Share Amount",
+        "My Net",
+        "Notes",
+      ],
       ...entries.map((e) => {
-        const hs = e.type === "withdrawal" ? (e.amount * e.handler_share_percentage) / 100 : 0;
+        const hs =
+          e.type === "withdrawal"
+            ? (e.amount * e.handler_share_percentage) / 100
+            : 0;
         return [
           e.month,
           e.type,
@@ -630,6 +692,28 @@ export default function InvestmentsPage() {
           toast.success("Holding updated");
         } else {
           await addHolding(payload);
+          toast.success("Holding added");
+        }
+      } else if (selectedClass === "silver") {
+        if (!silverForm.name) {
+          toast.error("Name is required");
+          return;
+        }
+        const payload = {
+          name: silverForm.name,
+          type: silverForm.type as SilverHolding["type"],
+          quantityGrams: parseFloat(silverForm.quantityGrams) || 0,
+          purity: parseFloat(silverForm.purity) || 999,
+          purchasePricePerGram: parseFloat(silverForm.purchasePricePerGram) || 0,
+          currentPricePerGram: parseFloat(silverForm.currentPricePerGram) || 0,
+          purchaseDate: silverForm.purchaseDate,
+          notes: silverForm.notes,
+        };
+        if (editMode && editId) {
+          await updateSilverHolding(editId, payload);
+          toast.success("Holding updated");
+        } else {
+          await addSilverHolding(payload);
           toast.success("Holding added");
         }
       } else if (selectedClass === "forex") {
@@ -774,6 +858,7 @@ export default function InvestmentsPage() {
       if (type === "stocks") await deleteStock(id);
       else if (type === "mutual-funds") await deleteMutualFund(id);
       else if (type === "gold") await deleteHolding(id);
+      else if (type === "silver") await deleteSilverHolding(id);
       else if (type === "forex") await deleteEntry(id);
       else if (type === "other-investments") await deleteInvestment(id);
       toast.success("Deleted");
@@ -1047,14 +1132,39 @@ export default function InvestmentsPage() {
       .filter((e) => e.type === "withdrawal")
       .reduce((s, e) => s + (e.amount * e.handler_share_percentage) / 100, 0);
     const myProfit = withdrawn - handlerShare;
-    return { deposited, pnl, withdrawn, balance: deposited + pnl - withdrawn, handlerShare, myProfit };
+    return {
+      deposited,
+      pnl,
+      withdrawn,
+      balance: deposited + pnl - withdrawn,
+      handlerShare,
+      myProfit,
+    };
   }, [entries]);
 
   // Forex monthly aggregation for charts
   const forexMonthlyData = useMemo(() => {
-    const map: Record<string, { month: string; pnl: number; deposited: number; withdrawn: number; handlerShare: number; myProfit: number }> = {};
+    const map: Record<
+      string,
+      {
+        month: string;
+        pnl: number;
+        deposited: number;
+        withdrawn: number;
+        handlerShare: number;
+        myProfit: number;
+      }
+    > = {};
     for (const e of entries) {
-      if (!map[e.month]) map[e.month] = { month: e.month, pnl: 0, deposited: 0, withdrawn: 0, handlerShare: 0, myProfit: 0 };
+      if (!map[e.month])
+        map[e.month] = {
+          month: e.month,
+          pnl: 0,
+          deposited: 0,
+          withdrawn: 0,
+          handlerShare: 0,
+          myProfit: 0,
+        };
       if (e.type === "pnl") map[e.month].pnl += e.amount;
       if (e.type === "deposit") map[e.month].deposited += e.amount;
       if (e.type === "withdrawal") {
@@ -1079,8 +1189,10 @@ export default function InvestmentsPage() {
   // Filtered + sorted forex entries
   const filteredForexEntries = useMemo(() => {
     let result = [...entries];
-    if (forexFilterType !== "all") result = result.filter((e) => e.type === forexFilterType);
-    if (forexFilterMonth) result = result.filter((e) => e.month === forexFilterMonth);
+    if (forexFilterType !== "all")
+      result = result.filter((e) => e.type === forexFilterType);
+    if (forexFilterMonth)
+      result = result.filter((e) => e.month === forexFilterMonth);
     result.sort((a, b) => {
       if (forexSortBy === "month-desc") return b.month.localeCompare(a.month);
       if (forexSortBy === "month-asc") return a.month.localeCompare(b.month);
@@ -1098,7 +1210,7 @@ export default function InvestmentsPage() {
       groups[e.month].push(e);
     }
     const sortedMonths = Object.keys(groups).sort((a, b) =>
-      forexSortBy === "month-asc" ? a.localeCompare(b) : b.localeCompare(a)
+      forexSortBy === "month-asc" ? a.localeCompare(b) : b.localeCompare(a),
     );
     return sortedMonths.map((month) => ({ month, entries: groups[month] }));
   }, [filteredForexEntries, forexSortBy]);
@@ -1351,107 +1463,6 @@ export default function InvestmentsPage() {
     entries.length > 0 ||
     otherInvestments.length > 0;
 
-  // SIP Calculator computation
-  const sipResult = useMemo(() => {
-    const months = sipYears * 12;
-    const monthlyRate = sipReturn / 100 / 12;
-    const annualStepUpRate = sipStepUp / 100;
-
-    let totalInvested = 0;
-    let maturityValue = 0;
-    const chartData: { year: string; invested: number; value: number; returns: number }[] = [];
-
-    if (annualStepUpRate === 0) {
-      // Standard SIP formula
-      maturityValue = sipMonthly * (((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate));
-      totalInvested = sipMonthly * months;
-      // Build yearly chart data
-      for (let y = 1; y <= sipYears; y++) {
-        const n = y * 12;
-        const val = sipMonthly * (((Math.pow(1 + monthlyRate, n) - 1) / monthlyRate) * (1 + monthlyRate));
-        const inv = sipMonthly * n;
-        chartData.push({ year: `Yr ${y}`, invested: Math.round(inv), value: Math.round(val), returns: Math.round(val - inv) });
-      }
-    } else {
-      // Step-up SIP: SIP amount increases by stepUp% each year
-      let currentSIP = sipMonthly;
-      let runningValue = 0;
-      for (let y = 0; y < sipYears; y++) {
-        for (let m = 0; m < 12; m++) {
-          runningValue = (runningValue + currentSIP) * (1 + monthlyRate);
-          totalInvested += currentSIP;
-        }
-        chartData.push({
-          year: `Yr ${y + 1}`,
-          invested: Math.round(totalInvested),
-          value: Math.round(runningValue),
-          returns: Math.round(runningValue - totalInvested),
-        });
-        currentSIP = Math.round(currentSIP * (1 + annualStepUpRate));
-      }
-      maturityValue = runningValue;
-    }
-
-    const estimatedReturns = maturityValue - totalInvested;
-    const wealthGain = totalInvested > 0 ? ((estimatedReturns / totalInvested) * 100) : 0;
-
-    return { totalInvested: Math.round(totalInvested), maturityValue: Math.round(maturityValue), estimatedReturns: Math.round(estimatedReturns), wealthGain, chartData };
-  }, [sipMonthly, sipReturn, sipYears, sipStepUp]);
-
-  // MF Portfolio analysis — CAGR per fund + forecast
-  const mfPortfolioAnalysis = useMemo(() => {
-    if (mutualFunds.length === 0) return null;
-
-    const funds = mutualFunds.map((f) => {
-      const gain = f.currentValue - f.investedAmount;
-      const gainPct = f.investedAmount > 0 ? (gain / f.investedAmount) * 100 : 0;
-
-      // Annualised CAGR from purchase date
-      let cagr = 0;
-      if (f.purchaseDate && f.investedAmount > 0 && f.currentValue > 0) {
-        const years = (Date.now() - new Date(f.purchaseDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-        if (years >= 0.08) {
-          cagr = (Math.pow(f.currentValue / f.investedAmount, 1 / years) - 1) * 100;
-        } else {
-          cagr = gainPct; // too short — use absolute gain
-        }
-      }
-
-      const feedback =
-        cagr >= 18 ? { label: "Excellent", color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/30" } :
-        cagr >= 12 ? { label: "Good", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/30" } :
-        cagr >= 8  ? { label: "Average", color: "text-yellow-600 dark:text-yellow-400", bg: "bg-yellow-50 dark:bg-yellow-950/30" } :
-        cagr >= 0  ? { label: "Underperforming", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-950/30" } :
-                    { label: "Loss", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/30" };
-
-      // Projected value at each horizon using this fund's CAGR (min 8% floor for forecast)
-      const forecastRate = Math.max(cagr, 0) / 100;
-      const projected = (years: number) => Math.round(f.currentValue * Math.pow(1 + forecastRate, years));
-
-      return { ...f, gain, gainPct, cagr, feedback, projected };
-    });
-
-    const totalInvested = funds.reduce((s, f) => s + f.investedAmount, 0);
-    const totalCurrent = funds.reduce((s, f) => s + f.currentValue, 0);
-    const totalGain = totalCurrent - totalInvested;
-    const totalGainPct = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
-
-    // Weighted CAGR
-    const weightedCagr = totalCurrent > 0
-      ? funds.reduce((s, f) => s + (f.cagr * f.currentValue), 0) / totalCurrent
-      : 0;
-
-    // Forecast chart data
-    const horizons = [1, 2, 3, 5, 7, 10, 15, 20].filter((y) => y <= mfForecastYears + 1);
-    const forecastChart = horizons.map((y) => ({
-      year: `Yr ${y}`,
-      value: funds.reduce((s, f) => s + f.projected(y), 0),
-      invested: Math.round(totalInvested),
-    }));
-
-    return { funds, totalInvested, totalCurrent, totalGain, totalGainPct, weightedCagr, forecastChart };
-  }, [mutualFunds, mfForecastYears]);
-
   return (
     <div className="min-h-screen bg-background">
       <Toaster richColors />
@@ -1572,10 +1583,7 @@ export default function InvestmentsPage() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="sip-calculator" className="flex items-center gap-1.5">
-              <Calculator className="h-3.5 w-3.5" />
-              SIP Calc
-            </TabsTrigger>
+            <TabsTrigger value="silver">Silver</TabsTrigger>
           </TabsList>
 
           {/* ALL TAB — Investment Dashboard */}
@@ -2046,23 +2054,41 @@ export default function InvestmentsPage() {
                   <Card className="overflow-hidden p-0">
                     <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border">
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
-                        <p className="font-mono font-semibold text-sm">{format(inv)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
-                        <p className="font-mono font-semibold text-sm">{format(cur)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
-                        <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                          {pnl >= 0 ? "+" : ""}{format(pnl)}
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Invested
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(inv)}
                         </p>
                       </div>
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
-                        <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                          {ret >= 0 ? "+" : ""}{ret.toFixed(2)}%
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Current Value
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(cur)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Returns
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {pnl >= 0 ? "+" : ""}
+                          {format(pnl)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Overall Return
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {ret >= 0 ? "+" : ""}
+                          {ret.toFixed(2)}%
                         </p>
                       </div>
                     </div>
@@ -2076,28 +2102,49 @@ export default function InvestmentsPage() {
                 {sectorData.length > 0 && (
                   <Card className="overflow-hidden p-0">
                     <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                      <CardTitle className="text-sm font-semibold">Sector Allocation</CardTitle>
+                      <CardTitle className="text-sm font-semibold">
+                        Sector Allocation
+                      </CardTitle>
                     </CardHeader>
                     <div className="divide-y divide-border">
                       {(() => {
-                        const total = sectorData.reduce((s, d) => s + d.value, 0);
+                        const total = sectorData.reduce(
+                          (s, d) => s + d.value,
+                          0,
+                        );
                         return sectorData.slice(0, 7).map((item, i) => {
-                          const pct = total > 0 ? (item.value / total) * 100 : 0;
+                          const pct =
+                            total > 0 ? (item.value / total) * 100 : 0;
                           const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
                           return (
                             <div key={item.name} className="px-4 py-2.5">
                               <div className="flex items-center justify-between mb-1.5">
                                 <div className="flex items-center gap-2">
-                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                                  <span className="text-sm font-medium capitalize">{item.name.replace(/_/g, " ")}</span>
+                                  <span
+                                    className="w-2 h-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                  <span className="text-sm font-medium capitalize">
+                                    {item.name.replace(/_/g, " ")}
+                                  </span>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <span className="font-mono text-[10px] text-muted-foreground">{pct.toFixed(1)}%</span>
-                                  <span className="font-mono font-semibold text-sm">{format(item.value)}</span>
+                                  <span className="font-mono text-[10px] text-muted-foreground">
+                                    {pct.toFixed(1)}%
+                                  </span>
+                                  <span className="font-mono font-semibold text-sm">
+                                    {format(item.value)}
+                                  </span>
                                 </div>
                               </div>
                               <div className="h-1 rounded-full bg-muted overflow-hidden">
-                                <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${pct}%`,
+                                    backgroundColor: color,
+                                  }}
+                                />
                               </div>
                             </div>
                           );
@@ -2109,32 +2156,62 @@ export default function InvestmentsPage() {
 
                 <Card className="overflow-hidden p-0">
                   <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                    <CardTitle className="text-sm font-semibold">Performance Ranking</CardTitle>
+                    <CardTitle className="text-sm font-semibold">
+                      Performance Ranking
+                    </CardTitle>
                   </CardHeader>
                   <div className="divide-y divide-border">
                     {[...stocks]
                       .sort((a, b) => {
-                        const ra = a.investedAmount > 0 ? (a.currentValue - a.investedAmount) / a.investedAmount : 0;
-                        const rb = b.investedAmount > 0 ? (b.currentValue - b.investedAmount) / b.investedAmount : 0;
+                        const ra =
+                          a.investedAmount > 0
+                            ? (a.currentValue - a.investedAmount) /
+                              a.investedAmount
+                            : 0;
+                        const rb =
+                          b.investedAmount > 0
+                            ? (b.currentValue - b.investedAmount) /
+                              b.investedAmount
+                            : 0;
                         return rb - ra;
                       })
                       .slice(0, 7)
                       .map((s, i) => {
                         const pnl = s.currentValue - s.investedAmount;
-                        const ret = s.investedAmount > 0 ? (pnl / s.investedAmount) * 100 : 0;
+                        const ret =
+                          s.investedAmount > 0
+                            ? (pnl / s.investedAmount) * 100
+                            : 0;
                         return (
-                          <div key={s.id} className="px-4 py-2.5 flex items-center gap-3">
-                            <span className="text-[10px] font-mono text-muted-foreground w-4 shrink-0">{i + 1}</span>
+                          <div
+                            key={s.id}
+                            className="px-4 py-2.5 flex items-center gap-3"
+                          >
+                            <span className="text-[10px] font-mono text-muted-foreground w-4 shrink-0">
+                              {i + 1}
+                            </span>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{s.name}</p>
-                              {s.symbol && <p className="text-[10px] font-mono text-muted-foreground">{s.symbol}</p>}
+                              <p className="text-sm font-medium truncate">
+                                {s.name}
+                              </p>
+                              {s.symbol && (
+                                <p className="text-[10px] font-mono text-muted-foreground">
+                                  {s.symbol}
+                                </p>
+                              )}
                             </div>
                             <div className="text-right shrink-0">
-                              <p className={`font-mono text-sm font-semibold ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                                {ret >= 0 ? "+" : ""}{ret.toFixed(1)}%
+                              <p
+                                className={`font-mono text-sm font-semibold ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                              >
+                                {ret >= 0 ? "+" : ""}
+                                {ret.toFixed(1)}%
                               </p>
-                              <p className={`font-mono text-[10px] ${pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
-                                {pnl >= 0 ? "+" : ""}{format(pnl)}
+                              <p
+                                className={`font-mono text-[10px] ${pnl >= 0 ? "text-green-500" : "text-red-500"}`}
+                              >
+                                {pnl >= 0 ? "+" : ""}
+                                {format(pnl)}
                               </p>
                             </div>
                           </div>
@@ -2163,51 +2240,94 @@ export default function InvestmentsPage() {
                       <Card
                         key={s.id}
                         className="cursor-pointer hover:border-blue-400/60 transition-colors overflow-hidden"
-                        onClick={() => setDetailItem({ type: "stocks", data: s })}
+                        onClick={() =>
+                          setDetailItem({ type: "stocks", data: s })
+                        }
                       >
                         <CardContent className="p-0">
-                          <div className={`h-1 w-full ${isPos ? "bg-green-500" : "bg-red-500"}`} />
+                          <div
+                            className={`h-1 w-full ${isPos ? "bg-green-500" : "bg-red-500"}`}
+                          />
                           <div className="p-3">
                             <div className="flex items-start justify-between gap-1 mb-2">
                               <div className="min-w-0">
-                                <p className="font-semibold text-sm truncate leading-tight">{s.name}</p>
-                                {s.symbol && <p className="text-[10px] font-mono text-muted-foreground">{s.symbol}</p>}
+                                <p className="font-semibold text-sm truncate leading-tight">
+                                  {s.name}
+                                </p>
+                                {s.symbol && (
+                                  <p className="text-[10px] font-mono text-muted-foreground">
+                                    {s.symbol}
+                                  </p>
+                                )}
                               </div>
                               {s.stockType && (
-                                <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] capitalize shrink-0"
+                                >
                                   {s.stockType.replace("_", " ")}
                                 </Badge>
                               )}
                             </div>
                             <div className="flex items-center justify-between text-xs mb-2 bg-muted/40 rounded px-2 py-1.5">
                               <div className="text-center">
-                                <p className="text-muted-foreground text-[10px]">Shares</p>
-                                <p className="font-mono font-medium">{s.shares}</p>
+                                <p className="text-muted-foreground text-[10px]">
+                                  Shares
+                                </p>
+                                <p className="font-mono font-medium">
+                                  {s.shares}
+                                </p>
                               </div>
                               <div className="text-center">
-                                <p className="text-muted-foreground text-[10px]">Avg Cost</p>
-                                <p className="font-mono font-medium">{format(s.avgPurchasePrice)}</p>
+                                <p className="text-muted-foreground text-[10px]">
+                                  Avg Cost
+                                </p>
+                                <p className="font-mono font-medium">
+                                  {format(s.avgPurchasePrice)}
+                                </p>
                               </div>
                               <div className="text-center">
-                                <p className="text-muted-foreground text-[10px]">LTP</p>
-                                <p className={`font-mono font-medium ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                                <p className="text-muted-foreground text-[10px]">
+                                  LTP
+                                </p>
+                                <p
+                                  className={`font-mono font-medium ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                                >
                                   {format(s.currentPrice)}
                                 </p>
                               </div>
                             </div>
                             <div className="space-y-0.5">
                               <div className="flex justify-between text-xs">
-                                <span className="text-muted-foreground">Invested</span>
-                                <span className="font-mono">{format(s.investedAmount)}</span>
+                                <span className="text-muted-foreground">
+                                  Invested
+                                </span>
+                                <span className="font-mono">
+                                  {format(s.investedAmount)}
+                                </span>
                               </div>
                               <div className="flex justify-between text-xs">
-                                <span className="text-muted-foreground">Current</span>
-                                <span className="font-mono font-semibold">{format(s.currentValue)}</span>
+                                <span className="text-muted-foreground">
+                                  Current
+                                </span>
+                                <span className="font-mono font-semibold">
+                                  {format(s.currentValue)}
+                                </span>
                               </div>
                             </div>
-                            <div className={`mt-2 flex items-center justify-between rounded px-2 py-1 ${isPos ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}`}>
-                              <span className={`text-xs font-medium ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>P&L</span>
-                              <p className={`font-mono text-xs font-semibold ${d.color}`}>{d.text}</p>
+                            <div
+                              className={`mt-2 flex items-center justify-between rounded px-2 py-1 ${isPos ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}`}
+                            >
+                              <span
+                                className={`text-xs font-medium ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}
+                              >
+                                P&L
+                              </span>
+                              <p
+                                className={`font-mono text-xs font-semibold ${d.color}`}
+                              >
+                                {d.text}
+                              </p>
                             </div>
                           </div>
                         </CardContent>
@@ -2229,7 +2349,10 @@ export default function InvestmentsPage() {
             />
             {mutualFunds.length > 0 &&
               (() => {
-                const inv = mutualFunds.reduce((s, x) => s + x.investedAmount, 0);
+                const inv = mutualFunds.reduce(
+                  (s, x) => s + x.investedAmount,
+                  0,
+                );
                 const cur = mutualFunds.reduce((s, x) => s + x.currentValue, 0);
                 const pnl = cur - inv;
                 const ret = inv > 0 ? (pnl / inv) * 100 : 0;
@@ -2237,23 +2360,41 @@ export default function InvestmentsPage() {
                   <Card className="overflow-hidden p-0">
                     <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border">
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
-                        <p className="font-mono font-semibold text-sm">{format(inv)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
-                        <p className="font-mono font-semibold text-sm">{format(cur)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
-                        <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                          {pnl >= 0 ? "+" : ""}{format(pnl)}
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Invested
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(inv)}
                         </p>
                       </div>
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
-                        <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                          {ret >= 0 ? "+" : ""}{ret.toFixed(2)}%
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Current Value
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(cur)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Returns
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {pnl >= 0 ? "+" : ""}
+                          {format(pnl)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Overall Return
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {ret >= 0 ? "+" : ""}
+                          {ret.toFixed(2)}%
                         </p>
                       </div>
                     </div>
@@ -2267,28 +2408,49 @@ export default function InvestmentsPage() {
                 {mfCategoryData.length > 0 && (
                   <Card className="overflow-hidden p-0">
                     <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                      <CardTitle className="text-sm font-semibold">Category Breakdown</CardTitle>
+                      <CardTitle className="text-sm font-semibold">
+                        Category Breakdown
+                      </CardTitle>
                     </CardHeader>
                     <div className="divide-y divide-border">
                       {(() => {
-                        const total = mfCategoryData.reduce((s, d) => s + d.value, 0);
+                        const total = mfCategoryData.reduce(
+                          (s, d) => s + d.value,
+                          0,
+                        );
                         return mfCategoryData.map((item, i) => {
-                          const pct = total > 0 ? (item.value / total) * 100 : 0;
+                          const pct =
+                            total > 0 ? (item.value / total) * 100 : 0;
                           const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
                           return (
                             <div key={item.name} className="px-4 py-2.5">
                               <div className="flex items-center justify-between mb-1.5">
                                 <div className="flex items-center gap-2">
-                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                                  <span className="text-sm font-medium capitalize">{item.name}</span>
+                                  <span
+                                    className="w-2 h-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                  <span className="text-sm font-medium capitalize">
+                                    {item.name}
+                                  </span>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <span className="font-mono text-[10px] text-muted-foreground">{pct.toFixed(1)}%</span>
-                                  <span className="font-mono font-semibold text-sm">{format(item.value)}</span>
+                                  <span className="font-mono text-[10px] text-muted-foreground">
+                                    {pct.toFixed(1)}%
+                                  </span>
+                                  <span className="font-mono font-semibold text-sm">
+                                    {format(item.value)}
+                                  </span>
                                 </div>
                               </div>
                               <div className="h-1 rounded-full bg-muted overflow-hidden">
-                                <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${pct}%`,
+                                    backgroundColor: color,
+                                  }}
+                                />
                               </div>
                             </div>
                           );
@@ -2300,32 +2462,63 @@ export default function InvestmentsPage() {
 
                 <Card className="overflow-hidden p-0">
                   <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                    <CardTitle className="text-sm font-semibold">Performance Ranking</CardTitle>
+                    <CardTitle className="text-sm font-semibold">
+                      Performance Ranking
+                    </CardTitle>
                   </CardHeader>
                   <div className="divide-y divide-border">
                     {[...mutualFunds]
                       .sort((a, b) => {
-                        const ra = a.investedAmount > 0 ? (a.currentValue - a.investedAmount) / a.investedAmount : 0;
-                        const rb = b.investedAmount > 0 ? (b.currentValue - b.investedAmount) / b.investedAmount : 0;
+                        const ra =
+                          a.investedAmount > 0
+                            ? (a.currentValue - a.investedAmount) /
+                              a.investedAmount
+                            : 0;
+                        const rb =
+                          b.investedAmount > 0
+                            ? (b.currentValue - b.investedAmount) /
+                              b.investedAmount
+                            : 0;
                         return rb - ra;
                       })
                       .slice(0, 7)
                       .map((f, i) => {
                         const pnl = f.currentValue - f.investedAmount;
-                        const ret = f.investedAmount > 0 ? (pnl / f.investedAmount) * 100 : 0;
+                        const ret =
+                          f.investedAmount > 0
+                            ? (pnl / f.investedAmount) * 100
+                            : 0;
                         return (
-                          <div key={f.id} className="px-4 py-2.5 flex items-center gap-3">
-                            <span className="text-[10px] font-mono text-muted-foreground w-4 shrink-0">{i + 1}</span>
+                          <div
+                            key={f.id}
+                            className="px-4 py-2.5 flex items-center gap-3"
+                          >
+                            <span className="text-[10px] font-mono text-muted-foreground w-4 shrink-0">
+                              {i + 1}
+                            </span>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium truncate leading-tight">{f.name}</p>
-                              <p className="text-[10px] text-muted-foreground capitalize">{f.category}{f.subCategory ? ` · ${f.subCategory.replace(/_/g, " ")}` : ""}</p>
+                              <p className="text-xs font-medium truncate leading-tight">
+                                {f.name}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground capitalize">
+                                {f.category}
+                                {f.subCategory
+                                  ? ` · ${f.subCategory.replace(/_/g, " ")}`
+                                  : ""}
+                              </p>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className={`font-mono text-sm font-semibold ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                                {ret >= 0 ? "+" : ""}{ret.toFixed(1)}%
+                              <p
+                                className={`font-mono text-sm font-semibold ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                              >
+                                {ret >= 0 ? "+" : ""}
+                                {ret.toFixed(1)}%
                               </p>
-                              <p className={`font-mono text-[10px] ${pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
-                                {pnl >= 0 ? "+" : ""}{format(pnl)}
+                              <p
+                                className={`font-mono text-[10px] ${pnl >= 0 ? "text-green-500" : "text-red-500"}`}
+                              >
+                                {pnl >= 0 ? "+" : ""}
+                                {format(pnl)}
                               </p>
                             </div>
                           </div>
@@ -2350,51 +2543,93 @@ export default function InvestmentsPage() {
                     const pnl = f.currentValue - f.investedAmount;
                     const isPos = pnl >= 0;
                     const d = pnlInfo(pnl, f.investedAmount);
-                    const navChangePct = f.purchaseNav > 0 ? ((f.nav - f.purchaseNav) / f.purchaseNav) * 100 : 0;
+                    const navChangePct =
+                      f.purchaseNav > 0
+                        ? ((f.nav - f.purchaseNav) / f.purchaseNav) * 100
+                        : 0;
                     return (
                       <Card
                         key={f.id}
                         className="cursor-pointer hover:border-purple-400/60 transition-colors overflow-hidden"
-                        onClick={() => setDetailItem({ type: "mutual-funds", data: f })}
+                        onClick={() =>
+                          setDetailItem({ type: "mutual-funds", data: f })
+                        }
                       >
                         <CardContent className="p-0">
-                          <div className={`h-1 w-full ${isPos ? "bg-green-500" : "bg-red-500"}`} />
+                          <div
+                            className={`h-1 w-full ${isPos ? "bg-green-500" : "bg-red-500"}`}
+                          />
                           <div className="p-3">
                             <div className="mb-2">
-                              <p className="font-semibold text-sm leading-tight line-clamp-2">{f.name}</p>
+                              <p className="font-semibold text-sm leading-tight line-clamp-2">
+                                {f.name}
+                              </p>
                               <p className="text-[10px] text-muted-foreground capitalize mt-0.5">
-                                {f.category}{f.subCategory ? ` · ${f.subCategory.replace(/_/g, " ")}` : ""}
+                                {f.category}
+                                {f.subCategory
+                                  ? ` · ${f.subCategory.replace(/_/g, " ")}`
+                                  : ""}
                               </p>
                             </div>
                             <div className="flex items-center justify-between text-xs mb-2 bg-muted/40 rounded px-2 py-1.5">
                               <div className="text-center">
-                                <p className="text-muted-foreground text-[10px]">Units</p>
-                                <p className="font-mono font-medium">{f.units.toFixed(3)}</p>
+                                <p className="text-muted-foreground text-[10px]">
+                                  Units
+                                </p>
+                                <p className="font-mono font-medium">
+                                  {f.units.toFixed(3)}
+                                </p>
                               </div>
                               <div className="text-center">
-                                <p className="text-muted-foreground text-[10px]">Buy NAV</p>
-                                <p className="font-mono font-medium">{format(f.purchaseNav)}</p>
+                                <p className="text-muted-foreground text-[10px]">
+                                  Buy NAV
+                                </p>
+                                <p className="font-mono font-medium">
+                                  {format(f.purchaseNav)}
+                                </p>
                               </div>
                               <div className="text-center">
-                                <p className="text-muted-foreground text-[10px]">Curr NAV</p>
-                                <p className={`font-mono font-medium ${navChangePct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                                <p className="text-muted-foreground text-[10px]">
+                                  Curr NAV
+                                </p>
+                                <p
+                                  className={`font-mono font-medium ${navChangePct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                                >
                                   {format(f.nav)}
                                 </p>
                               </div>
                             </div>
                             <div className="space-y-0.5">
                               <div className="flex justify-between text-xs">
-                                <span className="text-muted-foreground">Invested</span>
-                                <span className="font-mono">{format(f.investedAmount)}</span>
+                                <span className="text-muted-foreground">
+                                  Invested
+                                </span>
+                                <span className="font-mono">
+                                  {format(f.investedAmount)}
+                                </span>
                               </div>
                               <div className="flex justify-between text-xs">
-                                <span className="text-muted-foreground">Current</span>
-                                <span className="font-mono font-semibold">{format(f.currentValue)}</span>
+                                <span className="text-muted-foreground">
+                                  Current
+                                </span>
+                                <span className="font-mono font-semibold">
+                                  {format(f.currentValue)}
+                                </span>
                               </div>
                             </div>
-                            <div className={`mt-2 flex items-center justify-between rounded px-2 py-1 ${isPos ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}`}>
-                              <span className={`text-xs font-medium ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>P&L</span>
-                              <p className={`font-mono text-xs font-semibold ${d.color}`}>{d.text}</p>
+                            <div
+                              className={`mt-2 flex items-center justify-between rounded px-2 py-1 ${isPos ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}`}
+                            >
+                              <span
+                                className={`text-xs font-medium ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}
+                              >
+                                P&L
+                              </span>
+                              <p
+                                className={`font-mono text-xs font-semibold ${d.color}`}
+                              >
+                                {d.text}
+                              </p>
                             </div>
                           </div>
                         </CardContent>
@@ -2416,36 +2651,67 @@ export default function InvestmentsPage() {
 
             {holdings.length > 0 &&
               (() => {
-                const inv = holdings.reduce((s, x) => s + x.quantityGrams * x.purchasePricePerGram, 0);
-                const cur = holdings.reduce((s, x) => s + x.quantityGrams * x.currentPricePerGram, 0);
+                const inv = holdings.reduce(
+                  (s, x) => s + x.quantityGrams * x.purchasePricePerGram,
+                  0,
+                );
+                const cur = holdings.reduce(
+                  (s, x) => s + x.quantityGrams * x.currentPricePerGram,
+                  0,
+                );
                 const pnl = cur - inv;
                 const ret = inv > 0 ? (pnl / inv) * 100 : 0;
-                const totalGrams = holdings.reduce((s, x) => s + x.quantityGrams, 0);
+                const totalGrams = holdings.reduce(
+                  (s, x) => s + x.quantityGrams,
+                  0,
+                );
                 return (
                   <Card className="overflow-hidden p-0">
                     <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-border">
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Weight</p>
-                        <p className="font-mono font-semibold text-sm">{totalGrams.toFixed(2)}g</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
-                        <p className="font-mono font-semibold text-sm">{format(inv)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
-                        <p className="font-mono font-semibold text-sm">{format(cur)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
-                        <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                          {pnl >= 0 ? "+" : ""}{format(pnl)}
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Weight
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {totalGrams.toFixed(2)}g
                         </p>
                       </div>
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
-                        <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                          {ret >= 0 ? "+" : ""}{ret.toFixed(2)}%
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Invested
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(inv)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Current Value
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(cur)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Returns
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {pnl >= 0 ? "+" : ""}
+                          {format(pnl)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Overall Return
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {ret >= 0 ? "+" : ""}
+                          {ret.toFixed(2)}%
                         </p>
                       </div>
                     </div>
@@ -2458,39 +2724,77 @@ export default function InvestmentsPage() {
                 {/* Type breakdown */}
                 <Card className="overflow-hidden p-0">
                   <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                    <CardTitle className="text-sm font-semibold">Holdings by Type</CardTitle>
+                    <CardTitle className="text-sm font-semibold">
+                      Holdings by Type
+                    </CardTitle>
                   </CardHeader>
                   <div className="divide-y divide-border">
                     {(() => {
-                      const typeMap: Record<string, { grams: number; value: number }> = {};
+                      const typeMap: Record<
+                        string,
+                        { grams: number; value: number }
+                      > = {};
                       holdings.forEach((g) => {
-                        if (!typeMap[g.type]) typeMap[g.type] = { grams: 0, value: 0 };
+                        if (!typeMap[g.type])
+                          typeMap[g.type] = { grams: 0, value: 0 };
                         typeMap[g.type].grams += g.quantityGrams;
-                        typeMap[g.type].value += g.quantityGrams * g.currentPricePerGram;
+                        typeMap[g.type].value +=
+                          g.quantityGrams * g.currentPricePerGram;
                       });
-                      const total = Object.values(typeMap).reduce((s, v) => s + v.value, 0);
-                      const typeColors: Record<string, string> = { physical: "#f59e0b", etf: "#3b82f6", sov: "#8b5cf6", other: "#6b7280" };
-                      const typeLabels: Record<string, string> = { physical: "Physical Gold", etf: "Gold ETF", sov: "Sovereign Bond (SGB)", other: "Other" };
+                      const total = Object.values(typeMap).reduce(
+                        (s, v) => s + v.value,
+                        0,
+                      );
+                      const typeColors: Record<string, string> = {
+                        physical: "#f59e0b",
+                        etf: "#3b82f6",
+                        sov: "#8b5cf6",
+                        other: "#6b7280",
+                      };
+                      const typeLabels: Record<string, string> = {
+                        physical: "Physical Gold",
+                        etf: "Gold ETF",
+                        sov: "Sovereign Bond (SGB)",
+                        other: "Other",
+                      };
                       return Object.entries(typeMap)
                         .sort(([, a], [, b]) => b.value - a.value)
                         .map(([type, data]) => {
-                          const pct = total > 0 ? (data.value / total) * 100 : 0;
+                          const pct =
+                            total > 0 ? (data.value / total) * 100 : 0;
                           const color = typeColors[type] ?? "#6b7280";
                           return (
                             <div key={type} className="px-4 py-2.5">
                               <div className="flex items-center justify-between mb-1.5">
                                 <div className="flex items-center gap-2">
-                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                                  <span className="text-sm font-medium">{typeLabels[type] ?? type}</span>
+                                  <span
+                                    className="w-2 h-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                  <span className="text-sm font-medium">
+                                    {typeLabels[type] ?? type}
+                                  </span>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <span className="font-mono text-[10px] text-muted-foreground">{data.grams.toFixed(2)}g</span>
-                                  <span className="font-mono text-[10px] text-muted-foreground">{pct.toFixed(1)}%</span>
-                                  <span className="font-mono font-semibold text-sm">{format(data.value)}</span>
+                                  <span className="font-mono text-[10px] text-muted-foreground">
+                                    {data.grams.toFixed(2)}g
+                                  </span>
+                                  <span className="font-mono text-[10px] text-muted-foreground">
+                                    {pct.toFixed(1)}%
+                                  </span>
+                                  <span className="font-mono font-semibold text-sm">
+                                    {format(data.value)}
+                                  </span>
                                 </div>
                               </div>
                               <div className="h-1 rounded-full bg-muted overflow-hidden">
-                                <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${pct}%`,
+                                    backgroundColor: color,
+                                  }}
+                                />
                               </div>
                             </div>
                           );
@@ -2504,11 +2808,17 @@ export default function InvestmentsPage() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-widest">Gold Price</p>
-                        <p className="text-[10px] text-amber-600 dark:text-amber-500 mt-0.5">Updates all holding values at once</p>
+                        <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-widest">
+                          Gold Price
+                        </p>
+                        <p className="text-[10px] text-amber-600 dark:text-amber-500 mt-0.5">
+                          Updates all holding values at once
+                        </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-amber-600 dark:text-amber-500">Current / gram</p>
+                        <p className="text-xs text-amber-600 dark:text-amber-500">
+                          Current / gram
+                        </p>
                         <p className="font-mono font-bold text-amber-900 dark:text-amber-300 text-xl">
                           {format(holdings[0]?.currentPricePerGram ?? 0)}
                         </p>
@@ -2516,7 +2826,10 @@ export default function InvestmentsPage() {
                     </div>
                     <div className="flex items-end gap-3">
                       <div className="flex-1">
-                        <Label htmlFor="gold-price" className="text-xs font-medium mb-1 block text-amber-800 dark:text-amber-300">
+                        <Label
+                          htmlFor="gold-price"
+                          className="text-xs font-medium mb-1 block text-amber-800 dark:text-amber-300"
+                        >
                           New Price (₹/gram)
                         </Label>
                         <Input
@@ -2533,11 +2846,16 @@ export default function InvestmentsPage() {
                         size="sm"
                         className="h-9 bg-amber-600 hover:bg-amber-700"
                         onClick={async () => {
-                          const priceValue = parseFloat(goldPriceUpdate) || holdings[0]?.currentPricePerGram || 0;
+                          const priceValue =
+                            parseFloat(goldPriceUpdate) ||
+                            holdings[0]?.currentPricePerGram ||
+                            0;
                           try {
                             await updateAllGoldPrices(priceValue);
                             setGoldPriceUpdate("");
-                            toast.success("Gold prices updated for all holdings!");
+                            toast.success(
+                              "Gold prices updated for all holdings!",
+                            );
                           } catch (error) {
                             toast.error("Failed to update gold prices");
                           }
@@ -2575,41 +2893,415 @@ export default function InvestmentsPage() {
                         <div className="h-1 w-full bg-amber-400" />
                         <div className="p-3">
                           <div className="flex items-start justify-between gap-1 mb-2">
-                            <p className="font-semibold text-sm truncate">{g.name}</p>
+                            <p className="font-semibold text-sm truncate">
+                              {g.name}
+                            </p>
                             <div className="flex gap-1 shrink-0">
-                              <Badge variant="outline" className="text-[10px] capitalize">{g.type.replace("_", " ")}</Badge>
-                              <Badge variant="outline" className="text-[10px]">{g.purity}k</Badge>
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] capitalize"
+                              >
+                                {g.type.replace("_", " ")}
+                              </Badge>
+                              <Badge variant="outline" className="text-[10px]">
+                                {g.purity}k
+                              </Badge>
                             </div>
                           </div>
                           <div className="flex items-center justify-between text-xs mb-2 bg-amber-50 dark:bg-amber-950/30 rounded px-2 py-1.5">
                             <div className="text-center">
-                              <p className="text-muted-foreground text-[10px]">Weight</p>
-                              <p className="font-mono font-medium">{g.quantityGrams}g</p>
+                              <p className="text-muted-foreground text-[10px]">
+                                Weight
+                              </p>
+                              <p className="font-mono font-medium">
+                                {g.quantityGrams}g
+                              </p>
                             </div>
                             <div className="text-center">
-                              <p className="text-muted-foreground text-[10px]">Buy/g</p>
-                              <p className="font-mono font-medium">{format(g.purchasePricePerGram)}</p>
+                              <p className="text-muted-foreground text-[10px]">
+                                Buy/g
+                              </p>
+                              <p className="font-mono font-medium">
+                                {format(g.purchasePricePerGram)}
+                              </p>
                             </div>
                             <div className="text-center">
-                              <p className="text-muted-foreground text-[10px]">Curr/g</p>
-                              <p className={`font-mono font-medium ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                              <p className="text-muted-foreground text-[10px]">
+                                Curr/g
+                              </p>
+                              <p
+                                className={`font-mono font-medium ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                              >
                                 {format(g.currentPricePerGram)}
                               </p>
                             </div>
                           </div>
                           <div className="space-y-0.5">
                             <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">Invested</span>
-                              <span className="font-mono">{format(invested)}</span>
+                              <span className="text-muted-foreground">
+                                Invested
+                              </span>
+                              <span className="font-mono">
+                                {format(invested)}
+                              </span>
                             </div>
                             <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">Current</span>
-                              <span className="font-mono font-semibold">{format(current)}</span>
+                              <span className="text-muted-foreground">
+                                Current
+                              </span>
+                              <span className="font-mono font-semibold">
+                                {format(current)}
+                              </span>
                             </div>
                           </div>
-                          <div className={`mt-2 flex items-center justify-between rounded px-2 py-1 ${isPos ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}`}>
-                            <span className={`text-xs font-medium ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>P&L</span>
-                            <p className={`font-mono text-xs font-semibold ${d.color}`}>{d.text}</p>
+                          <div
+                            className={`mt-2 flex items-center justify-between rounded px-2 py-1 ${isPos ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}`}
+                          >
+                            <span
+                              className={`text-xs font-medium ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}
+                            >
+                              P&L
+                            </span>
+                            <p
+                              className={`font-mono text-xs font-semibold ${d.color}`}
+                            >
+                              {d.text}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* SILVER TAB */}
+          <TabsContent value="silver" className="space-y-3 mt-4">
+            <TabHeader
+              count={silverHoldings.length}
+              label="holding"
+              onAdd={() => openAddDialog("silver")}
+              addLabel="Add Silver"
+            />
+
+            {silverHoldings.length > 0 &&
+              (() => {
+                const inv = silverHoldings.reduce(
+                  (s, x) => s + x.quantityGrams * x.purchasePricePerGram,
+                  0,
+                );
+                const cur = silverHoldings.reduce(
+                  (s, x) => s + x.quantityGrams * x.currentPricePerGram,
+                  0,
+                );
+                const pnl = cur - inv;
+                const ret = inv > 0 ? (pnl / inv) * 100 : 0;
+                const totalGrams = silverHoldings.reduce(
+                  (s, x) => s + x.quantityGrams,
+                  0,
+                );
+                return (
+                  <Card className="overflow-hidden p-0">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-border">
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Weight
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {totalGrams.toFixed(2)}g
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Invested
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(inv)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Current Value
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(cur)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Returns
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {pnl >= 0 ? "+" : ""}
+                          {format(pnl)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Overall Return
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {ret >= 0 ? "+" : ""}
+                          {ret.toFixed(2)}%
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })()}
+
+            {silverHoldings.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {/* Type breakdown */}
+                <Card className="overflow-hidden p-0">
+                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                    <CardTitle className="text-sm font-semibold">
+                      Holdings by Type
+                    </CardTitle>
+                  </CardHeader>
+                  <div className="divide-y divide-border">
+                    {(() => {
+                      const typeMap: Record<
+                        string,
+                        { grams: number; value: number }
+                      > = {};
+                      silverHoldings.forEach((g) => {
+                        if (!typeMap[g.type])
+                          typeMap[g.type] = { grams: 0, value: 0 };
+                        typeMap[g.type].grams += g.quantityGrams;
+                        typeMap[g.type].value +=
+                          g.quantityGrams * g.currentPricePerGram;
+                      });
+                      const total = Object.values(typeMap).reduce(
+                        (s, v) => s + v.value,
+                        0,
+                      );
+                      const typeColors: Record<string, string> = {
+                        physical: "#94a3b8",
+                        etf: "#3b82f6",
+                        other: "#6b7280",
+                      };
+                      const typeLabels: Record<string, string> = {
+                        physical: "Physical Silver",
+                        etf: "Silver ETF",
+                        other: "Other",
+                      };
+                      return Object.entries(typeMap)
+                        .sort(([, a], [, b]) => b.value - a.value)
+                        .map(([type, data]) => {
+                          const pct =
+                            total > 0 ? (data.value / total) * 100 : 0;
+                          const color = typeColors[type] ?? "#6b7280";
+                          return (
+                            <div key={type} className="px-4 py-2.5">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="w-2 h-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                  <span className="text-sm font-medium">
+                                    {typeLabels[type] ?? type}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="font-mono text-[10px] text-muted-foreground">
+                                    {data.grams.toFixed(2)}g
+                                  </span>
+                                  <span className="font-mono text-[10px] text-muted-foreground">
+                                    {pct.toFixed(1)}%
+                                  </span>
+                                  <span className="font-mono font-semibold text-sm">
+                                    {format(data.value)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${pct}%`,
+                                    backgroundColor: color,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        });
+                    })()}
+                  </div>
+                </Card>
+
+                {/* Silver Price Update */}
+                <Card className="bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-800">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-widest">
+                          Silver Price
+                        </p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-500 mt-0.5">
+                          Updates all holding values at once
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-500 dark:text-slate-500">
+                          Current / gram
+                        </p>
+                        <p className="font-mono font-bold text-slate-800 dark:text-slate-300 text-xl">
+                          {format(silverHoldings[0]?.currentPricePerGram ?? 0)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-end gap-3">
+                      <div className="flex-1">
+                        <Label
+                          htmlFor="silver-price"
+                          className="text-xs font-medium mb-1 block text-slate-700 dark:text-slate-300"
+                        >
+                          New Price (₹/gram)
+                        </Label>
+                        <Input
+                          id="silver-price"
+                          type="number"
+                          placeholder="Enter current price per gram"
+                          value={silverPriceUpdate}
+                          onChange={(e) => setSilverPriceUpdate(e.target.value)}
+                          className="text-sm h-9"
+                          step="0.01"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        className="h-9 bg-slate-600 hover:bg-slate-700"
+                        onClick={async () => {
+                          const priceValue =
+                            parseFloat(silverPriceUpdate) ||
+                            silverHoldings[0]?.currentPricePerGram ||
+                            0;
+                          try {
+                            await updateAllSilverPrices(priceValue);
+                            setSilverPriceUpdate("");
+                            toast.success(
+                              "Silver prices updated for all holdings!",
+                            );
+                          } catch {
+                            toast.error("Failed to update silver prices");
+                          }
+                        }}
+                      >
+                        Update All
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {silverHoldings.length === 0 ? (
+              <EmptyState
+                icon={Gem}
+                label="No silver holdings added yet"
+                onAdd={() => openAddDialog("silver")}
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {silverHoldings.map((g) => {
+                  const invested = g.quantityGrams * g.purchasePricePerGram;
+                  const current = g.quantityGrams * g.currentPricePerGram;
+                  const pnl = current - invested;
+                  const isPos = pnl >= 0;
+                  const d = pnlInfo(pnl, invested);
+                  return (
+                    <Card
+                      key={g.id}
+                      className="cursor-pointer hover:border-slate-400/60 transition-colors overflow-hidden"
+                      onClick={() => setDetailItem({ type: "silver", data: g })}
+                    >
+                      <CardContent className="p-0">
+                        <div className="h-1 w-full bg-slate-400" />
+                        <div className="p-3">
+                          <div className="flex items-start justify-between gap-1 mb-2">
+                            <p className="font-semibold text-sm truncate">
+                              {g.name}
+                            </p>
+                            <div className="flex gap-1 shrink-0">
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] capitalize"
+                              >
+                                {g.type.replace("_", " ")}
+                              </Badge>
+                              <Badge variant="outline" className="text-[10px]">
+                                {g.purity} fine
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-xs mb-2 bg-slate-50 dark:bg-slate-950/30 rounded px-2 py-1.5">
+                            <div className="text-center">
+                              <p className="text-muted-foreground text-[10px]">
+                                Weight
+                              </p>
+                              <p className="font-mono font-medium">
+                                {g.quantityGrams}g
+                              </p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-muted-foreground text-[10px]">
+                                Buy/g
+                              </p>
+                              <p className="font-mono font-medium">
+                                {format(g.purchasePricePerGram)}
+                              </p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-muted-foreground text-[10px]">
+                                Curr/g
+                              </p>
+                              <p
+                                className={`font-mono font-medium ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                              >
+                                {format(g.currentPricePerGram)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="space-y-0.5">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">
+                                Invested
+                              </span>
+                              <span className="font-mono">
+                                {format(invested)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">
+                                Current
+                              </span>
+                              <span className="font-mono font-semibold">
+                                {format(current)}
+                              </span>
+                            </div>
+                          </div>
+                          <div
+                            className={`mt-2 flex items-center justify-between rounded px-2 py-1 ${isPos ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}`}
+                          >
+                            <span
+                              className={`text-xs font-medium ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}
+                            >
+                              P&L
+                            </span>
+                            <p
+                              className={`font-mono text-xs font-semibold ${d.color}`}
+                            >
+                              {d.text}
+                            </p>
                           </div>
                         </div>
                       </CardContent>
@@ -2631,23 +3323,96 @@ export default function InvestmentsPage() {
             {entries.length > 0 && (
               <>
                 {(() => {
-                  const profitRate = forexSummary.deposited > 0 ? (forexSummary.pnl / forexSummary.deposited) * 100 : 0;
+                  const profitRate =
+                    forexSummary.deposited > 0
+                      ? (forexSummary.pnl / forexSummary.deposited) * 100
+                      : 0;
                   const summaryCards = [
-                    { label: "Deposited", value: format(forexSummary.deposited), color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/20", sub: null },
-                    { label: "P&L", value: `${forexSummary.pnl >= 0 ? "+" : ""}${format(forexSummary.pnl)}`, color: forexSummary.pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400", bg: forexSummary.pnl >= 0 ? "bg-green-50 dark:bg-green-950/20" : "bg-red-50 dark:bg-red-950/20", sub: `${profitRate >= 0 ? "+" : ""}${profitRate.toFixed(1)}% return` },
-                    { label: "Withdrawn", value: format(forexSummary.withdrawn), color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-950/20", sub: null },
-                    { label: "My Profit", value: `${forexSummary.myProfit >= 0 ? "+" : ""}${format(forexSummary.myProfit)}`, color: forexSummary.myProfit >= 0 ? "text-violet-600 dark:text-violet-400" : "text-red-600 dark:text-red-400", bg: forexSummary.myProfit >= 0 ? "bg-violet-50 dark:bg-violet-950/20" : "bg-red-50 dark:bg-red-950/20", sub: forexSummary.handlerShare > 0 ? `After ${format(forexSummary.handlerShare)} handler cut` : null },
-                    { label: "Handler Paid", value: format(forexSummary.handlerShare), color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-950/20", sub: forexSummary.withdrawn > 0 ? `${((forexSummary.handlerShare / forexSummary.withdrawn) * 100).toFixed(1)}% of withdrawals` : null },
-                    { label: "Balance", value: format(forexSummary.balance), color: forexSummary.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400", bg: "bg-muted/40", sub: null },
+                    {
+                      label: "Deposited",
+                      value: format(forexSummary.deposited),
+                      color: "text-blue-600",
+                      bg: "bg-blue-50 dark:bg-blue-950/20",
+                      sub: null,
+                    },
+                    {
+                      label: "P&L",
+                      value: `${forexSummary.pnl >= 0 ? "+" : ""}${format(forexSummary.pnl)}`,
+                      color:
+                        forexSummary.pnl >= 0
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400",
+                      bg:
+                        forexSummary.pnl >= 0
+                          ? "bg-green-50 dark:bg-green-950/20"
+                          : "bg-red-50 dark:bg-red-950/20",
+                      sub: `${profitRate >= 0 ? "+" : ""}${profitRate.toFixed(1)}% return`,
+                    },
+                    {
+                      label: "Withdrawn",
+                      value: format(forexSummary.withdrawn),
+                      color: "text-orange-600 dark:text-orange-400",
+                      bg: "bg-orange-50 dark:bg-orange-950/20",
+                      sub: null,
+                    },
+                    {
+                      label: "My Profit",
+                      value: `${forexSummary.myProfit >= 0 ? "+" : ""}${format(forexSummary.myProfit)}`,
+                      color:
+                        forexSummary.myProfit >= 0
+                          ? "text-violet-600 dark:text-violet-400"
+                          : "text-red-600 dark:text-red-400",
+                      bg:
+                        forexSummary.myProfit >= 0
+                          ? "bg-violet-50 dark:bg-violet-950/20"
+                          : "bg-red-50 dark:bg-red-950/20",
+                      sub:
+                        forexSummary.handlerShare > 0
+                          ? `After ${format(forexSummary.handlerShare)} handler cut`
+                          : null,
+                    },
+                    {
+                      label: "Handler Paid",
+                      value: format(forexSummary.handlerShare),
+                      color: "text-purple-600 dark:text-purple-400",
+                      bg: "bg-purple-50 dark:bg-purple-950/20",
+                      sub:
+                        forexSummary.withdrawn > 0
+                          ? `${((forexSummary.handlerShare / forexSummary.withdrawn) * 100).toFixed(1)}% of withdrawals`
+                          : null,
+                    },
+                    {
+                      label: "Balance",
+                      value: format(forexSummary.balance),
+                      color:
+                        forexSummary.balance >= 0
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400",
+                      bg: "bg-muted/40",
+                      sub: null,
+                    },
                   ];
                   return (
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                       {summaryCards.map((item) => (
-                        <Card key={item.label} className={`overflow-hidden ${item.bg}`}>
+                        <Card
+                          key={item.label}
+                          className={`overflow-hidden ${item.bg}`}
+                        >
                           <CardContent className="p-3">
-                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">{item.label}</p>
-                            <p className={`text-base font-bold font-mono ${item.color}`}>{item.value}</p>
-                            {item.sub && <p className="text-[10px] text-muted-foreground mt-0.5">{item.sub}</p>}
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                              {item.label}
+                            </p>
+                            <p
+                              className={`text-base font-bold font-mono ${item.color}`}
+                            >
+                              {item.value}
+                            </p>
+                            {item.sub && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {item.sub}
+                              </p>
+                            )}
                           </CardContent>
                         </Card>
                       ))}
@@ -2657,125 +3422,231 @@ export default function InvestmentsPage() {
 
                 {/* Portfolio Breakdown + Monthly Performance side by side */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {/* Portfolio breakdown donut */}
-                {(() => {
-                  const totalPnl = entries.filter((e) => e.type === "pnl").reduce((s, e) => s + e.amount, 0);
-                  const donutData = [
-                    { name: "Deposited", value: forexSummary.deposited, color: "#3b82f6" },
-                    { name: "P&L", value: Math.abs(totalPnl), color: totalPnl >= 0 ? "#22c55e" : "#ef4444" },
-                    { name: "My Profit", value: forexSummary.myProfit > 0 ? forexSummary.myProfit : 0, color: "#10b981" },
-                    { name: "Handler Share", value: forexSummary.handlerShare, color: "#a855f7" },
-                  ].filter((d) => d.value > 0);
+                  {/* Portfolio breakdown donut */}
+                  {(() => {
+                    const totalPnl = entries
+                      .filter((e) => e.type === "pnl")
+                      .reduce((s, e) => s + e.amount, 0);
+                    const donutData = [
+                      {
+                        name: "Deposited",
+                        value: forexSummary.deposited,
+                        color: "#3b82f6",
+                      },
+                      {
+                        name: "P&L",
+                        value: Math.abs(totalPnl),
+                        color: totalPnl >= 0 ? "#22c55e" : "#ef4444",
+                      },
+                      {
+                        name: "My Profit",
+                        value:
+                          forexSummary.myProfit > 0 ? forexSummary.myProfit : 0,
+                        color: "#10b981",
+                      },
+                      {
+                        name: "Handler Share",
+                        value: forexSummary.handlerShare,
+                        color: "#a855f7",
+                      },
+                    ].filter((d) => d.value > 0);
 
-                  if (donutData.length === 0) return null;
+                    if (donutData.length === 0) return null;
 
-                  const total = forexSummary.deposited + Math.abs(totalPnl) + forexSummary.myProfit + forexSummary.handlerShare;
+                    const total =
+                      forexSummary.deposited +
+                      Math.abs(totalPnl) +
+                      forexSummary.myProfit +
+                      forexSummary.handlerShare;
 
-                  return (
-                    <Card>
-                      <CardHeader className="pb-0">
-                        <CardTitle className="text-sm font-semibold">Portfolio Breakdown</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex flex-col sm:flex-row items-center gap-6">
-                          {/* Donut with center balance label */}
-                          <div className="relative shrink-0">
-                            <ResponsiveContainer width={200} height={200}>
-                              <PieChart>
-                                <Pie
-                                  data={donutData}
-                                  cx="50%"
-                                  cy="50%"
-                                  innerRadius={62}
-                                  outerRadius={90}
-                                  paddingAngle={3}
-                                  dataKey="value"
-                                  startAngle={90}
-                                  endAngle={-270}
+                    return (
+                      <Card>
+                        <CardHeader className="pb-0">
+                          <CardTitle className="text-sm font-semibold">
+                            Portfolio Breakdown
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex flex-col sm:flex-row items-center gap-6">
+                            {/* Donut with center balance label */}
+                            <div className="relative shrink-0">
+                              <ResponsiveContainer width={200} height={200}>
+                                <PieChart>
+                                  <Pie
+                                    data={donutData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={62}
+                                    outerRadius={90}
+                                    paddingAngle={3}
+                                    dataKey="value"
+                                    startAngle={90}
+                                    endAngle={-270}
+                                  >
+                                    {donutData.map((entry, i) => (
+                                      <Cell
+                                        key={i}
+                                        fill={entry.color}
+                                        strokeWidth={0}
+                                      />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip
+                                    formatter={(v: unknown) => [
+                                      format(v as number),
+                                    ]}
+                                    contentStyle={{
+                                      backgroundColor: "hsl(var(--card))",
+                                      border: "1px solid hsl(var(--border))",
+                                      borderRadius: "8px",
+                                      fontSize: 12,
+                                    }}
+                                  />
+                                </PieChart>
+                              </ResponsiveContainer>
+                              {/* Center label */}
+                              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                                  Balance
+                                </p>
+                                <p
+                                  className={`font-mono font-bold text-base leading-tight ${forexSummary.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
                                 >
-                                  {donutData.map((entry, i) => (
-                                    <Cell key={i} fill={entry.color} strokeWidth={0} />
-                                  ))}
-                                </Pie>
-                                <Tooltip
-                                  formatter={(v: unknown) => [format(v as number)]}
-                                  contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }}
-                                />
-                              </PieChart>
-                            </ResponsiveContainer>
-                            {/* Center label */}
-                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Balance</p>
-                              <p className={`font-mono font-bold text-base leading-tight ${forexSummary.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                                {format(forexSummary.balance)}
-                              </p>
+                                  {format(forexSummary.balance)}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Legend with amounts and % */}
+                            <div className="flex-1 space-y-3 w-full">
+                              {donutData.map((item) => {
+                                const pct =
+                                  total > 0 ? (item.value / total) * 100 : 0;
+                                return (
+                                  <div key={item.name}>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                                          style={{
+                                            backgroundColor: item.color,
+                                          }}
+                                        />
+                                        <span className="text-sm font-medium">
+                                          {item.name}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-[10px] text-muted-foreground font-mono">
+                                          {pct.toFixed(1)}%
+                                        </span>
+                                        <span className="font-mono font-semibold text-sm">
+                                          {format(item.value)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full transition-all"
+                                        style={{
+                                          width: `${pct}%`,
+                                          backgroundColor: item.color,
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })()}
 
-                          {/* Legend with amounts and % */}
-                          <div className="flex-1 space-y-3 w-full">
-                            {donutData.map((item) => {
-                              const pct = total > 0 ? (item.value / total) * 100 : 0;
-                              return (
-                                <div key={item.name}>
-                                  <div className="flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                                      <span className="text-sm font-medium">{item.name}</span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-[10px] text-muted-foreground font-mono">{pct.toFixed(1)}%</span>
-                                      <span className="font-mono font-semibold text-sm">{format(item.value)}</span>
-                                    </div>
-                                  </div>
-                                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: item.color }} />
-                                  </div>
-                                </div>
-                              );
-                            })}
+                  {/* P&L vs My Profit grouped bar chart */}
+                  {forexMonthlyData.length > 1 && (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-sm font-semibold">
+                            Monthly Performance
+                          </CardTitle>
+                          <div className="flex items-center gap-3">
+                            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                              <span className="w-2.5 h-2.5 rounded-sm bg-green-500 inline-block" />
+                              P&L
+                            </span>
+                            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                              <span className="w-2.5 h-2.5 rounded-sm bg-violet-500 inline-block" />
+                              My Profit
+                            </span>
                           </div>
                         </div>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <ResponsiveContainer width="100%" height={220}>
+                          <BarChart
+                            data={forexMonthlyData}
+                            margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                            barCategoryGap="30%"
+                            barGap={4}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="hsl(var(--border))"
+                              vertical={false}
+                            />
+                            <XAxis
+                              dataKey="month"
+                              tick={{ fontSize: 11 }}
+                              axisLine={false}
+                              tickLine={false}
+                            />
+                            <YAxis
+                              tick={{ fontSize: 11 }}
+                              tickFormatter={(v) =>
+                                `₹${(v / 1000).toFixed(0)}k`
+                              }
+                              axisLine={false}
+                              tickLine={false}
+                            />
+                            <Tooltip
+                              formatter={(
+                                v: unknown,
+                                name: string | undefined,
+                              ) => [format(v as number), name ?? ""]}
+                              contentStyle={{
+                                backgroundColor: "hsl(var(--card))",
+                                border: "1px solid hsl(var(--border))",
+                                borderRadius: "8px",
+                                fontSize: 12,
+                              }}
+                              cursor={{
+                                fill: "hsl(var(--muted))",
+                                opacity: 0.4,
+                              }}
+                            />
+                            <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                            <Bar dataKey="pnl" name="P&L" radius={[4, 4, 0, 0]}>
+                              {forexMonthlyData.map((m, i) => (
+                                <Cell
+                                  key={i}
+                                  fill={m.pnl >= 0 ? "#22c55e" : "#ef4444"}
+                                />
+                              ))}
+                            </Bar>
+                            <Bar
+                              dataKey="myProfit"
+                              name="My Profit"
+                              fill="#7c3aed"
+                              radius={[4, 4, 0, 0]}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
                       </CardContent>
                     </Card>
-                  );
-                })()}
-
-                {/* P&L vs My Profit grouped bar chart */}
-                {forexMonthlyData.length > 1 && (
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm font-semibold">Monthly Performance</CardTitle>
-                        <div className="flex items-center gap-3">
-                          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><span className="w-2.5 h-2.5 rounded-sm bg-green-500 inline-block" />P&L</span>
-                          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><span className="w-2.5 h-2.5 rounded-sm bg-violet-500 inline-block" />My Profit</span>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <ResponsiveContainer width="100%" height={220}>
-                        <BarChart data={forexMonthlyData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="30%" barGap={4}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                          <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} axisLine={false} tickLine={false} />
-                          <Tooltip
-                            formatter={(v: unknown, name: string | undefined) => [format(v as number), name ?? ""]}
-                            contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }}
-                            cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
-                          />
-                          <ReferenceLine y={0} stroke="hsl(var(--border))" />
-                          <Bar dataKey="pnl" name="P&L" radius={[4, 4, 0, 0]}>
-                            {forexMonthlyData.map((m, i) => (
-                              <Cell key={i} fill={m.pnl >= 0 ? "#22c55e" : "#ef4444"} />
-                            ))}
-                          </Bar>
-                          <Bar dataKey="myProfit" name="My Profit" fill="#7c3aed" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </CardContent>
-                  </Card>
-                )}
+                  )}
                 </div>
               </>
             )}
@@ -2791,15 +3662,21 @@ export default function InvestmentsPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   {/* Type filter pills */}
                   <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-                    {(["all", "deposit", "withdrawal", "pnl"] as const).map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setForexFilterType(t)}
-                        className={`text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors ${forexFilterType === t ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                      >
-                        {t === "all" ? "All" : t === "pnl" ? "P&L" : t.charAt(0).toUpperCase() + t.slice(1)}
-                      </button>
-                    ))}
+                    {(["all", "deposit", "withdrawal", "pnl"] as const).map(
+                      (t) => (
+                        <button
+                          key={t}
+                          onClick={() => setForexFilterType(t)}
+                          className={`text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors ${forexFilterType === t ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        >
+                          {t === "all"
+                            ? "All"
+                            : t === "pnl"
+                              ? "P&L"
+                              : t.charAt(0).toUpperCase() + t.slice(1)}
+                        </button>
+                      ),
+                    )}
                   </div>
 
                   {/* Month filter */}
@@ -2810,7 +3687,10 @@ export default function InvestmentsPage() {
                     className="text-xs border rounded-lg px-2.5 py-1.5 bg-background text-foreground h-8"
                   />
                   {forexFilterMonth && (
-                    <button onClick={() => setForexFilterMonth("")} className="text-[11px] text-muted-foreground hover:text-foreground underline">
+                    <button
+                      onClick={() => setForexFilterMonth("")}
+                      className="text-[11px] text-muted-foreground hover:text-foreground underline"
+                    >
                       Clear
                     </button>
                   )}
@@ -2820,7 +3700,9 @@ export default function InvestmentsPage() {
                     <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" />
                     <select
                       value={forexSortBy}
-                      onChange={(e) => setForexSortBy(e.target.value as typeof forexSortBy)}
+                      onChange={(e) =>
+                        setForexSortBy(e.target.value as typeof forexSortBy)
+                      }
                       className="text-xs border rounded-lg px-2 py-1.5 bg-background text-foreground h-8"
                     >
                       <option value="month-desc">Month ↓</option>
@@ -2831,7 +3713,12 @@ export default function InvestmentsPage() {
                   </div>
 
                   {/* Export CSV */}
-                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={exportForexCSV}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs"
+                    onClick={exportForexCSV}
+                  >
                     <Download className="w-3.5 h-3.5" />
                     Export CSV
                   </Button>
@@ -2839,36 +3726,70 @@ export default function InvestmentsPage() {
 
                 {/* Empty filter result */}
                 {filteredForexEntries.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-8">No entries match the current filter.</p>
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No entries match the current filter.
+                  </p>
                 )}
 
                 {/* Grouped by month */}
                 {forexGroupedEntries.map(({ month, entries: monthEntries }) => {
                   const isCollapsed = forexCollapsed.has(month);
-                  const monthPnl = monthEntries.filter((e) => e.type === "pnl").reduce((s, e) => s + e.amount, 0);
-                  const monthDeposited = monthEntries.filter((e) => e.type === "deposit").reduce((s, e) => s + e.amount, 0);
-                  const monthWithdrawn = monthEntries.filter((e) => e.type === "withdrawal").reduce((s, e) => s + e.amount, 0);
-                  const monthHandlerShare = monthEntries.filter((e) => e.type === "withdrawal").reduce((s, e) => s + (e.amount * e.handler_share_percentage) / 100, 0);
+                  const monthPnl = monthEntries
+                    .filter((e) => e.type === "pnl")
+                    .reduce((s, e) => s + e.amount, 0);
+                  const monthDeposited = monthEntries
+                    .filter((e) => e.type === "deposit")
+                    .reduce((s, e) => s + e.amount, 0);
+                  const monthWithdrawn = monthEntries
+                    .filter((e) => e.type === "withdrawal")
+                    .reduce((s, e) => s + e.amount, 0);
+                  const monthHandlerShare = monthEntries
+                    .filter((e) => e.type === "withdrawal")
+                    .reduce(
+                      (s, e) =>
+                        s + (e.amount * e.handler_share_percentage) / 100,
+                      0,
+                    );
                   const monthMyProfit = monthWithdrawn - monthHandlerShare;
 
                   return (
                     <div key={month} className="space-y-1.5">
                       {/* Month group header */}
                       <button
-                        onClick={() => setForexCollapsed((prev) => {
-                          const next = new Set(prev);
-                          next.has(month) ? next.delete(month) : next.add(month);
-                          return next;
-                        })}
+                        onClick={() =>
+                          setForexCollapsed((prev) => {
+                            const next = new Set(prev);
+                            next.has(month)
+                              ? next.delete(month)
+                              : next.add(month);
+                            return next;
+                          })
+                        }
                         className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/70 transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          <span className="font-semibold text-sm font-mono">{month}</span>
-                          <span className="text-[10px] text-muted-foreground">{monthEntries.length} {monthEntries.length === 1 ? "entry" : "entries"}</span>
-                          {monthDeposited > 0 && <span className="text-[10px] font-mono text-blue-600">+{format(monthDeposited)}</span>}
-                          {monthWithdrawn > 0 && <span className="text-[10px] font-mono text-orange-500">-{format(monthWithdrawn)}</span>}
-                          <span className={`text-[10px] font-semibold font-mono ${monthPnl >= 0 ? "text-green-600" : "text-red-600"}`}>
-                            P&L {monthPnl >= 0 ? "+" : ""}{format(monthPnl)}
+                          <span className="font-semibold text-sm font-mono">
+                            {month}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {monthEntries.length}{" "}
+                            {monthEntries.length === 1 ? "entry" : "entries"}
+                          </span>
+                          {monthDeposited > 0 && (
+                            <span className="text-[10px] font-mono text-blue-600">
+                              +{format(monthDeposited)}
+                            </span>
+                          )}
+                          {monthWithdrawn > 0 && (
+                            <span className="text-[10px] font-mono text-orange-500">
+                              -{format(monthWithdrawn)}
+                            </span>
+                          )}
+                          <span
+                            className={`text-[10px] font-semibold font-mono ${monthPnl >= 0 ? "text-green-600" : "text-red-600"}`}
+                          >
+                            P&L {monthPnl >= 0 ? "+" : ""}
+                            {format(monthPnl)}
                           </span>
                           {monthMyProfit > 0 && (
                             <span className="text-[10px] font-semibold font-mono text-violet-600 dark:text-violet-400">
@@ -2876,7 +3797,11 @@ export default function InvestmentsPage() {
                             </span>
                           )}
                         </div>
-                        {isCollapsed ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
+                        {isCollapsed ? (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                        )}
                       </button>
 
                       {/* Entries in this month */}
@@ -2886,51 +3811,98 @@ export default function InvestmentsPage() {
                             const isDeposit = e.type === "deposit";
                             const isWithdrawal = e.type === "withdrawal";
                             const isPnlPos = e.type === "pnl" && e.amount >= 0;
-                            const handlerAmt = isWithdrawal && e.handler_share_percentage > 0
-                              ? (e.amount * e.handler_share_percentage) / 100 : 0;
-                            const myNet = isWithdrawal ? e.amount - handlerAmt : 0;
+                            const handlerAmt =
+                              isWithdrawal && e.handler_share_percentage > 0
+                                ? (e.amount * e.handler_share_percentage) / 100
+                                : 0;
+                            const myNet = isWithdrawal
+                              ? e.amount - handlerAmt
+                              : 0;
 
-                            const accent = isDeposit ? "#3b82f6" : isWithdrawal ? "#f97316" : isPnlPos ? "#22c55e" : "#ef4444";
-                            const typeBg = isDeposit ? "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300"
-                              : isWithdrawal ? "bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300"
-                              : isPnlPos ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300"
-                              : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300";
-                            const amountColor = isDeposit ? "text-blue-600 dark:text-blue-400"
-                              : isWithdrawal ? "text-orange-600 dark:text-orange-400"
-                              : isPnlPos ? "text-green-600 dark:text-green-400"
-                              : "text-red-600 dark:text-red-400";
+                            const accent = isDeposit
+                              ? "#3b82f6"
+                              : isWithdrawal
+                                ? "#f97316"
+                                : isPnlPos
+                                  ? "#22c55e"
+                                  : "#ef4444";
+                            const typeBg = isDeposit
+                              ? "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300"
+                              : isWithdrawal
+                                ? "bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300"
+                                : isPnlPos
+                                  ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300"
+                                  : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300";
+                            const amountColor = isDeposit
+                              ? "text-blue-600 dark:text-blue-400"
+                              : isWithdrawal
+                                ? "text-orange-600 dark:text-orange-400"
+                                : isPnlPos
+                                  ? "text-green-600 dark:text-green-400"
+                                  : "text-red-600 dark:text-red-400";
 
                             return (
-                              <div key={e.id} className="flex items-stretch rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                                <div className="w-1 shrink-0" style={{ backgroundColor: accent }} />
+                              <div
+                                key={e.id}
+                                className="flex items-stretch rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                              >
+                                <div
+                                  className="w-1 shrink-0"
+                                  style={{ backgroundColor: accent }}
+                                />
                                 <div className="flex-1 px-4 py-3 min-w-0">
                                   <div className="flex items-start justify-between gap-3">
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 mb-1.5">
-                                        <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${typeBg}`}>
+                                        <span
+                                          className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${typeBg}`}
+                                        >
                                           {e.type === "pnl" ? "P&L" : e.type}
                                         </span>
                                       </div>
-                                      <p className={`font-bold text-lg font-mono leading-none ${amountColor}`}>
-                                        {(e.type === "pnl" && e.amount >= 0) ? "+" : ""}{format(e.amount)}
+                                      <p
+                                        className={`font-bold text-lg font-mono leading-none ${amountColor}`}
+                                      >
+                                        {e.type === "pnl" && e.amount >= 0
+                                          ? "+"
+                                          : ""}
+                                        {format(e.amount)}
                                       </p>
                                       {isWithdrawal && handlerAmt > 0 && (
                                         <div className="flex items-center gap-3 mt-2">
                                           <div className="flex items-center gap-1.5">
                                             <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
-                                            <span className="text-[11px] text-muted-foreground">My net</span>
-                                            <span className="text-[11px] font-semibold font-mono text-violet-600 dark:text-violet-400">{format(myNet)}</span>
+                                            <span className="text-[11px] text-muted-foreground">
+                                              My net
+                                            </span>
+                                            <span className="text-[11px] font-semibold font-mono text-violet-600 dark:text-violet-400">
+                                              {format(myNet)}
+                                            </span>
                                           </div>
                                           <div className="flex items-center gap-1.5">
                                             <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-                                            <span className="text-[11px] text-muted-foreground">Handler {e.handler_share_percentage}%</span>
-                                            <span className="text-[11px] font-semibold font-mono text-purple-500">{format(handlerAmt)}</span>
+                                            <span className="text-[11px] text-muted-foreground">
+                                              Handler{" "}
+                                              {e.handler_share_percentage}%
+                                            </span>
+                                            <span className="text-[11px] font-semibold font-mono text-purple-500">
+                                              {format(handlerAmt)}
+                                            </span>
                                           </div>
                                         </div>
                                       )}
-                                      {e.notes && <p className="text-[11px] text-muted-foreground mt-1.5 truncate">{e.notes}</p>}
+                                      {e.notes && (
+                                        <p className="text-[11px] text-muted-foreground mt-1.5 truncate">
+                                          {e.notes}
+                                        </p>
+                                      )}
                                     </div>
-                                    <RowActions onEdit={() => openEditForex(e)} onDelete={() => handleDelete("forex", e.id)} />
+                                    <RowActions
+                                      onEdit={() => openEditForex(e)}
+                                      onDelete={() =>
+                                        handleDelete("forex", e.id)
+                                      }
+                                    />
                                   </div>
                                 </div>
                               </div>
@@ -2953,87 +3925,157 @@ export default function InvestmentsPage() {
               onAdd={() => openAddDialog("other-investments")}
               addLabel="Add Investment"
             />
-            {otherInvestments.length > 0 && (() => {
-              const inv = otherInvestments.reduce((s, x) => s + x.investedAmount, 0);
-              const cur = otherInvestments.reduce((s, x) => s + x.currentValue, 0);
-              const pnl = cur - inv;
-              const ret = inv > 0 ? (pnl / inv) * 100 : 0;
-              return (
-                <Card className="overflow-hidden p-0">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border">
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Invested</p>
-                      <p className="font-mono font-semibold text-sm">{format(inv)}</p>
+            {otherInvestments.length > 0 &&
+              (() => {
+                const inv = otherInvestments.reduce(
+                  (s, x) => s + x.investedAmount,
+                  0,
+                );
+                const cur = otherInvestments.reduce(
+                  (s, x) => s + x.currentValue,
+                  0,
+                );
+                const pnl = cur - inv;
+                const ret = inv > 0 ? (pnl / inv) * 100 : 0;
+                return (
+                  <Card className="overflow-hidden p-0">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border">
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Invested
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(inv)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Current Value
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(cur)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Returns
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {pnl >= 0 ? "+" : ""}
+                          {format(pnl)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Overall Return
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {ret >= 0 ? "+" : ""}
+                          {ret.toFixed(2)}%
+                        </p>
+                      </div>
                     </div>
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
-                      <p className="font-mono font-semibold text-sm">{format(cur)}</p>
-                    </div>
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
-                      <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                        {pnl >= 0 ? "+" : ""}{format(pnl)}
-                      </p>
-                    </div>
-                    <div className="px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
-                      <p className={`font-mono font-semibold text-sm ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                        {ret >= 0 ? "+" : ""}{ret.toFixed(2)}%
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })()}
+                  </Card>
+                );
+              })()}
 
             {/* Type breakdown chart */}
-            {otherInvestments.length > 0 && (() => {
-              const typeMap: Record<string, { invested: number; current: number; count: number }> = {};
-              otherInvestments.forEach((o) => {
-                if (!typeMap[o.type]) typeMap[o.type] = { invested: 0, current: 0, count: 0 };
-                typeMap[o.type].invested += o.investedAmount;
-                typeMap[o.type].current += o.currentValue;
-                typeMap[o.type].count += 1;
-              });
-              const typeLabels: Record<string, string> = { fd: "Fixed Deposit", rd: "Recurring Deposit", ppf: "PPF", epf: "EPF / PF", nps: "NPS", postal: "Postal Savings", lic: "LIC / Insurance", other: "Other" };
-              const total = Object.values(typeMap).reduce((s, v) => s + v.current, 0);
-              const sorted = Object.entries(typeMap).sort(([, a], [, b]) => b.current - a.current);
-              return (
-                <Card className="overflow-hidden p-0">
-                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                    <CardTitle className="text-sm font-semibold">Breakdown by Type</CardTitle>
-                  </CardHeader>
-                  <div className="divide-y divide-border">
-                    {sorted.map(([type, data], i) => {
-                      const pct = total > 0 ? (data.current / total) * 100 : 0;
-                      const pnl = data.current - data.invested;
-                      const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
-                      return (
-                        <div key={type} className="px-4 py-2.5">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <div className="flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                              <div>
-                                <span className="text-sm font-medium">{typeLabels[type] ?? type.toUpperCase()}</span>
-                                <span className="text-[10px] text-muted-foreground ml-2">{data.count} holding{data.count > 1 ? "s" : ""}</span>
+            {otherInvestments.length > 0 &&
+              (() => {
+                const typeMap: Record<
+                  string,
+                  { invested: number; current: number; count: number }
+                > = {};
+                otherInvestments.forEach((o) => {
+                  if (!typeMap[o.type])
+                    typeMap[o.type] = { invested: 0, current: 0, count: 0 };
+                  typeMap[o.type].invested += o.investedAmount;
+                  typeMap[o.type].current += o.currentValue;
+                  typeMap[o.type].count += 1;
+                });
+                const typeLabels: Record<string, string> = {
+                  fd: "Fixed Deposit",
+                  rd: "Recurring Deposit",
+                  ppf: "PPF",
+                  epf: "EPF / PF",
+                  nps: "NPS",
+                  postal: "Postal Savings",
+                  lic: "LIC / Insurance",
+                  other: "Other",
+                };
+                const total = Object.values(typeMap).reduce(
+                  (s, v) => s + v.current,
+                  0,
+                );
+                const sorted = Object.entries(typeMap).sort(
+                  ([, a], [, b]) => b.current - a.current,
+                );
+                return (
+                  <Card className="overflow-hidden p-0">
+                    <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                      <CardTitle className="text-sm font-semibold">
+                        Breakdown by Type
+                      </CardTitle>
+                    </CardHeader>
+                    <div className="divide-y divide-border">
+                      {sorted.map(([type, data], i) => {
+                        const pct =
+                          total > 0 ? (data.current / total) * 100 : 0;
+                        const pnl = data.current - data.invested;
+                        const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
+                        return (
+                          <div key={type} className="px-4 py-2.5">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="w-2 h-2 rounded-full shrink-0"
+                                  style={{ backgroundColor: color }}
+                                />
+                                <div>
+                                  <span className="text-sm font-medium">
+                                    {typeLabels[type] ?? type.toUpperCase()}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground ml-2">
+                                    {data.count} holding
+                                    {data.count > 1 ? "s" : ""}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3 text-right">
+                                <span
+                                  className={`font-mono text-[10px] ${pnl >= 0 ? "text-green-600" : "text-red-600"}`}
+                                >
+                                  {pnl >= 0 ? "+" : ""}
+                                  {format(pnl)}
+                                </span>
+                                <span className="font-mono text-[10px] text-muted-foreground">
+                                  {pct.toFixed(1)}%
+                                </span>
+                                <span className="font-mono font-semibold text-sm">
+                                  {format(data.current)}
+                                </span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-3 text-right">
-                              <span className={`font-mono text-[10px] ${pnl >= 0 ? "text-green-600" : "text-red-600"}`}>{pnl >= 0 ? "+" : ""}{format(pnl)}</span>
-                              <span className="font-mono text-[10px] text-muted-foreground">{pct.toFixed(1)}%</span>
-                              <span className="font-mono font-semibold text-sm">{format(data.current)}</span>
+                            <div className="h-1 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${pct}%`,
+                                  backgroundColor: color,
+                                }}
+                              />
                             </div>
                           </div>
-                          <div className="h-1 rounded-full bg-muted overflow-hidden">
-                            <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </Card>
-              );
-            })()}
+                        );
+                      })}
+                    </div>
+                  </Card>
+                );
+              })()}
             {otherInvestments.length === 0 ? (
               <EmptyState
                 icon={Trophy}
@@ -3194,392 +4236,6 @@ export default function InvestmentsPage() {
             )}
           </TabsContent>
 
-          {/* SIP CALCULATOR TAB */}
-
-          <TabsContent value="sip-calculator" className="space-y-4 mt-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Inputs */}
-              <Card className="lg:col-span-1">
-                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Calculator className="h-4 w-4 text-purple-500" />
-                    SIP Calculator
-                  </CardTitle>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Systematic Investment Plan</p>
-                </CardHeader>
-                <CardContent className="px-4 pt-4 pb-4 space-y-5">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Monthly SIP Amount (₹)</Label>
-                    <Input
-                      type="number"
-                      min={500}
-                      step={500}
-                      value={sipMonthly}
-                      onChange={(e) => setSipMonthly(Number(e.target.value))}
-                      className="font-mono"
-                    />
-                    <input
-                      type="range"
-                      min={500}
-                      max={200000}
-                      step={500}
-                      value={sipMonthly}
-                      onChange={(e) => setSipMonthly(Number(e.target.value))}
-                      className="w-full accent-purple-500"
-                    />
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>₹500</span><span>₹2L</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Expected Annual Return (%)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={50}
-                      step={0.5}
-                      value={sipReturn}
-                      onChange={(e) => setSipReturn(Number(e.target.value))}
-                      className="font-mono"
-                    />
-                    <input
-                      type="range"
-                      min={1}
-                      max={30}
-                      step={0.5}
-                      value={sipReturn}
-                      onChange={(e) => setSipReturn(Number(e.target.value))}
-                      className="w-full accent-purple-500"
-                    />
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>1%</span><span>30%</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Investment Duration (Years)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={40}
-                      step={1}
-                      value={sipYears}
-                      onChange={(e) => setSipYears(Number(e.target.value))}
-                      className="font-mono"
-                    />
-                    <input
-                      type="range"
-                      min={1}
-                      max={40}
-                      step={1}
-                      value={sipYears}
-                      onChange={(e) => setSipYears(Number(e.target.value))}
-                      className="w-full accent-purple-500"
-                    />
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>1 yr</span><span>40 yrs</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Annual Step-Up (%)</Label>
-                    <p className="text-[10px] text-muted-foreground">Increase SIP amount each year</p>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={50}
-                      step={1}
-                      value={sipStepUp}
-                      onChange={(e) => setSipStepUp(Number(e.target.value))}
-                      className="font-mono"
-                    />
-                    <input
-                      type="range"
-                      min={0}
-                      max={30}
-                      step={1}
-                      value={sipStepUp}
-                      onChange={(e) => setSipStepUp(Number(e.target.value))}
-                      className="w-full accent-purple-500"
-                    />
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>0%</span><span>30%</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Results + Chart */}
-              <div className="lg:col-span-2 space-y-4">
-                {/* Result cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <Card className="p-4">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Total Invested</p>
-                    <p className="font-mono font-bold text-base text-foreground">{format(sipResult.totalInvested)}</p>
-                  </Card>
-                  <Card className="p-4">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Est. Returns</p>
-                    <p className="font-mono font-bold text-base text-green-600 dark:text-green-400">{format(sipResult.estimatedReturns)}</p>
-                  </Card>
-                  <Card className="p-4">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Maturity Value</p>
-                    <p className="font-mono font-bold text-base text-purple-600 dark:text-purple-400">{format(sipResult.maturityValue)}</p>
-                  </Card>
-                  <Card className="p-4">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Wealth Gain</p>
-                    <p className="font-mono font-bold text-base text-blue-600 dark:text-blue-400">{sipResult.wealthGain.toFixed(1)}%</p>
-                  </Card>
-                </div>
-
-                {/* Growth chart */}
-                <Card>
-                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                    <CardTitle className="text-sm font-semibold">Growth Over Time</CardTitle>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Year-by-year invested amount vs portfolio value</p>
-                  </CardHeader>
-                  <CardContent className="px-2 pt-4 pb-2">
-                    <ResponsiveContainer width="100%" height={280}>
-                      <AreaChart data={sipResult.chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="sipInvestedGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0.05} />
-                          </linearGradient>
-                          <linearGradient id="sipValueGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
-                            <stop offset="95%" stopColor="#a855f7" stopOpacity={0.05} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                        <XAxis dataKey="year" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval={Math.floor(sipYears / 8)} />
-                        <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v >= 10000000 ? `${(v / 10000000).toFixed(1)}Cr` : v >= 100000 ? `${(v / 100000).toFixed(0)}L` : `${(v / 1000).toFixed(0)}K`}`} width={52} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 11 }}
-                          formatter={(v: unknown, name: unknown) => [format(v as number), name === "invested" ? "Total Invested" : name === "value" ? "Portfolio Value" : "Returns"]}
-                        />
-                        <Legend formatter={(v) => v === "invested" ? "Total Invested" : v === "value" ? "Portfolio Value" : "Returns"} wrapperStyle={{ fontSize: 11 }} />
-                        <Area type="monotone" dataKey="invested" stroke="#6366f1" strokeWidth={2} fill="url(#sipInvestedGrad)" dot={false} />
-                        <Area type="monotone" dataKey="value" stroke="#a855f7" strokeWidth={2} fill="url(#sipValueGrad)" dot={false} />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                {/* Summary breakdown */}
-                <Card>
-                  <CardContent className="px-4 py-3">
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
-                      <div className="flex justify-between border-b border-border pb-2">
-                        <span className="text-muted-foreground">Monthly SIP</span>
-                        <span className="font-mono font-medium">{format(sipMonthly)}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-border pb-2">
-                        <span className="text-muted-foreground">Duration</span>
-                        <span className="font-mono font-medium">{sipYears} yrs ({sipYears * 12} months)</span>
-                      </div>
-                      <div className="flex justify-between border-b border-border pb-2">
-                        <span className="text-muted-foreground">Annual Return</span>
-                        <span className="font-mono font-medium">{sipReturn}%</span>
-                      </div>
-                      <div className="flex justify-between border-b border-border pb-2">
-                        <span className="text-muted-foreground">Annual Step-Up</span>
-                        <span className="font-mono font-medium">{sipStepUp > 0 ? `${sipStepUp}%` : "—"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Invested</span>
-                        <span className="font-mono font-medium">{format(sipResult.totalInvested)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground font-semibold">Maturity Value</span>
-                        <span className="font-mono font-semibold text-purple-600 dark:text-purple-400">{format(sipResult.maturityValue)}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-
-            {/* ── MF Portfolio Analysis & Forecast ── */}
-            <div className="mt-2">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h3 className="text-sm font-semibold">Mutual Fund Portfolio Analysis</h3>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Performance feedback & projected growth based on your current holdings</p>
-                </div>
-                {mfPortfolioAnalysis && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">Forecast:</span>
-                    {[3, 5, 10, 15, 20].map((y) => (
-                      <button
-                        key={y}
-                        onClick={() => setMfForecastYears(y)}
-                        className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${mfForecastYears === y ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
-                      >
-                        {y}Y
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {!mfPortfolioAnalysis ? (
-                <Card className="p-8 text-center">
-                  <p className="text-sm text-muted-foreground">No mutual fund holdings found.</p>
-                  <p className="text-xs text-muted-foreground mt-1">Add funds in the Funds tab to see portfolio analysis here.</p>
-                </Card>
-              ) : (
-                <div className="space-y-4">
-                  {/* Portfolio summary stats */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <Card className="p-4">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Total Invested</p>
-                      <p className="font-mono font-bold text-base">{format(mfPortfolioAnalysis.totalInvested)}</p>
-                    </Card>
-                    <Card className="p-4">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Current Value</p>
-                      <p className="font-mono font-bold text-base text-purple-600 dark:text-purple-400">{format(mfPortfolioAnalysis.totalCurrent)}</p>
-                    </Card>
-                    <Card className="p-4">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Total Gain</p>
-                      <p className={`font-mono font-bold text-base ${mfPortfolioAnalysis.totalGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                        {mfPortfolioAnalysis.totalGain >= 0 ? "+" : ""}{format(mfPortfolioAnalysis.totalGain)}
-                      </p>
-                    </Card>
-                    <Card className="p-4">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Weighted CAGR</p>
-                      <p className={`font-mono font-bold text-base ${mfPortfolioAnalysis.weightedCagr >= 12 ? "text-green-600 dark:text-green-400" : mfPortfolioAnalysis.weightedCagr >= 8 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"}`}>
-                        {mfPortfolioAnalysis.weightedCagr.toFixed(1)}%
-                      </p>
-                    </Card>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {/* Per-fund feedback table */}
-                    <Card>
-                      <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                        <CardTitle className="text-sm font-semibold">Fund-wise Performance</CardTitle>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">CAGR calculated from purchase date</p>
-                      </CardHeader>
-                      <CardContent className="p-0">
-                        <div className="divide-y divide-border">
-                          {mfPortfolioAnalysis.funds.map((f) => (
-                            <div key={f.id} className="px-4 py-3 flex items-start justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium truncate">{f.name}</p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">
-                                  {f.category}{f.subCategory ? ` · ${f.subCategory}` : ""}
-                                </p>
-                                <div className="flex items-center gap-3 mt-1 text-[10px]">
-                                  <span className="text-muted-foreground">Invested: <span className="font-mono font-medium text-foreground">{format(f.investedAmount)}</span></span>
-                                  <span className="text-muted-foreground">Now: <span className="font-mono font-medium text-foreground">{format(f.currentValue)}</span></span>
-                                </div>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${f.feedback.bg} ${f.feedback.color}`}>
-                                  {f.feedback.label}
-                                </span>
-                                <p className={`font-mono text-xs font-bold mt-1 ${f.feedback.color}`}>
-                                  {f.cagr >= 0 ? "+" : ""}{f.cagr.toFixed(1)}% CAGR
-                                </p>
-                                <p className={`font-mono text-[10px] ${f.gainPct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                                  {f.gainPct >= 0 ? "+" : ""}{f.gainPct.toFixed(1)}% total
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Forecast chart */}
-                    <Card>
-                      <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                        <CardTitle className="text-sm font-semibold">Portfolio Forecast ({mfForecastYears}Y)</CardTitle>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">Projected value using each fund's own CAGR</p>
-                      </CardHeader>
-                      <CardContent className="px-2 pt-4 pb-2">
-                        <ResponsiveContainer width="100%" height={260}>
-                          <AreaChart data={mfPortfolioAnalysis.forecastChart} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                            <defs>
-                              <linearGradient id="mfForecastGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#a855f7" stopOpacity={0.35} />
-                                <stop offset="95%" stopColor="#a855f7" stopOpacity={0.02} />
-                              </linearGradient>
-                              <linearGradient id="mfInvGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.25} />
-                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0.02} />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                            <XAxis dataKey="year" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                            <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v >= 10000000 ? `${(v / 10000000).toFixed(1)}Cr` : `${(v / 100000).toFixed(0)}L`}`} width={52} />
-                            <Tooltip
-                              contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 11 }}
-                              formatter={(v: unknown, name: unknown) => [format(v as number), name === "value" ? "Projected Value" : "Invested"]}
-                            />
-                            <Legend formatter={(v) => v === "value" ? "Projected Value" : "Invested"} wrapperStyle={{ fontSize: 11 }} />
-                            <Area type="monotone" dataKey="invested" stroke="#6366f1" strokeWidth={1.5} strokeDasharray="4 2" fill="url(#mfInvGrad)" dot={false} />
-                            <Area type="monotone" dataKey="value" stroke="#a855f7" strokeWidth={2} fill="url(#mfForecastGrad)" dot={false} />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Projected value per fund table */}
-                  <Card>
-                    <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                      <CardTitle className="text-sm font-semibold">Fund-wise Projected Values</CardTitle>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Estimated future value of each holding at its own CAGR</p>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="border-b border-border bg-muted/40">
-                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Fund</th>
-                              <th className="text-right px-4 py-2 font-medium text-muted-foreground">Current</th>
-                              <th className="text-right px-4 py-2 font-medium text-muted-foreground">CAGR</th>
-                              <th className="text-right px-4 py-2 font-medium text-muted-foreground">1Y</th>
-                              <th className="text-right px-4 py-2 font-medium text-muted-foreground">3Y</th>
-                              <th className="text-right px-4 py-2 font-medium text-muted-foreground">5Y</th>
-                              <th className="text-right px-4 py-2 font-medium text-muted-foreground">10Y</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {mfPortfolioAnalysis.funds.map((f) => (
-                              <tr key={f.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                                <td className="px-4 py-2.5">
-                                  <p className="font-medium truncate max-w-[180px]">{f.name}</p>
-                                  <p className="text-[10px] text-muted-foreground">{f.category}</p>
-                                </td>
-                                <td className="px-4 py-2.5 text-right font-mono">{format(f.currentValue)}</td>
-                                <td className={`px-4 py-2.5 text-right font-mono font-semibold ${f.feedback.color}`}>{f.cagr.toFixed(1)}%</td>
-                                <td className="px-4 py-2.5 text-right font-mono text-purple-600 dark:text-purple-400">{format(f.projected(1))}</td>
-                                <td className="px-4 py-2.5 text-right font-mono text-purple-600 dark:text-purple-400">{format(f.projected(3))}</td>
-                                <td className="px-4 py-2.5 text-right font-mono text-purple-600 dark:text-purple-400">{format(f.projected(5))}</td>
-                                <td className="px-4 py-2.5 text-right font-mono text-purple-600 dark:text-purple-400">{format(f.projected(10))}</td>
-                              </tr>
-                            ))}
-                            <tr className="bg-muted/40 font-semibold">
-                              <td className="px-4 py-2.5">Total Portfolio</td>
-                              <td className="px-4 py-2.5 text-right font-mono">{format(mfPortfolioAnalysis.totalCurrent)}</td>
-                              <td className={`px-4 py-2.5 text-right font-mono ${mfPortfolioAnalysis.weightedCagr >= 12 ? "text-green-600 dark:text-green-400" : "text-yellow-600 dark:text-yellow-400"}`}>{mfPortfolioAnalysis.weightedCagr.toFixed(1)}%</td>
-                              <td className="px-4 py-2.5 text-right font-mono text-purple-600 dark:text-purple-400">{format(mfPortfolioAnalysis.funds.reduce((s, f) => s + f.projected(1), 0))}</td>
-                              <td className="px-4 py-2.5 text-right font-mono text-purple-600 dark:text-purple-400">{format(mfPortfolioAnalysis.funds.reduce((s, f) => s + f.projected(3), 0))}</td>
-                              <td className="px-4 py-2.5 text-right font-mono text-purple-600 dark:text-purple-400">{format(mfPortfolioAnalysis.funds.reduce((s, f) => s + f.projected(5), 0))}</td>
-                              <td className="px-4 py-2.5 text-right font-mono text-purple-600 dark:text-purple-400">{format(mfPortfolioAnalysis.funds.reduce((s, f) => s + f.projected(10), 0))}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </div>
-          </TabsContent>
         </Tabs>
       </main>
 
@@ -3639,6 +4295,9 @@ export default function InvestmentsPage() {
           )}
           {dialogStep === 2 && selectedClass === "gold" && (
             <GoldForm form={goldForm} onChange={setGoldForm} />
+          )}
+          {dialogStep === 2 && selectedClass === "silver" && (
+            <SilverForm form={silverForm} onChange={setSilverForm} />
           )}
           {dialogStep === 2 && selectedClass === "forex" && (
             <ForexForm form={forexForm} onChange={setForexForm} />
@@ -4003,6 +4662,112 @@ export default function InvestmentsPage() {
                       className="flex-1"
                       onClick={() => {
                         handleDelete("gold", g.id);
+                        setDetailItem(null);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
+          {detailItem?.type === "silver" &&
+            (() => {
+              const g = detailItem.data as SilverHolding;
+              const invested = g.quantityGrams * g.purchasePricePerGram;
+              const current = g.quantityGrams * g.currentPricePerGram;
+              const pnl = current - invested;
+              const d = pnlInfo(pnl, invested);
+              return (
+                <div className="space-y-3 text-sm">
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="outline" className="capitalize">
+                      {g.type.replace("_", " ")}
+                    </Badge>
+                    <Badge variant="outline">{g.purity} fine</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Quantity
+                      </p>
+                      <p className="font-mono font-medium">
+                        {g.quantityGrams}g
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Buy ₹/g
+                      </p>
+                      <p className="font-mono font-medium">
+                        {format(g.purchasePricePerGram)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Current ₹/g
+                      </p>
+                      <p className="font-mono font-medium">
+                        {format(g.currentPricePerGram)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Invested
+                      </p>
+                      <p className="font-mono font-medium">
+                        {format(invested)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Current Value
+                      </p>
+                      <p className="font-mono font-medium">{format(current)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        P&L
+                      </p>
+                      <p className={`font-mono font-medium ${d.color}`}>
+                        {d.text}
+                      </p>
+                    </div>
+                    {g.purchaseDate && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Purchase Date
+                        </p>
+                        <p>{g.purchaseDate}</p>
+                      </div>
+                    )}
+                    {g.notes && (
+                      <div className="col-span-2">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Notes
+                        </p>
+                        <p>{g.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setDetailItem(null);
+                        openEditSilver(g);
+                      }}
+                    >
+                      <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => {
+                        handleDelete("silver", g.id);
                         setDetailItem(null);
                       }}
                     >
@@ -4682,6 +5447,98 @@ function GoldForm({
             <SelectItem value="24">24k (99.9%)</SelectItem>
             <SelectItem value="22">22k (91.6%)</SelectItem>
             <SelectItem value="18">18k (75%)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Quantity (grams) *</Label>
+        <Input
+          type="number"
+          placeholder="0.00"
+          value={form.quantityGrams}
+          onChange={(e) => s("quantityGrams", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Purchase Price / gram *</Label>
+        <Input
+          type="number"
+          placeholder="0.00"
+          value={form.purchasePricePerGram}
+          onChange={(e) => s("purchasePricePerGram", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Current Price / gram *</Label>
+        <Input
+          type="number"
+          placeholder="0.00"
+          value={form.currentPricePerGram}
+          onChange={(e) => s("currentPricePerGram", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Purchase Date</Label>
+        <Input
+          type="date"
+          value={form.purchaseDate}
+          onChange={(e) => s("purchaseDate", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Notes</Label>
+        <Input
+          placeholder="Optional"
+          value={form.notes}
+          onChange={(e) => s("notes", e.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SilverForm({
+  form,
+  onChange,
+}: {
+  form: typeof defaultSilverForm;
+  onChange: (f: typeof defaultSilverForm) => void;
+}) {
+  const s = (k: keyof typeof defaultSilverForm, v: string) =>
+    onChange({ ...form, [k]: v });
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+      <div className="space-y-1.5 sm:col-span-2">
+        <Label>Name *</Label>
+        <Input
+          placeholder="e.g. Silver Coins 100g"
+          value={form.name}
+          onChange={(e) => s("name", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Type</Label>
+        <Select value={form.type} onValueChange={(v) => s("type", v)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="physical">Physical</SelectItem>
+            <SelectItem value="etf">ETF</SelectItem>
+            <SelectItem value="other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Purity</Label>
+        <Select value={form.purity} onValueChange={(v) => s("purity", v)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="999">999 Fine (99.9%)</SelectItem>
+            <SelectItem value="925">925 Sterling (92.5%)</SelectItem>
+            <SelectItem value="800">800 (80%)</SelectItem>
           </SelectContent>
         </Select>
       </div>

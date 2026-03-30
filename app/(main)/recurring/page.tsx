@@ -77,7 +77,9 @@ export default function RecurringPage() {
   const { budgets, fetchBudgets } = useBudgetsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingPattern, setEditingPattern] = useState<RecurringPattern | null>(null);
+  const [editingPattern, setEditingPattern] = useState<RecurringPattern | null>(
+    null,
+  );
   const [showCategoryInput, setShowCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [customCategories, setCustomCategories] = useState<string[]>([]);
@@ -91,7 +93,13 @@ export default function RecurringPage() {
     description: "",
     category: "",
     subtype: "",
-    frequency: "monthly" as "daily" | "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly",
+    frequency: "monthly" as
+      | "daily"
+      | "weekly"
+      | "biweekly"
+      | "monthly"
+      | "quarterly"
+      | "yearly",
     day_of_month: "" as string | number,
     start_date: "",
     end_date: "",
@@ -370,7 +378,13 @@ export default function RecurringPage() {
   };
 
   const handleUpdatePattern = async () => {
-    if (!editingPattern || !editFormData.amount || !editFormData.description || !editFormData.category || !editFormData.name) {
+    if (
+      !editingPattern ||
+      !editFormData.amount ||
+      !editFormData.description ||
+      !editFormData.category ||
+      !editFormData.name
+    ) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -683,7 +697,6 @@ export default function RecurringPage() {
               </Card>
             )}
 
-
             {/* Add Button */}
             <div className="mb-6 flex gap-2">
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -702,35 +715,429 @@ export default function RecurringPage() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-2">
+                    <div className="space-y-4 pb-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Pattern Name *</Label>
+                        <Input
+                          id="name"
+                          placeholder="e.g., Monthly Rent"
+                          value={formData.name}
+                          onChange={(e) =>
+                            setFormData({ ...formData, name: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="type">Type</Label>
+                        <Select
+                          value={formData.type}
+                          onValueChange={(value: "income" | "expense") =>
+                            setFormData({
+                              ...formData,
+                              type: value,
+                              linked_budget_id:
+                                value === "income"
+                                  ? ""
+                                  : formData.linked_budget_id,
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="income">Income</SelectItem>
+                            <SelectItem value="expense">Expense</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="amount">Amount *</Label>
+                        <Input
+                          id="amount"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={formData.amount}
+                          onChange={(e) =>
+                            setFormData({ ...formData, amount: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="description">Description *</Label>
+                        <Input
+                          id="description"
+                          placeholder="e.g., Monthly Rent Payment"
+                          value={formData.description}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              description: e.target.value,
+                            })
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="subtype">Subtype</Label>
+                        <Input
+                          id="subtype"
+                          placeholder="Optional subtype"
+                          value={formData.subtype}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              subtype: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="category">Category *</Label>
+                        {showCategoryInput ? (
+                          <div className="flex space-x-2">
+                            <Input
+                              value={newCategoryName}
+                              onChange={(e) =>
+                                setNewCategoryName(e.target.value)
+                              }
+                              placeholder="Enter category name"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleAddCustomCategory();
+                                } else if (e.key === "Escape") {
+                                  setShowCategoryInput(false);
+                                  setNewCategoryName("");
+                                }
+                              }}
+                              autoFocus
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleAddCustomCategory}
+                              disabled={!newCategoryName.trim()}
+                            >
+                              Add
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setShowCategoryInput(false);
+                                setNewCategoryName("");
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <Select
+                            value={formData.category}
+                            onValueChange={(value) => {
+                              if (value === "add_custom") {
+                                setShowCategoryInput(true);
+                              } else {
+                                setFormData({ ...formData, category: value });
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Salary">Salary</SelectItem>
+                              <SelectItem value="Bills">Bills</SelectItem>
+                              <SelectItem value="Subscriptions">
+                                Subscriptions
+                              </SelectItem>
+                              <SelectItem value="Food">Food</SelectItem>
+                              <SelectItem value="Transportation">
+                                Transportation
+                              </SelectItem>
+                              <SelectItem value="Entertainment">
+                                Entertainment
+                              </SelectItem>
+                              <SelectItem value="Healthcare">
+                                Healthcare
+                              </SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                              {customCategories.map((cat) => (
+                                <SelectItem key={cat} value={cat}>
+                                  {cat}
+                                </SelectItem>
+                              ))}
+                              <SelectItem
+                                value="add_custom"
+                                className="text-blue-600 font-medium border-t mt-1 pt-2"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <Plus className="h-4 w-4" />
+                                  <span>Add Category</span>
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="frequency">Frequency</Label>
+                        <Select
+                          value={formData.frequency}
+                          onValueChange={(
+                            value:
+                              | "daily"
+                              | "weekly"
+                              | "biweekly"
+                              | "monthly"
+                              | "quarterly"
+                              | "yearly",
+                          ) => setFormData({ ...formData, frequency: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select frequency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                            <SelectItem value="biweekly">Bi-weekly</SelectItem>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                            <SelectItem value="quarterly">Quarterly</SelectItem>
+                            <SelectItem value="yearly">Yearly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {formData.frequency === "monthly" && (
+                        <div className="space-y-2">
+                          <Label htmlFor="day_of_month">
+                            Day of month (e.g. 15 = every 15th)
+                          </Label>
+                          <Select
+                            value={
+                              formData.day_of_month === ""
+                                ? "same"
+                                : String(formData.day_of_month)
+                            }
+                            onValueChange={(value) =>
+                              setFormData({
+                                ...formData,
+                                day_of_month:
+                                  value === "same" ? "" : Number(value),
+                              })
+                            }
+                          >
+                            <SelectTrigger id="day_of_month">
+                              <SelectValue placeholder="Pick a day" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="same">
+                                Same as start date
+                              </SelectItem>
+                              {Array.from({ length: 31 }, (_, i) => {
+                                const d = i + 1;
+                                const ord =
+                                  d === 1 || d === 21 || d === 31
+                                    ? "st"
+                                    : d === 2 || d === 22
+                                      ? "nd"
+                                      : d === 3 || d === 23
+                                        ? "rd"
+                                        : "th";
+                                return (
+                                  <SelectItem key={d} value={String(d)}>
+                                    {d}
+                                    {ord}
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <Label htmlFor="start_date">Start Date</Label>
+                        <Input
+                          id="start_date"
+                          type="date"
+                          value={formData.start_date}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              start_date: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="end_date">
+                          End Date (optional – repeats until this date)
+                        </Label>
+                        <Input
+                          id="end_date"
+                          type="date"
+                          value={formData.end_date}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              end_date: e.target.value,
+                            })
+                          }
+                          min={formData.start_date}
+                        />
+                      </div>
+
+                      {formData.type === "expense" && budgets.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Link to budget (optional)</Label>
+                          <Select
+                            value={formData.linked_budget_id || "none"}
+                            onValueChange={(v) =>
+                              setFormData({
+                                ...formData,
+                                linked_budget_id: v === "none" ? "" : v,
+                              })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Auto-match by category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">
+                                Auto-match by category
+                              </SelectItem>
+                              {budgets.map((b) => (
+                                <SelectItem key={b.id} value={b.id}>
+                                  {b.category}
+                                  {b.subtype ? ` · ${b.subtype}` : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Generated transactions use this budget. If unset, a
+                            matching budget is chosen from category/subtype.
+                          </p>
+                        </div>
+                      )}
+
+                      {goals.filter((g) => g.status === "active").length >
+                        0 && (
+                        <div className="space-y-2">
+                          <Label>Link to Goal (optional)</Label>
+                          <Select
+                            value={formData.linked_goal_id || "none"}
+                            onValueChange={(v) =>
+                              setFormData({
+                                ...formData,
+                                linked_goal_id: v === "none" ? "" : v,
+                              })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="No goal linked" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">
+                                No goal linked
+                              </SelectItem>
+                              {goals
+                                .filter((g) => g.status === "active")
+                                .map((g) => (
+                                  <SelectItem key={g.id} value={g.id}>
+                                    {g.title}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            When auto-created, this transaction will contribute
+                            to the selected goal.
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="auto_create"
+                          checked={formData.auto_create}
+                          onCheckedChange={(checked) =>
+                            setFormData({ ...formData, auto_create: checked })
+                          }
+                        />
+                        <Label htmlFor="auto_create" className="cursor-pointer">
+                          Auto-create transactions (experimental)
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="shrink-0 border-t bg-background px-6 py-4">
+                    <Button
+                      onClick={handleAddTransaction}
+                      className="w-full"
+                      disabled={loading}
+                    >
+                      {loading ? "Adding..." : "Add Pattern"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Edit Dialog */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+              <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+                <DialogHeader className="shrink-0 space-y-1.5 px-6 pt-6 pb-2 pr-14 text-left">
+                  <DialogTitle>Edit Recurring Pattern</DialogTitle>
+                  <DialogDescription>
+                    Update the details of this recurring transaction.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-2">
                   <div className="space-y-4 pb-2">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Pattern Name *</Label>
+                      <Label>Pattern Name *</Label>
                       <Input
-                        id="name"
                         placeholder="e.g., Monthly Rent"
-                        value={formData.name}
+                        value={editFormData.name}
                         onChange={(e) =>
-                          setFormData({ ...formData, name: e.target.value })
+                          setEditFormData({
+                            ...editFormData,
+                            name: e.target.value,
+                          })
                         }
-                        required
                       />
                     </div>
-
                     <div className="space-y-2">
-                      <Label htmlFor="type">Type</Label>
+                      <Label>Type</Label>
                       <Select
-                        value={formData.type}
+                        value={editFormData.type}
                         onValueChange={(value: "income" | "expense") =>
-                          setFormData({
-                            ...formData,
+                          setEditFormData({
+                            ...editFormData,
                             type: value,
                             linked_budget_id:
-                              value === "income" ? "" : formData.linked_budget_id,
+                              value === "income"
+                                ? ""
+                                : editFormData.linked_budget_id,
                           })
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="income">Income</SelectItem>
@@ -738,143 +1145,87 @@ export default function RecurringPage() {
                         </SelectContent>
                       </Select>
                     </div>
-
                     <div className="space-y-2">
-                      <Label htmlFor="amount">Amount *</Label>
+                      <Label>Amount *</Label>
                       <Input
-                        id="amount"
                         type="number"
                         step="0.01"
                         placeholder="0.00"
-                        value={formData.amount}
+                        value={editFormData.amount}
                         onChange={(e) =>
-                          setFormData({ ...formData, amount: e.target.value })
+                          setEditFormData({
+                            ...editFormData,
+                            amount: e.target.value,
+                          })
                         }
-                        required
                       />
                     </div>
-
                     <div className="space-y-2">
-                      <Label htmlFor="description">Description *</Label>
+                      <Label>Description *</Label>
                       <Input
-                        id="description"
                         placeholder="e.g., Monthly Rent Payment"
-                        value={formData.description}
+                        value={editFormData.description}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
+                          setEditFormData({
+                            ...editFormData,
                             description: e.target.value,
                           })
                         }
-                        required
                       />
                     </div>
-
                     <div className="space-y-2">
-                      <Label htmlFor="subtype">Subtype</Label>
+                      <Label>Subtype</Label>
                       <Input
-                        id="subtype"
                         placeholder="Optional subtype"
-                        value={formData.subtype}
+                        value={editFormData.subtype}
                         onChange={(e) =>
-                          setFormData({ ...formData, subtype: e.target.value })
+                          setEditFormData({
+                            ...editFormData,
+                            subtype: e.target.value,
+                          })
                         }
                       />
                     </div>
-
                     <div className="space-y-2">
-                      <Label htmlFor="category">Category *</Label>
-                      {showCategoryInput ? (
-                        <div className="flex space-x-2">
-                          <Input
-                            value={newCategoryName}
-                            onChange={(e) => setNewCategoryName(e.target.value)}
-                            placeholder="Enter category name"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleAddCustomCategory();
-                              } else if (e.key === "Escape") {
-                                setShowCategoryInput(false);
-                                setNewCategoryName("");
-                              }
-                            }}
-                            autoFocus
-                          />
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={handleAddCustomCategory}
-                            disabled={!newCategoryName.trim()}
-                          >
-                            Add
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setShowCategoryInput(false);
-                              setNewCategoryName("");
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      ) : (
-                        <Select
-                          value={formData.category}
-                          onValueChange={(value) => {
-                            if (value === "add_custom") {
-                              setShowCategoryInput(true);
-                            } else {
-                              setFormData({ ...formData, category: value });
-                            }
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Salary">Salary</SelectItem>
-                            <SelectItem value="Bills">Bills</SelectItem>
-                            <SelectItem value="Subscriptions">
-                              Subscriptions
-                            </SelectItem>
-                            <SelectItem value="Food">Food</SelectItem>
-                            <SelectItem value="Transportation">
-                              Transportation
-                            </SelectItem>
-                            <SelectItem value="Entertainment">
-                              Entertainment
-                            </SelectItem>
-                            <SelectItem value="Healthcare">
-                              Healthcare
-                            </SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
-                            {customCategories.map((cat) => (
-                              <SelectItem key={cat} value={cat}>
-                                {cat}
-                              </SelectItem>
-                            ))}
-                            <SelectItem
-                              value="add_custom"
-                              className="text-blue-600 font-medium border-t mt-1 pt-2"
-                            >
-                              <div className="flex items-center space-x-2">
-                                <Plus className="h-4 w-4" />
-                                <span>Add Category</span>
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="frequency">Frequency</Label>
+                      <Label>Category *</Label>
                       <Select
-                        value={formData.frequency}
+                        value={editFormData.category}
+                        onValueChange={(value) =>
+                          setEditFormData({ ...editFormData, category: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Salary">Salary</SelectItem>
+                          <SelectItem value="Bills">Bills</SelectItem>
+                          <SelectItem value="Subscriptions">
+                            Subscriptions
+                          </SelectItem>
+                          <SelectItem value="Food">Food</SelectItem>
+                          <SelectItem value="Transportation">
+                            Transportation
+                          </SelectItem>
+                          <SelectItem value="Entertainment">
+                            Entertainment
+                          </SelectItem>
+                          <SelectItem value="Healthcare">Healthcare</SelectItem>
+                          <SelectItem value="Loan">Loan</SelectItem>
+                          <SelectItem value="Savings">Savings</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                          {customCategories.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Frequency</Label>
+                      <Select
+                        value={editFormData.frequency}
                         onValueChange={(
                           value:
                             | "daily"
@@ -883,10 +1234,12 @@ export default function RecurringPage() {
                             | "monthly"
                             | "quarterly"
                             | "yearly",
-                        ) => setFormData({ ...formData, frequency: value })}
+                        ) =>
+                          setEditFormData({ ...editFormData, frequency: value })
+                        }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select frequency" />
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="daily">Daily</SelectItem>
@@ -898,28 +1251,25 @@ export default function RecurringPage() {
                         </SelectContent>
                       </Select>
                     </div>
-
-                    {formData.frequency === "monthly" && (
+                    {editFormData.frequency === "monthly" && (
                       <div className="space-y-2">
-                        <Label htmlFor="day_of_month">
-                          Day of month (e.g. 15 = every 15th)
-                        </Label>
+                        <Label>Day of month</Label>
                         <Select
                           value={
-                            formData.day_of_month === ""
+                            editFormData.day_of_month === ""
                               ? "same"
-                              : String(formData.day_of_month)
+                              : String(editFormData.day_of_month)
                           }
                           onValueChange={(value) =>
-                            setFormData({
-                              ...formData,
+                            setEditFormData({
+                              ...editFormData,
                               day_of_month:
                                 value === "same" ? "" : Number(value),
                             })
                           }
                         >
-                          <SelectTrigger id="day_of_month">
-                            <SelectValue placeholder="Pick a day" />
+                          <SelectTrigger>
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="same">
@@ -946,45 +1296,41 @@ export default function RecurringPage() {
                         </Select>
                       </div>
                     )}
-
                     <div className="space-y-2">
-                      <Label htmlFor="start_date">Start Date</Label>
+                      <Label>Start Date</Label>
                       <Input
-                        id="start_date"
                         type="date"
-                        value={formData.start_date}
+                        value={editFormData.start_date}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
+                          setEditFormData({
+                            ...editFormData,
                             start_date: e.target.value,
                           })
                         }
                       />
                     </div>
-
                     <div className="space-y-2">
-                      <Label htmlFor="end_date">
-                        End Date (optional – repeats until this date)
-                      </Label>
+                      <Label>End Date (optional)</Label>
                       <Input
-                        id="end_date"
                         type="date"
-                        value={formData.end_date}
+                        value={editFormData.end_date}
                         onChange={(e) =>
-                          setFormData({ ...formData, end_date: e.target.value })
+                          setEditFormData({
+                            ...editFormData,
+                            end_date: e.target.value,
+                          })
                         }
-                        min={formData.start_date}
+                        min={editFormData.start_date}
                       />
                     </div>
-
-                    {formData.type === "expense" && budgets.length > 0 && (
+                    {editFormData.type === "expense" && budgets.length > 0 && (
                       <div className="space-y-2">
                         <Label>Link to budget (optional)</Label>
                         <Select
-                          value={formData.linked_budget_id || "none"}
+                          value={editFormData.linked_budget_id || "none"}
                           onValueChange={(v) =>
-                            setFormData({
-                              ...formData,
+                            setEditFormData({
+                              ...editFormData,
                               linked_budget_id: v === "none" ? "" : v,
                             })
                           }
@@ -1004,10 +1350,6 @@ export default function RecurringPage() {
                             ))}
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-muted-foreground">
-                          Generated transactions use this budget. If unset, a
-                          matching budget is chosen from category/subtype.
-                        </p>
                       </div>
                     )}
 
@@ -1015,9 +1357,12 @@ export default function RecurringPage() {
                       <div className="space-y-2">
                         <Label>Link to Goal (optional)</Label>
                         <Select
-                          value={formData.linked_goal_id || "none"}
+                          value={editFormData.linked_goal_id || "none"}
                           onValueChange={(v) =>
-                            setFormData({ ...formData, linked_goal_id: v === "none" ? "" : v })
+                            setEditFormData({
+                              ...editFormData,
+                              linked_goal_id: v === "none" ? "" : v,
+                            })
                           }
                         >
                           <SelectTrigger>
@@ -1034,251 +1379,41 @@ export default function RecurringPage() {
                               ))}
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-muted-foreground">
-                          When auto-created, this transaction will contribute to the selected goal.
-                        </p>
                       </div>
                     )}
-
                     <div className="flex items-center space-x-2">
                       <Switch
-                        id="auto_create"
-                        checked={formData.auto_create}
+                        id="edit_auto_create"
+                        checked={editFormData.auto_create}
                         onCheckedChange={(checked) =>
-                          setFormData({ ...formData, auto_create: checked })
+                          setEditFormData({
+                            ...editFormData,
+                            auto_create: checked,
+                          })
                         }
                       />
-                      <Label htmlFor="auto_create" className="cursor-pointer">
-                        Auto-create transactions (experimental)
+                      <Label
+                        htmlFor="edit_auto_create"
+                        className="cursor-pointer"
+                      >
+                        Auto-create transactions
                       </Label>
                     </div>
                   </div>
-                  </div>
-                  <div className="shrink-0 border-t bg-background px-6 py-4">
-                    <Button
-                      onClick={handleAddTransaction}
-                      className="w-full"
-                      disabled={loading}
-                    >
-                      {loading ? "Adding..." : "Add Pattern"}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            {/* Edit Dialog */}
-            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-              <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
-                <DialogHeader className="shrink-0 space-y-1.5 px-6 pt-6 pb-2 pr-14 text-left">
-                  <DialogTitle>Edit Recurring Pattern</DialogTitle>
-                  <DialogDescription>
-                    Update the details of this recurring transaction.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-2">
-                <div className="space-y-4 pb-2">
-                  <div className="space-y-2">
-                    <Label>Pattern Name *</Label>
-                    <Input
-                      placeholder="e.g., Monthly Rent"
-                      value={editFormData.name}
-                      onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Type</Label>
-                    <Select
-                      value={editFormData.type}
-                      onValueChange={(value: "income" | "expense") =>
-                        setEditFormData({
-                          ...editFormData,
-                          type: value,
-                          linked_budget_id:
-                            value === "income" ? "" : editFormData.linked_budget_id,
-                        })
-                      }
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="income">Income</SelectItem>
-                        <SelectItem value="expense">Expense</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Amount *</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={editFormData.amount}
-                      onChange={(e) => setEditFormData({ ...editFormData, amount: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Description *</Label>
-                    <Input
-                      placeholder="e.g., Monthly Rent Payment"
-                      value={editFormData.description}
-                      onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Subtype</Label>
-                    <Input
-                      placeholder="Optional subtype"
-                      value={editFormData.subtype}
-                      onChange={(e) => setEditFormData({ ...editFormData, subtype: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Category *</Label>
-                    <Select
-                      value={editFormData.category}
-                      onValueChange={(value) => setEditFormData({ ...editFormData, category: value })}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Salary">Salary</SelectItem>
-                        <SelectItem value="Bills">Bills</SelectItem>
-                        <SelectItem value="Subscriptions">Subscriptions</SelectItem>
-                        <SelectItem value="Food">Food</SelectItem>
-                        <SelectItem value="Transportation">Transportation</SelectItem>
-                        <SelectItem value="Entertainment">Entertainment</SelectItem>
-                        <SelectItem value="Healthcare">Healthcare</SelectItem>
-                        <SelectItem value="Loan">Loan</SelectItem>
-                        <SelectItem value="Savings">Savings</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                        {customCategories.map((cat) => (
-                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Frequency</Label>
-                    <Select
-                      value={editFormData.frequency}
-                      onValueChange={(value: "daily" | "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly") =>
-                        setEditFormData({ ...editFormData, frequency: value })
-                      }
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="biweekly">Bi-weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="quarterly">Quarterly</SelectItem>
-                        <SelectItem value="yearly">Yearly</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {editFormData.frequency === "monthly" && (
-                    <div className="space-y-2">
-                      <Label>Day of month</Label>
-                      <Select
-                        value={editFormData.day_of_month === "" ? "same" : String(editFormData.day_of_month)}
-                        onValueChange={(value) =>
-                          setEditFormData({ ...editFormData, day_of_month: value === "same" ? "" : Number(value) })
-                        }
-                      >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="same">Same as start date</SelectItem>
-                          {Array.from({ length: 31 }, (_, i) => {
-                            const d = i + 1;
-                            const ord = d === 1 || d === 21 || d === 31 ? "st" : d === 2 || d === 22 ? "nd" : d === 3 || d === 23 ? "rd" : "th";
-                            return <SelectItem key={d} value={String(d)}>{d}{ord}</SelectItem>;
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <Label>Start Date</Label>
-                    <Input
-                      type="date"
-                      value={editFormData.start_date}
-                      onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>End Date (optional)</Label>
-                    <Input
-                      type="date"
-                      value={editFormData.end_date}
-                      onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
-                      min={editFormData.start_date}
-                    />
-                  </div>
-                  {editFormData.type === "expense" && budgets.length > 0 && (
-                    <div className="space-y-2">
-                      <Label>Link to budget (optional)</Label>
-                      <Select
-                        value={editFormData.linked_budget_id || "none"}
-                        onValueChange={(v) =>
-                          setEditFormData({
-                            ...editFormData,
-                            linked_budget_id: v === "none" ? "" : v,
-                          })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Auto-match by category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">
-                            Auto-match by category
-                          </SelectItem>
-                          {budgets.map((b) => (
-                            <SelectItem key={b.id} value={b.id}>
-                              {b.category}
-                              {b.subtype ? ` · ${b.subtype}` : ""}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {goals.filter((g) => g.status === "active").length > 0 && (
-                    <div className="space-y-2">
-                      <Label>Link to Goal (optional)</Label>
-                      <Select
-                        value={editFormData.linked_goal_id || "none"}
-                        onValueChange={(v) =>
-                          setEditFormData({ ...editFormData, linked_goal_id: v === "none" ? "" : v })
-                        }
-                      >
-                        <SelectTrigger><SelectValue placeholder="No goal linked" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No goal linked</SelectItem>
-                          {goals.filter((g) => g.status === "active").map((g) => (
-                            <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="edit_auto_create"
-                      checked={editFormData.auto_create}
-                      onCheckedChange={(checked) => setEditFormData({ ...editFormData, auto_create: checked })}
-                    />
-                    <Label htmlFor="edit_auto_create" className="cursor-pointer">
-                      Auto-create transactions
-                    </Label>
-                  </div>
-                </div>
                 </div>
                 <div className="shrink-0 border-t bg-background px-6 py-4 flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={() => setIsEditDialogOpen(false)}>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setIsEditDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
-                  <Button onClick={handleUpdatePattern} className="flex-1" disabled={loading}>
+                  <Button
+                    onClick={handleUpdatePattern}
+                    className="flex-1"
+                    disabled={loading}
+                  >
                     {loading ? "Saving..." : "Save Changes"}
                   </Button>
                 </div>
@@ -1288,129 +1423,143 @@ export default function RecurringPage() {
             {/* Patterns List */}
             <Card className="overflow-hidden p-0">
               <div className="divide-y divide-border">
-              {patterns.map((pattern) => {
-                const nextDate = new Date(pattern.next_date);
-                const daysUntil = Math.ceil(
-                  (nextDate.getTime() - new Date().getTime()) /
-                    (1000 * 60 * 60 * 24),
-                );
-                const isDue = daysUntil <= 0;
+                {patterns.map((pattern) => {
+                  const nextDate = new Date(pattern.next_date);
+                  const daysUntil = Math.ceil(
+                    (nextDate.getTime() - new Date().getTime()) /
+                      (1000 * 60 * 60 * 24),
+                  );
+                  const isDue = daysUntil <= 0;
 
-                return (
-                  <div
-                    key={pattern.id}
-                    className={`flex items-center justify-between gap-3 px-4 py-2.5 ${!pattern.is_active ? "opacity-50" : ""}`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div
-                        className={`p-1.5 rounded-full shrink-0 ${
-                          pattern.type === "income"
-                            ? "bg-green-100 text-green-600"
-                            : "bg-red-100 text-red-600"
-                        }`}
-                      >
-                        {pattern.type === "income" ? (
-                          <TrendingUp className="h-3.5 w-3.5" />
-                        ) : (
-                          <TrendingDown className="h-3.5 w-3.5" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="font-medium text-sm truncate">{pattern.name}</p>
-                          <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">
-                            {pattern.frequency === "monthly" && pattern.day_of_month != null
-                              ? `${pattern.day_of_month}${pattern.day_of_month === 1 || pattern.day_of_month === 21 || pattern.day_of_month === 31 ? "st" : pattern.day_of_month === 2 || pattern.day_of_month === 22 ? "nd" : pattern.day_of_month === 3 || pattern.day_of_month === 23 ? "rd" : "th"}`
-                              : pattern.frequency}
-                          </span>
-                          {pattern.auto_create && (
-                            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 shrink-0">Auto</span>
-                          )}
-                          {isDue && pattern.is_active && (
-                            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 shrink-0">Due</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{pattern.category}</span>
-                          <span className="text-[10px] text-muted-foreground">
-                            Next: {nextDate.toLocaleDateString()}
-                            {daysUntil >= 0 && ` · ${daysUntil === 0 ? "today" : daysUntil === 1 ? "tomorrow" : `${daysUntil}d`}`}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="text-right">
-                        <p
-                          className={`font-mono font-semibold text-sm ${
+                  return (
+                    <div
+                      key={pattern.id}
+                      className={`flex items-center justify-between gap-3 px-4 py-2.5 ${!pattern.is_active ? "opacity-50" : ""}`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div
+                          className={`p-1.5 rounded-full shrink-0 ${
                             pattern.type === "income"
-                              ? "text-green-600 dark:text-green-400"
-                              : "text-red-600 dark:text-red-400"
+                              ? "bg-green-100 text-green-600"
+                              : "bg-red-100 text-red-600"
                           }`}
                         >
-                          {pattern.type === "income" ? "+" : "−"}
-                          {format(pattern.amount)}
-                        </p>
-                      </div>
-
-                          <div className="flex items-center space-x-2">
-                            {isDue && pattern.is_active && (
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  handleCreateTransaction(pattern.id)
-                                }
-                                disabled={creatingTransaction === pattern.id}
-                              >
-                                {creatingTransaction === pattern.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <>
-                                    <CheckCircle2 className="h-4 w-4 mr-1" />
-                                    Post
-                                  </>
-                                )}
-                              </Button>
+                          {pattern.type === "income" ? (
+                            <TrendingUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <TrendingDown className="h-3.5 w-3.5" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-medium text-sm truncate">
+                              {pattern.name}
+                            </p>
+                            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">
+                              {pattern.frequency === "monthly" &&
+                              pattern.day_of_month != null
+                                ? `${pattern.day_of_month}${pattern.day_of_month === 1 || pattern.day_of_month === 21 || pattern.day_of_month === 31 ? "st" : pattern.day_of_month === 2 || pattern.day_of_month === 22 ? "nd" : pattern.day_of_month === 3 || pattern.day_of_month === 23 ? "rd" : "th"}`
+                                : pattern.frequency}
+                            </span>
+                            {pattern.auto_create && (
+                              <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 shrink-0">
+                                Auto
+                              </span>
                             )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenEdit(pattern)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => toggleActive(pattern.id)}
-                            >
-                              {pattern.is_active ? (
-                                <Pause className="h-4 w-4" />
-                              ) : (
-                                <Play className="h-4 w-4" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDelete(pattern.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
+                            {isDue && pattern.is_active && (
+                              <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 shrink-0">
+                                Due
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                              {pattern.category}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              Next: {nextDate.toLocaleDateString()}
+                              {daysUntil >= 0 &&
+                                ` · ${daysUntil === 0 ? "today" : daysUntil === 1 ? "tomorrow" : `${daysUntil}d`}`}
+                            </span>
                           </div>
                         </div>
                       </div>
-                );
-              })}
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          <p
+                            className={`font-mono font-semibold text-sm ${
+                              pattern.type === "income"
+                                ? "text-green-600 dark:text-green-400"
+                                : "text-red-600 dark:text-red-400"
+                            }`}
+                          >
+                            {pattern.type === "income" ? "+" : "−"}
+                            {format(pattern.amount)}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          {isDue && pattern.is_active && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                handleCreateTransaction(pattern.id)
+                              }
+                              disabled={creatingTransaction === pattern.id}
+                            >
+                              {creatingTransaction === pattern.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                                  Post
+                                </>
+                              )}
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenEdit(pattern)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleActive(pattern.id)}
+                          >
+                            {pattern.is_active ? (
+                              <Pause className="h-4 w-4" />
+                            ) : (
+                              <Play className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(pattern.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </Card>
 
             {patterns.length === 0 && !loading && (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Repeat className="h-8 w-8 text-muted-foreground/40 mb-3" />
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">No recurring transactions</p>
-                <p className="text-xs text-muted-foreground">Add your first recurring income or expense</p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
+                  No recurring transactions
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Add your first recurring income or expense
+                </p>
               </div>
             )}
           </TabsContent>
@@ -1421,19 +1570,39 @@ export default function RecurringPage() {
             <Card className="overflow-hidden p-0">
               <div className="grid grid-cols-3 divide-x divide-border">
                 <div className="px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Monthly Cost</p>
-                  <p className="font-mono font-semibold text-red-600 dark:text-red-400">{format(monthlyBillsTotal)}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{bills.length} bills</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                    Monthly Cost
+                  </p>
+                  <p className="font-mono font-semibold text-red-600 dark:text-red-400">
+                    {format(monthlyBillsTotal)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {bills.length} bills
+                  </p>
                 </div>
                 <div className="px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overdue</p>
-                  <p className={`font-mono font-semibold ${overdueBills.length > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>{overdueBills.length}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Past due date</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                    Overdue
+                  </p>
+                  <p
+                    className={`font-mono font-semibold ${overdueBills.length > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
+                  >
+                    {overdueBills.length}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Past due date
+                  </p>
                 </div>
                 <div className="px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Paid This Month</p>
-                  <p className="font-mono font-semibold text-green-600 dark:text-green-400">{paidThisMonth}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">of {bills.length} bills</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                    Paid This Month
+                  </p>
+                  <p className="font-mono font-semibold text-green-600 dark:text-green-400">
+                    {paidThisMonth}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    of {bills.length} bills
+                  </p>
                 </div>
               </div>
             </Card>

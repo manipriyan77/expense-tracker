@@ -280,19 +280,36 @@ export default function BudgetsPage() {
   const totalSpent = budgets.reduce((sum, b) => sum + (b.spent_amount || 0), 0);
 
   const CATEGORY_COLORS = [
-    "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6",
-    "#06b6d4", "#f97316", "#ec4899", "#14b8a6", "#84cc16",
-    "#6366f1", "#e11d48", "#ef4444",
+    "#3b82f6",
+    "#10b981",
+    "#f59e0b",
+    "#8b5cf6",
+    "#06b6d4",
+    "#f97316",
+    "#ec4899",
+    "#14b8a6",
+    "#84cc16",
+    "#6366f1",
+    "#e11d48",
+    "#ef4444",
   ];
 
   const budgetCategoryBreakdown = useMemo(() => {
-    const grouped: Record<string, { total: number; items: { name: string; amount: number }[] }> = {};
-    budgets.filter((b) => b.limit_amount > 0).forEach((b) => {
-      const cat = b.category;
-      if (!grouped[cat]) grouped[cat] = { total: 0, items: [] };
-      grouped[cat].total += b.limit_amount;
-      grouped[cat].items.push({ name: b.subtype || b.category, amount: b.limit_amount });
-    });
+    const grouped: Record<
+      string,
+      { total: number; items: { name: string; amount: number }[] }
+    > = {};
+    budgets
+      .filter((b) => b.limit_amount > 0)
+      .forEach((b) => {
+        const cat = b.category;
+        if (!grouped[cat]) grouped[cat] = { total: 0, items: [] };
+        grouped[cat].total += b.limit_amount;
+        grouped[cat].items.push({
+          name: b.subtype || b.category,
+          amount: b.limit_amount,
+        });
+      });
     return Object.entries(grouped)
       .map(([category, data]) => ({ category, ...data }))
       .sort((a, b) => b.total - a.total);
@@ -806,7 +823,10 @@ export default function BudgetsPage() {
                   <CardContent className="px-2 pt-4 pb-2">
                     <ResponsiveContainer
                       width="100%"
-                      height={Math.max(200, budgetCategoryBreakdown.length * 48)}
+                      height={Math.max(
+                        200,
+                        budgetCategoryBreakdown.length * 48,
+                      )}
                     >
                       <BarChart
                         layout="vertical"
@@ -823,11 +843,18 @@ export default function BudgetsPage() {
                         })}
                         margin={{ top: 0, right: 16, left: 8, bottom: 0 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          horizontal={false}
+                          stroke="var(--border)"
+                        />
                         <XAxis
                           type="number"
                           tickFormatter={(v) => format(v)}
-                          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                          tick={{
+                            fontSize: 10,
+                            fill: "var(--muted-foreground)",
+                          }}
                           axisLine={false}
                           tickLine={false}
                         />
@@ -840,8 +867,16 @@ export default function BudgetsPage() {
                           tickLine={false}
                         />
                         <Tooltip
-                          formatter={(value: unknown, name?: string) => [format(Number(value ?? 0)), name ?? ""]}
-                          contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--border)", background: "var(--background)" }}
+                          formatter={(value: unknown, name?: string) => [
+                            format(Number(value ?? 0)),
+                            name ?? "",
+                          ]}
+                          contentStyle={{
+                            fontSize: 12,
+                            borderRadius: 8,
+                            border: "1px solid var(--border)",
+                            background: "var(--background)",
+                          }}
                           labelStyle={{ fontWeight: 600, marginBottom: 4 }}
                         />
                         <Legend
@@ -849,17 +884,34 @@ export default function BudgetsPage() {
                           iconSize={8}
                           wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
                           formatter={(value) => (
-                            <span style={{ color: "var(--foreground)" }}>{value}</span>
+                            <span style={{ color: "var(--foreground)" }}>
+                              {value}
+                            </span>
                           )}
                         />
-                        <Bar dataKey="Budget" radius={[0, 4, 4, 0]} maxBarSize={14}>
+                        <Bar
+                          dataKey="Budget"
+                          radius={[0, 4, 4, 0]}
+                          maxBarSize={14}
+                        >
                           {budgetCategoryBreakdown.map((_, i) => (
-                            <Cell key={i} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />
+                            <Cell
+                              key={i}
+                              fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]}
+                            />
                           ))}
                         </Bar>
-                        <Bar dataKey="Spent" radius={[0, 4, 4, 0]} maxBarSize={14}>
+                        <Bar
+                          dataKey="Spent"
+                          radius={[0, 4, 4, 0]}
+                          maxBarSize={14}
+                        >
                           {budgetCategoryBreakdown.map((_, i) => (
-                            <Cell key={i} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} opacity={0.45} />
+                            <Cell
+                              key={i}
+                              fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]}
+                              opacity={0.45}
+                            />
                           ))}
                         </Bar>
                       </BarChart>
@@ -875,24 +927,39 @@ export default function BudgetsPage() {
                   </CardHeader>
                   <CardContent className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-4">
                     {budgetCategoryBreakdown.map((group, idx) => {
-                      const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+                      const color =
+                        CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
                       const spent = budgets
                         .filter((b) => b.category === group.category)
                         .reduce((s, b) => s + (b.spent_amount || 0), 0);
-                      const spentPct = group.total > 0 ? Math.min((spent / group.total) * 100, 100) : 0;
+                      const spentPct =
+                        group.total > 0
+                          ? Math.min((spent / group.total) * 100, 100)
+                          : 0;
                       const hasMultiple = group.items.length > 1;
                       return (
                         <div key={group.category}>
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
-                              <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                              <span className="text-sm font-semibold">{group.category}</span>
+                              <span
+                                className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: color }}
+                              />
+                              <span className="text-sm font-semibold">
+                                {group.category}
+                              </span>
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="text-xs text-muted-foreground">
-                                <span className="text-red-500 font-mono">{format(spent)}</span>
-                                <span className="mx-1 text-muted-foreground/50">/</span>
-                                <span className="font-mono">{format(group.total)}</span>
+                                <span className="text-red-500 font-mono">
+                                  {format(spent)}
+                                </span>
+                                <span className="mx-1 text-muted-foreground/50">
+                                  /
+                                </span>
+                                <span className="font-mono">
+                                  {format(group.total)}
+                                </span>
                               </span>
                               <span
                                 className={`text-xs font-bold w-10 text-right ${spentPct >= 100 ? "text-red-500" : spentPct >= 80 ? "text-orange-500" : "text-green-500"}`}
@@ -907,7 +974,12 @@ export default function BudgetsPage() {
                               className="h-2 rounded-full transition-all"
                               style={{
                                 width: `${spentPct}%`,
-                                backgroundColor: spentPct >= 100 ? "#ef4444" : spentPct >= 80 ? "#f97316" : color,
+                                backgroundColor:
+                                  spentPct >= 100
+                                    ? "#ef4444"
+                                    : spentPct >= 80
+                                      ? "#f97316"
+                                      : color,
                               }}
                             />
                           </div>
@@ -915,15 +987,33 @@ export default function BudgetsPage() {
                             <div className="ml-4 space-y-1">
                               {group.items.map((item) => {
                                 const itemSpent = budgets
-                                  .filter((b) => b.category === group.category && (b.subtype || b.category) === item.name)
-                                  .reduce((s, b) => s + (b.spent_amount || 0), 0);
+                                  .filter(
+                                    (b) =>
+                                      b.category === group.category &&
+                                      (b.subtype || b.category) === item.name,
+                                  )
+                                  .reduce(
+                                    (s, b) => s + (b.spent_amount || 0),
+                                    0,
+                                  );
                                 return (
-                                  <div key={item.name} className="flex items-center justify-between">
-                                    <span className="text-xs text-muted-foreground">{item.name}</span>
+                                  <div
+                                    key={item.name}
+                                    className="flex items-center justify-between"
+                                  >
+                                    <span className="text-xs text-muted-foreground">
+                                      {item.name}
+                                    </span>
                                     <div className="flex items-center gap-3">
-                                      <span className="text-xs font-mono text-red-500">{format(itemSpent)}</span>
-                                      <span className="text-xs text-muted-foreground">/</span>
-                                      <span className="text-xs font-mono text-muted-foreground">{format(item.amount)}</span>
+                                      <span className="text-xs font-mono text-red-500">
+                                        {format(itemSpent)}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">
+                                        /
+                                      </span>
+                                      <span className="text-xs font-mono text-muted-foreground">
+                                        {format(item.amount)}
+                                      </span>
                                     </div>
                                   </div>
                                 );

@@ -148,7 +148,8 @@ const PILLAR_META: Record<
   Budgets: {
     icon: Receipt,
     weight: "20 pts",
-    description: "How many of your spending budgets are staying within their limits.",
+    description:
+      "How many of your spending budgets are staying within their limits.",
     what: "We count how many budget categories you've set up and how many are within their monthly limit. If you haven't set any budgets yet, you get a neutral 12/20.",
     how: [
       "Set a budget for every major spending category",
@@ -170,7 +171,8 @@ const PILLAR_META: Record<
   Debt: {
     icon: Landmark,
     weight: "20 pts",
-    description: "Your total debt as a percentage of your total assets (debt-to-asset ratio).",
+    description:
+      "Your total debt as a percentage of your total assets (debt-to-asset ratio).",
     what: "Debt ratio = Total liabilities ÷ Total assets × 100. A lower percentage is better. If you have no assets tracked, you get a neutral 12/20.",
     how: [
       "Pay down high-interest debt first (credit cards, personal loans)",
@@ -192,7 +194,8 @@ const PILLAR_META: Record<
   Goals: {
     icon: Target,
     weight: "15 pts",
-    description: "Average completion percentage across all your active financial goals.",
+    description:
+      "Average completion percentage across all your active financial goals.",
     what: "We average the progress % of all active goals. If you have no goals, you get a neutral 8/15. Adding goals and contributing to them regularly improves this score.",
     how: [
       "Create at least one financial goal (emergency fund, vacation, down payment)",
@@ -214,7 +217,8 @@ const PILLAR_META: Record<
   Investments: {
     icon: BarChart3,
     weight: "20 pts",
-    description: "Number of different investment asset types you actively hold.",
+    description:
+      "Number of different investment asset types you actively hold.",
     what: "We count how many of the 4 asset classes you have a non-zero balance in: Stocks, Mutual Funds, Gold, Forex. More diversification = higher score.",
     how: [
       "Start with one investment type if you haven't yet (index funds are easiest)",
@@ -239,7 +243,8 @@ export default function HealthScorePage() {
 
   const { transactions, fetchTransactions } = useTransactionsStore();
   const { goals, fetchGoals } = useGoalsStore();
-  const { assets, liabilities, fetchAssets, fetchLiabilities } = useNetWorthStore();
+  const { assets, liabilities, fetchAssets, fetchLiabilities } =
+    useNetWorthStore();
   const { budgets, fetchBudgets } = useBudgetsStore();
   const { stocks, fetchStocks } = useStocksStore();
   const { mutualFunds, fetchMutualFunds } = useMutualFundsStore();
@@ -280,25 +285,48 @@ export default function HealthScorePage() {
     .reduce((s, t) => s + t.amount, 0);
   const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
 
-  const stocksValue = useMemo(() => stocks.reduce((s, x) => s + x.currentValue, 0), [stocks]);
-  const mfValue = useMemo(() => mutualFunds.reduce((s, x) => s + x.currentValue, 0), [mutualFunds]);
+  const stocksValue = useMemo(
+    () => stocks.reduce((s, x) => s + x.currentValue, 0),
+    [stocks],
+  );
+  const mfValue = useMemo(
+    () => mutualFunds.reduce((s, x) => s + x.currentValue, 0),
+    [mutualFunds],
+  );
   const goldValue = useMemo(
-    () => goldHoldings.reduce((s, x) => s + x.currentPricePerGram * x.quantityGrams, 0),
+    () =>
+      goldHoldings.reduce(
+        (s, x) => s + x.currentPricePerGram * x.quantityGrams,
+        0,
+      ),
     [goldHoldings],
   );
   const forexValue = useMemo(() => {
-    const dep = forexEntries.filter((e) => e.type === "deposit").reduce((s, e) => s + e.amount, 0);
-    const wit = forexEntries.filter((e) => e.type === "withdrawal").reduce((s, e) => s + e.amount, 0);
-    const pnl = forexEntries.filter((e) => e.type === "pnl").reduce((s, e) => s + e.amount, 0);
+    const dep = forexEntries
+      .filter((e) => e.type === "deposit")
+      .reduce((s, e) => s + e.amount, 0);
+    const wit = forexEntries
+      .filter((e) => e.type === "withdrawal")
+      .reduce((s, e) => s + e.amount, 0);
+    const pnl = forexEntries
+      .filter((e) => e.type === "pnl")
+      .reduce((s, e) => s + e.amount, 0);
     return dep - wit + pnl;
   }, [forexEntries]);
 
   const totalAssets =
-    assets.reduce((s, a) => s + a.value, 0) + stocksValue + mfValue + goldValue + forexValue;
+    assets.reduce((s, a) => s + a.value, 0) +
+    stocksValue +
+    mfValue +
+    goldValue +
+    forexValue;
   const totalLiabilities = liabilities.reduce((s, l) => s + l.balance, 0);
-  const debtRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
+  const debtRatio =
+    totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
 
-  const budgetUnderCount = budgets.filter((b) => (b.spent_amount || 0) <= b.limit_amount).length;
+  const budgetUnderCount = budgets.filter(
+    (b) => (b.spent_amount || 0) <= b.limit_amount,
+  ).length;
 
   const activeGoals = goals.filter((g) => g.status === "active");
   const avgGoalPct =
@@ -309,7 +337,9 @@ export default function HealthScorePage() {
         ) / activeGoals.length
       : null;
 
-  const investTypes = [stocksValue, mfValue, goldValue, forexValue].filter((v) => v > 0).length;
+  const investTypes = [stocksValue, mfValue, goldValue, forexValue].filter(
+    (v) => v > 0,
+  ).length;
 
   const pillars = useMemo(() => {
     const savingsPts = scoreSavings(savingsRate);
@@ -323,10 +353,14 @@ export default function HealthScorePage() {
         key: "Savings",
         pts: savingsPts,
         max: 25,
-        current: income > 0 ? `${savingsRate.toFixed(1)}% savings rate` : "No income recorded this month",
-        detail: income > 0
-          ? `You saved ${format(income - expenses)} of ${format(income)} this month`
-          : "Add income transactions to calculate your savings rate",
+        current:
+          income > 0
+            ? `${savingsRate.toFixed(1)}% savings rate`
+            : "No income recorded this month",
+        detail:
+          income > 0
+            ? `You saved ${format(income - expenses)} of ${format(income)} this month`
+            : "Add income transactions to calculate your savings rate",
       },
       {
         key: "Budgets",
@@ -422,7 +456,12 @@ export default function HealthScorePage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => router.back()} className="gap-1 -ml-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.back()}
+          className="gap-1 -ml-1"
+        >
           <ArrowLeft className="h-4 w-4" />
           Back
         </Button>
@@ -430,7 +469,6 @@ export default function HealthScorePage() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
-
         {/* Score hero */}
         <Card className="overflow-hidden">
           <div className="bg-slate-900 dark:bg-slate-950 text-white px-6 py-6">
@@ -438,9 +476,18 @@ export default function HealthScorePage() {
               {/* Ring */}
               <div className="relative shrink-0 w-20 h-20">
                 <svg viewBox="0 0 36 36" className="w-20 h-20 -rotate-90">
-                  <circle cx="18" cy="18" r="15.9" fill="none" stroke="#334155" strokeWidth="3" />
                   <circle
-                    cx="18" cy="18" r="15.9"
+                    cx="18"
+                    cy="18"
+                    r="15.9"
+                    fill="none"
+                    stroke="#334155"
+                    strokeWidth="3"
+                  />
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="15.9"
                     fill="none"
                     stroke={ringColor}
                     strokeWidth="3"
@@ -453,16 +500,36 @@ export default function HealthScorePage() {
                 </div>
               </div>
               <div>
-                <p className="text-slate-400 text-xs uppercase tracking-widest mb-0.5">Overall Score</p>
-                <p className={`text-5xl font-bold font-mono leading-none ${gradeTextColor}`}>{grade}</p>
+                <p className="text-slate-400 text-xs uppercase tracking-widest mb-0.5">
+                  Overall Score
+                </p>
+                <p
+                  className={`text-5xl font-bold font-mono leading-none ${gradeTextColor}`}
+                >
+                  {grade}
+                </p>
                 <p className="text-slate-300 text-sm mt-1">{gradeLabel}</p>
               </div>
               <div className="ml-auto text-right hidden sm:block">
                 <p className="text-slate-400 text-xs mb-1">Out of 100 points</p>
                 <div className="text-xs text-slate-500 space-y-0.5">
-                  {[["A", "85+", "#22c55e"], ["B", "70–84", "#10b981"], ["C", "55–69", "#f59e0b"], ["D", "40–54", "#f97316"], ["F", "<40", "#ef4444"]].map(([g, r, c]) => (
-                    <div key={g} className="flex items-center gap-2 justify-end">
-                      <span className="font-mono font-bold" style={{ color: c }}>{g}</span>
+                  {[
+                    ["A", "85+", "#22c55e"],
+                    ["B", "70–84", "#10b981"],
+                    ["C", "55–69", "#f59e0b"],
+                    ["D", "40–54", "#f97316"],
+                    ["F", "<40", "#ef4444"],
+                  ].map(([g, r, c]) => (
+                    <div
+                      key={g}
+                      className="flex items-center gap-2 justify-end"
+                    >
+                      <span
+                        className="font-mono font-bold"
+                        style={{ color: c }}
+                      >
+                        {g}
+                      </span>
                       <span>{r} pts</span>
                     </div>
                   ))}
@@ -477,7 +544,11 @@ export default function HealthScorePage() {
               return (
                 <div key={p.key} className="px-2 py-2 text-center">
                   <Icon className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-1" />
-                  <p className={`text-sm font-mono font-bold ${pillarRatioColor(p.pts, p.max)}`}>{p.pts}</p>
+                  <p
+                    className={`text-sm font-mono font-bold ${pillarRatioColor(p.pts, p.max)}`}
+                  >
+                    {p.pts}
+                  </p>
                   <p className="text-[9px] text-muted-foreground">/{p.max}</p>
                 </div>
               );
@@ -487,7 +558,12 @@ export default function HealthScorePage() {
 
         {/* Top Recommendations */}
         {(() => {
-          const tips: { icon: React.ComponentType<{ className?: string }>; title: string; desc: string; href: string }[] = [];
+          const tips: {
+            icon: React.ComponentType<{ className?: string }>;
+            title: string;
+            desc: string;
+            href: string;
+          }[] = [];
           const savings = pillars.find((p) => p.key === "Savings")!;
           const budgetP = pillars.find((p) => p.key === "Budgets")!;
           const debtP = pillars.find((p) => p.key === "Debt")!;
@@ -496,25 +572,72 @@ export default function HealthScorePage() {
 
           if (savings.pts < savings.max) {
             const gap = savings.max - savings.pts;
-            tips.push({ icon: PILLAR_META.Savings.icon, href: "/transactions", title: "Boost your savings rate", desc: income > 0 ? `You're saving ${savingsRate.toFixed(1)}% — target 20%+ for full points (+${gap} pts available)` : "Add income transactions this month to calculate your savings rate" });
+            tips.push({
+              icon: PILLAR_META.Savings.icon,
+              href: "/transactions",
+              title: "Boost your savings rate",
+              desc:
+                income > 0
+                  ? `You're saving ${savingsRate.toFixed(1)}% — target 20%+ for full points (+${gap} pts available)`
+                  : "Add income transactions this month to calculate your savings rate",
+            });
           }
           if (budgetP.pts < budgetP.max && budgets.length === 0) {
-            tips.push({ icon: PILLAR_META.Budgets.icon, href: "/budgets", title: "Set up spending budgets", desc: `You have no budgets yet — create category budgets to earn up to ${budgetP.max} pts` });
+            tips.push({
+              icon: PILLAR_META.Budgets.icon,
+              href: "/budgets",
+              title: "Set up spending budgets",
+              desc: `You have no budgets yet — create category budgets to earn up to ${budgetP.max} pts`,
+            });
           } else if (budgetP.pts < budgetP.max && budgets.length > 0) {
             const over = budgets.length - budgetUnderCount;
-            tips.push({ icon: PILLAR_META.Budgets.icon, href: "/budgets", title: "Reduce overspending", desc: `${over} budget${over > 1 ? "s are" : " is"} over their limit this month — bring them under to gain points` });
+            tips.push({
+              icon: PILLAR_META.Budgets.icon,
+              href: "/budgets",
+              title: "Reduce overspending",
+              desc: `${over} budget${over > 1 ? "s are" : " is"} over their limit this month — bring them under to gain points`,
+            });
           }
           if (debtP.pts < debtP.max && totalAssets > 0) {
-            tips.push({ icon: PILLAR_META.Debt.icon, href: "/debt-tracker", title: "Pay down high-interest debt", desc: `Debt-to-asset ratio is ${debtRatio.toFixed(1)}% — reducing debt below 10% earns full ${debtP.max} pts` });
+            tips.push({
+              icon: PILLAR_META.Debt.icon,
+              href: "/debt-tracker",
+              title: "Pay down high-interest debt",
+              desc: `Debt-to-asset ratio is ${debtRatio.toFixed(1)}% — reducing debt below 10% earns full ${debtP.max} pts`,
+            });
           }
           if (goalsP.pts < goalsP.max && activeGoals.length === 0) {
-            tips.push({ icon: PILLAR_META.Goals.icon, href: "/goals", title: "Create financial goals", desc: "Set at least one savings goal to start earning up to 15 pts in this pillar" });
-          } else if (goalsP.pts < goalsP.max && avgGoalPct !== null && avgGoalPct < 75) {
-            tips.push({ icon: PILLAR_META.Goals.icon, href: "/goals", title: "Contribute to your goals", desc: `Average goal progress is ${avgGoalPct.toFixed(0)}% — reach 75% to earn full ${goalsP.max} pts` });
+            tips.push({
+              icon: PILLAR_META.Goals.icon,
+              href: "/goals",
+              title: "Create financial goals",
+              desc: "Set at least one savings goal to start earning up to 15 pts in this pillar",
+            });
+          } else if (
+            goalsP.pts < goalsP.max &&
+            avgGoalPct !== null &&
+            avgGoalPct < 75
+          ) {
+            tips.push({
+              icon: PILLAR_META.Goals.icon,
+              href: "/goals",
+              title: "Contribute to your goals",
+              desc: `Average goal progress is ${avgGoalPct.toFixed(0)}% — reach 75% to earn full ${goalsP.max} pts`,
+            });
           }
           if (investP.pts < investP.max) {
-            const needed = investTypes === 0 ? "any investment" : investTypes === 1 ? "a second asset type" : "a third asset type";
-            tips.push({ icon: PILLAR_META.Investments.icon, href: "/investments", title: "Diversify investments", desc: `Add ${needed} (stocks, mutual funds, gold, or forex) to increase your investment score` });
+            const needed =
+              investTypes === 0
+                ? "any investment"
+                : investTypes === 1
+                  ? "a second asset type"
+                  : "a third asset type";
+            tips.push({
+              icon: PILLAR_META.Investments.icon,
+              href: "/investments",
+              title: "Diversify investments",
+              desc: `Add ${needed} (stocks, mutual funds, gold, or forex) to increase your investment score`,
+            });
           }
 
           if (tips.length === 0) return null;
@@ -524,20 +647,27 @@ export default function HealthScorePage() {
               <CardHeader className="pb-2 border-b border-border">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-green-500" />
-                  Top {topTips.length} Action{topTips.length > 1 ? "s" : ""} to Improve Your Score
+                  Top {topTips.length} Action{topTips.length > 1 ? "s" : ""} to
+                  Improve Your Score
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-4 space-y-3">
                 {topTips.map((tip, i) => {
                   const Icon = tip.icon;
                   return (
-                    <button key={i} onClick={() => router.push(tip.href)} className="w-full flex items-start gap-3 text-left p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                    <button
+                      key={i}
+                      onClick={() => router.push(tip.href)}
+                      className="w-full flex items-start gap-3 text-left p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                    >
                       <div className="p-2 rounded-lg bg-muted shrink-0">
                         <Icon className="h-3.5 w-3.5 text-foreground" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium">{tip.title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{tip.desc}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {tip.desc}
+                        </p>
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                     </button>
@@ -564,14 +694,20 @@ export default function HealthScorePage() {
                     </div>
                     <div>
                       <CardTitle className="text-base">{p.key}</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-0.5">{meta.weight} max</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {meta.weight} max
+                      </p>
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className={`text-2xl font-mono font-bold ${pillarRatioColor(p.pts, p.max)}`}>
+                    <span
+                      className={`text-2xl font-mono font-bold ${pillarRatioColor(p.pts, p.max)}`}
+                    >
                       {p.pts}
                     </span>
-                    <span className="text-sm text-muted-foreground">/{p.max}</span>
+                    <span className="text-sm text-muted-foreground">
+                      /{p.max}
+                    </span>
                   </div>
                 </div>
 
@@ -596,7 +732,9 @@ export default function HealthScorePage() {
                 <div className="flex gap-2.5">
                   <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs font-medium mb-0.5">What this measures</p>
+                    <p className="text-xs font-medium mb-0.5">
+                      What this measures
+                    </p>
                     <p className="text-xs text-muted-foreground">{meta.what}</p>
                   </div>
                 </div>
@@ -622,11 +760,19 @@ export default function HealthScorePage() {
                             ) : (
                               <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/30 shrink-0" />
                             )}
-                            <span className={isActive ? "font-medium text-foreground" : "text-muted-foreground"}>
+                            <span
+                              className={
+                                isActive
+                                  ? "font-medium text-foreground"
+                                  : "text-muted-foreground"
+                              }
+                            >
                               {r.label}
                             </span>
                           </div>
-                          <span className={`font-mono font-semibold ${isActive ? pillarRatioColor(r.pts, r.max) : "text-muted-foreground"}`}>
+                          <span
+                            className={`font-mono font-semibold ${isActive ? pillarRatioColor(r.pts, r.max) : "text-muted-foreground"}`}
+                          >
                             {r.pts}/{r.max}
                           </span>
                         </div>
@@ -643,8 +789,13 @@ export default function HealthScorePage() {
                   </div>
                   <ul className="space-y-1.5">
                     {meta.how.map((tip, i) => (
-                      <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                        <span className="text-primary font-bold shrink-0">·</span>
+                      <li
+                        key={i}
+                        className="flex items-start gap-2 text-xs text-muted-foreground"
+                      >
+                        <span className="text-primary font-bold shrink-0">
+                          ·
+                        </span>
                         {tip}
                       </li>
                     ))}
@@ -672,12 +823,18 @@ export default function HealthScorePage() {
             <CardTitle className="text-sm">How the total score works</CardTitle>
           </CardHeader>
           <CardContent className="pt-4 text-xs text-muted-foreground space-y-2">
-            <p>Your Financial Health Score is the sum of 5 pillars — each pillar has a maximum point value:</p>
+            <p>
+              Your Financial Health Score is the sum of 5 pillars — each pillar
+              has a maximum point value:
+            </p>
             <div className="rounded-lg border overflow-hidden">
               {pillars.map((p) => {
                 const Icon = PILLAR_META[p.key]!.icon;
                 return (
-                  <div key={p.key} className="flex items-center justify-between px-3 py-2 border-b last:border-b-0">
+                  <div
+                    key={p.key}
+                    className="flex items-center justify-between px-3 py-2 border-b last:border-b-0"
+                  >
                     <div className="flex items-center gap-2">
                       <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       <span>{p.key}</span>
@@ -689,7 +846,9 @@ export default function HealthScorePage() {
                           style={{ width: `${(p.pts / p.max) * 100}%` }}
                         />
                       </div>
-                      <span className={`font-mono font-semibold w-12 text-right ${pillarRatioColor(p.pts, p.max)}`}>
+                      <span
+                        className={`font-mono font-semibold w-12 text-right ${pillarRatioColor(p.pts, p.max)}`}
+                      >
                         {p.pts}/{p.max}
                       </span>
                     </div>
@@ -698,10 +857,15 @@ export default function HealthScorePage() {
               })}
               <div className="flex items-center justify-between px-3 py-2.5 bg-muted/40">
                 <span className="font-semibold text-foreground">Total</span>
-                <span className={`font-mono font-bold ${gradeTextColor}`}>{total} / 100</span>
+                <span className={`font-mono font-bold ${gradeTextColor}`}>
+                  {total} / 100
+                </span>
               </div>
             </div>
-            <p className="pt-1">Scores update automatically as you add transactions, goals, budgets, and investments.</p>
+            <p className="pt-1">
+              Scores update automatically as you add transactions, goals,
+              budgets, and investments.
+            </p>
           </CardContent>
         </Card>
       </div>
