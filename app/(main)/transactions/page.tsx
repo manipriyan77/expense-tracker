@@ -35,6 +35,7 @@ import {
   ChevronRight,
   X,
   ArrowUpDown,
+  Trash2,
 } from "lucide-react";
 import { MonthSelector } from "@/components/ui/month-selector";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
@@ -95,6 +96,7 @@ function TransactionsPageInner() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [isDeletingMonth, setIsDeletingMonth] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [completingRecurringKey, setCompletingRecurringKey] = useState<string | null>(
     null,
@@ -234,6 +236,46 @@ function TransactionsPageInner() {
       toast.error("Failed to delete transaction. Please try again.");
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const handleDeleteAllForMonth = async () => {
+    const monthName = selectedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const count = filteredTransactions.length;
+    if (count === 0) {
+      toast.info("No transactions to delete for this month.");
+      return;
+    }
+    if (
+      !confirm(
+        `Delete all ${count} transaction(s) for ${monthName}? This will update linked budgets and goals and cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    setIsDeletingMonth(true);
+    try {
+      const month = selectedMonth.getMonth() + 1;
+      const year = selectedMonth.getFullYear();
+      const response = await fetch(
+        `/api/transactions/bulk?month=${month}&year=${year}`,
+        { method: "DELETE" },
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete transactions");
+      }
+
+      const { deleted } = await response.json();
+      toast.success(`Deleted ${deleted} transaction(s) for ${monthName}.`);
+      await loadTransactions();
+    } catch (error) {
+      console.error("Error deleting transactions for month:", error);
+      toast.error("Failed to delete transactions. Please try again.");
+    } finally {
+      setIsDeletingMonth(false);
     }
   };
 
@@ -744,6 +786,18 @@ function TransactionsPageInner() {
                 >
                   <Download className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">Export CSV</span>
+                </Button>
+
+                {/* Delete All for Month */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeleteAllForMonth}
+                  disabled={isDeletingMonth || filteredTransactions.length === 0}
+                  className="shrink-0 text-destructive hover:bg-destructive hover:text-destructive-foreground border-destructive/40"
+                >
+                  <Trash2 className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Delete Month</span>
                 </Button>
 
                 {/* Add Transaction */}

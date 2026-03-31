@@ -58,6 +58,7 @@ import {
 import { useTransactionsStore } from "@/store/transactions-store";
 import { useGoalsStore } from "@/store/goals-store";
 import { useBudgetsStore } from "@/store/budgets-store";
+import { useDebtTrackerStore } from "@/store/debt-tracker-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 export default function RecurringPage() {
@@ -75,6 +76,7 @@ export default function RecurringPage() {
     useTransactionsStore();
   const { goals, fetchGoals } = useGoalsStore();
   const { budgets, fetchBudgets } = useBudgetsStore();
+  const { debts, fetchDebts } = useDebtTrackerStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingPattern, setEditingPattern] = useState<RecurringPattern | null>(
@@ -106,6 +108,7 @@ export default function RecurringPage() {
     auto_create: false,
     linked_goal_id: "",
     linked_budget_id: "",
+    linked_liability_id: "",
   });
   const [formData, setFormData] = useState({
     name: "",
@@ -127,6 +130,7 @@ export default function RecurringPage() {
     auto_create: false,
     linked_goal_id: "",
     linked_budget_id: "",
+    linked_liability_id: "",
   });
 
   useEffect(() => {
@@ -134,7 +138,8 @@ export default function RecurringPage() {
     fetchTransactions();
     fetchGoals();
     fetchBudgets();
-  }, [fetchPatterns, fetchTransactions, fetchGoals, fetchBudgets]);
+    fetchDebts();
+  }, [fetchPatterns, fetchTransactions, fetchGoals, fetchBudgets, fetchDebts]);
 
   // Smart detection: Find potential recurring transactions
   const potentialRecurring = useMemo(() => {
@@ -295,6 +300,7 @@ export default function RecurringPage() {
         auto_create: formData.auto_create,
         linked_goal_id: formData.linked_goal_id || null,
         linked_budget_id: formData.linked_budget_id || null,
+        linked_liability_id: formData.linked_liability_id || null,
         tags: [],
         notes: null,
       });
@@ -313,6 +319,7 @@ export default function RecurringPage() {
         auto_create: false,
         linked_goal_id: "",
         linked_budget_id: "",
+        linked_liability_id: "",
       });
       setIsAddDialogOpen(false);
     } catch (err) {
@@ -373,6 +380,7 @@ export default function RecurringPage() {
       auto_create: pattern.auto_create,
       linked_goal_id: pattern.linked_goal_id || "",
       linked_budget_id: pattern.linked_budget_id || "",
+      linked_liability_id: pattern.linked_liability_id || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -407,6 +415,7 @@ export default function RecurringPage() {
         auto_create: editFormData.auto_create,
         linked_goal_id: editFormData.linked_goal_id || null,
         linked_budget_id: editFormData.linked_budget_id || null,
+        linked_liability_id: editFormData.linked_liability_id || null,
       });
       toast.success("Pattern updated successfully!");
       setIsEditDialogOpen(false);
@@ -1070,6 +1079,39 @@ export default function RecurringPage() {
                         </div>
                       )}
 
+                      {debts.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Link to Loan / Liability (optional)</Label>
+                          <Select
+                            value={formData.linked_liability_id || "none"}
+                            onValueChange={(v) =>
+                              setFormData({
+                                ...formData,
+                                linked_liability_id: v === "none" ? "" : v,
+                              })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="No liability linked" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">
+                                No liability linked
+                              </SelectItem>
+                              {debts.map((d) => (
+                                <SelectItem key={d.id} value={d.id}>
+                                  {d.name}
+                                  {d.balance != null ? ` · Balance: ${d.balance}` : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Each recorded payment will reduce this liability&apos;s balance.
+                          </p>
+                        </div>
+                      )}
+
                       <div className="flex items-center space-x-2">
                         <Switch
                           id="auto_create"
@@ -1381,6 +1423,40 @@ export default function RecurringPage() {
                         </Select>
                       </div>
                     )}
+
+                    {debts.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Link to Loan / Liability (optional)</Label>
+                        <Select
+                          value={editFormData.linked_liability_id || "none"}
+                          onValueChange={(v) =>
+                            setEditFormData({
+                              ...editFormData,
+                              linked_liability_id: v === "none" ? "" : v,
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="No liability linked" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">
+                              No liability linked
+                            </SelectItem>
+                            {debts.map((d) => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {d.name}
+                                {d.balance != null ? ` · Balance: ${d.balance}` : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Each recorded payment will reduce this liability&apos;s balance.
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex items-center space-x-2">
                       <Switch
                         id="edit_auto_create"

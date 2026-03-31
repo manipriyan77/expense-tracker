@@ -18,6 +18,7 @@ export interface RecurringPattern {
   auto_create: boolean;
   linked_goal_id?: string | null;
   linked_budget_id?: string | null;
+  linked_liability_id?: string | null;
   tags?: string[];
   notes?: string | null;
   created_at: string;

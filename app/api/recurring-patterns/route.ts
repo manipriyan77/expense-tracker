@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       auto_create,
       linked_goal_id,
       linked_budget_id,
+      linked_liability_id,
       tags,
       notes,
     } = body;
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
         auto_create: auto_create !== undefined ? auto_create : false,
         linked_goal_id: linked_goal_id || null,
         linked_budget_id: linkedBudgetId,
+        linked_liability_id: linked_liability_id || null,
         tags: tags || [],
         notes: notes || null,
       })

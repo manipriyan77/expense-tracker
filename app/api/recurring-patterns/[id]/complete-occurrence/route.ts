@@ -192,6 +192,28 @@ export async function POST(
       }
     }
 
+    // Reduce linked liability balance (treat this occurrence as a payment)
+    if (pattern.linked_liability_id) {
+      const { data: liability } = await supabase
+        .from("liabilities")
+        .select("balance")
+        .eq("id", pattern.linked_liability_id)
+        .eq("user_id", user.id)
+        .single();
+      if (liability) {
+        const newBalance = Math.max(
+          0,
+          parseFloat(String(liability.balance ?? 0)) -
+            parseFloat(String(pattern.amount)),
+        );
+        await supabase
+          .from("liabilities")
+          .update({ balance: newBalance })
+          .eq("id", pattern.linked_liability_id)
+          .eq("user_id", user.id);
+      }
+    }
+
     const nextDateStr = advanceRecurringDate(occurrenceDate, {
       frequency: patternLike.frequency,
       day_of_month: pattern.day_of_month,

@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/select";
 import {
   Line,
-  LineChart,
   BarChart,
   Bar,
   PieChart,
@@ -412,7 +411,7 @@ export default function AnalyticsPage() {
         monthData[t.category] = (monthData[t.category] || 0) + t.amount;
       });
 
-    return Array.from(monthMap.entries())
+    const sorted = Array.from(monthMap.entries())
       .sort(([a], [b]) => {
         const [aMonth, aYear] = a.split(" ");
         const [bMonth, bYear] = b.split(" ");
@@ -421,13 +420,14 @@ export default function AnalyticsPage() {
           new Date(`${bMonth} 1 20${bYear}`).getTime()
         );
       })
-      .slice(-6)
-      .map(([month, data]) => ({
-        month,
-        ...Object.fromEntries(
-          topCategories.map((cat) => [cat.name, data[cat.name] || 0]),
-        ),
-      }));
+      .slice(-6);
+
+    return sorted.map(([month, data]) => ({
+      month,
+      ...Object.fromEntries(
+        topCategories.map((cat) => [cat.name, data[cat.name] || 0]),
+      ),
+    }));
   }, [filteredTransactions, categoryData]);
 
   // Spending radar chart data
@@ -904,60 +904,96 @@ export default function AnalyticsPage() {
                   Category spending over time
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Lines show each top category per month — easier to compare
-                  than stacked bars.
+                  Each bar shows total monthly spending, broken down by top categories.
                 </p>
               </CardHeader>
               <CardContent className="pt-4">
-                <ResponsiveContainer width="100%" height={360}>
-                  <LineChart
-                    data={categoryTrends}
-                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="var(--border)"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="month"
-                      tick={{ fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(v) =>
-                        v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
-                      }
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "var(--card)",
-                        border: "1px solid var(--border)",
-                        borderRadius: "8px",
-                        fontSize: "12px",
-                      }}
-                      formatter={(value: number | undefined) =>
-                        value === undefined ? format(0) : format(value)
-                      }
-                    />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    {categoryData.slice(0, 5).map((cat) => (
-                      <Line
-                        key={cat.name}
-                        type="monotone"
-                        dataKey={cat.name}
-                        stroke={cat.color}
-                        strokeWidth={2}
-                        dot={{ r: 3, strokeWidth: 1, fill: cat.color }}
-                        activeDot={{ r: 5 }}
+                {categoryTrends.length === 0 ? (
+                  <div className="flex items-center justify-center h-72 text-sm text-muted-foreground">
+                    No expense data available for this period.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart
+                      data={categoryTrends}
+                      margin={{ top: 8, right: 16, left: 8, bottom: 0 }}
+                      barCategoryGap="28%"
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--border)"
+                        vertical={false}
                       />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
+                      <XAxis
+                        dataKey="month"
+                        tick={{ fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={48}
+                        tickFormatter={(v) =>
+                          v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
+                        }
+                      />
+                      <Tooltip
+                        cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null;
+                          const items = (payload as { name: string; value: number; fill: string }[]).filter(
+                            (p) => p.value > 0,
+                          );
+                          if (!items.length) return null;
+                          const total = items.reduce((s, p) => s + p.value, 0);
+                          return (
+                            <div className="rounded-lg border bg-card p-3 text-xs shadow-md min-w-[160px]">
+                              <p className="mb-2 font-semibold text-foreground">{label}</p>
+                              {items.map((entry) => (
+                                <div key={entry.name} className="flex items-center gap-2 mb-1">
+                                  <span
+                                    className="inline-block h-2 w-2 shrink-0 rounded-full"
+                                    style={{ background: entry.fill }}
+                                  />
+                                  <span className="text-muted-foreground flex-1">{entry.name}</span>
+                                  <span className="font-mono font-medium tabular-nums">
+                                    {format(entry.value)}
+                                  </span>
+                                </div>
+                              ))}
+                              {items.length > 1 && (
+                                <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+                                  <span className="text-muted-foreground">Total</span>
+                                  <span className="font-mono font-semibold tabular-nums">
+                                    {format(total)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }}
+                      />
+                      <Legend
+                        wrapperStyle={{ fontSize: 11, paddingTop: 12 }}
+                        iconType="circle"
+                        iconSize={8}
+                      />
+                      {categoryData.slice(0, 5).map((cat, i, arr) => (
+                        <Bar
+                          key={cat.name}
+                          dataKey={cat.name}
+                          stackId="a"
+                          fill={cat.color}
+                          radius={
+                            i === arr.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]
+                          }
+                        />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
 
