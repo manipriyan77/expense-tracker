@@ -25,6 +25,7 @@ import { useCommandPaletteStore } from "@/store/command-palette-store";
 import { usePrivacyStore } from "@/store/privacy-store";
 import CommandPalette from "@/components/CommandPalette";
 import { QuickAddButton } from "@/components/QuickAddButton";
+import { useGoalsStore } from "@/store/goals-store";
 import {
   Dialog,
   DialogContent,
@@ -92,6 +93,7 @@ export default function MainLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const { amountsHidden, toggleAmountsHidden } = usePrivacyStore();
+  const { fetchGoals } = useGoalsStore();
 
   const pageTitle = PAGE_TITLES[pathname] ?? "Expense Tracker";
   const showBackButton = !SIDEBAR_ROOTS.has(pathname);
@@ -289,7 +291,7 @@ export default function MainLayout({
           </DialogHeader>
           {quickAddOpen && (
             <AddTransactionForm
-              onSuccess={() => setQuickAddOpen(false)}
+              onSuccess={() => { fetchGoals(); setQuickAddOpen(false); }}
               onCancel={() => setQuickAddOpen(false)}
             />
           )}

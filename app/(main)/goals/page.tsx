@@ -24,7 +24,6 @@ import {
   Loader2,
   Edit,
   Trash2,
-  DollarSign,
   Check,
   Flag,
 } from "lucide-react";
@@ -44,15 +43,13 @@ import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { toast, Toaster } from "sonner";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { useConfetti } from "@/lib/hooks/useConfetti";
-import Link from "next/link";
-
 export default function GoalsPage() {
   const { format } = useFormatCurrency();
   const { fire: fireConfetti } = useConfetti();
   const { goals, loading, error, fetchGoals, addGoal, updateGoal, deleteGoal } =
     useGoalsStore();
   const { transactions, fetchTransactions } = useTransactionsStore();
-  const { budgets, fetchBudgets } = useBudgetsStore();
+  const { fetchBudgets } = useBudgetsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
@@ -456,9 +453,9 @@ export default function GoalsPage() {
             </div>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button size="sm">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Goal
+                  New Goal
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -630,46 +627,45 @@ export default function GoalsPage() {
               </DialogContent>
             </Dialog>
           </div>
+          {/* Stats row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
-                Total Goals
-              </p>
-              <p className="font-mono text-base font-semibold text-white">
-                {totalGoals}
-              </p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Total Goals</p>
+              <p className="font-mono text-base font-semibold text-white">{totalGoals}</p>
               <p className="text-[10px] text-slate-500 mt-0.5">All goals</p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
-                Active
-              </p>
-              <p className="font-mono text-base font-semibold text-blue-400">
-                {activeGoals}
-              </p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Active</p>
+              <p className="font-mono text-base font-semibold text-blue-400">{activeGoals}</p>
               <p className="text-[10px] text-slate-500 mt-0.5">In progress</p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
-                Completed
-              </p>
-              <p className="font-mono text-base font-semibold text-green-400">
-                {completedGoals}
-              </p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Completed</p>
+              <p className="font-mono text-base font-semibold text-emerald-400">{completedGoals}</p>
               <p className="text-[10px] text-slate-500 mt-0.5">Achieved</p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
-                Saved
-              </p>
-              <p className="font-mono text-base font-semibold text-slate-200">
-                {format(totalCurrentAmount)}
-              </p>
-              <p className="text-[10px] text-slate-500 mt-0.5">
-                of {format(totalTargetAmount)}
-              </p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Saved</p>
+              <p className="font-mono text-base font-semibold text-slate-200">{format(totalCurrentAmount)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">of {format(totalTargetAmount)}</p>
             </div>
           </div>
+
+          {/* Overall progress bar */}
+          {totalTargetAmount > 0 && (
+            <div className="px-4 py-2 border-t border-slate-700/60">
+              <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
+                <span>Overall progress</span>
+                <span className="font-mono">{((totalCurrentAmount / totalTargetAmount) * 100).toFixed(1)}%</span>
+              </div>
+              <div className="h-1 w-full rounded-full bg-slate-700">
+                <div
+                  className="h-full rounded-full bg-blue-500 transition-all duration-700"
+                  style={{ width: `${Math.min(100, (totalCurrentAmount / totalTargetAmount) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -840,218 +836,195 @@ export default function GoalsPage() {
       <main className="px-4 sm:px-6 lg:px-8 py-4 min-w-0 overflow-x-hidden">
         {goals.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Circle className="h-10 w-10 text-muted-foreground/30 mb-3" />
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
-              No goals yet
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Add your first goal to start tracking
-            </p>
+            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Circle className="h-6 w-6 text-muted-foreground/40" />
+            </div>
+            <p className="text-sm font-medium text-muted-foreground mb-1">No goals yet</p>
+            <p className="text-xs text-muted-foreground/60">Click &ldquo;New Goal&rdquo; to set your first financial target</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {sortedGoals.map((goal) => {
-              const progress = Math.min(
-                100,
-                (goal.currentAmount / goal.targetAmount) * 100,
-              );
+              const progress = Math.min(100, (goal.currentAmount / goal.targetAmount) * 100);
               const isCompleted = goal.status === "completed";
-              const isOverdue =
-                new Date(goal.targetDate) < new Date() && !isCompleted;
+              const isOverdue = new Date(goal.targetDate) < new Date() && !isCompleted;
               const probability = calculateGoalProbability(goal);
               const priority = goal.priority ?? "medium";
+              const remaining = goal.targetAmount - goal.currentAmount;
 
-              // Top accent color by priority / status
-              const accentColor = isCompleted
+              const leftAccent = isCompleted
                 ? "bg-emerald-500"
                 : isOverdue
                   ? "bg-red-500"
                   : priority === "high"
                     ? "bg-rose-500"
                     : priority === "medium"
-                      ? "bg-amber-500"
+                      ? "bg-amber-400"
                       : "bg-blue-400";
 
-              // Progress bar color
               const barColor = isCompleted
                 ? "bg-emerald-500"
                 : isOverdue
-                  ? "bg-red-500"
-                  : "bg-blue-500";
+                  ? "bg-red-400"
+                  : progress >= 75
+                    ? "bg-emerald-500"
+                    : progress >= 40
+                      ? "bg-blue-500"
+                      : "bg-amber-400";
 
-              // Chance badge color
               const chanceCls = isCompleted
                 ? "text-emerald-600 dark:text-emerald-400"
                 : probability.status === "on-track"
                   ? "text-emerald-600 dark:text-emerald-400"
                   : probability.status === "at-risk"
                     ? "text-amber-600 dark:text-amber-400"
-                    : "text-red-600 dark:text-red-400";
+                    : "text-red-500 dark:text-red-400";
+
+              // SVG ring
+              const r = 26;
+              const circ = 2 * Math.PI * r;
+              const dash = circ * (1 - progress / 100);
 
               return (
                 <Card
                   key={goal.id}
-                  className="relative flex flex-col overflow-hidden cursor-pointer border-border/70 shadow-sm transition-all duration-200 hover:shadow-md hover:border-border"
+                  className="relative flex flex-col overflow-hidden cursor-pointer border-border/60 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
                   onClick={() => openDetailsModal(goal)}
                 >
-                  {/* priority / status accent bar */}
-                  <div className={`h-0.5 w-full ${accentColor}`} />
+                  {/* Left priority accent */}
+                  <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${leftAccent}`} />
 
-                  <CardContent className="flex flex-1 flex-col gap-3 p-4">
-                    {/* ── Header ── */}
-                    <div className="flex items-start justify-between gap-2">
+                  <CardContent className="flex flex-1 flex-col gap-0 p-4 pl-5">
+
+                    {/* ── Row 1: title + ring ── */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {isCompleted ? (
-                            <CheckCircle className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                          ) : (
-                            <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-                          )}
-                          <p className="truncate text-sm font-semibold">
-                            {goal.title}
-                          </p>
+                        {/* Status + title */}
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          {isCompleted
+                            ? <CheckCircle className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                            : <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/30" />
+                          }
+                          <p className="text-sm font-semibold leading-snug truncate">{goal.title}</p>
                         </div>
-                        <p className="mt-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-                          {goal.category}
-                        </p>
+                        {/* Category + priority row */}
+                        <div className="flex items-center gap-1.5 ml-5">
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                            {goal.category}
+                          </span>
+                          {!isCompleted && (
+                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${PRIORITY_COLOR[priority]}`}>
+                              <Flag className="h-2 w-2" />
+                              {PRIORITY_LABEL[priority]}
+                            </span>
+                          )}
+                          {isOverdue && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                              Overdue
+                            </span>
+                          )}
+                          {isCompleted && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                              Done
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Priority badge */}
-                      {!isCompleted && (
-                        <span
-                          className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${PRIORITY_COLOR[priority]}`}
-                        >
-                          <Flag className="h-2.5 w-2.5" />
-                          {PRIORITY_LABEL[priority]}
-                        </span>
+                      {/* Progress ring */}
+                      <div className="shrink-0 relative">
+                        <svg width="64" height="64" viewBox="0 0 64 64">
+                          <circle cx="32" cy="32" r={r} fill="none" stroke="currentColor" strokeWidth="5" className="text-muted/60" />
+                          <circle
+                            cx="32" cy="32" r={r} fill="none"
+                            stroke={isCompleted ? "#10b981" : isOverdue ? "#ef4444" : progress >= 75 ? "#10b981" : progress >= 40 ? "#3b82f6" : "#f59e0b"}
+                            strokeWidth="5"
+                            strokeLinecap="round"
+                            strokeDasharray={circ}
+                            strokeDashoffset={dash}
+                            transform="rotate(-90 32 32)"
+                            style={{ transition: "stroke-dashoffset 0.7s ease" }}
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-[11px] font-bold font-mono leading-none">{progress.toFixed(0)}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── Row 2: amounts ── */}
+                    <div className="flex items-end justify-between mb-3">
+                      <div>
+                        <p className="font-mono text-base font-bold leading-none">{format(goal.currentAmount)}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">saved of {format(goal.targetAmount)}</p>
+                      </div>
+                      {!isCompleted && remaining > 0 && (
+                        <div className="text-right">
+                          <p className="font-mono text-sm font-semibold text-muted-foreground">{format(remaining)}</p>
+                          <p className="text-[10px] text-muted-foreground">to go</p>
+                        </div>
                       )}
                     </div>
 
-                    {/* ── Amount + progress ── */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-end justify-between">
-                        <div>
-                          <p className="font-mono text-lg font-bold leading-none">
-                            {format(goal.currentAmount)}
-                          </p>
-                          <p className="mt-0.5 text-[10px] text-muted-foreground">
-                            of {format(goal.targetAmount)}
-                          </p>
-                        </div>
-                        <span className="font-mono text-sm font-semibold tabular-nums">
-                          {progress.toFixed(1)}%
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                          className={`h-full rounded-full transition-all duration-700 ${barColor}`}
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
+                    {/* ── Row 3: progress bar ── */}
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted mb-3">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${barColor}`}
+                        style={{ width: `${progress}%` }}
+                      />
                     </div>
 
-                    {/* ── Budget link ── */}
-                    {(() => {
-                      const matchedBudget = budgets.find(
-                        (b) =>
-                          b.category.toLowerCase() ===
-                            goal.category?.toLowerCase() ||
-                          b.category.toLowerCase() === goal.title.toLowerCase(),
-                      );
-                      if (matchedBudget) {
-                        const used = matchedBudget.spent_amount || 0;
-                        const over = used > matchedBudget.limit_amount;
-                        return (
-                          <Link
-                            href="/budgets"
-                            onClick={(e) => e.stopPropagation()}
-                            className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border w-fit ${over ? "border-red-200 bg-red-50 text-red-600 dark:bg-red-950/30 dark:border-red-900/40 dark:text-red-400" : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-900/40 dark:text-emerald-400"}`}
-                          >
-                            <DollarSign className="h-3 w-3" />
-                            Budget: {format(used)} /{" "}
-                            {format(matchedBudget.limit_amount)}
-                            {over && " (over!)"}
-                          </Link>
-                        );
-                      }
-                      if (!isCompleted) {
-                        return (
-                          <Link
-                            href="/budgets"
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary w-fit transition-colors"
-                          >
-                            <Plus className="h-3 w-3" />
-                            Add budget for this goal
-                          </Link>
-                        );
-                      }
-                      return null;
-                    })()}
-
-                    {/* ── Chance + date ── */}
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className={`font-semibold ${chanceCls}`}>
-                        {isCompleted
-                          ? "Completed!"
-                          : `${probability.probability.toFixed(0)}% chance`}
+                    {/* ── Row 4: chance + date ── */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={`text-[10px] font-semibold ${chanceCls}`}>
+                        {isCompleted ? "Goal achieved!" : `${probability.probability.toFixed(0)}% on-track`}
                       </span>
-                      <span
-                        className={`flex items-center gap-1 ${isOverdue ? "text-red-500 font-medium" : "text-muted-foreground"}`}
-                      >
+                      <span className={`flex items-center gap-1 text-[10px] ${isOverdue ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
                         <Calendar className="h-3 w-3" />
-                        {isOverdue ? "Overdue · " : ""}
-                        {new Date(goal.targetDate).toLocaleDateString()}
+                        {new Date(goal.targetDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                       </span>
                     </div>
 
-                    {/* ── Actions ── */}
-                    <div className="mt-auto flex items-center justify-end gap-1 border-t border-border/50 pt-2.5">
+                    {/* ── Row 5: actions ── */}
+                    <div className="flex items-center gap-1.5 pt-2.5 border-t border-border/40">
                       {!isCompleted && (
                         <Button
-                          variant="default"
                           size="sm"
-                          className="h-7 gap-1 bg-emerald-600 px-2 text-[10px] hover:bg-emerald-700"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openAddTransactionDialog(goal);
-                          }}
+                          className="h-7 flex-1 text-xs gap-1.5 bg-primary/90 hover:bg-primary"
+                          onClick={(e) => { e.stopPropagation(); openAddTransactionDialog(goal); }}
                         >
-                          <DollarSign className="h-3 w-3" />
-                          Add
+                          <Plus className="h-3 w-3" />
+                          Contribute
                         </Button>
                       )}
                       {!isCompleted && progress >= 100 && (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-7 px-2 text-emerald-600 border-emerald-600"
+                          className="h-7 px-2 text-emerald-600 border-emerald-500 hover:bg-emerald-50"
                           onClick={(e) => handleMarkGoalComplete(e, goal.id)}
+                          title="Mark as complete"
                         >
-                          <Check className="h-3 w-3" />
+                          <Check className="h-3.5 w-3.5" />
                         </Button>
                       )}
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="h-7 px-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEditDialog(goal);
-                        }}
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                        onClick={(e) => { e.stopPropagation(); openEditDialog(goal); }}
+                        title="Edit goal"
                       >
-                        <Edit className="h-3 w-3" />
+                        <Edit className="h-3.5 w-3.5" />
                       </Button>
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="h-7 px-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteGoal(goal.id);
-                        }}
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteGoal(goal.id); }}
+                        title="Delete goal"
                       >
-                        <Trash2 className="h-3 w-3 text-red-500" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </CardContent>

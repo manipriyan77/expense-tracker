@@ -106,6 +106,7 @@ export default function NetWorthPage() {
     deleteAsset,
     deleteLiability,
     createSnapshot,
+    deleteSnapshot,
   } = useNetWorthStore();
 
   // Investment / asset modules from other parts of the app
@@ -279,7 +280,7 @@ export default function NetWorthPage() {
 
   // Net worth trend: from Jan 2026 only, up to 6 months (snapshot or current net worth)
   const NET_WORTH_START_YEAR = 2026;
-  const NET_WORTH_START_MONTH = 0; // January
+  const NET_WORTH_START_MONTH = 2; // March
 
   const historicalData = useMemo(() => {
     const now = new Date();
@@ -313,10 +314,13 @@ export default function NetWorthPage() {
       });
 
       const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-      const snapshotInMonth = sortedSnapshots.find((s) => {
+      // Use the LATEST snapshot in the month (not the earliest), so that
+      // a bad early-month snapshot is overridden by a later, more complete one.
+      const snapshotsInMonth = sortedSnapshots.filter((s) => {
         const sDate = new Date(s.date);
         return sDate >= d && sDate <= endOfMonth;
       });
+      const snapshotInMonth = snapshotsInMonth.at(-1);
       const lastSnapshotBefore = sortedSnapshots.filter(
         (s) => new Date(s.date) <= endOfMonth,
       );
@@ -525,58 +529,83 @@ export default function NetWorthPage() {
     <div className="min-h-screen bg-background">
       {/* ── Dark Hero ── */}
       <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-0">
-          {/* Header row */}
-          <div className="flex items-start justify-between mb-5">
+        <div className="px-4 sm:px-6 lg:px-8 pt-5 pb-0">
+          {/* Net worth + snapshot button */}
+          <div className="flex items-start justify-between mb-2">
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Total Net Worth · {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
-              <p className={`text-4xl sm:text-5xl font-mono font-bold tracking-tight ${netWorth >= 0 ? "text-white" : "text-red-400"}`}>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1.5">
+                Net Worth · {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+              </p>
+              <p className={`text-4xl sm:text-5xl font-mono font-bold tracking-tight leading-none ${netWorth >= 0 ? "text-white" : "text-red-400"}`}>
                 {format(netWorth)}
               </p>
+              <p className="text-xs text-slate-500 mt-1.5">Assets − Liabilities</p>
             </div>
             <button
               onClick={async () => {
-                try {
-                  await createSnapshot();
-                  toast.success("Snapshot saved!");
-                } catch {
-                  toast.error("Failed to save snapshot");
-                }
+                try { await createSnapshot(); toast.success("Snapshot saved!"); }
+                catch { toast.error("Failed to save snapshot"); }
               }}
-              className="flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 transition-colors text-white px-3 py-1.5 rounded-lg mt-1"
+              className="flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 transition-colors text-white px-3 py-1.5 rounded-lg mt-1 shrink-0"
             >
               <Camera className="h-3.5 w-3.5" />
               Snapshot
             </button>
           </div>
 
+          {/* Assets vs Liabilities visual bar */}
+          {totalAssets > 0 && (
+            <div className="mb-4">
+              <div className="flex h-2 w-full rounded-full overflow-hidden bg-slate-700">
+                <div
+                  className="h-full bg-emerald-500 transition-all duration-700"
+                  style={{ width: `${Math.min(100, ((totalAssets - totalLiabilities) / totalAssets) * 100)}%` }}
+                />
+                <div
+                  className="h-full bg-red-500 transition-all duration-700"
+                  style={{ width: `${Math.min(100, (totalLiabilities / totalAssets) * 100)}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-1.5">
+                <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                  Assets {totalAssets > 0 ? `${(((totalAssets - totalLiabilities) / totalAssets) * 100).toFixed(0)}%` : ""}
+                </span>
+                <span className="text-[10px] text-red-400 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+                  Liabilities {totalAssets > 0 ? `${((totalLiabilities / totalAssets) * 100).toFixed(0)}%` : ""}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* KPI strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Total Assets</p>
-              <p className="font-mono text-lg font-semibold text-emerald-400">{format(totalAssets)}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{assets.length + (externalAssetsTotal > 0 ? 1 : 0)} sources</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Assets</p>
+              <p className="font-mono text-base font-semibold text-emerald-400">{format(totalAssets)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{assets.length} manual + investments</p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Total Liabilities</p>
-              <p className="font-mono text-lg font-semibold text-red-400">{format(totalLiabilities)}</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Liabilities</p>
+              <p className="font-mono text-base font-semibold text-red-400">{format(totalLiabilities)}</p>
               <p className="text-[10px] text-slate-500 mt-0.5">{liabilities.length} items</p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Debt Ratio</p>
-              <p className={`font-mono text-lg font-semibold ${financialHealthColor}`}>{debtRatio.toFixed(1)}%</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Debt Ratio</p>
+              <p className={`font-mono text-base font-semibold ${financialHealthColor}`}>{debtRatio.toFixed(1)}%</p>
               <p className={`text-[10px] mt-0.5 ${financialHealthColor}`}>{financialHealthLabel}</p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Investments</p>
-              <p className="font-mono text-lg font-semibold text-blue-400">{format(externalAssetsTotal)}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">tracked externally</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Investments</p>
+              <p className="font-mono text-base font-semibold text-blue-400">{format(externalAssetsTotal)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">auto-tracked</p>
             </div>
           </div>
         </div>
       </div>
 
-      <main className="px-4 sm:px-6 lg:px-8 py-3 space-y-3">
+      <main className="px-4 sm:px-6 lg:px-8 py-4 space-y-4">
 
         {/* Net Worth Trend */}
         <Card>
@@ -643,36 +672,83 @@ export default function NetWorthPage() {
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
+
+          {/* Snapshot history — collapsible, shows all stored snapshots with delete */}
+          {snapshots.length > 0 && (
+            <div className="px-4 pb-4 border-t border-border/50 pt-3">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
+                Snapshot history ({snapshots.length})
+              </p>
+              <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                {[...snapshots]
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .map((snap) => (
+                    <div
+                      key={snap.id}
+                      className="flex items-center justify-between text-xs py-1 px-2 rounded hover:bg-muted/50 gap-3"
+                    >
+                      <span className="text-muted-foreground shrink-0">
+                        {new Date(snap.date).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                      <span className={`font-mono font-medium tabular-nums flex-1 text-right ${snap.net_worth >= 0 ? "text-blue-600" : "text-red-500"}`}>
+                        {format(snap.net_worth)}
+                      </span>
+                      <button
+                        onClick={async () => {
+                          if (!confirm("Remove this snapshot from the trend history?")) return;
+                          try {
+                            await deleteSnapshot(snap.id);
+                            toast.success("Snapshot removed");
+                          } catch {
+                            toast.error("Failed to remove snapshot");
+                          }
+                        }}
+                        className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Delete snapshot"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Asset Allocation + Breakdown side by side */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           {/* Donut chart */}
           <Card className="lg:col-span-2">
-            <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+            <div className="px-4 pt-4 pb-2 border-b">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Asset Allocation</p>
-            </CardHeader>
-            <CardContent className="pt-4 pb-2">
+              <p className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm mt-0.5">{format(totalAssets)}</p>
+            </div>
+            <CardContent className="pt-4 pb-2 flex items-center justify-center">
               {allocationItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 text-center">
+                <div className="flex flex-col items-center justify-center py-8 text-center">
                   <Activity className="h-8 w-8 text-muted-foreground/40 mb-2" />
                   <p className="text-xs text-muted-foreground">No assets yet</p>
                 </div>
               ) : (
-                <div className="flex flex-col items-center">
-                  <div className="relative">
-                    <ResponsiveContainer width={200} height={200}>
-                      <PieChart>
-                        <Pie data={allocationItems} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={55} paddingAngle={2}>
-                          {allocationItems.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} />)}
-                        </Pie>
-                        <Tooltip formatter={(value) => format((value ?? 0) as number)} contentStyle={{ fontSize: 12 }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Assets</p>
-                      <p className="font-mono font-bold text-sm">{format(totalAssets)}</p>
-                    </div>
+                <div className="relative">
+                  <ResponsiveContainer width={200} height={200}>
+                    <PieChart>
+                      <Pie data={allocationItems} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={58} paddingAngle={3}>
+                        {allocationItems.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} strokeWidth={0} />)}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => format((value ?? 0) as number)}
+                        contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-widest">Total</p>
+                    <p className="font-mono font-bold text-sm leading-tight">{format(totalAssets)}</p>
                   </div>
                 </div>
               )}
@@ -681,67 +757,117 @@ export default function NetWorthPage() {
 
           {/* Asset category list */}
           <Card className="lg:col-span-3">
-            <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+            <div className="px-4 pt-4 pb-2 border-b">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">By Category</p>
-            </CardHeader>
-            <CardContent className="px-4 pt-3 pb-3 space-y-3">
+            </div>
+            <CardContent className="px-0 pt-0 pb-0">
               {allocationItems.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">No data yet</p>
-              ) : allocationItems.map((item, idx) => {
-                const pct = totalAssets > 0 ? (item.value / totalAssets) * 100 : 0;
-                const color = ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length];
-                const Icon = item.icon;
-                const content = (
-                  <>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-sm font-medium">{item.name}</span>
+                <p className="text-xs text-muted-foreground text-center py-8">No data yet</p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {allocationItems.map((item, idx) => {
+                    const pct = totalAssets > 0 ? (item.value / totalAssets) * 100 : 0;
+                    const color = ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length];
+                    const Icon = item.icon;
+                    const inner = (
+                      <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: color + "22" }}>
+                          <Icon className="h-3.5 w-3.5" style={{ color }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium flex items-center gap-1.5">
+                              {item.name}
+                              {item.href && <ExternalLink className="h-3 w-3 text-muted-foreground" />}
+                            </span>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="font-mono font-semibold">{format(item.value)}</span>
+                              <span className="text-muted-foreground w-9 text-right">{pct.toFixed(1)}%</span>
+                            </div>
+                          </div>
+                          <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: color }} />
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="font-mono font-semibold text-foreground">{format(item.value)}</span>
-                        <span>{pct.toFixed(1)}%</span>
-                        {item.href && <ExternalLink className="h-3 w-3" />}
-                      </div>
-                    </div>
-                    <div className="h-1 w-full bg-muted rounded-full">
-                      <div className="h-1 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
-                    </div>
-                  </>
-                );
-                return item.href ? (
-                  <Link key={item.name} href={item.href}>{content}</Link>
-                ) : (
-                  <div key={item.name}>{content}</div>
-                );
-              })}
+                    );
+                    return item.href ? (
+                      <Link key={item.name} href={item.href}>{inner}</Link>
+                    ) : (
+                      <div key={item.name}>{inner}</div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
 
         {/* Assets & Liabilities Tabs */}
         <Tabs defaultValue="assets" className="space-y-4">
-          <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="assets">
-              Assets
-              {assets.length > 0 && <span className="ml-1.5 text-[10px] text-muted-foreground">{assets.length}</span>}
+          <TabsList className="w-full sm:w-auto grid grid-cols-4 sm:inline-flex">
+            <TabsTrigger value="assets" className="text-xs">
+              Assets {assets.length > 0 && <span className="ml-1 text-[10px] text-muted-foreground">{assets.length}</span>}
             </TabsTrigger>
-            <TabsTrigger value="liabilities">
-              Liabilities
-              {liabilities.length > 0 && <span className="ml-1.5 text-[10px] text-muted-foreground">{liabilities.length}</span>}
+            <TabsTrigger value="liabilities" className="text-xs">
+              Liabilities {liabilities.length > 0 && <span className="ml-1 text-[10px] text-muted-foreground">{liabilities.length}</span>}
             </TabsTrigger>
-            <TabsTrigger value="breakdown">Breakdown</TabsTrigger>
-            <TabsTrigger value="allocation">MF / Stocks</TabsTrigger>
+            <TabsTrigger value="breakdown" className="text-xs">Breakdown</TabsTrigger>
+            <TabsTrigger value="allocation" className="text-xs">MF / Stocks</TabsTrigger>
           </TabsList>
 
           {/* ASSETS TAB */}
-          <TabsContent value="assets" className="space-y-3">
-            <div className="flex justify-between items-center">
+          <TabsContent value="assets" className="space-y-4">
+
+            {/* Auto-tracked investments */}
+            {allocationItems.filter((i) => i.href).length > 0 && (
               <div>
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Manual Assets</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Cash, property, vehicles etc.</p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Auto-Tracked Investments</p>
+                <Card>
+                  <CardContent className="p-0">
+                    <div className="divide-y divide-border">
+                      {allocationItems.filter((i) => i.href).map((item, idx) => {
+                        const Icon = item.icon;
+                        const pct = totalAssets > 0 ? (item.value / totalAssets) * 100 : 0;
+                        const color = ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length];
+                        return (
+                          <Link key={item.name} href={item.href!}>
+                            <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: color + "22" }}>
+                                <Icon className="h-4 w-4" style={{ color }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium flex items-center gap-1.5">
+                                  {item.name}
+                                  <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                </p>
+                                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">auto-tracked</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="font-mono text-sm font-semibold" style={{ color }}>{format(item.value)}</p>
+                                <p className="text-[10px] text-muted-foreground">{pct.toFixed(1)}%</p>
+                              </div>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                    <div className="px-4 py-3 border-t bg-muted/20 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{allocationItems.filter((i) => i.href).length} investment categories</span>
+                      <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">{format(externalAssetsTotal)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
+            )}
+
+            {/* Manual assets */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Manual Assets</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Cash, property, bank accounts etc.</p>
+                </div>
               <Dialog open={isAddAssetOpen} onOpenChange={setIsAddAssetOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm"><Plus className="h-4 w-4 mr-1" />Add Asset</Button>
@@ -786,51 +912,58 @@ export default function NetWorthPage() {
               </Dialog>
             </div>
 
-            {assets.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-6 text-center">
-                  <PiggyBank className="h-10 w-10 text-muted-foreground/40 mb-3" />
-                  <p className="text-sm font-medium text-muted-foreground">No manual assets yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Add cash, property, bank accounts etc.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-2 md:grid-cols-2">
-                {assets.map((asset) => {
-                  const pct = totalAssets > 0 ? (asset.value / totalAssets) * 100 : 0;
-                  return (
-                    <Card key={asset.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg shrink-0">
-                              {getAssetIcon(asset.type)}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-semibold text-sm truncate">{asset.name}</p>
-                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{asset.type.replace("_", " ")}</p>
-                            </div>
+            <Card>
+              <CardContent className="p-0">
+                {assets.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                      <PiggyBank className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">No manual assets yet</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">Add cash, property, bank accounts etc.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {assets.map((asset) => {
+                      const pct = totalAssets > 0 ? (asset.value / totalAssets) * 100 : 0;
+                      return (
+                        <div key={asset.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                          <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
+                            {getAssetIcon(asset.type)}
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="text-right">
-                              <p className="font-mono font-semibold text-sm text-emerald-600 dark:text-emerald-400">{format(asset.value)}</p>
-                              <p className="text-[10px] text-muted-foreground">{pct.toFixed(1)}% of assets</p>
-                            </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreVertical className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openEditAssetDialog(asset)}><Edit className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600" onClick={async () => { if (confirm(`Delete ${asset.name}?`)) { try { await deleteAsset(asset.id); toast.success("Asset deleted!"); } catch { toast.error("Failed to delete asset"); } } }}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{asset.name}</p>
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{asset.type.replace("_", " ")}</p>
                           </div>
+                          <div className="text-right shrink-0 mr-1">
+                            <p className="font-mono text-sm font-semibold text-emerald-600 dark:text-emerald-400">{format(asset.value)}</p>
+                            <p className="text-[10px] text-muted-foreground">{pct.toFixed(1)}%</p>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground">
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditAssetDialog(asset)}><Edit className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600" onClick={async () => { if (confirm(`Delete ${asset.name}?`)) { try { await deleteAsset(asset.id); toast.success("Asset deleted!"); } catch { toast.error("Failed to delete asset"); } } }}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
+                      );
+                    })}
+                  </div>
+                )}
+                {assets.length > 0 && (
+                  <div className="px-4 py-3 border-t bg-muted/20 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{assets.length} asset{assets.length !== 1 ? "s" : ""}</span>
+                    <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">{format(totalManualAssets)}</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            </div>
           </TabsContent>
 
           {/* LIABILITIES TAB */}
@@ -894,129 +1027,128 @@ export default function NetWorthPage() {
               </Dialog>
             </div>
 
-            {/* Debt overview bar */}
-            {liabilities.length > 0 && (
-              <Card className="bg-red-50/50 dark:bg-red-950/20 border-red-100 dark:border-red-900/30">
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-red-500" />
-                      <span className="text-sm font-medium">Debt Overview</span>
+            <Card>
+              <CardContent className="p-0">
+                {liabilities.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                      <CreditCard className="h-5 w-5 text-muted-foreground" />
                     </div>
-                    <span className="font-mono font-bold text-red-600 dark:text-red-400">{format(totalLiabilities)}</span>
+                    <p className="text-sm font-medium text-muted-foreground">No liabilities tracked</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">Add loans, credit cards, or mortgages</p>
                   </div>
-                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                    <div className="h-2 rounded-full bg-red-500 transition-all" style={{ width: `${Math.min(debtRatio, 100)}%` }} />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1.5">{debtRatio.toFixed(1)}% debt-to-asset ratio · {financialHealthLabel}</p>
-                </CardContent>
-              </Card>
-            )}
-
-            {liabilities.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-6 text-center">
-                  <CreditCard className="h-10 w-10 text-muted-foreground/40 mb-3" />
-                  <p className="text-sm font-medium text-muted-foreground">No liabilities tracked</p>
-                  <p className="text-xs text-muted-foreground mt-1">Great! Or add loans and credit cards.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-2 md:grid-cols-2">
-                {liabilities.map((liability) => {
-                  const pct = totalLiabilities > 0 ? (liability.balance / totalLiabilities) * 100 : 0;
-                  return (
-                    <Card key={liability.id} className="hover:shadow-md transition-shadow border-l-4 border-l-red-400">
-                      <CardContent className="p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="p-2 bg-red-50 dark:bg-red-950/40 rounded-lg shrink-0">
-                              {getLiabilityIcon(liability.type)}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-semibold text-sm truncate">{liability.name}</p>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{liability.type.replace("_", " ")}</p>
-                                {liability.interest_rate && <span className="text-[10px] text-orange-500 font-medium">{liability.interest_rate}% APR</span>}
-                                {liability.due_date && <span className="text-[10px] text-muted-foreground">Due: {new Date(liability.due_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>}
-                              </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {liabilities.map((liability) => {
+                      const pct = totalLiabilities > 0 ? (liability.balance / totalLiabilities) * 100 : 0;
+                      return (
+                        <div key={liability.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                          <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0 text-red-500">
+                            {getLiabilityIcon(liability.type)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{liability.name}</p>
+                            <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{liability.type.replace("_", " ")}</span>
+                              {liability.interest_rate && <span className="text-[10px] text-orange-500 font-medium">{liability.interest_rate}% APR</span>}
+                              {liability.due_date && <span className="text-[10px] text-muted-foreground">Due {new Date(liability.due_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="text-right">
-                              <p className="font-mono font-semibold text-sm text-red-600 dark:text-red-400">{format(liability.balance)}</p>
-                              {liability.minimum_payment && <p className="text-[10px] text-muted-foreground">Min: {format(liability.minimum_payment)}/mo</p>}
-                              <p className="text-[10px] text-muted-foreground">{pct.toFixed(1)}% of debt</p>
-                            </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreVertical className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openEditLiabilityDialog(liability)}><Edit className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600" onClick={async () => { if (confirm(`Delete ${liability.name}?`)) { try { await deleteLiability(liability.id); toast.success("Liability deleted!"); } catch { toast.error("Failed to delete"); } } }}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                          <div className="text-right shrink-0 mr-1">
+                            <p className="font-mono text-sm font-semibold text-red-500 dark:text-red-400">{format(liability.balance)}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {pct.toFixed(1)}%{liability.minimum_payment ? ` · ${format(liability.minimum_payment)}/mo` : ""}
+                            </p>
                           </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground">
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditLiabilityDialog(liability)}><Edit className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600" onClick={async () => { if (confirm(`Delete ${liability.name}?`)) { try { await deleteLiability(liability.id); toast.success("Liability deleted!"); } catch { toast.error("Failed to delete"); } } }}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
+                      );
+                    })}
+                  </div>
+                )}
+                {liabilities.length > 0 && (
+                  <div className="px-4 py-3 border-t bg-muted/20 flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <Shield className="h-3 w-3" />
+                      {debtRatio.toFixed(1)}% debt-to-asset · {financialHealthLabel}
+                    </span>
+                    <span className="font-mono font-semibold text-red-500 dark:text-red-400">{format(totalLiabilities)}</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* BREAKDOWN TAB */}
           <TabsContent value="breakdown">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
-                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <div className="px-4 pt-4 pb-3 border-b flex items-center justify-between">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Assets</p>
-                  <p className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{format(totalAssets)}</p>
-                </CardHeader>
-                <CardContent className="px-4 pt-3 pb-4 space-y-3">
-                  {[...assets.map(a => ({ name: a.name, value: a.value })), ...assetBreakdown.filter(i => i.href !== null && i.value > 0).map(i => ({ name: i.name, value: i.value }))].map((item, idx) => {
-                    const pct = totalAssets > 0 ? (item.value / totalAssets) * 100 : 0;
-                    return (
-                      <div key={item.name + idx}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium">{item.name}</span>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span className="font-mono text-foreground font-semibold">{format(item.value)}</span>
-                            <span>{pct.toFixed(1)}%</span>
+                  <p className="font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">{format(totalAssets)}</p>
+                </div>
+                <CardContent className="px-0 pb-0">
+                  <div className="divide-y divide-border">
+                    {[...assets.map(a => ({ name: a.name, value: a.value })), ...assetBreakdown.filter(i => i.href !== null && i.value > 0).map(i => ({ name: i.name, value: i.value }))].map((item, idx) => {
+                      const pct = totalAssets > 0 ? (item.value / totalAssets) * 100 : 0;
+                      return (
+                        <div key={item.name + idx} className="px-4 py-2.5">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-sm font-medium">{item.name}</span>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="font-mono font-semibold">{format(item.value)}</span>
+                              <span className="text-muted-foreground w-9 text-right">{pct.toFixed(1)}%</span>
+                            </div>
+                          </div>
+                          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                            <div className="h-full rounded-full bg-emerald-500 transition-all duration-700" style={{ width: `${pct}%` }} />
                           </div>
                         </div>
-                        <div className="h-1.5 w-full bg-muted rounded-full">
-                          <div className="h-1.5 rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <div className="px-4 pt-4 pb-3 border-b flex items-center justify-between">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Liabilities</p>
-                  <p className="font-mono font-bold text-red-600 dark:text-red-400">{format(totalLiabilities)}</p>
-                </CardHeader>
-                <CardContent className="px-4 pt-3 pb-4 space-y-3">
-                  {liabilities.length === 0 ? <p className="text-xs text-muted-foreground text-center py-4">No liabilities</p> : liabilities.map((l) => {
-                    const pct = totalLiabilities > 0 ? (l.balance / totalLiabilities) * 100 : 0;
-                    return (
-                      <div key={l.id}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium">{l.name}</span>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span className="font-mono text-foreground font-semibold">{format(l.balance)}</span>
-                            <span>{pct.toFixed(1)}%</span>
+                  <p className="font-mono text-sm font-bold text-red-500 dark:text-red-400">{format(totalLiabilities)}</p>
+                </div>
+                <CardContent className="px-0 pb-0">
+                  {liabilities.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-8">No liabilities</p>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {liabilities.map((l) => {
+                        const pct = totalLiabilities > 0 ? (l.balance / totalLiabilities) * 100 : 0;
+                        return (
+                          <div key={l.id} className="px-4 py-2.5">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-sm font-medium">{l.name}</span>
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="font-mono font-semibold">{format(l.balance)}</span>
+                                <span className="text-muted-foreground w-9 text-right">{pct.toFixed(1)}%</span>
+                              </div>
+                            </div>
+                            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                              <div className="h-full rounded-full bg-red-500 transition-all duration-700" style={{ width: `${pct}%` }} />
+                            </div>
                           </div>
-                        </div>
-                        <div className="h-1.5 w-full bg-muted rounded-full">
-                          <div className="h-1.5 rounded-full bg-red-500 transition-all" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -1025,34 +1157,37 @@ export default function NetWorthPage() {
           {/* MF / STOCKS TAB */}
           <TabsContent value="allocation" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Mutual Funds */}
               <Card>
-                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <div className="px-4 pt-4 pb-3 border-b">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Mutual Funds by Category</p>
-                </CardHeader>
-                <CardContent className="pt-3">
+                </div>
+                <CardContent className="pt-3 pb-2">
                   {mutualFundCategories.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-5">No mutual fund data yet</p>
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <p className="text-xs text-muted-foreground">No mutual fund data yet</p>
+                      <Link href="/mutual-funds" className="text-xs text-primary mt-1 hover:underline">Go to Mutual Funds →</Link>
+                    </div>
                   ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
-                      <div className="h-56">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                      <div className="h-52">
                         <ResponsiveContainer>
                           <PieChart>
-                            <Pie data={mutualFundCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={45} paddingAngle={2}>
-                              {mutualFundCategories.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} />)}
+                            <Pie data={mutualFundCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={88} innerRadius={44} paddingAngle={3}>
+                              {mutualFundCategories.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} strokeWidth={0} />)}
                             </Pie>
-                            <Tooltip formatter={(value) => format((value ?? 0) as number)} contentStyle={{ fontSize: 12 }} />
-                            <Legend wrapperStyle={{ fontSize: 11 }} />
+                            <Tooltip formatter={(value) => format((value ?? 0) as number)} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
-                      <div className="space-y-2">
+                      <div className="divide-y divide-border">
                         {mutualFundCategories.map((item, idx) => (
-                          <div key={item.name} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                          <div key={item.name} className="flex items-center justify-between py-2">
                             <div className="flex items-center gap-2">
-                              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
-                              <p className="text-sm">{item.name}</p>
+                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
+                              <p className="text-xs font-medium">{item.name}</p>
                             </div>
-                            <p className="font-mono font-semibold text-sm">{format(item.value)}</p>
+                            <p className="font-mono text-xs font-semibold">{format(item.value)}</p>
                           </div>
                         ))}
                       </div>
@@ -1061,34 +1196,37 @@ export default function NetWorthPage() {
                 </CardContent>
               </Card>
 
+              {/* Stocks */}
               <Card>
-                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <div className="px-4 pt-4 pb-3 border-b">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Stocks by Sector</p>
-                </CardHeader>
-                <CardContent className="pt-3">
+                </div>
+                <CardContent className="pt-3 pb-2">
                   {stockSectors.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-5">No stock data yet</p>
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <p className="text-xs text-muted-foreground">No stock data yet</p>
+                      <Link href="/stocks" className="text-xs text-primary mt-1 hover:underline">Go to Stocks →</Link>
+                    </div>
                   ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
-                      <div className="h-56">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                      <div className="h-52">
                         <ResponsiveContainer>
                           <PieChart>
-                            <Pie data={stockSectors} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={45} paddingAngle={2}>
-                              {stockSectors.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} />)}
+                            <Pie data={stockSectors} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={88} innerRadius={44} paddingAngle={3}>
+                              {stockSectors.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} strokeWidth={0} />)}
                             </Pie>
-                            <Tooltip formatter={(value) => format((value ?? 0) as number)} contentStyle={{ fontSize: 12 }} />
-                            <Legend wrapperStyle={{ fontSize: 11 }} />
+                            <Tooltip formatter={(value) => format((value ?? 0) as number)} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
-                      <div className="space-y-2">
+                      <div className="divide-y divide-border">
                         {stockSectors.map((item, idx) => (
-                          <div key={item.name} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                          <div key={item.name} className="flex items-center justify-between py-2">
                             <div className="flex items-center gap-2">
-                              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
-                              <p className="text-sm">{item.name}</p>
+                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length] }} />
+                              <p className="text-xs font-medium">{item.name}</p>
                             </div>
-                            <p className="font-mono font-semibold text-sm">{format(item.value)}</p>
+                            <p className="font-mono text-xs font-semibold">{format(item.value)}</p>
                           </div>
                         ))}
                       </div>

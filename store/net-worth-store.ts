@@ -57,6 +57,7 @@ interface NetWorthState {
   deleteAsset: (id: string) => Promise<void>;
   deleteLiability: (id: string) => Promise<void>;
   createSnapshot: () => Promise<void>;
+  deleteSnapshot: (id: string) => Promise<void>;
   clearSnapshots: () => Promise<void>;
 }
 
@@ -216,6 +217,19 @@ export const useNetWorthStore = create<NetWorthState>((set, get) => ({
       });
     } catch (error) {
       set({ error: (error as Error).message });
+    }
+  },
+
+  deleteSnapshot: async (id) => {
+    try {
+      const response = await fetch(`/api/net-worth/snapshots/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete snapshot");
+      set({ snapshots: get().snapshots.filter((s) => s.id !== id) });
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
     }
   },
 

@@ -12,9 +12,11 @@ import {
 } from "./ui/dialog";
 import AddTransactionForm from "./transactions/AddTransactionForm";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { useGoalsStore } from "@/store/goals-store";
 
 export function QuickAddButton() {
   const [isOpen, setIsOpen] = useState(false);
+  const { fetchGoals } = useGoalsStore();
 
   return (
     <>
@@ -45,7 +47,7 @@ export function QuickAddButton() {
           </DialogHeader>
           {isOpen && (
             <AddTransactionForm
-              onSuccess={() => setIsOpen(false)}
+              onSuccess={() => { fetchGoals(); setIsOpen(false); }}
               onCancel={() => setIsOpen(false)}
             />
           )}

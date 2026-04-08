@@ -46,6 +46,7 @@ import {
 } from "@/components/transactions/TransactionListItemRow";
 import { getPendingOccurrencesForMonth } from "@/lib/utils/recurring-occurrences";
 import { useRecurringPatternsStore } from "@/store/recurring-patterns-store";
+import { useGoalsStore } from "@/store/goals-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { Skeleton, TransactionSkeleton } from "@/components/ui/skeleton";
 
@@ -103,6 +104,7 @@ function TransactionsPageInner() {
   );
   const { patterns, fetchPatterns, completeOccurrence } =
     useRecurringPatternsStore();
+  const { fetchGoals } = useGoalsStore();
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -168,6 +170,7 @@ function TransactionsPageInner() {
 
   const handleTransactionSuccess = () => {
     loadTransactions();
+    fetchGoals();
     setIsAddDialogOpen(false);
     setEditingTransaction(null);
   };
