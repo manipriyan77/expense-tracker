@@ -63,6 +63,81 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const month = searchParams.get("month") ? parseInt(searchParams.get("month")!) : new Date().getMonth() + 1;
+    const year = searchParams.get("year") ? parseInt(searchParams.get("year")!) : new Date().getFullYear();
+
+    // Get all budgets for this month
+    const { data: monthBudgets, error: fetchError } = await supabase
+      .from("budgets")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("month", month)
+      .eq("year", year);
+
+    if (fetchError) {
+      return NextResponse.json({ error: fetchError.message }, { status: 500 });
+    }
+
+    if (!monthBudgets || monthBudgets.length === 0) {
+      return NextResponse.json({ success: true, deletedBudgets: 0, deletedTransactions: 0 });
+    }
+
+    const budgetIds = monthBudgets.map((b) => b.id);
+
+    // Delete linked transactions first
+    const { data: linkedTransactions, error: txFetchError } = await supabase
+      .from("transactions")
+      .select("id")
+      .in("budget_id", budgetIds)
+      .eq("user_id", user.id);
+
+    if (txFetchError) {
+      return NextResponse.json({ error: txFetchError.message }, { status: 500 });
+    }
+
+    if (linkedTransactions && linkedTransactions.length > 0) {
+      const { error: deleteTxError } = await supabase
+        .from("transactions")
+        .delete()
+        .in("budget_id", budgetIds)
+        .eq("user_id", user.id);
+
+      if (deleteTxError) {
+        return NextResponse.json({ error: deleteTxError.message }, { status: 500 });
+      }
+    }
+
+    // Delete all budgets for the month
+    const { error: deleteBudgetsError } = await supabase
+      .from("budgets")
+      .delete()
+      .in("id", budgetIds)
+      .eq("user_id", user.id);
+
+    if (deleteBudgetsError) {
+      return NextResponse.json({ error: deleteBudgetsError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      deletedBudgets: budgetIds.length,
+      deletedTransactions: linkedTransactions?.length || 0,
+    });
+  } catch (error) {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();

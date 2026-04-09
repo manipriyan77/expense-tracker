@@ -88,6 +88,7 @@ export default function BudgetsPage() {
     addBudget,
     updateBudget,
     deleteBudget,
+    deleteAllBudgets,
     currentMonth,
     currentYear,
     setMonth,
@@ -218,6 +219,37 @@ export default function BudgetsPage() {
           toast.error(`Failed to delete budget: ${error.message}`);
         } else {
           toast.error("Failed to delete budget");
+        }
+      }
+    }
+  };
+
+  const handleDeleteAllBudgets = async () => {
+    if (budgets.length === 0) return;
+
+    const month = selectedMonth.getMonth() + 1;
+    const year = selectedMonth.getFullYear();
+    const monthName = selectedMonth.toLocaleString("default", { month: "long", year: "numeric" });
+
+    if (
+      confirm(
+        `Are you sure you want to delete all ${budgets.length} budget(s) for ${monthName}?\n\n⚠️ Warning: All transactions linked to these budgets will also be deleted permanently.`,
+      )
+    ) {
+      try {
+        const result = await deleteAllBudgets(month, year);
+        if (result && result.deletedTransactions > 0) {
+          toast.success(
+            `All budgets deleted! ${result.deletedTransactions} linked transaction${result.deletedTransactions > 1 ? "s were" : " was"} also deleted.`,
+          );
+        } else {
+          toast.success("All budgets deleted successfully!");
+        }
+      } catch (error) {
+        if (error instanceof Error) {
+          toast.error(`Failed to delete all budgets: ${error.message}`);
+        } else {
+          toast.error("Failed to delete all budgets");
         }
       }
     }
@@ -424,14 +456,27 @@ export default function BudgetsPage() {
                 onMonthChange={setSelectedMonth}
                 monthsToShow={7}
               />
-              <div
-                className="text-sm text-muted-foreground shrink-0"
-                title={`${budgets.length} budgets`}
-              >
-                <span className="sm:hidden">{budgets.length}</span>
-                <span className="hidden sm:inline">
-                  {budgets.length} budget(s)
+              <div className="flex items-center gap-3 shrink-0">
+                <span
+                  className="text-sm text-muted-foreground"
+                  title={`${budgets.length} budgets`}
+                >
+                  <span className="sm:hidden">{budgets.length}</span>
+                  <span className="hidden sm:inline">
+                    {budgets.length} budget(s)
+                  </span>
                 </span>
+                {budgets.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 px-2"
+                    onClick={handleDeleteAllBudgets}
+                    title="Delete all budgets for this month"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
 
