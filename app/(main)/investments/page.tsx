@@ -712,7 +712,8 @@ export default function InvestmentsPage() {
           type: silverForm.type as SilverHolding["type"],
           quantityGrams: parseFloat(silverForm.quantityGrams) || 0,
           purity: parseFloat(silverForm.purity) || 999,
-          purchasePricePerGram: parseFloat(silverForm.purchasePricePerGram) || 0,
+          purchasePricePerGram:
+            parseFloat(silverForm.purchasePricePerGram) || 0,
           currentPricePerGram: parseFloat(silverForm.currentPricePerGram) || 0,
           purchaseDate: silverForm.purchaseDate,
           notes: silverForm.notes,
@@ -994,7 +995,13 @@ export default function InvestmentsPage() {
         try {
           if (importType === "stocks") {
             // "Security" is the TickerTape column name for stock ticker/name
-            const nameVal = findCol(row, "name", "stock name", "scrip", "security");
+            const nameVal = findCol(
+              row,
+              "name",
+              "stock name",
+              "scrip",
+              "security",
+            );
             const shares =
               parseFloat(findCol(row, "shares", "quantity", "qty")) || 0;
             const avgP =
@@ -1488,7 +1495,14 @@ export default function InvestmentsPage() {
       <Toaster richColors />
       <div className="relative bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 dark:from-black dark:via-slate-950 dark:to-black text-white overflow-hidden">
         {/* subtle grid overlay */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.1) 1px,transparent 1px)", backgroundSize: "40px 40px" }} />
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.1) 1px,transparent 1px)",
+            backgroundSize: "40px 40px",
+          }}
+        />
         {/* glow */}
         {portfolio.totalPnl >= 0 && (
           <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[200px] rounded-full bg-green-500/5 blur-3xl pointer-events-none" />
@@ -1497,9 +1511,13 @@ export default function InvestmentsPage() {
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] uppercase tracking-widest text-slate-400">Portfolio</span>
+                <span className="text-[10px] uppercase tracking-widest text-slate-400">
+                  Portfolio
+                </span>
                 <span className="h-px w-6 bg-slate-700" />
-                <span className="text-[10px] uppercase tracking-widest text-slate-500">Investments</span>
+                <span className="text-[10px] uppercase tracking-widest text-slate-500">
+                  Investments
+                </span>
               </div>
               <p className="text-xs text-slate-500">
                 Live snapshot of all holdings
@@ -1532,15 +1550,27 @@ export default function InvestmentsPage() {
 
           {/* Portfolio value hero */}
           <div className="mb-3">
-            <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">Total Portfolio Value</p>
+            <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+              Total Portfolio Value
+            </p>
             <div className="flex items-end gap-3 flex-wrap">
               <span className="font-mono text-3xl font-bold text-white tracking-tight">
                 {format(portfolio.totalCurrent)}
               </span>
-              <span className={`flex items-center gap-1 text-sm font-semibold mb-1 ${portfolio.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {portfolio.totalPnl >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                {portfolio.totalPnl >= 0 ? "+" : ""}{format(portfolio.totalPnl)}
-                <span className="text-xs opacity-80">({portfolio.returnPct >= 0 ? "+" : ""}{portfolio.returnPct.toFixed(2)}%)</span>
+              <span
+                className={`flex items-center gap-1 text-sm font-semibold mb-1 ${portfolio.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}
+              >
+                {portfolio.totalPnl >= 0 ? (
+                  <ArrowUpRight className="h-4 w-4" />
+                ) : (
+                  <ArrowDownRight className="h-4 w-4" />
+                )}
+                {portfolio.totalPnl >= 0 ? "+" : ""}
+                {format(portfolio.totalPnl)}
+                <span className="text-xs opacity-80">
+                  ({portfolio.returnPct >= 0 ? "+" : ""}
+                  {portfolio.returnPct.toFixed(2)}%)
+                </span>
               </span>
             </div>
           </div>
@@ -1563,9 +1593,16 @@ export default function InvestmentsPage() {
               </div>
               <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                 {allocationData.map((d) => (
-                  <span key={d.name} className="flex items-center gap-1 text-[10px] text-slate-400">
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: d.color }} />
-                    {d.name} {((d.value / portfolio.totalCurrent) * 100).toFixed(0)}%
+                  <span
+                    key={d.name}
+                    className="flex items-center gap-1 text-[10px] text-slate-400"
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: d.color }}
+                    />
+                    {d.name}{" "}
+                    {((d.value / portfolio.totalCurrent) * 100).toFixed(0)}%
                   </span>
                 ))}
               </div>
@@ -1619,11 +1656,17 @@ export default function InvestmentsPage() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-7 h-auto gap-0.5 p-1 bg-muted/60 rounded-lg">
-            <TabsTrigger value="all" className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+            <TabsTrigger
+              value="all"
+              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
+            >
               <BarChart3 className="h-3 w-3 mr-1 hidden sm:inline" />
               All
             </TabsTrigger>
-            <TabsTrigger value="stocks" className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+            <TabsTrigger
+              value="stocks"
+              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
+            >
               Stocks
               {stocks.length > 0 && (
                 <span className="ml-1 text-[10px] font-mono bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 px-1 rounded">
@@ -1631,7 +1674,10 @@ export default function InvestmentsPage() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="mutual-funds" className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+            <TabsTrigger
+              value="mutual-funds"
+              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
+            >
               Funds
               {mutualFunds.length > 0 && (
                 <span className="ml-1 text-[10px] font-mono bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 px-1 rounded">
@@ -1639,7 +1685,10 @@ export default function InvestmentsPage() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="gold" className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+            <TabsTrigger
+              value="gold"
+              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
+            >
               Gold
               {holdings.length > 0 && (
                 <span className="ml-1 text-[10px] font-mono bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400 px-1 rounded">
@@ -1647,10 +1696,16 @@ export default function InvestmentsPage() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="forex" className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+            <TabsTrigger
+              value="forex"
+              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
+            >
               Forex
             </TabsTrigger>
-            <TabsTrigger value="other-investments" className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+            <TabsTrigger
+              value="other-investments"
+              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
+            >
               Other
               {otherInvestments.length > 0 && (
                 <span className="ml-1 text-[10px] font-mono bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400 px-1 rounded">
@@ -1658,7 +1713,10 @@ export default function InvestmentsPage() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="silver" className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+            <TabsTrigger
+              value="silver"
+              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
+            >
               Silver
             </TabsTrigger>
           </TabsList>
@@ -1688,7 +1746,10 @@ export default function InvestmentsPage() {
                   {assetPerf.map((a) => {
                     const ret = a.invested > 0 ? (a.pnl / a.invested) * 100 : 0;
                     const isPos = a.pnl >= 0;
-                    const allocationPct = portfolio.totalCurrent > 0 ? (a.current / portfolio.totalCurrent) * 100 : 0;
+                    const allocationPct =
+                      portfolio.totalCurrent > 0
+                        ? (a.current / portfolio.totalCurrent) * 100
+                        : 0;
                     return (
                       <Card
                         key={a.key}
@@ -1697,7 +1758,10 @@ export default function InvestmentsPage() {
                       >
                         <CardContent className="p-0">
                           {/* colored top accent */}
-                          <div className="h-0.5 w-full" style={{ backgroundColor: a.color }} />
+                          <div
+                            className="h-0.5 w-full"
+                            style={{ backgroundColor: a.color }}
+                          />
                           <div className="p-3">
                             <div className="flex items-center justify-between mb-2.5">
                               <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
@@ -1705,7 +1769,10 @@ export default function InvestmentsPage() {
                               </span>
                               <span
                                 className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-full"
-                                style={{ backgroundColor: a.color + "20", color: a.color }}
+                                style={{
+                                  backgroundColor: a.color + "20",
+                                  color: a.color,
+                                }}
                               >
                                 {allocationPct.toFixed(0)}%
                               </span>
@@ -1714,13 +1781,19 @@ export default function InvestmentsPage() {
                               {format(a.current)}
                             </div>
                             <div className="text-[10px] text-muted-foreground mt-0.5 mb-2">
-                              <span className="font-mono">{format(a.invested)}</span> invested
+                              <span className="font-mono">
+                                {format(a.invested)}
+                              </span>{" "}
+                              invested
                             </div>
                             {/* mini allocation bar */}
                             <div className="h-1 rounded-full bg-muted overflow-hidden mb-2">
                               <div
                                 className="h-full rounded-full transition-all"
-                                style={{ width: `${Math.min(allocationPct, 100)}%`, backgroundColor: a.color }}
+                                style={{
+                                  width: `${Math.min(allocationPct, 100)}%`,
+                                  backgroundColor: a.color,
+                                }}
                               />
                             </div>
                             <div className="flex items-center justify-between">
@@ -1732,10 +1805,12 @@ export default function InvestmentsPage() {
                                 ) : (
                                   <ArrowDownRight className="h-3.5 w-3.5" />
                                 )}
-                                {isPos ? "+" : ""}{ret.toFixed(1)}%
+                                {isPos ? "+" : ""}
+                                {ret.toFixed(1)}%
                               </div>
                               <div className="text-[10px] text-muted-foreground">
-                                {a.count} {a.count === 1 ? "holding" : "holdings"}
+                                {a.count}{" "}
+                                {a.count === 1 ? "holding" : "holdings"}
                               </div>
                             </div>
                           </div>
@@ -1752,8 +1827,12 @@ export default function InvestmentsPage() {
                     <Card className="overflow-hidden">
                       <CardHeader className="pb-2 border-b border-border/50">
                         <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm font-semibold">Asset Allocation</CardTitle>
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">by current value</span>
+                          <CardTitle className="text-sm font-semibold">
+                            Asset Allocation
+                          </CardTitle>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                            by current value
+                          </span>
                         </div>
                       </CardHeader>
                       <CardContent className="pt-2">
@@ -1770,7 +1849,11 @@ export default function InvestmentsPage() {
                               strokeWidth={0}
                             >
                               {allocationData.map((entry, i) => (
-                                <Cell key={i} fill={entry.color} opacity={0.9} />
+                                <Cell
+                                  key={i}
+                                  fill={entry.color}
+                                  opacity={0.9}
+                                />
                               ))}
                             </Pie>
                             <Tooltip
@@ -1787,9 +1870,15 @@ export default function InvestmentsPage() {
                               iconType="circle"
                               iconSize={7}
                               wrapperStyle={{ fontSize: 11 }}
-                              formatter={(value, entry: {payload?: {value?: number}}) => (
+                              formatter={(
+                                value,
+                                entry: { payload?: { value?: number } },
+                              ) => (
                                 <span className="text-foreground">
-                                  {value} {entry.payload?.value ? `(${((entry.payload.value / portfolio.totalCurrent) * 100).toFixed(1)}%)` : ""}
+                                  {value}{" "}
+                                  {entry.payload?.value
+                                    ? `(${((entry.payload.value / portfolio.totalCurrent) * 100).toFixed(1)}%)`
+                                    : ""}
                                 </span>
                               )}
                             />
@@ -1804,13 +1893,17 @@ export default function InvestmentsPage() {
                     <Card className="overflow-hidden">
                       <CardHeader className="pb-2 border-b border-border/50">
                         <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm font-semibold">Invested vs Current</CardTitle>
+                          <CardTitle className="text-sm font-semibold">
+                            Invested vs Current
+                          </CardTitle>
                           <div className="flex items-center gap-3">
                             <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <span className="w-2 h-2 rounded-full bg-slate-400" />Invested
+                              <span className="w-2 h-2 rounded-full bg-slate-400" />
+                              Invested
                             </span>
                             <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <span className="w-2 h-2 rounded-full bg-blue-500" />Current
+                              <span className="w-2 h-2 rounded-full bg-blue-500" />
+                              Current
                             </span>
                           </div>
                         </div>
@@ -1841,10 +1934,10 @@ export default function InvestmentsPage() {
                                 v >= 10000000
                                   ? `${(v / 10000000).toFixed(1)}Cr`
                                   : v >= 100000
-                                  ? `${(v / 100000).toFixed(1)}L`
-                                  : v >= 1000
-                                    ? `${(v / 1000).toFixed(0)}K`
-                                    : String(v)
+                                    ? `${(v / 100000).toFixed(1)}L`
+                                    : v >= 1000
+                                      ? `${(v / 1000).toFixed(0)}K`
+                                      : String(v)
                               }
                             />
                             <Tooltip
@@ -1892,12 +1985,20 @@ export default function InvestmentsPage() {
                           const ret =
                             h.invested > 0 ? (pnl / h.invested) * 100 : 0;
                           const total = topHoldings[0].current || 1;
-                          const rankColors = ["text-yellow-500", "text-slate-400", "text-amber-600", "text-muted-foreground", "text-muted-foreground"];
+                          const rankColors = [
+                            "text-yellow-500",
+                            "text-slate-400",
+                            "text-amber-600",
+                            "text-muted-foreground",
+                            "text-muted-foreground",
+                          ];
                           return (
                             <div key={i}>
                               <div className="flex items-center justify-between mb-1.5">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <span className={`text-xs font-bold w-5 text-center shrink-0 ${rankColors[i] ?? "text-muted-foreground"}`}>
+                                  <span
+                                    className={`text-xs font-bold w-5 text-center shrink-0 ${rankColors[i] ?? "text-muted-foreground"}`}
+                                  >
                                     #{i + 1}
                                   </span>
                                   <span
@@ -1907,7 +2008,13 @@ export default function InvestmentsPage() {
                                   <span className="text-sm font-medium text-foreground truncate">
                                     {h.name}
                                   </span>
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0" style={{ backgroundColor: h.color + "20", color: h.color }}>
+                                  <span
+                                    className="text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0"
+                                    style={{
+                                      backgroundColor: h.color + "20",
+                                      color: h.color,
+                                    }}
+                                  >
                                     {h.badge}
                                   </span>
                                 </div>
@@ -1980,8 +2087,8 @@ export default function InvestmentsPage() {
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1 text-sm font-semibold text-green-600 dark:text-green-400 shrink-0 ml-2 font-mono">
-                                    <TrendingUp className="h-3 w-3" />
-                                    +{p.returnPct.toFixed(1)}%
+                                    <TrendingUp className="h-3 w-3" />+
+                                    {p.returnPct.toFixed(1)}%
                                   </div>
                                 </div>
                               ))}
@@ -2172,23 +2279,41 @@ export default function InvestmentsPage() {
                     <div className="h-0.5 w-full bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600" />
                     <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border">
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
-                        <p className="font-mono font-semibold text-sm">{format(inv)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
-                        <p className="font-mono font-bold text-sm text-foreground">{format(cur)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
-                        <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                          {pnl >= 0 ? "+" : ""}{format(pnl)}
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Invested
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(inv)}
                         </p>
                       </div>
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
-                        <p className={`font-mono font-bold text-base ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                          {ret >= 0 ? "+" : ""}{ret.toFixed(2)}%
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Current Value
+                        </p>
+                        <p className="font-mono font-bold text-sm text-foreground">
+                          {format(cur)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Returns
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {pnl >= 0 ? "+" : ""}
+                          {format(pnl)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Overall Return
+                        </p>
+                        <p
+                          className={`font-mono font-bold text-base ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {ret >= 0 ? "+" : ""}
+                          {ret.toFixed(2)}%
                         </p>
                       </div>
                     </div>
@@ -2335,7 +2460,15 @@ export default function InvestmentsPage() {
                   <div className="flex items-center gap-1.5">
                     <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="text-xs text-muted-foreground">Sort:</span>
-                    {(["current-value", "invested", "pnl", "return-pct", "name"] as const).map((key) => {
+                    {(
+                      [
+                        "current-value",
+                        "invested",
+                        "pnl",
+                        "return-pct",
+                        "name",
+                      ] as const
+                    ).map((key) => {
                       const labels: Record<string, string> = {
                         "current-value": "Value",
                         invested: "Invested",
@@ -2380,12 +2513,27 @@ export default function InvestmentsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {[...stocks]
                       .sort((a, b) => {
-                        if (stocksSort === "name") return a.name.localeCompare(b.name);
-                        if (stocksSort === "invested") return b.investedAmount - a.investedAmount;
-                        if (stocksSort === "pnl") return (b.currentValue - b.investedAmount) - (a.currentValue - a.investedAmount);
+                        if (stocksSort === "name")
+                          return a.name.localeCompare(b.name);
+                        if (stocksSort === "invested")
+                          return b.investedAmount - a.investedAmount;
+                        if (stocksSort === "pnl")
+                          return (
+                            b.currentValue -
+                            b.investedAmount -
+                            (a.currentValue - a.investedAmount)
+                          );
                         if (stocksSort === "return-pct") {
-                          const ra = a.investedAmount > 0 ? (a.currentValue - a.investedAmount) / a.investedAmount : 0;
-                          const rb = b.investedAmount > 0 ? (b.currentValue - b.investedAmount) / b.investedAmount : 0;
+                          const ra =
+                            a.investedAmount > 0
+                              ? (a.currentValue - a.investedAmount) /
+                                a.investedAmount
+                              : 0;
+                          const rb =
+                            b.investedAmount > 0
+                              ? (b.currentValue - b.investedAmount) /
+                                b.investedAmount
+                              : 0;
                           return rb - ra;
                         }
                         return b.currentValue - a.currentValue;
@@ -2393,68 +2541,124 @@ export default function InvestmentsPage() {
                       .map((s) => {
                         const pnl = s.currentValue - s.investedAmount;
                         const isPos = pnl >= 0;
-                        const ret = s.investedAmount > 0 ? (pnl / s.investedAmount) * 100 : 0;
-                        const priceChangePct = s.avgPurchasePrice > 0 ? ((s.currentPrice - s.avgPurchasePrice) / s.avgPurchasePrice) * 100 : 0;
+                        const ret =
+                          s.investedAmount > 0
+                            ? (pnl / s.investedAmount) * 100
+                            : 0;
+                        const priceChangePct =
+                          s.avgPurchasePrice > 0
+                            ? ((s.currentPrice - s.avgPurchasePrice) /
+                                s.avgPurchasePrice) *
+                              100
+                            : 0;
                         return (
                           <Card
                             key={s.id}
                             className="cursor-pointer hover:shadow-md hover:border-blue-400/40 transition-all duration-200 overflow-hidden group"
-                            onClick={() => setDetailItem({ type: "stocks", data: s })}
+                            onClick={() =>
+                              setDetailItem({ type: "stocks", data: s })
+                            }
                           >
                             <CardContent className="p-0">
-                              <div className={`h-1.5 w-full ${isPos ? "bg-gradient-to-r from-green-400 to-emerald-500" : "bg-gradient-to-r from-red-400 to-rose-500"}`} />
+                              <div
+                                className={`h-1.5 w-full ${isPos ? "bg-gradient-to-r from-green-400 to-emerald-500" : "bg-gradient-to-r from-red-400 to-rose-500"}`}
+                              />
                               <div className="p-3.5">
                                 <div className="flex items-start justify-between gap-1 mb-3">
                                   <div className="min-w-0 flex-1">
-                                    <p className="font-semibold text-sm truncate leading-tight">{s.name}</p>
-                                    {s.symbol && <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{s.symbol}</p>}
+                                    <p className="font-semibold text-sm truncate leading-tight">
+                                      {s.name}
+                                    </p>
+                                    {s.symbol && (
+                                      <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                                        {s.symbol}
+                                      </p>
+                                    )}
                                   </div>
                                   {s.stockType && (
-                                    <Badge variant="outline" className="text-[10px] capitalize border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 shrink-0">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] capitalize border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 shrink-0"
+                                    >
                                       {s.stockType.replace("_", " ")}
                                     </Badge>
                                   )}
                                 </div>
                                 <div className="grid grid-cols-3 gap-1 mb-3 bg-muted/50 rounded-lg p-2">
                                   <div className="text-center">
-                                    <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">Shares</p>
-                                    <p className="font-mono font-semibold text-xs">{s.shares}</p>
+                                    <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">
+                                      Shares
+                                    </p>
+                                    <p className="font-mono font-semibold text-xs">
+                                      {s.shares}
+                                    </p>
                                   </div>
                                   <div className="text-center border-x border-border/50">
-                                    <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">Avg Cost</p>
-                                    <p className="font-mono font-semibold text-xs">{format(s.avgPurchasePrice)}</p>
+                                    <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">
+                                      Avg Cost
+                                    </p>
+                                    <p className="font-mono font-semibold text-xs">
+                                      {format(s.avgPurchasePrice)}
+                                    </p>
                                   </div>
                                   <div className="text-center">
-                                    <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">LTP</p>
-                                    <p className={`font-mono font-semibold text-xs ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                                    <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">
+                                      LTP
+                                    </p>
+                                    <p
+                                      className={`font-mono font-semibold text-xs ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                                    >
                                       {format(s.currentPrice)}
                                     </p>
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between text-xs mb-2">
                                   <div>
-                                    <p className="text-[10px] text-muted-foreground mb-0.5">Invested</p>
-                                    <p className="font-mono font-medium">{format(s.investedAmount)}</p>
+                                    <p className="text-[10px] text-muted-foreground mb-0.5">
+                                      Invested
+                                    </p>
+                                    <p className="font-mono font-medium">
+                                      {format(s.investedAmount)}
+                                    </p>
                                   </div>
                                   <div className="text-right">
-                                    <p className="text-[10px] text-muted-foreground mb-0.5">Current Value</p>
-                                    <p className="font-mono font-semibold text-foreground">{format(s.currentValue)}</p>
+                                    <p className="text-[10px] text-muted-foreground mb-0.5">
+                                      Current Value
+                                    </p>
+                                    <p className="font-mono font-semibold text-foreground">
+                                      {format(s.currentValue)}
+                                    </p>
                                   </div>
                                 </div>
-                                <div className={`flex items-center justify-between rounded-lg px-2.5 py-2 ${isPos ? "bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/30" : "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/30"}`}>
+                                <div
+                                  className={`flex items-center justify-between rounded-lg px-2.5 py-2 ${isPos ? "bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/30" : "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/30"}`}
+                                >
                                   <div className="flex items-center gap-1">
-                                    {isPos ? <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" /> : <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />}
-                                    <span className={`text-xs font-semibold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
-                                      {isPos ? "+" : ""}{format(pnl)}
+                                    {isPos ? (
+                                      <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                                    ) : (
+                                      <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                                    )}
+                                    <span
+                                      className={`text-xs font-semibold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}
+                                    >
+                                      {isPos ? "+" : ""}
+                                      {format(pnl)}
                                     </span>
                                   </div>
-                                  <span className={`font-mono text-sm font-bold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
-                                    {isPos ? "+" : ""}{ret.toFixed(1)}%
+                                  <span
+                                    className={`font-mono text-sm font-bold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}
+                                  >
+                                    {isPos ? "+" : ""}
+                                    {ret.toFixed(1)}%
                                   </span>
                                 </div>
                                 {Math.abs(priceChangePct) > 0.01 && (
-                                  <p className={`text-[9px] font-mono text-center mt-1.5 ${priceChangePct >= 0 ? "text-green-500" : "text-red-500"}`}>
-                                    LTP {priceChangePct >= 0 ? "+" : ""}{priceChangePct.toFixed(1)}% vs avg
+                                  <p
+                                    className={`text-[9px] font-mono text-center mt-1.5 ${priceChangePct >= 0 ? "text-green-500" : "text-red-500"}`}
+                                  >
+                                    LTP {priceChangePct >= 0 ? "+" : ""}
+                                    {priceChangePct.toFixed(1)}% vs avg
                                   </p>
                                 )}
                               </div>
@@ -2467,24 +2671,55 @@ export default function InvestmentsPage() {
                   /* List view */
                   <Card className="overflow-hidden p-0">
                     <div className="hidden sm:grid grid-cols-[1fr_80px_90px_90px_100px_100px_110px_64px] items-center px-4 py-2 border-b border-border bg-muted/40 gap-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Name</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">Shares</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">Avg Cost</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">LTP</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">Invested</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">Value</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">P&L / Return</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">Actions</p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Name
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        Shares
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        Avg Cost
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        LTP
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        Invested
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        Value
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        P&L / Return
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        Actions
+                      </p>
                     </div>
                     <div className="divide-y divide-border">
                       {[...stocks]
                         .sort((a, b) => {
-                          if (stocksSort === "name") return a.name.localeCompare(b.name);
-                          if (stocksSort === "invested") return b.investedAmount - a.investedAmount;
-                          if (stocksSort === "pnl") return (b.currentValue - b.investedAmount) - (a.currentValue - a.investedAmount);
+                          if (stocksSort === "name")
+                            return a.name.localeCompare(b.name);
+                          if (stocksSort === "invested")
+                            return b.investedAmount - a.investedAmount;
+                          if (stocksSort === "pnl")
+                            return (
+                              b.currentValue -
+                              b.investedAmount -
+                              (a.currentValue - a.investedAmount)
+                            );
                           if (stocksSort === "return-pct") {
-                            const ra = a.investedAmount > 0 ? (a.currentValue - a.investedAmount) / a.investedAmount : 0;
-                            const rb = b.investedAmount > 0 ? (b.currentValue - b.investedAmount) / b.investedAmount : 0;
+                            const ra =
+                              a.investedAmount > 0
+                                ? (a.currentValue - a.investedAmount) /
+                                  a.investedAmount
+                                : 0;
+                            const rb =
+                              b.investedAmount > 0
+                                ? (b.currentValue - b.investedAmount) /
+                                  b.investedAmount
+                                : 0;
                             return rb - ra;
                           }
                           return b.currentValue - a.currentValue;
@@ -2492,20 +2727,33 @@ export default function InvestmentsPage() {
                         .map((s) => {
                           const pnl = s.currentValue - s.investedAmount;
                           const isPos = pnl >= 0;
-                          const ret = s.investedAmount > 0 ? (pnl / s.investedAmount) * 100 : 0;
+                          const ret =
+                            s.investedAmount > 0
+                              ? (pnl / s.investedAmount) * 100
+                              : 0;
                           return (
                             <div
                               key={s.id}
                               className="flex sm:grid sm:grid-cols-[1fr_80px_90px_90px_100px_100px_110px_64px] items-center px-4 py-3 gap-3 hover:bg-muted/30 cursor-pointer transition-colors flex-wrap"
-                              onClick={() => setDetailItem({ type: "stocks", data: s })}
+                              onClick={() =>
+                                setDetailItem({ type: "stocks", data: s })
+                              }
                             >
                               {/* name col */}
                               <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-none">
-                                <div className={`w-1 h-8 rounded-full shrink-0 ${isPos ? "bg-green-500" : "bg-red-500"}`} />
+                                <div
+                                  className={`w-1 h-8 rounded-full shrink-0 ${isPos ? "bg-green-500" : "bg-red-500"}`}
+                                />
                                 <div className="min-w-0">
-                                  <p className="font-semibold text-sm truncate leading-tight">{s.name}</p>
+                                  <p className="font-semibold text-sm truncate leading-tight">
+                                    {s.name}
+                                  </p>
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    {s.symbol && <span className="text-[10px] font-mono text-muted-foreground">{s.symbol}</span>}
+                                    {s.symbol && (
+                                      <span className="text-[10px] font-mono text-muted-foreground">
+                                        {s.symbol}
+                                      </span>
+                                    )}
                                     {s.stockType && (
                                       <span className="text-[10px] px-1 py-px rounded border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 capitalize">
                                         {s.stockType.replace("_", " ")}
@@ -2514,27 +2762,56 @@ export default function InvestmentsPage() {
                                   </div>
                                 </div>
                               </div>
-                              <p className="font-mono text-sm text-right hidden sm:block">{s.shares}</p>
-                              <p className="font-mono text-sm text-right hidden sm:block">{format(s.avgPurchasePrice)}</p>
-                              <p className={`font-mono text-sm text-right hidden sm:block ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                              <p className="font-mono text-sm text-right hidden sm:block">
+                                {s.shares}
+                              </p>
+                              <p className="font-mono text-sm text-right hidden sm:block">
+                                {format(s.avgPurchasePrice)}
+                              </p>
+                              <p
+                                className={`font-mono text-sm text-right hidden sm:block ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                              >
                                 {format(s.currentPrice)}
                               </p>
-                              <p className="font-mono text-sm text-right hidden sm:block text-muted-foreground">{format(s.investedAmount)}</p>
-                              <p className="font-mono text-sm font-semibold text-right hidden sm:block">{format(s.currentValue)}</p>
+                              <p className="font-mono text-sm text-right hidden sm:block text-muted-foreground">
+                                {format(s.investedAmount)}
+                              </p>
+                              <p className="font-mono text-sm font-semibold text-right hidden sm:block">
+                                {format(s.currentValue)}
+                              </p>
                               {/* P&L col — visible on mobile too */}
                               <div className="sm:text-right ml-auto sm:ml-0">
-                                <p className={`font-mono text-sm font-semibold ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                                  {isPos ? "+" : ""}{ret.toFixed(1)}%
+                                <p
+                                  className={`font-mono text-sm font-semibold ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                                >
+                                  {isPos ? "+" : ""}
+                                  {ret.toFixed(1)}%
                                 </p>
-                                <p className={`font-mono text-[10px] ${isPos ? "text-green-500" : "text-red-500"}`}>
-                                  {isPos ? "+" : ""}{format(pnl)}
+                                <p
+                                  className={`font-mono text-[10px] ${isPos ? "text-green-500" : "text-red-500"}`}
+                                >
+                                  {isPos ? "+" : ""}
+                                  {format(pnl)}
                                 </p>
                               </div>
-                              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEditStock(s)}>
+                              <div
+                                className="flex items-center gap-1 shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => openEditStock(s)}
+                                >
                                   <Edit2 className="h-3.5 w-3.5" />
                                 </Button>
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete("stocks", s.id)}>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                  onClick={() => handleDelete("stocks", s.id)}
+                                >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
@@ -2571,21 +2848,36 @@ export default function InvestmentsPage() {
                     <div className="h-0.5 w-full bg-gradient-to-r from-purple-400 via-violet-500 to-purple-600" />
                     <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border">
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
-                        <p className="font-mono font-semibold text-sm">{format(inv)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
-                        <p className="font-mono font-bold text-sm text-foreground">{format(cur)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
-                        <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                          {pnl >= 0 ? "+" : ""}{format(pnl)}
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Invested
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(inv)}
                         </p>
                       </div>
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Current Value
+                        </p>
+                        <p className="font-mono font-bold text-sm text-foreground">
+                          {format(cur)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Returns
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {pnl >= 0 ? "+" : ""}
+                          {format(pnl)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Overall Return
+                        </p>
                         <p
                           className={`font-mono font-bold text-base ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
                         >
@@ -2738,7 +3030,15 @@ export default function InvestmentsPage() {
                   <div className="flex items-center gap-1.5">
                     <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="text-xs text-muted-foreground">Sort:</span>
-                    {(["current-value", "invested", "pnl", "return-pct", "name"] as const).map((key) => {
+                    {(
+                      [
+                        "current-value",
+                        "invested",
+                        "pnl",
+                        "return-pct",
+                        "name",
+                      ] as const
+                    ).map((key) => {
                       const labels: Record<string, string> = {
                         "current-value": "Value",
                         invested: "Invested",
@@ -2783,12 +3083,27 @@ export default function InvestmentsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {[...mutualFunds]
                       .sort((a, b) => {
-                        if (mfSort === "name") return a.name.localeCompare(b.name);
-                        if (mfSort === "invested") return b.investedAmount - a.investedAmount;
-                        if (mfSort === "pnl") return (b.currentValue - b.investedAmount) - (a.currentValue - a.investedAmount);
+                        if (mfSort === "name")
+                          return a.name.localeCompare(b.name);
+                        if (mfSort === "invested")
+                          return b.investedAmount - a.investedAmount;
+                        if (mfSort === "pnl")
+                          return (
+                            b.currentValue -
+                            b.investedAmount -
+                            (a.currentValue - a.investedAmount)
+                          );
                         if (mfSort === "return-pct") {
-                          const ra = a.investedAmount > 0 ? (a.currentValue - a.investedAmount) / a.investedAmount : 0;
-                          const rb = b.investedAmount > 0 ? (b.currentValue - b.investedAmount) / b.investedAmount : 0;
+                          const ra =
+                            a.investedAmount > 0
+                              ? (a.currentValue - a.investedAmount) /
+                                a.investedAmount
+                              : 0;
+                          const rb =
+                            b.investedAmount > 0
+                              ? (b.currentValue - b.investedAmount) /
+                                b.investedAmount
+                              : 0;
                           return rb - ra;
                         }
                         return b.currentValue - a.currentValue;
@@ -2796,19 +3111,31 @@ export default function InvestmentsPage() {
                       .map((f) => {
                         const pnl = f.currentValue - f.investedAmount;
                         const isPos = pnl >= 0;
-                        const ret = f.investedAmount > 0 ? (pnl / f.investedAmount) * 100 : 0;
-                        const navChangePct = f.purchaseNav > 0 ? ((f.nav - f.purchaseNav) / f.purchaseNav) * 100 : 0;
+                        const ret =
+                          f.investedAmount > 0
+                            ? (pnl / f.investedAmount) * 100
+                            : 0;
+                        const navChangePct =
+                          f.purchaseNav > 0
+                            ? ((f.nav - f.purchaseNav) / f.purchaseNav) * 100
+                            : 0;
                         return (
                           <Card
                             key={f.id}
                             className="cursor-pointer hover:shadow-md hover:border-purple-400/40 transition-all duration-200 overflow-hidden"
-                            onClick={() => setDetailItem({ type: "mutual-funds", data: f })}
+                            onClick={() =>
+                              setDetailItem({ type: "mutual-funds", data: f })
+                            }
                           >
                             <CardContent className="p-0">
-                              <div className={`h-1.5 w-full ${isPos ? "bg-gradient-to-r from-purple-400 to-violet-500" : "bg-gradient-to-r from-red-400 to-rose-500"}`} />
+                              <div
+                                className={`h-1.5 w-full ${isPos ? "bg-gradient-to-r from-purple-400 to-violet-500" : "bg-gradient-to-r from-red-400 to-rose-500"}`}
+                              />
                               <div className="p-3.5">
                                 <div className="mb-3">
-                                  <p className="font-semibold text-sm leading-tight line-clamp-2">{f.name}</p>
+                                  <p className="font-semibold text-sm leading-tight line-clamp-2">
+                                    {f.name}
+                                  </p>
                                   <div className="flex items-center gap-1.5 mt-1">
                                     <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 capitalize">
                                       {f.category}
@@ -2822,44 +3149,79 @@ export default function InvestmentsPage() {
                                 </div>
                                 <div className="grid grid-cols-3 gap-1 mb-3 bg-muted/50 rounded-lg p-2">
                                   <div className="text-center">
-                                    <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">Units</p>
-                                    <p className="font-mono font-semibold text-xs">{f.units.toFixed(3)}</p>
+                                    <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">
+                                      Units
+                                    </p>
+                                    <p className="font-mono font-semibold text-xs">
+                                      {f.units.toFixed(3)}
+                                    </p>
                                   </div>
                                   <div className="text-center border-x border-border/50">
-                                    <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">Buy NAV</p>
-                                    <p className="font-mono font-semibold text-xs">{format(f.purchaseNav)}</p>
+                                    <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">
+                                      Buy NAV
+                                    </p>
+                                    <p className="font-mono font-semibold text-xs">
+                                      {format(f.purchaseNav)}
+                                    </p>
                                   </div>
                                   <div className="text-center">
-                                    <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">Curr NAV</p>
-                                    <p className={`font-mono font-semibold text-xs ${navChangePct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                                    <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">
+                                      Curr NAV
+                                    </p>
+                                    <p
+                                      className={`font-mono font-semibold text-xs ${navChangePct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                                    >
                                       {format(f.nav)}
                                     </p>
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between text-xs mb-2">
                                   <div>
-                                    <p className="text-[10px] text-muted-foreground mb-0.5">Invested</p>
-                                    <p className="font-mono font-medium">{format(f.investedAmount)}</p>
+                                    <p className="text-[10px] text-muted-foreground mb-0.5">
+                                      Invested
+                                    </p>
+                                    <p className="font-mono font-medium">
+                                      {format(f.investedAmount)}
+                                    </p>
                                   </div>
                                   <div className="text-right">
-                                    <p className="text-[10px] text-muted-foreground mb-0.5">Current Value</p>
-                                    <p className="font-mono font-semibold text-foreground">{format(f.currentValue)}</p>
+                                    <p className="text-[10px] text-muted-foreground mb-0.5">
+                                      Current Value
+                                    </p>
+                                    <p className="font-mono font-semibold text-foreground">
+                                      {format(f.currentValue)}
+                                    </p>
                                   </div>
                                 </div>
-                                <div className={`flex items-center justify-between rounded-lg px-2.5 py-2 ${isPos ? "bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/30" : "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/30"}`}>
+                                <div
+                                  className={`flex items-center justify-between rounded-lg px-2.5 py-2 ${isPos ? "bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/30" : "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/30"}`}
+                                >
                                   <div className="flex items-center gap-1">
-                                    {isPos ? <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" /> : <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />}
-                                    <span className={`text-xs font-semibold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
-                                      {isPos ? "+" : ""}{format(pnl)}
+                                    {isPos ? (
+                                      <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                                    ) : (
+                                      <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                                    )}
+                                    <span
+                                      className={`text-xs font-semibold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}
+                                    >
+                                      {isPos ? "+" : ""}
+                                      {format(pnl)}
                                     </span>
                                   </div>
-                                  <span className={`font-mono text-sm font-bold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
-                                    {isPos ? "+" : ""}{ret.toFixed(1)}%
+                                  <span
+                                    className={`font-mono text-sm font-bold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}
+                                  >
+                                    {isPos ? "+" : ""}
+                                    {ret.toFixed(1)}%
                                   </span>
                                 </div>
                                 {Math.abs(navChangePct) > 0.01 && (
-                                  <p className={`text-[9px] font-mono text-center mt-1.5 ${navChangePct >= 0 ? "text-green-500" : "text-red-500"}`}>
-                                    NAV {navChangePct >= 0 ? "+" : ""}{navChangePct.toFixed(1)}% vs purchase
+                                  <p
+                                    className={`text-[9px] font-mono text-center mt-1.5 ${navChangePct >= 0 ? "text-green-500" : "text-red-500"}`}
+                                  >
+                                    NAV {navChangePct >= 0 ? "+" : ""}
+                                    {navChangePct.toFixed(1)}% vs purchase
                                   </p>
                                 )}
                               </div>
@@ -2872,24 +3234,55 @@ export default function InvestmentsPage() {
                   /* List view */
                   <Card className="overflow-hidden p-0">
                     <div className="hidden sm:grid grid-cols-[1fr_80px_90px_90px_100px_100px_110px_64px] items-center px-4 py-2 border-b border-border bg-muted/40 gap-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Fund Name</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">Units</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">Buy NAV</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">Curr NAV</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">Invested</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">Value</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">P&L / Return</p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">Actions</p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Fund Name
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        Units
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        Buy NAV
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        Curr NAV
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        Invested
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        Value
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        P&L / Return
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        Actions
+                      </p>
                     </div>
                     <div className="divide-y divide-border">
                       {[...mutualFunds]
                         .sort((a, b) => {
-                          if (mfSort === "name") return a.name.localeCompare(b.name);
-                          if (mfSort === "invested") return b.investedAmount - a.investedAmount;
-                          if (mfSort === "pnl") return (b.currentValue - b.investedAmount) - (a.currentValue - a.investedAmount);
+                          if (mfSort === "name")
+                            return a.name.localeCompare(b.name);
+                          if (mfSort === "invested")
+                            return b.investedAmount - a.investedAmount;
+                          if (mfSort === "pnl")
+                            return (
+                              b.currentValue -
+                              b.investedAmount -
+                              (a.currentValue - a.investedAmount)
+                            );
                           if (mfSort === "return-pct") {
-                            const ra = a.investedAmount > 0 ? (a.currentValue - a.investedAmount) / a.investedAmount : 0;
-                            const rb = b.investedAmount > 0 ? (b.currentValue - b.investedAmount) / b.investedAmount : 0;
+                            const ra =
+                              a.investedAmount > 0
+                                ? (a.currentValue - a.investedAmount) /
+                                  a.investedAmount
+                                : 0;
+                            const rb =
+                              b.investedAmount > 0
+                                ? (b.currentValue - b.investedAmount) /
+                                  b.investedAmount
+                                : 0;
                             return rb - ra;
                           }
                           return b.currentValue - a.currentValue;
@@ -2897,49 +3290,94 @@ export default function InvestmentsPage() {
                         .map((f) => {
                           const pnl = f.currentValue - f.investedAmount;
                           const isPos = pnl >= 0;
-                          const ret = f.investedAmount > 0 ? (pnl / f.investedAmount) * 100 : 0;
-                          const navChangePct = f.purchaseNav > 0 ? ((f.nav - f.purchaseNav) / f.purchaseNav) * 100 : 0;
+                          const ret =
+                            f.investedAmount > 0
+                              ? (pnl / f.investedAmount) * 100
+                              : 0;
+                          const navChangePct =
+                            f.purchaseNav > 0
+                              ? ((f.nav - f.purchaseNav) / f.purchaseNav) * 100
+                              : 0;
                           return (
                             <div
                               key={f.id}
                               className="flex sm:grid sm:grid-cols-[1fr_80px_90px_90px_100px_100px_110px_64px] items-center px-4 py-3 gap-3 hover:bg-muted/30 cursor-pointer transition-colors flex-wrap"
-                              onClick={() => setDetailItem({ type: "mutual-funds", data: f })}
+                              onClick={() =>
+                                setDetailItem({ type: "mutual-funds", data: f })
+                              }
                             >
                               {/* name col */}
                               <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-none">
-                                <div className={`w-1 h-8 rounded-full shrink-0 ${isPos ? "bg-green-500" : "bg-red-500"}`} />
+                                <div
+                                  className={`w-1 h-8 rounded-full shrink-0 ${isPos ? "bg-green-500" : "bg-red-500"}`}
+                                />
                                 <div className="min-w-0">
-                                  <p className="font-semibold text-sm truncate leading-tight">{f.name}</p>
+                                  <p className="font-semibold text-sm truncate leading-tight">
+                                    {f.name}
+                                  </p>
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="text-[10px] px-1 py-px rounded bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 capitalize">
                                       {f.category}
                                     </span>
                                     {f.subCategory && (
-                                      <span className="text-[10px] text-muted-foreground capitalize">{f.subCategory.replace(/_/g, " ")}</span>
+                                      <span className="text-[10px] text-muted-foreground capitalize">
+                                        {f.subCategory.replace(/_/g, " ")}
+                                      </span>
                                     )}
                                   </div>
                                 </div>
                               </div>
-                              <p className="font-mono text-sm text-right hidden sm:block">{f.units.toFixed(3)}</p>
-                              <p className="font-mono text-sm text-right hidden sm:block">{format(f.purchaseNav)}</p>
-                              <p className={`font-mono text-sm text-right hidden sm:block ${navChangePct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                              <p className="font-mono text-sm text-right hidden sm:block">
+                                {f.units.toFixed(3)}
+                              </p>
+                              <p className="font-mono text-sm text-right hidden sm:block">
+                                {format(f.purchaseNav)}
+                              </p>
+                              <p
+                                className={`font-mono text-sm text-right hidden sm:block ${navChangePct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                              >
                                 {format(f.nav)}
                               </p>
-                              <p className="font-mono text-sm text-right hidden sm:block text-muted-foreground">{format(f.investedAmount)}</p>
-                              <p className="font-mono text-sm font-semibold text-right hidden sm:block">{format(f.currentValue)}</p>
+                              <p className="font-mono text-sm text-right hidden sm:block text-muted-foreground">
+                                {format(f.investedAmount)}
+                              </p>
+                              <p className="font-mono text-sm font-semibold text-right hidden sm:block">
+                                {format(f.currentValue)}
+                              </p>
                               <div className="sm:text-right ml-auto sm:ml-0">
-                                <p className={`font-mono text-sm font-semibold ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                                  {isPos ? "+" : ""}{ret.toFixed(1)}%
+                                <p
+                                  className={`font-mono text-sm font-semibold ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                                >
+                                  {isPos ? "+" : ""}
+                                  {ret.toFixed(1)}%
                                 </p>
-                                <p className={`font-mono text-[10px] ${isPos ? "text-green-500" : "text-red-500"}`}>
-                                  {isPos ? "+" : ""}{format(pnl)}
+                                <p
+                                  className={`font-mono text-[10px] ${isPos ? "text-green-500" : "text-red-500"}`}
+                                >
+                                  {isPos ? "+" : ""}
+                                  {format(pnl)}
                                 </p>
                               </div>
-                              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEditMf(f)}>
+                              <div
+                                className="flex items-center gap-1 shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => openEditMf(f)}
+                                >
                                   <Edit2 className="h-3.5 w-3.5" />
                                 </Button>
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete("mutual-funds", f.id)}>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                  onClick={() =>
+                                    handleDelete("mutual-funds", f.id)
+                                  }
+                                >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
@@ -2983,27 +3421,49 @@ export default function InvestmentsPage() {
                     <div className="h-0.5 w-full bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-600" />
                     <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-border">
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Weight</p>
-                        <p className="font-mono font-semibold text-sm">{totalGrams.toFixed(2)}g</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
-                        <p className="font-mono font-semibold text-sm">{format(inv)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
-                        <p className="font-mono font-bold text-sm text-foreground">{format(cur)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
-                        <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                          {pnl >= 0 ? "+" : ""}{format(pnl)}
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Weight
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {totalGrams.toFixed(2)}g
                         </p>
                       </div>
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
-                        <p className={`font-mono font-bold text-base ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                          {ret >= 0 ? "+" : ""}{ret.toFixed(2)}%
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Invested
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(inv)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Current Value
+                        </p>
+                        <p className="font-mono font-bold text-sm text-foreground">
+                          {format(cur)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Returns
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {pnl >= 0 ? "+" : ""}
+                          {format(pnl)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Overall Return
+                        </p>
+                        <p
+                          className={`font-mono font-bold text-base ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {ret >= 0 ? "+" : ""}
+                          {ret.toFixed(2)}%
                         </p>
                       </div>
                     </div>
@@ -3185,51 +3645,91 @@ export default function InvestmentsPage() {
                         <div className="h-1.5 w-full bg-gradient-to-r from-yellow-400 to-amber-500" />
                         <div className="p-3.5">
                           <div className="flex items-start justify-between gap-1 mb-3">
-                            <p className="font-semibold text-sm truncate flex-1">{g.name}</p>
+                            <p className="font-semibold text-sm truncate flex-1">
+                              {g.name}
+                            </p>
                             <div className="flex gap-1 shrink-0">
-                              <Badge variant="outline" className="text-[10px] capitalize border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-400">
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] capitalize border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-400"
+                              >
                                 {g.type.replace("_", " ")}
                               </Badge>
-                              <Badge variant="outline" className="text-[10px] border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400">
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400"
+                              >
                                 {g.purity}k
                               </Badge>
                             </div>
                           </div>
                           <div className="grid grid-cols-3 gap-1 mb-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-2 border border-amber-100 dark:border-amber-900/30">
                             <div className="text-center">
-                              <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">Weight</p>
-                              <p className="font-mono font-semibold text-xs">{g.quantityGrams}g</p>
+                              <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">
+                                Weight
+                              </p>
+                              <p className="font-mono font-semibold text-xs">
+                                {g.quantityGrams}g
+                              </p>
                             </div>
                             <div className="text-center border-x border-amber-200/50 dark:border-amber-800/30">
-                              <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">Buy/g</p>
-                              <p className="font-mono font-semibold text-xs">{format(g.purchasePricePerGram)}</p>
+                              <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">
+                                Buy/g
+                              </p>
+                              <p className="font-mono font-semibold text-xs">
+                                {format(g.purchasePricePerGram)}
+                              </p>
                             </div>
                             <div className="text-center">
-                              <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">Curr/g</p>
-                              <p className={`font-mono font-semibold text-xs ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                              <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">
+                                Curr/g
+                              </p>
+                              <p
+                                className={`font-mono font-semibold text-xs ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                              >
                                 {format(g.currentPricePerGram)}
                               </p>
                             </div>
                           </div>
                           <div className="flex items-center justify-between text-xs mb-2">
                             <div>
-                              <p className="text-[10px] text-muted-foreground mb-0.5">Invested</p>
-                              <p className="font-mono font-medium">{format(invested)}</p>
+                              <p className="text-[10px] text-muted-foreground mb-0.5">
+                                Invested
+                              </p>
+                              <p className="font-mono font-medium">
+                                {format(invested)}
+                              </p>
                             </div>
                             <div className="text-right">
-                              <p className="text-[10px] text-muted-foreground mb-0.5">Current Value</p>
-                              <p className="font-mono font-semibold">{format(current)}</p>
+                              <p className="text-[10px] text-muted-foreground mb-0.5">
+                                Current Value
+                              </p>
+                              <p className="font-mono font-semibold">
+                                {format(current)}
+                              </p>
                             </div>
                           </div>
-                          <div className={`flex items-center justify-between rounded-lg px-2.5 py-2 ${isPos ? "bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/30" : "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/30"}`}>
+                          <div
+                            className={`flex items-center justify-between rounded-lg px-2.5 py-2 ${isPos ? "bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/30" : "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/30"}`}
+                          >
                             <div className="flex items-center gap-1">
-                              {isPos ? <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" /> : <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />}
-                              <span className={`text-xs font-semibold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
-                                {isPos ? "+" : ""}{format(pnl)}
+                              {isPos ? (
+                                <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                              ) : (
+                                <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                              )}
+                              <span
+                                className={`text-xs font-semibold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}
+                              >
+                                {isPos ? "+" : ""}
+                                {format(pnl)}
                               </span>
                             </div>
-                            <span className={`font-mono text-sm font-bold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
-                              {isPos ? "+" : ""}{ret.toFixed(1)}%
+                            <span
+                              className={`font-mono text-sm font-bold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}
+                            >
+                              {isPos ? "+" : ""}
+                              {ret.toFixed(1)}%
                             </span>
                           </div>
                         </div>
@@ -3271,27 +3771,49 @@ export default function InvestmentsPage() {
                     <div className="h-0.5 w-full bg-gradient-to-r from-slate-400 via-slate-500 to-slate-600" />
                     <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-border">
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Weight</p>
-                        <p className="font-mono font-semibold text-sm">{totalGrams.toFixed(2)}g</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
-                        <p className="font-mono font-semibold text-sm">{format(inv)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Current Value</p>
-                        <p className="font-mono font-bold text-sm text-foreground">{format(cur)}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Total Returns</p>
-                        <p className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                          {pnl >= 0 ? "+" : ""}{format(pnl)}
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Weight
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {totalGrams.toFixed(2)}g
                         </p>
                       </div>
                       <div className="px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Overall Return</p>
-                        <p className={`font-mono font-bold text-base ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                          {ret >= 0 ? "+" : ""}{ret.toFixed(2)}%
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Invested
+                        </p>
+                        <p className="font-mono font-semibold text-sm">
+                          {format(inv)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Current Value
+                        </p>
+                        <p className="font-mono font-bold text-sm text-foreground">
+                          {format(cur)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Total Returns
+                        </p>
+                        <p
+                          className={`font-mono font-semibold text-sm ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {pnl >= 0 ? "+" : ""}
+                          {format(pnl)}
+                        </p>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                          Overall Return
+                        </p>
+                        <p
+                          className={`font-mono font-bold text-base ${ret >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        >
+                          {ret >= 0 ? "+" : ""}
+                          {ret.toFixed(2)}%
                         </p>
                       </div>
                     </div>
@@ -3471,51 +3993,91 @@ export default function InvestmentsPage() {
                         <div className="h-1.5 w-full bg-gradient-to-r from-slate-400 to-slate-500" />
                         <div className="p-3.5">
                           <div className="flex items-start justify-between gap-1 mb-3">
-                            <p className="font-semibold text-sm truncate flex-1">{g.name}</p>
+                            <p className="font-semibold text-sm truncate flex-1">
+                              {g.name}
+                            </p>
                             <div className="flex gap-1 shrink-0">
-                              <Badge variant="outline" className="text-[10px] capitalize border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] capitalize border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400"
+                              >
                                 {g.type.replace("_", " ")}
                               </Badge>
-                              <Badge variant="outline" className="text-[10px] border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400"
+                              >
                                 {g.purity} fine
                               </Badge>
                             </div>
                           </div>
                           <div className="grid grid-cols-3 gap-1 mb-3 bg-slate-50 dark:bg-slate-950/30 rounded-lg p-2 border border-slate-100 dark:border-slate-800/50">
                             <div className="text-center">
-                              <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">Weight</p>
-                              <p className="font-mono font-semibold text-xs">{g.quantityGrams}g</p>
+                              <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">
+                                Weight
+                              </p>
+                              <p className="font-mono font-semibold text-xs">
+                                {g.quantityGrams}g
+                              </p>
                             </div>
                             <div className="text-center border-x border-slate-200/50 dark:border-slate-700/30">
-                              <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">Buy/g</p>
-                              <p className="font-mono font-semibold text-xs">{format(g.purchasePricePerGram)}</p>
+                              <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">
+                                Buy/g
+                              </p>
+                              <p className="font-mono font-semibold text-xs">
+                                {format(g.purchasePricePerGram)}
+                              </p>
                             </div>
                             <div className="text-center">
-                              <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">Curr/g</p>
-                              <p className={`font-mono font-semibold text-xs ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                              <p className="text-muted-foreground text-[9px] uppercase tracking-wide mb-0.5">
+                                Curr/g
+                              </p>
+                              <p
+                                className={`font-mono font-semibold text-xs ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                              >
                                 {format(g.currentPricePerGram)}
                               </p>
                             </div>
                           </div>
                           <div className="flex items-center justify-between text-xs mb-2">
                             <div>
-                              <p className="text-[10px] text-muted-foreground mb-0.5">Invested</p>
-                              <p className="font-mono font-medium">{format(invested)}</p>
+                              <p className="text-[10px] text-muted-foreground mb-0.5">
+                                Invested
+                              </p>
+                              <p className="font-mono font-medium">
+                                {format(invested)}
+                              </p>
                             </div>
                             <div className="text-right">
-                              <p className="text-[10px] text-muted-foreground mb-0.5">Current Value</p>
-                              <p className="font-mono font-semibold">{format(current)}</p>
+                              <p className="text-[10px] text-muted-foreground mb-0.5">
+                                Current Value
+                              </p>
+                              <p className="font-mono font-semibold">
+                                {format(current)}
+                              </p>
                             </div>
                           </div>
-                          <div className={`flex items-center justify-between rounded-lg px-2.5 py-2 ${isPos ? "bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/30" : "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/30"}`}>
+                          <div
+                            className={`flex items-center justify-between rounded-lg px-2.5 py-2 ${isPos ? "bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/30" : "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/30"}`}
+                          >
                             <div className="flex items-center gap-1">
-                              {isPos ? <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" /> : <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />}
-                              <span className={`text-xs font-semibold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
-                                {isPos ? "+" : ""}{format(pnl)}
+                              {isPos ? (
+                                <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                              ) : (
+                                <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                              )}
+                              <span
+                                className={`text-xs font-semibold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}
+                              >
+                                {isPos ? "+" : ""}
+                                {format(pnl)}
                               </span>
                             </div>
-                            <span className={`font-mono text-sm font-bold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
-                              {isPos ? "+" : ""}{ret.toFixed(1)}%
+                            <span
+                              className={`font-mono text-sm font-bold ${isPos ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}
+                            >
+                              {isPos ? "+" : ""}
+                              {ret.toFixed(1)}%
                             </span>
                           </div>
                         </div>
@@ -4299,145 +4861,256 @@ export default function InvestmentsPage() {
               />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {otherInvestments.map((o) => {
-                const pnl = o.currentValue - o.investedAmount;
-                const isPos = pnl >= 0;
-                const ret = o.investedAmount > 0 ? (pnl / o.investedAmount) * 100 : 0;
-                const typeColorMap: Record<string, { accent: string; badge: string; text: string }> = {
-                  ppf:    { accent: "from-blue-400 to-blue-500",   badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",   text: "PPF" },
-                  epf:    { accent: "from-cyan-400 to-cyan-500",   badge: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-400",   text: "EPF/PF" },
-                  nps:    { accent: "from-violet-400 to-violet-500", badge: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400", text: "NPS" },
-                  postal: { accent: "from-teal-400 to-teal-500",   badge: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400",   text: "Postal" },
-                  lic:    { accent: "from-orange-400 to-orange-500", badge: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400", text: "LIC" },
-                  fd:     { accent: "from-emerald-400 to-emerald-500", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400", text: "FD" },
-                  rd:     { accent: "from-green-400 to-green-500",  badge: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400", text: "RD" },
-                  other:  { accent: "from-indigo-400 to-indigo-500", badge: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400", text: "Other" },
-                };
-                const tc = typeColorMap[o.type] ?? typeColorMap.other;
+                {otherInvestments.map((o) => {
+                  const pnl = o.currentValue - o.investedAmount;
+                  const isPos = pnl >= 0;
+                  const ret =
+                    o.investedAmount > 0 ? (pnl / o.investedAmount) * 100 : 0;
+                  const typeColorMap: Record<
+                    string,
+                    { accent: string; badge: string; text: string }
+                  > = {
+                    ppf: {
+                      accent: "from-blue-400 to-blue-500",
+                      badge:
+                        "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
+                      text: "PPF",
+                    },
+                    epf: {
+                      accent: "from-cyan-400 to-cyan-500",
+                      badge:
+                        "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-400",
+                      text: "EPF/PF",
+                    },
+                    nps: {
+                      accent: "from-violet-400 to-violet-500",
+                      badge:
+                        "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400",
+                      text: "NPS",
+                    },
+                    postal: {
+                      accent: "from-teal-400 to-teal-500",
+                      badge:
+                        "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400",
+                      text: "Postal",
+                    },
+                    lic: {
+                      accent: "from-orange-400 to-orange-500",
+                      badge:
+                        "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400",
+                      text: "LIC",
+                    },
+                    fd: {
+                      accent: "from-emerald-400 to-emerald-500",
+                      badge:
+                        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400",
+                      text: "FD",
+                    },
+                    rd: {
+                      accent: "from-green-400 to-green-500",
+                      badge:
+                        "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400",
+                      text: "RD",
+                    },
+                    other: {
+                      accent: "from-indigo-400 to-indigo-500",
+                      badge:
+                        "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400",
+                      text: "Other",
+                    },
+                  };
+                  const tc = typeColorMap[o.type] ?? typeColorMap.other;
 
-                // Maturity progress
-                let maturityPct: number | null = null;
-                if (o.startDate && o.maturityDate) {
-                  const start = new Date(o.startDate).getTime();
-                  const end = new Date(o.maturityDate).getTime();
-                  const now = Date.now();
-                  if (end > start) maturityPct = Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
-                }
-                const isMatured = o.maturityDate ? new Date(o.maturityDate) <= new Date() : false;
+                  // Maturity progress
+                  let maturityPct: number | null = null;
+                  if (o.startDate && o.maturityDate) {
+                    const start = new Date(o.startDate).getTime();
+                    const end = new Date(o.maturityDate).getTime();
+                    const now = Date.now();
+                    if (end > start)
+                      maturityPct = Math.min(
+                        100,
+                        Math.max(0, ((now - start) / (end - start)) * 100),
+                      );
+                  }
+                  const isMatured = o.maturityDate
+                    ? new Date(o.maturityDate) <= new Date()
+                    : false;
 
-                return (
-                  <Card key={o.id} className="overflow-hidden hover:shadow-md transition-all duration-200">
-                    <CardContent className="p-0">
-                      <div className={`h-1 w-full bg-gradient-to-r ${tc.accent}`} />
-                      <div className="p-4">
-                        <div className="flex items-start justify-between gap-2 mb-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-sm truncate">{o.name}</span>
-                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${tc.badge}`}>
-                                {tc.text}
-                              </span>
-                              {isMatured && (
-                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
-                                  Matured
+                  return (
+                    <Card
+                      key={o.id}
+                      className="overflow-hidden hover:shadow-md transition-all duration-200"
+                    >
+                      <CardContent className="p-0">
+                        <div
+                          className={`h-1 w-full bg-gradient-to-r ${tc.accent}`}
+                        />
+                        <div className="p-4">
+                          <div className="flex items-start justify-between gap-2 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-sm truncate">
+                                  {o.name}
                                 </span>
-                              )}
+                                <span
+                                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${tc.badge}`}
+                                >
+                                  {tc.text}
+                                </span>
+                                {isMatured && (
+                                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                                    Matured
+                                  </span>
+                                )}
+                              </div>
                             </div>
+                            <RowActions
+                              onEdit={() => openEditOther(o)}
+                              onDelete={() =>
+                                handleDelete("other-investments", o.id)
+                              }
+                            />
                           </div>
-                          <RowActions
-                            onEdit={() => openEditOther(o)}
-                            onDelete={() => handleDelete("other-investments", o.id)}
-                          />
-                        </div>
 
-                        {/* Stats grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-                          <div>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Invested</p>
-                            <p className="font-mono font-semibold text-sm">{format(o.investedAmount)}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Current Value</p>
-                            <p className="font-mono font-semibold text-sm">{format(o.currentValue)}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Returns</p>
-                            <p className={`font-mono font-semibold text-sm ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                              {isPos ? "+" : ""}{format(pnl)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Return %</p>
-                            <p className={`font-mono font-semibold text-sm ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                              {isPos ? "+" : ""}{ret.toFixed(1)}%
-                            </p>
-                          </div>
-                          {o.interestRate != null && (
-                            <div>
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Interest Rate</p>
-                              <p className="font-mono font-semibold text-sm">{o.interestRate}% p.a.</p>
-                            </div>
-                          )}
-                          {o.premiumAmount != null && (
+                          {/* Stats grid */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                             <div>
                               <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">
-                                {o.type === "rd" ? "Instalment" : "Premium"}
+                                Invested
                               </p>
                               <p className="font-mono font-semibold text-sm">
-                                {format(o.premiumAmount)}/{o.type === "rd" ? "mo" : o.premiumFrequency === "monthly" ? "mo" : o.premiumFrequency === "quarterly" ? "qtr" : o.premiumFrequency === "semi-annual" ? "6mo" : "yr"}
+                                {format(o.investedAmount)}
                               </p>
                             </div>
-                          )}
-                          {o.sumAssured != null && (
                             <div>
                               <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">
-                                {o.type === "fd" || o.type === "rd" ? "Maturity Amt" : "Sum Assured"}
+                                Current Value
                               </p>
-                              <p className="font-mono font-semibold text-sm">{format(o.sumAssured)}</p>
+                              <p className="font-mono font-semibold text-sm">
+                                {format(o.currentValue)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">
+                                Returns
+                              </p>
+                              <p
+                                className={`font-mono font-semibold text-sm ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                              >
+                                {isPos ? "+" : ""}
+                                {format(pnl)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">
+                                Return %
+                              </p>
+                              <p
+                                className={`font-mono font-semibold text-sm ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                              >
+                                {isPos ? "+" : ""}
+                                {ret.toFixed(1)}%
+                              </p>
+                            </div>
+                            {o.interestRate != null && (
+                              <div>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">
+                                  Interest Rate
+                                </p>
+                                <p className="font-mono font-semibold text-sm">
+                                  {o.interestRate}% p.a.
+                                </p>
+                              </div>
+                            )}
+                            {o.premiumAmount != null && (
+                              <div>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">
+                                  {o.type === "rd" ? "Instalment" : "Premium"}
+                                </p>
+                                <p className="font-mono font-semibold text-sm">
+                                  {format(o.premiumAmount)}/
+                                  {o.type === "rd"
+                                    ? "mo"
+                                    : o.premiumFrequency === "monthly"
+                                      ? "mo"
+                                      : o.premiumFrequency === "quarterly"
+                                        ? "qtr"
+                                        : o.premiumFrequency === "semi-annual"
+                                          ? "6mo"
+                                          : "yr"}
+                                </p>
+                              </div>
+                            )}
+                            {o.sumAssured != null && (
+                              <div>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">
+                                  {o.type === "fd" || o.type === "rd"
+                                    ? "Maturity Amt"
+                                    : "Sum Assured"}
+                                </p>
+                                <p className="font-mono font-semibold text-sm">
+                                  {format(o.sumAssured)}
+                                </p>
+                              </div>
+                            )}
+                            {o.startDate && (
+                              <div>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">
+                                  Start
+                                </p>
+                                <p className="text-xs font-medium">
+                                  {o.startDate}
+                                </p>
+                              </div>
+                            )}
+                            {o.maturityDate && (
+                              <div>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">
+                                  Maturity
+                                </p>
+                                <p
+                                  className={`text-xs font-medium ${isMatured ? "text-emerald-600 dark:text-emerald-400" : ""}`}
+                                >
+                                  {o.maturityDate}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Maturity progress bar */}
+                          {maturityPct !== null && (
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                                  Tenure Progress
+                                </p>
+                                <p className="text-[10px] font-mono text-muted-foreground">
+                                  {maturityPct.toFixed(0)}%
+                                </p>
+                              </div>
+                              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all bg-gradient-to-r ${tc.accent}`}
+                                  style={{ width: `${maturityPct}%` }}
+                                />
+                              </div>
                             </div>
                           )}
-                          {o.startDate && (
-                            <div>
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Start</p>
-                              <p className="text-xs font-medium">{o.startDate}</p>
-                            </div>
-                          )}
-                          {o.maturityDate && (
-                            <div>
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Maturity</p>
-                              <p className={`text-xs font-medium ${isMatured ? "text-emerald-600 dark:text-emerald-400" : ""}`}>{o.maturityDate}</p>
-                            </div>
+
+                          {o.notes && (
+                            <p className="text-[11px] text-muted-foreground mt-2 italic">
+                              {o.notes}
+                            </p>
                           )}
                         </div>
-
-                        {/* Maturity progress bar */}
-                        {maturityPct !== null && (
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Tenure Progress</p>
-                              <p className="text-[10px] font-mono text-muted-foreground">{maturityPct.toFixed(0)}%</p>
-                            </div>
-                            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all bg-gradient-to-r ${tc.accent}`}
-                                style={{ width: `${maturityPct}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {o.notes && (
-                          <p className="text-[11px] text-muted-foreground mt-2 italic">{o.notes}</p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
-
         </Tabs>
       </main>
 
