@@ -192,7 +192,7 @@ export async function POST(
       }
     }
 
-    // Reduce linked liability balance (treat this occurrence as a payment)
+    // Reduce linked liability balance and record the payment
     if (pattern.linked_liability_id) {
       const { data: liability } = await supabase
         .from("liabilities")
@@ -211,6 +211,15 @@ export async function POST(
           .update({ balance: newBalance })
           .eq("id", pattern.linked_liability_id)
           .eq("user_id", user.id);
+
+        // Record in debt_payments so it appears in payment history
+        await supabase.from("debt_payments").insert({
+          liability_id: pattern.linked_liability_id,
+          user_id: user.id,
+          amount: parseFloat(String(pattern.amount)),
+          payment_date: occurrenceDate,
+          notes: `Auto-recorded from recurring: ${pattern.description}`,
+        });
       }
     }
 

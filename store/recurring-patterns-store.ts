@@ -33,6 +33,7 @@ interface RecurringPatternsState {
   addPattern: (pattern: Omit<RecurringPattern, "id" | "user_id" | "created_at" | "updated_at">) => Promise<void>;
   updatePattern: (id: string, updates: Partial<RecurringPattern>) => Promise<void>;
   deletePattern: (id: string) => Promise<void>;
+  deleteAllPatterns: () => Promise<void>;
   createTransaction: (id: string) => Promise<{ transaction: any; nextDate: string }>;
   completeOccurrence: (
     id: string,
@@ -107,6 +108,20 @@ export const useRecurringPatternsStore = create<RecurringPatternsState>((set, ge
       set({ patterns: get().patterns.filter((p) => p.id !== id), loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
+    }
+  },
+
+  deleteAllPatterns: async () => {
+    set({ loading: true, error: null });
+    try {
+      const response = await fetch("/api/recurring-patterns", {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete all recurring patterns");
+      set({ patterns: [], loading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, loading: false });
+      throw error;
     }
   },
 

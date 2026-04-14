@@ -72,12 +72,14 @@ export default function DebtTrackerPage() {
     updateDebt,
     deleteDebt,
     addPayment,
+    deletePayment,
   } = useDebtTrackerStore();
 
   const [isAddDebtOpen, setIsAddDebtOpen] = useState(false);
   const [isEditDebtOpen, setIsEditDebtOpen] = useState(false);
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
+  const [detailDebt, setDetailDebt] = useState<Debt | null>(null);
   const [debtSortBy, setDebtSortBy] = useState<"apr" | "balance" | "due" | "progress">("apr");
   const [debtViewMode, setDebtViewMode] = useState<"grid" | "list">("grid");
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
@@ -233,6 +235,16 @@ export default function DebtTrackerPage() {
       } catch (error) {
         toast.error("Failed to delete debt");
       }
+    }
+  };
+
+  const handleDeletePayment = async (debtId: string, paymentId: string) => {
+    if (!confirm("Delete this payment? The debt balance will be restored.")) return;
+    try {
+      await deletePayment(debtId, paymentId);
+      toast.success("Payment deleted");
+    } catch {
+      toast.error("Failed to delete payment");
     }
   };
 
@@ -857,7 +869,7 @@ export default function DebtTrackerPage() {
                       payoffDate.setMonth(payoffDate.getMonth() + monthsToPayoff);
 
                       return (
-                        <Card key={debt.id} className={`overflow-hidden transition-shadow hover:shadow-md ${daysUntilDue < 0 ? "border-red-300 dark:border-red-800" : daysUntilDue <= 7 ? "border-amber-300 dark:border-amber-800" : ""}`}>
+                        <Card key={debt.id} className={`overflow-hidden transition-shadow hover:shadow-md cursor-pointer ${daysUntilDue < 0 ? "border-red-300 dark:border-red-800" : daysUntilDue <= 7 ? "border-amber-300 dark:border-amber-800" : ""}`} onClick={() => setDetailDebt(debt)}>
                           <div className={`h-0.5 w-full ${index === 0 ? "bg-red-500" : index === 1 ? "bg-orange-400" : index === 2 ? "bg-amber-400" : "bg-slate-200 dark:bg-slate-700"}`} />
 
                           {/* Header */}
@@ -878,7 +890,7 @@ export default function DebtTrackerPage() {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                               {daysUntilDue < 0 ? (
                                 <span className="text-[9px] uppercase px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400 font-semibold">Overdue</span>
                               ) : daysUntilDue <= 7 ? (
@@ -904,7 +916,7 @@ export default function DebtTrackerPage() {
                             </div>
                           </div>
 
-                          <div className="px-3 pb-3 space-y-2.5">
+                          <div className="px-3 pb-3 space-y-2.5" onClick={(e) => e.stopPropagation()}>
                             {/* Balance row */}
                             <div className="flex items-end justify-between">
                               <div>
@@ -1271,6 +1283,91 @@ export default function DebtTrackerPage() {
               Record Payment
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Debt Detail Modal */}
+      <Dialog open={!!detailDebt} onOpenChange={(open) => { if (!open) setDetailDebt(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{detailDebt?.name}</DialogTitle>
+            <DialogDescription>
+              {detailDebt?.type.replace("_", " ")} · {detailDebt?.interest_rate}% APR · Balance: {detailDebt ? format(detailDebt.balance) : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          {detailDebt && (() => {
+            const debtPayments = payments
+              .filter((p) => p.liability_id === detailDebt.id)
+              .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime());
+            const progress = Math.min(100, ((detailDebt.original_amount - detailDebt.balance) / detailDebt.original_amount) * 100);
+
+            return (
+              <div className="space-y-4 pt-1">
+                {/* Progress */}
+                <div>
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>{format(detailDebt.original_amount - detailDebt.balance)} paid</span>
+                    <span>{progress.toFixed(0)}% complete</span>
+                  </div>
+                  <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                    <div className="absolute left-0 top-0 h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{format(detailDebt.balance)} remaining of {format(detailDebt.original_amount)}</p>
+                </div>
+
+                {/* Transactions */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
+                    Payment History ({debtPayments.length})
+                  </p>
+                  {debtPayments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">No payments recorded yet</p>
+                  ) : (
+                    <div className="divide-y border rounded-lg overflow-hidden max-h-72 overflow-y-auto">
+                      {debtPayments.map((p) => (
+                        <div key={p.id} className="flex items-center justify-between px-3 py-2.5 hover:bg-muted/40 transition-colors">
+                          <div>
+                            <p className="text-sm font-mono font-semibold text-emerald-600">+{format(p.amount)}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {new Date(p.payment_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                              {p.notes ? ` · ${p.notes}` : ""}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-red-600"
+                            onClick={() => handleDeletePayment(detailDebt.id, p.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Record payment shortcut */}
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    setDetailDebt(null);
+                    setSelectedDebt(detailDebt);
+                    setPaymentForm({
+                      amount: detailDebt.minimum_payment.toString(),
+                      payment_date: new Date().toISOString().split("T")[0],
+                      notes: "",
+                    });
+                    setIsAddPaymentOpen(true);
+                  }}
+                >
+                  <TrendingDown className="h-4 w-4 mr-2" />
+                  Record Payment
+                </Button>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

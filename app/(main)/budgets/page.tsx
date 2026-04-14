@@ -51,6 +51,7 @@ import { MonthSelector } from "@/components/ui/month-selector";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { DollarSign } from "lucide-react";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
+import { ListPageSkeleton } from "@/components/ui/skeleton";
 import {
   BarChart,
   Bar,
@@ -365,12 +366,7 @@ export default function BudgetsPage() {
   ];
 
   if (loading && budgets.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Toaster position="top-right" />
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <ListPageSkeleton />;
   }
 
   if (error) {

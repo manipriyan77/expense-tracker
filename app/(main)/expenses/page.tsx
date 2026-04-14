@@ -32,6 +32,7 @@ import { useTransactionsStore } from "@/store/transactions-store";
 import { useGoalsStore } from "@/store/goals-store";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { MonthSelector } from "@/components/ui/month-selector";
+import { ListPageSkeleton } from "@/components/ui/skeleton";
 
 const CATEGORY_COLORS: Record<string, string> = {
   Food: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
@@ -54,7 +55,7 @@ function getCategoryInitial(category: string) {
 
 export default function ExpensesPage() {
   const { format } = useFormatCurrency();
-  const { transactions, fetchTransactions } = useTransactionsStore();
+  const { transactions, loading, fetchTransactions } = useTransactionsStore();
   const { fetchGoals } = useGoalsStore();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -151,6 +152,10 @@ export default function ExpensesPage() {
       : null;
 
   const hasActiveFilters = filterCategory !== "all" || searchQuery.trim();
+
+  if (loading && transactions.length === 0) {
+    return <ListPageSkeleton />;
+  }
 
   return (
     <div className="min-h-screen bg-background">

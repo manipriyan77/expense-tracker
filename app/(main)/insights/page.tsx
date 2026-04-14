@@ -21,6 +21,7 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useTransactionsStore } from "@/store/transactions-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
+import { ListPageSkeleton } from "@/components/ui/skeleton";
 
 const CATEGORY_COLORS: Record<string, string> = {
   Food: "#ef4444",
@@ -48,7 +49,7 @@ function formatShort(value: number): string {
 
 export default function InsightsPage() {
   const { format } = useFormatCurrency();
-  const { transactions, fetchTransactions } = useTransactionsStore();
+  const { transactions, loading, fetchTransactions } = useTransactionsStore();
   const [categorySettingsOpen, setCategorySettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -188,6 +189,10 @@ export default function InsightsPage() {
 
   const surplusRate =
     currentIncome > 0 ? ((surplus / currentIncome) * 100).toFixed(1) : null;
+
+  if (loading && transactions.length === 0) {
+    return <ListPageSkeleton />;
+  }
 
   return (
     <div className="min-h-screen bg-background">

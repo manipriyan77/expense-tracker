@@ -40,6 +40,7 @@ import { useBudgetsStore } from "@/store/budgets-store";
 import { useGoalsStore } from "@/store/goals-store";
 import { useDebtTrackerStore } from "@/store/debt-tracker-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
+import { ListPageSkeleton } from "@/components/ui/skeleton";
 
 function shortAmount(v: number): string {
   if (v >= 10_000_000) return `₹${(v / 10_000_000).toFixed(1)}Cr`;
@@ -50,7 +51,7 @@ function shortAmount(v: number): string {
 
 export default function CashflowPlanningPage() {
   const { format } = useFormatCurrency();
-  const { transactions, fetchTransactions } = useTransactionsStore();
+  const { transactions, loading, fetchTransactions } = useTransactionsStore();
   const { patterns, fetchPatterns } = useRecurringPatternsStore();
   const { budgets, fetchBudgets } = useBudgetsStore();
   const { goals, fetchGoals } = useGoalsStore();
@@ -532,6 +533,10 @@ export default function CashflowPlanningPage() {
       allMilestones,
     };
   }, [sixMonthAvg, patterns, debts, scenarioIncomeBoost, scenarioExtraExpense]);
+
+  if (loading && transactions.length === 0) {
+    return <ListPageSkeleton />;
+  }
 
   return (
     <div className="min-h-screen bg-background">

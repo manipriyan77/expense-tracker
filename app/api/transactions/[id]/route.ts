@@ -281,6 +281,42 @@ export async function DELETE(
       }
     }
 
+    // Restore liability balance if this transaction was a recurring debt payment
+    if (transaction.recurring_pattern_id) {
+      const { data: pattern } = await supabase
+        .from("recurring_patterns")
+        .select("linked_liability_id")
+        .eq("id", transaction.recurring_pattern_id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (pattern?.linked_liability_id) {
+        const { data: liability } = await supabase
+          .from("liabilities")
+          .select("balance")
+          .eq("id", pattern.linked_liability_id)
+          .eq("user_id", user.id)
+          .single();
+
+        if (liability) {
+          await supabase
+            .from("liabilities")
+            .update({ balance: parseFloat(String(liability.balance ?? 0)) + parseFloat(String(transaction.amount)) })
+            .eq("id", pattern.linked_liability_id)
+            .eq("user_id", user.id);
+        }
+
+        // Delete the corresponding debt_payments record
+        await supabase
+          .from("debt_payments")
+          .delete()
+          .eq("liability_id", pattern.linked_liability_id)
+          .eq("user_id", user.id)
+          .eq("payment_date", String(transaction.date).split("T")[0])
+          .eq("amount", parseFloat(String(transaction.amount)));
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

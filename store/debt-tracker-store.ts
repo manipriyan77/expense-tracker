@@ -50,6 +50,7 @@ interface DebtTrackerState {
   ) => Promise<void>;
   updateDebt: (id: string, updates: Partial<Debt>) => Promise<void>;
   deleteDebt: (id: string) => Promise<void>;
+  deletePayment: (debtId: string, paymentId: string) => Promise<void>;
 }
 
 export const useDebtTrackerStore = create<DebtTrackerState>((set, get) => ({
@@ -188,6 +189,29 @@ export const useDebtTrackerStore = create<DebtTrackerState>((set, get) => ({
       set({ debts: get().debts.filter((d) => d.id !== id) });
     } catch (error) {
       set({ error: (error as Error).message });
+    }
+  },
+
+  deletePayment: async (debtId, paymentId) => {
+    try {
+      const response = await fetch(
+        `/api/debt-tracker/${debtId}/payments/${paymentId}`,
+        { method: "DELETE" }
+      );
+      if (!response.ok) throw new Error("Failed to delete payment");
+      // Remove from local state and restore debt balance
+      const payment = get().payments.find((p) => p.id === paymentId);
+      set({
+        payments: get().payments.filter((p) => p.id !== paymentId),
+        debts: payment
+          ? get().debts.map((d) =>
+              d.id === debtId ? { ...d, balance: d.balance + payment.amount } : d
+            )
+          : get().debts,
+      });
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
     }
   },
 }));

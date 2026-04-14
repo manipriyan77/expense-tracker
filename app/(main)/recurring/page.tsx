@@ -60,6 +60,7 @@ import { useGoalsStore } from "@/store/goals-store";
 import { useBudgetsStore } from "@/store/budgets-store";
 import { useDebtTrackerStore } from "@/store/debt-tracker-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
+import { ListPageSkeleton } from "@/components/ui/skeleton";
 
 export default function RecurringPage() {
   const { format } = useFormatCurrency();
@@ -70,6 +71,7 @@ export default function RecurringPage() {
     addPattern,
     updatePattern,
     deletePattern,
+    deleteAllPatterns,
     createTransaction,
   } = useRecurringPatternsStore();
   const { transactions: allTransactions, fetchTransactions } =
@@ -79,6 +81,7 @@ export default function RecurringPage() {
   const { debts, fetchDebts } = useDebtTrackerStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
   const [editingPattern, setEditingPattern] = useState<RecurringPattern | null>(
     null,
   );
@@ -364,6 +367,16 @@ export default function RecurringPage() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    try {
+      await deleteAllPatterns();
+      setIsDeleteAllDialogOpen(false);
+      toast.success("All recurring patterns deleted");
+    } catch {
+      toast.error("Failed to delete all patterns");
+    }
+  };
+
   const handleOpenEdit = (pattern: RecurringPattern) => {
     setEditingPattern(pattern);
     setEditFormData({
@@ -578,6 +591,10 @@ export default function RecurringPage() {
       const multiplier = p.frequency === "biweekly" ? 2 : 1;
       return sum + p.amount * multiplier;
     }, 0);
+
+  if (loading && patterns.length === 0) {
+    return <ListPageSkeleton />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -1137,6 +1154,32 @@ export default function RecurringPage() {
                   </div>
                 </DialogContent>
               </Dialog>
+              {patterns.length > 0 && (
+                <Dialog open={isDeleteAllDialogOpen} onOpenChange={setIsDeleteAllDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="destructive" className="w-full md:w-auto">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete All
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle>Delete all recurring patterns?</DialogTitle>
+                      <DialogDescription>
+                        This will permanently delete all {patterns.length} recurring pattern{patterns.length !== 1 ? "s" : ""}. This action cannot be undone.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-end gap-2 mt-4">
+                      <Button variant="outline" onClick={() => setIsDeleteAllDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button variant="destructive" onClick={handleDeleteAll} disabled={loading}>
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete All"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
 
             {/* Edit Dialog */}

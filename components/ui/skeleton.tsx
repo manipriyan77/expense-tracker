@@ -102,11 +102,53 @@ function StatsSkeleton() {
   )
 }
 
-export { 
-  Skeleton, 
-  CardSkeleton, 
-  TransactionSkeleton, 
-  ChartSkeleton, 
+// List Page Skeleton — dark header + KPI strip + transaction rows
+// Used by: Expenses, Incomes, Recurring, Insights, Health Score, Cashflow
+function ListPageSkeleton({ rows = 6 }: { rows?: number }) {
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Dark header */}
+      <div className="bg-slate-900 dark:bg-black text-white px-4 pt-4 pb-6">
+        <Skeleton className="h-3 w-28 bg-slate-700 mb-2" />
+        <Skeleton className="h-7 w-40 bg-slate-600 mb-1" />
+        <Skeleton className="h-3 w-24 bg-slate-700" />
+        {/* KPI strip */}
+        <div className="grid grid-cols-3 gap-3 mt-5">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="bg-slate-800 rounded-lg p-3 space-y-2">
+              <Skeleton className="h-3 w-16 bg-slate-700" />
+              <Skeleton className="h-5 w-20 bg-slate-600" />
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* List rows */}
+      <div className="px-4 pt-4 space-y-2">
+        <Skeleton className="h-9 w-full rounded-lg bg-muted mb-3" />
+        {[...Array(rows)].map((_, i) => (
+          <div key={i} className="flex items-center gap-3 p-3 rounded-lg border">
+            <Skeleton className="h-9 w-9 rounded-full shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="h-3.5 w-1/3" />
+              <Skeleton className="h-2.5 w-1/4" />
+            </div>
+            <div className="space-y-1.5 items-end flex flex-col">
+              <Skeleton className="h-3.5 w-16" />
+              <Skeleton className="h-2.5 w-10" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export {
+  Skeleton,
+  CardSkeleton,
+  TransactionSkeleton,
+  ChartSkeleton,
   TableSkeleton,
-  StatsSkeleton
+  StatsSkeleton,
+  ListPageSkeleton,
 }

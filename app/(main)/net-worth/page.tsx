@@ -559,21 +559,21 @@ export default function NetWorthPage() {
               <div className="flex h-2 w-full rounded-full overflow-hidden bg-slate-700">
                 <div
                   className="h-full bg-emerald-500 transition-all duration-700"
-                  style={{ width: `${Math.min(100, ((totalAssets - totalLiabilities) / totalAssets) * 100)}%` }}
+                  style={{ width: `${(totalAssets / (totalAssets + totalLiabilities)) * 100}%` }}
                 />
                 <div
                   className="h-full bg-red-500 transition-all duration-700"
-                  style={{ width: `${Math.min(100, (totalLiabilities / totalAssets) * 100)}%` }}
+                  style={{ width: `${(totalLiabilities / (totalAssets + totalLiabilities)) * 100}%` }}
                 />
               </div>
               <div className="flex items-center justify-between mt-1.5">
                 <span className="text-[10px] text-emerald-400 flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                  Assets {totalAssets > 0 ? `${(((totalAssets - totalLiabilities) / totalAssets) * 100).toFixed(0)}%` : ""}
+                  Assets {totalAssets > 0 ? `${((totalAssets / (totalAssets + totalLiabilities)) * 100).toFixed(0)}%` : ""}
                 </span>
                 <span className="text-[10px] text-red-400 flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
-                  Liabilities {totalAssets > 0 ? `${((totalLiabilities / totalAssets) * 100).toFixed(0)}%` : ""}
+                  Liabilities {totalAssets > 0 ? `${((totalLiabilities / (totalAssets + totalLiabilities)) * 100).toFixed(0)}%` : ""}
                 </span>
               </div>
             </div>

@@ -28,6 +28,7 @@ import { useMutualFundsStore } from "@/store/mutual-funds-store";
 import { useGoldStore } from "@/store/gold-store";
 import { useForexStore } from "@/store/forex-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
+import { ListPageSkeleton } from "@/components/ui/skeleton";
 
 // ── Scoring functions (mirrors dashboard) ────────────────────────────────────
 function scoreSavings(r: number) {
@@ -241,7 +242,7 @@ export default function HealthScorePage() {
   const router = useRouter();
   const { format } = useFormatCurrency();
 
-  const { transactions, fetchTransactions } = useTransactionsStore();
+  const { transactions, loading, fetchTransactions } = useTransactionsStore();
   const { goals, fetchGoals } = useGoalsStore();
   const { assets, liabilities, fetchAssets, fetchLiabilities } =
     useNetWorthStore();
@@ -451,6 +452,10 @@ export default function HealthScorePage() {
           : total >= 40
             ? "text-orange-500"
             : "text-red-500";
+
+  if (loading && transactions.length === 0) {
+    return <ListPageSkeleton />;
+  }
 
   return (
     <div className="min-h-screen bg-background">

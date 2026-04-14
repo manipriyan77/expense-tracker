@@ -40,7 +40,6 @@ import {
   TrendingUp,
   TrendingDown,
   Calendar,
-  Loader2,
   Target,
   AlertCircle,
   ArrowUpRight,
@@ -65,6 +64,7 @@ import {
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { MonthlyReportDownloadButton } from "@/components/monthly-report-template";
 import { useAuthStore } from "@/store/auth-store";
+import { ListPageSkeleton } from "@/components/ui/skeleton";
 
 // Color palette for categories
 const CATEGORY_COLORS: Record<string, string> = {
@@ -507,11 +507,7 @@ export default function AnalyticsPage() {
   }, [transactions, forecastMethod, forecastPeriods, forecastType]);
 
   if (loading && transactions.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-      </div>
-    );
+    return <ListPageSkeleton />;
   }
 
   return (

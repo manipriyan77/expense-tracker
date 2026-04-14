@@ -31,6 +31,7 @@ import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { useTransactionsStore } from "@/store/transactions-store";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { MonthSelector } from "@/components/ui/month-selector";
+import { ListPageSkeleton } from "@/components/ui/skeleton";
 
 const CATEGORY_COLORS: Record<string, string> = {
   Salary:     "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -46,7 +47,7 @@ function getCategoryColor(category: string) {
 
 export default function IncomesPage() {
   const { format } = useFormatCurrency();
-  const { transactions, fetchTransactions } = useTransactionsStore();
+  const { transactions, loading, fetchTransactions } = useTransactionsStore();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
@@ -137,6 +138,10 @@ export default function IncomesPage() {
       : null;
 
   const hasActiveFilters = filterCategory !== "all" || searchQuery.trim();
+
+  if (loading && transactions.length === 0) {
+    return <ListPageSkeleton />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
