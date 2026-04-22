@@ -3233,7 +3233,7 @@ export default function InvestmentsPage() {
                 ) : (
                   /* List view */
                   <Card className="overflow-hidden p-0">
-                    <div className="hidden sm:grid grid-cols-[1fr_80px_90px_90px_100px_100px_110px_64px] items-center px-4 py-2 border-b border-border bg-muted/40 gap-3">
+                    <div className="hidden sm:grid grid-cols-[1fr_80px_90px_90px_100px_100px_110px_90px_64px] items-center px-4 py-2 border-b border-border bg-muted/40 gap-3">
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                         Fund Name
                       </p>
@@ -3254,6 +3254,9 @@ export default function InvestmentsPage() {
                       </p>
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
                         P&L / Return
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
+                        P&L ₹
                       </p>
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
                         Actions
@@ -3301,7 +3304,7 @@ export default function InvestmentsPage() {
                           return (
                             <div
                               key={f.id}
-                              className="flex sm:grid sm:grid-cols-[1fr_80px_90px_90px_100px_100px_110px_64px] items-center px-4 py-3 gap-3 hover:bg-muted/30 cursor-pointer transition-colors flex-wrap"
+                              className="flex sm:grid sm:grid-cols-[1fr_80px_90px_90px_100px_100px_110px_90px_64px] items-center px-4 py-3 gap-3 hover:bg-muted/30 cursor-pointer transition-colors flex-wrap"
                               onClick={() =>
                                 setDetailItem({ type: "mutual-funds", data: f })
                               }
@@ -3358,6 +3361,12 @@ export default function InvestmentsPage() {
                                   {format(pnl)}
                                 </p>
                               </div>
+                              <p
+                                className={`font-mono text-sm font-semibold text-right hidden sm:block ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                              >
+                                {isPos ? "+" : ""}
+                                {format(pnl)}
+                              </p>
                               <div
                                 className="flex items-center gap-1 shrink-0"
                                 onClick={(e) => e.stopPropagation()}
