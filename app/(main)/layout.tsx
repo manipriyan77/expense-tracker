@@ -17,6 +17,7 @@ import {
   BookOpen,
   LayoutGrid,
   Plus,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAutoExecuteRecurring } from "@/lib/hooks/useAutoExecuteRecurring";
@@ -59,7 +60,11 @@ const PAGE_TITLES: Record<string, string> = {
   "/bills": "Bills",
   "/health-score": "Health Score",
   "/insights": "Insights",
-  "/daily-tracker": "Daily Tracker",
+  "/daily-tracker": "Overview",
+  "/daily-tracker/habits": "Habits",
+  "/daily-tracker/goals": "Life Goals",
+  "/daily-tracker/journal": "Journal",
+  "/daily-tracker/analytics": "Analytics",
   "/tasks": "Tasks",
   "/settings": "Settings",
 };
@@ -69,6 +74,10 @@ const SIDEBAR_ROOTS = new Set([
   "/home",
   "/dashboard",
   "/daily-tracker",
+  "/daily-tracker/habits",
+  "/daily-tracker/goals",
+  "/daily-tracker/journal",
+  "/daily-tracker/analytics",
   "/tasks",
   "/transactions",
   "/budgets",
@@ -103,6 +112,28 @@ export default function MainLayout({
 
   const pageTitle = PAGE_TITLES[pathname] ?? "Trackwise";
   const showBackButton = !SIDEBAR_ROOTS.has(pathname);
+
+  // Breadcrumb segments: always start with Trackwise home
+  type BreadcrumbItem = { label: string; href?: string };
+  const breadcrumbs: BreadcrumbItem[] = (() => {
+    if (pathname === "/home") return [{ label: "Trackwise" }];
+    const crumbs: BreadcrumbItem[] = [{ label: "Trackwise", href: "/home" }];
+    if (pathname.startsWith("/daily-tracker")) {
+      if (pathname === "/daily-tracker") {
+        crumbs.push({ label: "Daily Tracker" });
+      } else {
+        crumbs.push({ label: "Daily Tracker", href: "/daily-tracker" });
+        crumbs.push({ label: pageTitle });
+      }
+    } else if (pathname.startsWith("/tasks")) {
+      crumbs.push({ label: "Tasks", href: "/tasks" });
+      if (pathname !== "/tasks") crumbs.push({ label: pageTitle });
+    } else {
+      crumbs.push({ label: "Finance", href: "/dashboard" });
+      if (pathname !== "/dashboard") crumbs.push({ label: pageTitle });
+    }
+    return crumbs;
+  })();
 
   useAutoExecuteRecurring();
   const { open: openPalette } = useCommandPaletteStore();
@@ -207,7 +238,27 @@ export default function MainLayout({
 
         {/* Desktop topbar */}
         <header className="hidden md:flex items-center justify-between px-6 py-3 border-b bg-card shrink-0 sticky top-0 z-20">
-          <h1 className="text-lg font-semibold text-foreground">{pageTitle}</h1>
+          <nav aria-label="Breadcrumb">
+            <ol className="flex items-center gap-1 text-sm">
+              {breadcrumbs.map((crumb, i) => {
+                const isLast = i === breadcrumbs.length - 1;
+                return (
+                  <li key={i} className="flex items-center gap-1">
+                    {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                    {crumb.href && !isLast ? (
+                      <Link href={crumb.href} className="text-muted-foreground hover:text-foreground transition-colors">
+                        {crumb.label}
+                      </Link>
+                    ) : (
+                      <span className={isLast ? "font-semibold text-foreground" : "text-muted-foreground"}>
+                        {crumb.label}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
