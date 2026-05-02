@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 /**
  * LogoShowcase Component
  * 
- * Display all available logos for the Expense Tracker app.
+ * Display all available logos for the Trackwise app.
  * Use this component to preview and test logo variations.
  * 
  * Usage:
@@ -56,7 +56,7 @@ export default function LogoShowcase() {
     <div className="container mx-auto p-8">
       <div className="mb-8 text-center">
         <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-          Expense Tracker Logo Suite
+          Trackwise Logo Suite
         </h1>
         <p className="text-gray-600 max-w-2xl mx-auto">
           A complete set of custom SVG logos designed specifically for your expense tracking application.
@@ -140,7 +140,7 @@ export default function LogoShowcase() {
 // Navbar example
 <Image 
   src="/logo-simple.svg" 
-  alt="Expense Tracker" 
+  alt="Trackwise" 
   width={40} 
   height={40}
 />
@@ -148,7 +148,7 @@ export default function LogoShowcase() {
 // Hero section
 <Image 
   src="/logo.svg" 
-  alt="Expense Tracker" 
+  alt="Trackwise" 
   width={200} 
   height={200}
   priority
@@ -164,7 +164,7 @@ export default function LogoShowcase() {
 <link rel="apple-touch-icon" href="/logo-icon.svg">
 
 <!-- In your page -->
-<img src="/logo-simple.svg" alt="Expense Tracker" class="h-10 w-10">`}
+<img src="/logo-simple.svg" alt="Trackwise" class="h-10 w-10">`}
             </pre>
           </div>
         </CardContent>

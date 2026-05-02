@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Expense Tracker - Manage Your Finances",
+  title: "Trackwise — Track your finances, build your life",
   description:
-    "Track your income, expenses, budgets, and financial goals. A comprehensive personal finance management application.",
+    "Trackwise is your all-in-one personal growth app. Track finances, habits, life goals, and your daily journey — all in one place.",
   icons: {
     icon: [
       { url: "/favicon-custom.svg", type: "image/svg+xml" },

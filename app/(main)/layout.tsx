@@ -11,10 +11,10 @@ import {
   ChevronLeft,
   Eye,
   EyeOff,
-  Home,
   Receipt,
   BarChart3,
-  Flag,
+  Home,
+  BookOpen,
   LayoutGrid,
   Plus,
 } from "lucide-react";
@@ -36,7 +36,8 @@ import {
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 
 const PAGE_TITLES: Record<string, string> = {
-  "/dashboard": "Dashboard",
+  "/home": "Trackwise",
+  "/dashboard": "Finance Dashboard",
   "/transactions": "Transactions",
   "/expenses": "Expenses",
   "/incomes": "Income",
@@ -58,12 +59,17 @@ const PAGE_TITLES: Record<string, string> = {
   "/bills": "Bills",
   "/health-score": "Health Score",
   "/insights": "Insights",
+  "/daily-tracker": "Daily Tracker",
+  "/tasks": "Tasks",
   "/settings": "Settings",
 };
 
 // Top-level pages reachable directly — no back button needed
 const SIDEBAR_ROOTS = new Set([
+  "/home",
   "/dashboard",
+  "/daily-tracker",
+  "/tasks",
   "/transactions",
   "/budgets",
   "/goals",
@@ -76,10 +82,10 @@ const SIDEBAR_ROOTS = new Set([
 
 // Bottom nav tabs
 const BOTTOM_NAV = [
-  { href: "/dashboard", label: "Home", icon: Home },
-  { href: "/transactions", label: "Transactions", icon: Receipt },
-  { href: "/budgets", label: "Budgets", icon: BarChart3 },
-  { href: "/goals", label: "Goals", icon: Flag },
+  { href: "/home", label: "Home", icon: Home },
+  { href: "/daily-tracker", label: "Tracker", icon: BookOpen },
+  { href: "/dashboard", label: "Finance", icon: BarChart3 },
+  { href: "/transactions", label: "Spend", icon: Receipt },
 ];
 
 export default function MainLayout({
@@ -95,7 +101,7 @@ export default function MainLayout({
   const { amountsHidden, toggleAmountsHidden } = usePrivacyStore();
   const { fetchGoals } = useGoalsStore();
 
-  const pageTitle = PAGE_TITLES[pathname] ?? "Expense Tracker";
+  const pageTitle = PAGE_TITLES[pathname] ?? "Trackwise";
   const showBackButton = !SIDEBAR_ROOTS.has(pathname);
 
   useAutoExecuteRecurring();
