@@ -20,6 +20,7 @@ export interface LifeGoal {
   start_value: string;
   order_index: number;
   category: string;
+  notes: string;
 }
 
 export interface Habit {

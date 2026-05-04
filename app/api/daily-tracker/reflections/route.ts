@@ -31,12 +31,22 @@ export async function POST(request: NextRequest) {
     if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { reflection_date, note, mood } = body;
+    const { reflection_date, note, mood, wins, gratitude, intentions, energy_level, tags } = body;
     if (!reflection_date) return NextResponse.json({ error: "Missing reflection_date" }, { status: 400 });
 
     const { data, error } = await supabase
       .from("daily_reflections")
-      .upsert({ reflection_date, note: note ?? "", mood: mood ?? "", user_id: user.id }, { onConflict: "user_id,reflection_date" })
+      .upsert({
+        reflection_date,
+        note: note ?? "",
+        mood: mood ?? "",
+        wins: wins ?? "",
+        gratitude: gratitude ?? "",
+        intentions: intentions ?? "",
+        energy_level: energy_level ?? 0,
+        tags: tags ?? "",
+        user_id: user.id,
+      }, { onConflict: "user_id,reflection_date" })
       .select()
       .single();
 
