@@ -1108,52 +1108,155 @@ export function BudgetTemplatesContent() {
 
       {/* Edit Template Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Template</DialogTitle>
-            <DialogDescription>Update template information</DialogDescription>
+            <DialogDescription>Update template information and categories</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEditTemplate} className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Template Name</Label>
-              <Input
-                placeholder="e.g., My Monthly Budget"
-                value={templateForm.name}
-                onChange={(e) =>
-                  setTemplateForm({ ...templateForm, name: e.target.value })
-                }
-                required
-              />
+          <form onSubmit={handleEditTemplate} className="space-y-6 py-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Template Name <span className="text-red-500">*</span></Label>
+                <Input
+                  placeholder="e.g., My Monthly Budget"
+                  value={templateForm.name}
+                  onChange={(e) =>
+                    setTemplateForm({ ...templateForm, name: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Description <span className="text-red-500">*</span></Label>
+                <Input
+                  placeholder="Brief description"
+                  value={templateForm.description}
+                  onChange={(e) =>
+                    setTemplateForm({ ...templateForm, description: e.target.value })
+                  }
+                  required
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Input
-                placeholder="Brief description"
-                value={templateForm.description}
-                onChange={(e) =>
-                  setTemplateForm({
-                    ...templateForm,
-                    description: e.target.value,
-                  })
-                }
-                required
-              />
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Categories</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={addCategoryRow}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Category
+                </Button>
+              </div>
+              {templateForm.categories.length === 0 ? (
+                <div className="p-6 border-2 border-dashed rounded-lg text-center">
+                  <p className="text-sm text-gray-500 mb-3">No categories added yet</p>
+                  <Button type="button" size="sm" onClick={addCategoryRow}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Your First Category
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-100 overflow-y-auto pr-2">
+                  {templateForm.categories.map((cat, index) => (
+                    <div key={index} className="p-3 border rounded-lg bg-gray-50 space-y-2">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1 grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Category *</Label>
+                            <select
+                              className="w-full px-3 py-2 border rounded-md text-sm"
+                              value={cat.category}
+                              onChange={(e) => updateCategoryRow(index, "category", e.target.value)}
+                              required
+                            >
+                              <option value="">Select category</option>
+                              {DEFAULT_CATEGORIES.map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Subtype</Label>
+                            <Input
+                              placeholder="e.g., Groceries"
+                              value={cat.subtype}
+                              onChange={(e) => updateCategoryRow(index, "subtype", e.target.value)}
+                              className="text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Amount * ($)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="0.00"
+                              value={cat.amount || ""}
+                              onChange={(e) =>
+                                updateCategoryRow(index, "amount", parseFloat(e.target.value) || 0)
+                              }
+                              className="text-sm"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Period</Label>
+                            <select
+                              className="w-full px-3 py-2 border rounded-md text-sm"
+                              value={cat.period}
+                              onChange={(e) => updateCategoryRow(index, "period", e.target.value)}
+                            >
+                              {DEFAULT_PERIODS.map((p) => (
+                                <option key={p} value={p}>
+                                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => removeCategoryRow(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {templateForm.categories.length > 0 && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-medium text-blue-900">Total Budget</p>
+                      <p className="text-xs text-blue-700">{templateForm.categories.length} categories</p>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-600">
+                      {format(calculateTotalBudget(templateForm.categories))}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">Categories</p>
-              <p className="text-sm text-gray-500 mt-1">
-                {templateForm.categories.length} categories with total{" "}
-                {format(calculateTotalBudget(templateForm.categories))}
-              </p>
-              <p className="text-xs text-gray-400 mt-2">
-                Note: Category editing not yet implemented. To modify
-                categories, create a new template.
-              </p>
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={
+                loading ||
+                !templateForm.name ||
+                !templateForm.description ||
+                templateForm.categories.length === 0
+              }
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Update Template
             </Button>
           </form>

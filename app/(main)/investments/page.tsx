@@ -334,11 +334,24 @@ export default function InvestmentsPage() {
   const [saving, setSaving] = useState(false);
   const [refreshingPrices, setRefreshingPrices] = useState(false);
 
-  type SortKey = "current-value" | "invested" | "pnl" | "return-pct" | "name";
+  type SortKey = "current-value" | "invested" | "pnl" | "return-pct" | "name" | "units";
   const [stocksView, setStocksView] = useState<"grid" | "list">("grid");
   const [stocksSort, setStocksSort] = useState<SortKey>("current-value");
+  const [stocksSortDir, setStocksSortDir] = useState<"asc" | "desc">("desc");
   const [mfView, setMfView] = useState<"grid" | "list">("grid");
   const [mfSort, setMfSort] = useState<SortKey>("current-value");
+  const [mfSortDir, setMfSortDir] = useState<"asc" | "desc">("desc");
+
+  const handleStocksHeaderSort = (key: SortKey) => {
+    if (stocksSort === key) setStocksSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setStocksSort(key); setStocksSortDir("desc"); }
+  };
+  const handleMfHeaderSort = (key: SortKey) => {
+    if (mfSort === key) setMfSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setMfSort(key); setMfSortDir("desc"); }
+  };
+  const SortArrow = ({ col, activeCol, dir }: { col: SortKey; activeCol: SortKey; dir: "asc" | "desc" }) =>
+    col === activeCol ? (dir === "asc" ? <ChevronUp className="inline h-3 w-3 ml-0.5" /> : <ChevronDown className="inline h-3 w-3 ml-0.5" />) : <ChevronDown className="inline h-3 w-3 ml-0.5 opacity-20" />;
 
   const [detailItem, setDetailItem] = useState<{
     type: "stocks" | "mutual-funds" | "gold" | "silver";
@@ -895,18 +908,38 @@ export default function InvestmentsPage() {
         return;
       }
 
-      // Strip quotes, and non-ASCII chars (handles ₹ encoding issues like "â¹")
+      // Proper quoted-CSV parser — handles commas inside quoted fields
+      const splitCSVLine = (line: string): string[] => {
+        const result: string[] = [];
+        let cur = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
+            else inQuotes = !inQuotes;
+          } else if (ch === "," && !inQuotes) {
+            result.push(cur);
+            cur = "";
+          } else {
+            cur += ch;
+          }
+        }
+        result.push(cur);
+        return result;
+      };
+
+      // Strip non-ASCII chars (handles ₹ encoding issues like "â¹")
       const clean = (s: string) =>
         s
           .trim()
-          .replace(/^"|"$/g, "")
           .replace(/[^\x00-\x7F]/g, "")
           .trim();
 
       // Auto-detect the actual header row (skip metadata rows like TickerTape's top 3 lines)
       let headerIdx = 0;
       for (let i = 0; i < Math.min(allLines.length, 8); i++) {
-        const cols = allLines[i]!.split(",").map(clean).filter(Boolean);
+        const cols = splitCSVLine(allLines[i]!).map(clean).filter(Boolean);
         // A header row has several non-empty text fields (not all empty/URLs)
         if (
           cols.length >= 3 &&
@@ -918,11 +951,11 @@ export default function InvestmentsPage() {
         }
       }
 
-      const headers = allLines[headerIdx]!.split(",").map(clean);
+      const headers = splitCSVLine(allLines[headerIdx]!).map(clean);
       const rows = allLines
         .slice(headerIdx + 1)
         .map((line) => {
-          const vals = line.split(",").map(clean);
+          const vals = splitCSVLine(line).map(clean);
           const row: Record<string, string> = {};
           headers.forEach((h, i) => {
             if (h) row[h] = vals[i] ?? "";
@@ -2671,9 +2704,9 @@ export default function InvestmentsPage() {
                   /* List view */
                   <Card className="overflow-hidden p-0">
                     <div className="hidden sm:grid grid-cols-[1fr_80px_90px_90px_100px_100px_110px_64px] items-center px-4 py-2 border-b border-border bg-muted/40 gap-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        Name
-                      </p>
+                      <button className="text-[10px] uppercase tracking-widest text-muted-foreground text-left flex items-center gap-0.5 hover:text-foreground transition-colors" onClick={() => handleStocksHeaderSort("name")}>
+                        Name<SortArrow col="name" activeCol={stocksSort} dir={stocksSortDir} />
+                      </button>
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
                         Shares
                       </p>
@@ -2683,15 +2716,15 @@ export default function InvestmentsPage() {
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
                         LTP
                       </p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
-                        Invested
-                      </p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
-                        Value
-                      </p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
-                        P&L / Return
-                      </p>
+                      <button className="text-[10px] uppercase tracking-widest text-muted-foreground text-right flex items-center justify-end gap-0.5 hover:text-foreground transition-colors w-full" onClick={() => handleStocksHeaderSort("invested")}>
+                        Invested<SortArrow col="invested" activeCol={stocksSort} dir={stocksSortDir} />
+                      </button>
+                      <button className="text-[10px] uppercase tracking-widest text-muted-foreground text-right flex items-center justify-end gap-0.5 hover:text-foreground transition-colors w-full" onClick={() => handleStocksHeaderSort("current-value")}>
+                        Value<SortArrow col="current-value" activeCol={stocksSort} dir={stocksSortDir} />
+                      </button>
+                      <button className="text-[10px] uppercase tracking-widest text-muted-foreground text-right flex items-center justify-end gap-0.5 hover:text-foreground transition-colors w-full" onClick={() => handleStocksHeaderSort("pnl")}>
+                        P&L / Return<SortArrow col="pnl" activeCol={stocksSort} dir={stocksSortDir} />
+                      </button>
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
                         Actions
                       </p>
@@ -2699,15 +2732,15 @@ export default function InvestmentsPage() {
                     <div className="divide-y divide-border">
                       {[...stocks]
                         .sort((a, b) => {
+                          const dir = stocksSortDir === "asc" ? 1 : -1;
                           if (stocksSort === "name")
-                            return a.name.localeCompare(b.name);
+                            return dir * a.name.localeCompare(b.name);
                           if (stocksSort === "invested")
-                            return b.investedAmount - a.investedAmount;
+                            return dir * (a.investedAmount - b.investedAmount);
                           if (stocksSort === "pnl")
-                            return (
-                              b.currentValue -
-                              b.investedAmount -
-                              (a.currentValue - a.investedAmount)
+                            return dir * (
+                              (a.currentValue - a.investedAmount) -
+                              (b.currentValue - b.investedAmount)
                             );
                           if (stocksSort === "return-pct") {
                             const ra =
@@ -2720,9 +2753,9 @@ export default function InvestmentsPage() {
                                 ? (b.currentValue - b.investedAmount) /
                                   b.investedAmount
                                 : 0;
-                            return rb - ra;
+                            return dir * (ra - rb);
                           }
-                          return b.currentValue - a.currentValue;
+                          return dir * (a.currentValue - b.currentValue);
                         })
                         .map((s) => {
                           const pnl = s.currentValue - s.investedAmount;
@@ -3234,30 +3267,30 @@ export default function InvestmentsPage() {
                   /* List view */
                   <Card className="overflow-hidden p-0">
                     <div className="hidden sm:grid grid-cols-[1fr_80px_90px_90px_100px_100px_110px_90px_64px] items-center px-4 py-2 border-b border-border bg-muted/40 gap-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        Fund Name
-                      </p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
-                        Units
-                      </p>
+                      <button className="text-[10px] uppercase tracking-widest text-muted-foreground text-left flex items-center gap-0.5 hover:text-foreground transition-colors" onClick={() => handleMfHeaderSort("name")}>
+                        Fund Name<SortArrow col="name" activeCol={mfSort} dir={mfSortDir} />
+                      </button>
+                      <button className="text-[10px] uppercase tracking-widest text-muted-foreground text-right flex items-center justify-end gap-0.5 hover:text-foreground transition-colors w-full" onClick={() => handleMfHeaderSort("units")}>
+                        Units<SortArrow col="units" activeCol={mfSort} dir={mfSortDir} />
+                      </button>
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
                         Buy NAV
                       </p>
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
                         Curr NAV
                       </p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
-                        Invested
-                      </p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
-                        Value
-                      </p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
-                        P&L / Return
-                      </p>
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
-                        P&L ₹
-                      </p>
+                      <button className="text-[10px] uppercase tracking-widest text-muted-foreground text-right flex items-center justify-end gap-0.5 hover:text-foreground transition-colors w-full" onClick={() => handleMfHeaderSort("invested")}>
+                        Invested<SortArrow col="invested" activeCol={mfSort} dir={mfSortDir} />
+                      </button>
+                      <button className="text-[10px] uppercase tracking-widest text-muted-foreground text-right flex items-center justify-end gap-0.5 hover:text-foreground transition-colors w-full" onClick={() => handleMfHeaderSort("current-value")}>
+                        Value<SortArrow col="current-value" activeCol={mfSort} dir={mfSortDir} />
+                      </button>
+                      <button className="text-[10px] uppercase tracking-widest text-muted-foreground text-right flex items-center justify-end gap-0.5 hover:text-foreground transition-colors w-full" onClick={() => handleMfHeaderSort("pnl")}>
+                        P&L / Return<SortArrow col="pnl" activeCol={mfSort} dir={mfSortDir} />
+                      </button>
+                      <button className="text-[10px] uppercase tracking-widest text-muted-foreground text-right flex items-center justify-end gap-0.5 hover:text-foreground transition-colors w-full" onClick={() => handleMfHeaderSort("pnl")}>
+                        P&L ₹<SortArrow col="pnl" activeCol={mfSort} dir={mfSortDir} />
+                      </button>
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-right">
                         Actions
                       </p>
@@ -3265,15 +3298,15 @@ export default function InvestmentsPage() {
                     <div className="divide-y divide-border">
                       {[...mutualFunds]
                         .sort((a, b) => {
+                          const dir = mfSortDir === "asc" ? 1 : -1;
                           if (mfSort === "name")
-                            return a.name.localeCompare(b.name);
+                            return dir * a.name.localeCompare(b.name);
                           if (mfSort === "invested")
-                            return b.investedAmount - a.investedAmount;
+                            return dir * (a.investedAmount - b.investedAmount);
                           if (mfSort === "pnl")
-                            return (
-                              b.currentValue -
-                              b.investedAmount -
-                              (a.currentValue - a.investedAmount)
+                            return dir * (
+                              (a.currentValue - a.investedAmount) -
+                              (b.currentValue - b.investedAmount)
                             );
                           if (mfSort === "return-pct") {
                             const ra =
@@ -3286,9 +3319,11 @@ export default function InvestmentsPage() {
                                 ? (b.currentValue - b.investedAmount) /
                                   b.investedAmount
                                 : 0;
-                            return rb - ra;
+                            return dir * (ra - rb);
                           }
-                          return b.currentValue - a.currentValue;
+                          if (mfSort === "units")
+                            return dir * (a.units - b.units);
+                          return dir * (a.currentValue - b.currentValue);
                         })
                         .map((f) => {
                           const pnl = f.currentValue - f.investedAmount;
