@@ -42,6 +42,7 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
+  Link2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useDailyTracker, HABIT_CATEGORIES, type LifeGoal } from "../daily-tracker-context";
@@ -477,6 +478,134 @@ function UpdateProgressDialog({
   );
 }
 
+// ─── Forecast helper ──────────────────────────────────────────────────────────
+
+function computeForecast(
+  present: string,
+  target: string,
+  start: string,
+  journeyStartDate: string,
+): string | null {
+  const p = parseNumeric(present);
+  const t = parseNumeric(target);
+  const s = parseNumeric(start) ?? p;
+  if (p === null || t === null || p === t) return null;
+
+  const daysElapsed = Math.max(
+    1,
+    Math.floor((Date.now() - new Date(journeyStartDate + "T00:00:00").getTime()) / 86400000),
+  );
+
+  const isGrowth = t > (s ?? p);
+  const totalChange = isGrowth ? t - (s ?? p) : (s ?? p) - t;
+  const changesSoFar = isGrowth ? p - (s ?? p) : (s ?? p) - p;
+
+  if (changesSoFar <= 0 || totalChange <= 0) return null;
+
+  const velocityPerDay = changesSoFar / daysElapsed;
+  const remaining = totalChange - changesSoFar;
+  const daysLeft = Math.ceil(remaining / velocityPerDay);
+
+  if (daysLeft <= 0) return null;
+  if (daysLeft > 3650) return null; // more than 10 years — don't show
+
+  if (daysLeft < 30) return `~${daysLeft}d at this pace`;
+  if (daysLeft < 365) return `~${Math.ceil(daysLeft / 30)}mo at this pace`;
+  return `~${(daysLeft / 365).toFixed(1)}yr at this pace`;
+}
+
+// ─── Habit Link Dialog ────────────────────────────────────────────────────────
+
+function HabitLinkDialog({
+  goal,
+  open,
+  onClose,
+}: Readonly<{
+  goal: LifeGoal;
+  open: boolean;
+  onClose: () => void;
+}>) {
+  const { habits } = useDailyTracker();
+  const [linked, setLinked] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    fetch(`/api/daily-tracker/life-goals/${goal.id}/habits`)
+      .then((r) => r.json())
+      .then((ids: string[]) => setLinked(Array.isArray(ids) ? ids : []))
+      .catch(() => setLinked([]));
+  }, [open, goal.id]);
+
+  async function toggle(habitId: string) {
+    const isLinked = linked.includes(habitId);
+    setSaving(true);
+    try {
+      await fetch(`/api/daily-tracker/life-goals/${goal.id}/habits`, {
+        method: isLinked ? "DELETE" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ habit_id: habitId }),
+      });
+      setLinked((prev) =>
+        isLinked ? prev.filter((id) => id !== habitId) : [...prev, habitId],
+      );
+    } catch {
+      toast.error("Failed to update link");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-sm max-h-[70vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Link2 className="h-4 w-4 text-primary" />
+            Link Supporting Habits
+          </DialogTitle>
+          <DialogDescription className="text-xs">{goal.title}</DialogDescription>
+        </DialogHeader>
+        <p className="text-xs text-muted-foreground -mt-1">
+          Select habits that contribute to this goal.
+        </p>
+        <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+          {habits.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">No habits yet — add some first.</p>
+          ) : (
+            habits.map((habit) => {
+              const isLinked = linked.includes(habit.id);
+              const catMeta = HABIT_CATEGORIES.find((c) => c.value === (habit.category ?? "general")) ?? HABIT_CATEGORIES[5];
+              return (
+                <button
+                  key={habit.id}
+                  disabled={saving}
+                  onClick={() => toggle(habit.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors ${
+                    isLinked
+                      ? "border-primary/40 bg-primary/5"
+                      : "border-border hover:bg-muted/40"
+                  }`}
+                >
+                  <div className={`h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 ${isLinked ? "bg-primary border-primary" : "border-muted-foreground/40"}`}>
+                    {isLinked && <ChevronRight className="h-2.5 w-2.5 text-primary-foreground rotate-0" style={{ transform: "rotate(45deg) scale(0.8)" }} />}
+                  </div>
+                  <span className="text-sm font-medium flex-1">{habit.title}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${catMeta.bg} ${catMeta.color}`}>{catMeta.label}</span>
+                </button>
+              );
+            })
+          )}
+        </div>
+        <div className="flex items-center justify-between pt-2 border-t">
+          <span className="text-xs text-muted-foreground">{linked.length} habit{linked.length === 1 ? "" : "s"} linked</span>
+          <Button size="sm" onClick={onClose}>Done</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Edit Goal Dialog ─────────────────────────────────────────────────────────
 
 function EditGoalDialog({
@@ -493,6 +622,7 @@ function EditGoalDialog({
   const [title, setTitle] = useState(goal.title);
   const [present, setPresent] = useState(goal.present_value);
   const [target, setTarget] = useState(goal.target_value);
+  const [startVal, setStartVal] = useState(goal.start_value ?? "");
   const [category, setCategory] = useState(goal.category ?? "general");
   const [notes, setNotes] = useState(goal.notes ?? "");
   const [saving, setSaving] = useState(false);
@@ -500,7 +630,14 @@ function EditGoalDialog({
   async function handleSave() {
     if (!title.trim()) return;
     setSaving(true);
-    await onSave({ title: title.trim(), present_value: present, target_value: target, category, notes });
+    await onSave({
+      title: title.trim(),
+      present_value: present,
+      target_value: target,
+      start_value: startVal,
+      category,
+      notes,
+    });
     setSaving(false);
     onClose();
   }
@@ -520,16 +657,23 @@ function EditGoalDialog({
             <Label className="text-xs">Goal Name</Label>
             <Input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Salary, Weight, Savings" />
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Start Value</Label>
+              <Input value={startVal} onChange={(e) => setStartVal(e.target.value)} placeholder="e.g. 70 kg" />
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Current Value</Label>
-              <Input value={present} onChange={(e) => setPresent(e.target.value)} placeholder="e.g. 56 kg" />
+              <Input value={present} onChange={(e) => setPresent(e.target.value)} placeholder="e.g. 65 kg" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Target Value</Label>
-              <Input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g. 70 kg" />
+              <Input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g. 60 kg" />
             </div>
           </div>
+          <p className="text-[10px] text-muted-foreground -mt-1">
+            Start value anchors the progress calculation for reduction goals (e.g. weight loss).
+          </p>
           <div className="space-y-1.5">
             <Label className="text-xs">Category</Label>
             <Select value={category} onValueChange={setCategory}>
@@ -568,14 +712,19 @@ function GoalCardGrid({
   goal,
   isFirst,
   isLast,
+  journeyStartDate,
   onUpdateProgress,
   onEdit,
   onDelete,
   onMove,
   onViewHistory,
+  onLinkHabits,
 }: GoalCardProps) {
   const [notesOpen, setNotesOpen] = useState(false);
   const progress = goalProgress(goal.present_value, goal.target_value, goal.start_value);
+  const forecast = progress && progress.pct < 100
+    ? computeForecast(goal.present_value, goal.target_value, goal.start_value, journeyStartDate)
+    : null;
   const catMeta = HABIT_CATEGORIES.find((c) => c.value === (goal.category ?? "general")) ?? HABIT_CATEGORIES[5];
   const status = goalStatus(progress?.pct ?? null);
   const isCompleted = (progress?.pct ?? 0) >= 100;
@@ -686,6 +835,14 @@ function GoalCardGrid({
         </p>
       )}
 
+      {/* Forecast chip */}
+      {forecast && (
+        <div className="flex items-center gap-1.5 text-[10px] text-primary bg-primary/8 px-2.5 py-1 rounded-full w-fit">
+          <TrendingUp className="h-3 w-3 shrink-0" />
+          {forecast}
+        </div>
+      )}
+
       {/* Action buttons */}
       <div className="flex gap-1.5 pt-0.5">
         <Button variant="outline" size="sm" className="flex-1 h-8 text-xs gap-1.5" onClick={() => onUpdateProgress(goal)}>
@@ -693,6 +850,9 @@ function GoalCardGrid({
         </Button>
         <Button variant="outline" size="sm" className="flex-1 h-8 text-xs gap-1.5" onClick={() => onViewHistory(goal)}>
           <History className="h-3.5 w-3.5" /> History
+        </Button>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0" title="Link habits" onClick={() => onLinkHabits(goal)}>
+          <Link2 className="h-3.5 w-3.5" />
         </Button>
         <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0" onClick={() => onEdit(goal)}>
           <Pencil className="h-3.5 w-3.5" />
@@ -708,25 +868,32 @@ interface GoalCardProps {
   goal: LifeGoal;
   isFirst: boolean;
   isLast: boolean;
+  journeyStartDate: string;
   onUpdateProgress: (goal: LifeGoal) => void;
   onEdit: (goal: LifeGoal) => void;
   onDelete: (id: string) => void;
   onMove: (id: string, dir: "up" | "down") => void;
   onViewHistory: (goal: LifeGoal) => void;
+  onLinkHabits: (goal: LifeGoal) => void;
 }
 
 function GoalCardList({
   goal,
   isFirst,
   isLast,
+  journeyStartDate,
   onUpdateProgress,
   onEdit,
   onDelete,
   onMove,
   onViewHistory,
+  onLinkHabits,
 }: GoalCardProps) {
   const [notesOpen, setNotesOpen] = useState(false);
   const progress = goalProgress(goal.present_value, goal.target_value, goal.start_value);
+  const forecast = progress && progress.pct < 100
+    ? computeForecast(goal.present_value, goal.target_value, goal.start_value, journeyStartDate)
+    : null;
   const catMeta = HABIT_CATEGORIES.find((c) => c.value === (goal.category ?? "general")) ?? HABIT_CATEGORIES[5];
   const status = goalStatus(progress?.pct ?? null);
   const isCompleted = (progress?.pct ?? 0) >= 100;
@@ -801,19 +968,27 @@ function GoalCardList({
         <div className="h-2.5 bg-muted rounded-full" />
       )}
 
-      {/* Notes + Actions */}
-      <div className="flex items-center gap-2">
-        <div className="flex gap-1.5 flex-1">
+      {/* Forecast + Notes + Actions */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex gap-1.5 flex-1 flex-wrap">
           <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 px-2.5" onClick={() => onUpdateProgress(goal)}>
             <RefreshCw className="h-3 w-3" /> Update
           </Button>
           <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 px-2.5" onClick={() => onViewHistory(goal)}>
             <History className="h-3 w-3" /> History
           </Button>
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Link habits" onClick={() => onLinkHabits(goal)}>
+            <Link2 className="h-3 w-3" />
+          </Button>
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => onEdit(goal)}>
             <Pencil className="h-3 w-3" />
           </Button>
         </div>
+        {forecast && (
+          <span className="flex items-center gap-1 text-[10px] text-primary bg-primary/8 px-2 py-1 rounded-full shrink-0">
+            <TrendingUp className="h-3 w-3" />{forecast}
+          </span>
+        )}
         {goal.notes && (
           <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground px-2" onClick={() => setNotesOpen((v) => !v)}>
             <StickyNote className="h-3 w-3" />
@@ -896,6 +1071,7 @@ export default function GoalsPage() {
   const [updateGoal, setUpdateGoal] = useState<LifeGoal | null>(null);
   const [editGoal, setEditGoal] = useState<LifeGoal | null>(null);
   const [historyGoal, setHistoryGoal] = useState<LifeGoal | null>(null);
+  const [linkHabitsGoal, setLinkHabitsGoal] = useState<LifeGoal | null>(null);
 
   // Add form
   const [newTitle, setNewTitle] = useState("");
@@ -1131,11 +1307,13 @@ export default function GoalsPage() {
               goal={goal}
               isFirst={i === 0}
               isLast={i === filteredGoals.length - 1}
+              journeyStartDate={journey?.start_date ?? ""}
               onUpdateProgress={setUpdateGoal}
               onEdit={setEditGoal}
               onDelete={deleteGoal}
               onMove={moveGoal}
               onViewHistory={setHistoryGoal}
+              onLinkHabits={setLinkHabitsGoal}
             />
           ))}
         </div>
@@ -1147,11 +1325,13 @@ export default function GoalsPage() {
               goal={goal}
               isFirst={i === 0}
               isLast={i === filteredGoals.length - 1}
+              journeyStartDate={journey?.start_date ?? ""}
               onUpdateProgress={setUpdateGoal}
               onEdit={setEditGoal}
               onDelete={deleteGoal}
               onMove={moveGoal}
               onViewHistory={setHistoryGoal}
+              onLinkHabits={setLinkHabitsGoal}
             />
           ))}
         </div>
@@ -1247,6 +1427,16 @@ export default function GoalsPage() {
           goal={historyGoal}
           open={!!historyGoal}
           onClose={() => setHistoryGoal(null)}
+        />
+      )}
+
+      {/* ── Link Habits ── */}
+      {linkHabitsGoal && (
+        <HabitLinkDialog
+          key={linkHabitsGoal.id}
+          goal={linkHabitsGoal}
+          open={!!linkHabitsGoal}
+          onClose={() => setLinkHabitsGoal(null)}
         />
       )}
     </div>

@@ -7,8 +7,13 @@ import { Input } from "@/components/ui/input";
 import {
   ChevronLeft, ChevronRight, BookOpen, Sparkles,
   Trophy, Heart, Target, Search, X, Zap, Tag,
+  Plus, Download, ClipboardCopy, TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  ResponsiveContainer, ComposedChart, Bar, Line,
+  XAxis, YAxis, Tooltip, CartesianGrid,
+} from "recharts";
 import { useDailyTracker, toISODate, MOODS } from "../daily-tracker-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -54,6 +59,13 @@ const MOOD_PROMPTS: Record<string, string> = {
   "🤒": "How is my body feeling?",
 };
 
+// Numeric score for chart (higher = more positive)
+const MOOD_SCORE: Record<string, number> = {
+  "🤩": 5, "😄": 5, "🔥": 4, "💪": 4,
+  "😌": 3.5, "🤔": 3, "😐": 3,
+  "😤": 2, "😔": 1.5, "😰": 1.5, "🥱": 2, "🤒": 1,
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function toDate(iso: string) {
@@ -83,37 +95,90 @@ const empty: Reflection = {
   tags: "",
 };
 
+function buildMarkdown(r: Reflection): string {
+  const date = toDate(r.reflection_date).toLocaleDateString("en-IN", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
+  const lines: string[] = [`# Journal — ${date}`, ""];
+
+  if (r.mood) lines.push(`**Mood:** ${r.mood}  `);
+  if (r.energy_level) lines.push(`**Energy:** ${"★".repeat(r.energy_level)}${"☆".repeat(5 - r.energy_level)}`, "");
+
+  if (r.wins) { lines.push("## Wins", r.wins, ""); }
+  if (r.gratitude) {
+    lines.push("## Gratitude");
+    r.gratitude.split("\n").filter((l) => l.trim()).forEach((l, i) => lines.push(`${i + 1}. ${l}`));
+    lines.push("");
+  }
+  if (r.note) { lines.push("## Reflection", r.note, ""); }
+  if (r.intentions) { lines.push("## Tomorrow's Intentions", r.intentions, ""); }
+  if (r.tags) {
+    const tags = r.tags.split(",").filter(Boolean).map((t) => `#${t}`).join(" ");
+    lines.push("---", tags);
+  }
+  return lines.join("\n");
+}
+
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
 function GratitudeInputs({
   value,
   onChange,
-}: {
+}: Readonly<{
   value: string;
   onChange: (v: string) => void;
-}) {
-  const lines = value.split("\n");
-  const items = [lines[0] ?? "", lines[1] ?? "", lines[2] ?? ""];
+}>) {
+  const items = value.split("\n");
+  // Always show at least 1 field
+  const entries = items.length > 0 ? items : [""];
 
   function update(idx: number, val: string) {
-    const next = [...items];
+    const next = [...entries];
     next[idx] = val;
+    onChange(next.join("\n"));
+  }
+
+  function addItem() {
+    onChange([...entries, ""].join("\n"));
+  }
+
+  function removeItem(idx: number) {
+    if (entries.length <= 1) {
+      onChange("");
+      return;
+    }
+    const next = entries.filter((_, i) => i !== idx);
     onChange(next.join("\n"));
   }
 
   return (
     <div className="space-y-2">
-      {items.map((item, i) => (
+      {entries.map((item, i) => (
         <div key={i} className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground w-4 shrink-0">{i + 1}.</span>
           <Input
-            className="h-8 text-sm"
+            className="h-8 text-sm flex-1"
             placeholder={`I'm grateful for…`}
             value={item}
             onChange={(e) => update(i, e.target.value)}
           />
+          {entries.length > 1 && (
+            <button
+              onClick={() => removeItem(i)}
+              className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       ))}
+      <button
+        onClick={addItem}
+        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mt-1"
+      >
+        <Plus className="h-3 w-3" />
+        Add another
+      </button>
     </div>
   );
 }
@@ -121,12 +186,15 @@ function GratitudeInputs({
 function TagsInput({
   value,
   onChange,
-}: {
+  suggestions = [],
+}: Readonly<{
   value: string;
   onChange: (v: string) => void;
-}) {
+  suggestions?: string[];
+}>) {
   const [input, setInput] = useState("");
   const selected = value ? value.split(",").filter(Boolean) : [];
+  const allPresets = Array.from(new Set([...PRESET_TAGS, ...suggestions]));
 
   function toggle(tag: string) {
     const next = selected.includes(tag)
@@ -136,11 +204,16 @@ function TagsInput({
   }
 
   function addCustom() {
-    const tag = input.trim().toLowerCase().replace(/\s+/g, "-");
+    const tag = input.trim().toLowerCase().replaceAll(" ", "-");
     if (!tag || selected.includes(tag)) { setInput(""); return; }
     onChange([...selected, tag].join(","));
     setInput("");
   }
+
+  const inputLower = input.trim().toLowerCase();
+  const filtered = inputLower
+    ? allPresets.filter((t) => t.includes(inputLower) && !selected.includes(t)).slice(0, 5)
+    : [];
 
   return (
     <div className="space-y-2">
@@ -158,9 +231,37 @@ function TagsInput({
           ))}
         </div>
       )}
-      {/* Preset tags */}
+      {/* Custom tag input with autocomplete */}
+      <div className="relative">
+        <div className="flex gap-1.5">
+          <Input
+            className="h-7 text-xs flex-1"
+            placeholder="Add tag…"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") addCustom(); }}
+          />
+          <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={addCustom}>
+            Add
+          </Button>
+        </div>
+        {filtered.length > 0 && (
+          <div className="absolute z-10 left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-md py-1">
+            {filtered.map((t) => (
+              <button
+                key={t}
+                onMouseDown={(e) => { e.preventDefault(); toggle(t); setInput(""); }}
+                className="w-full text-left text-xs px-3 py-1.5 hover:bg-muted transition-colors"
+              >
+                #{t}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {/* Preset suggestions */}
       <div className="flex flex-wrap gap-1.5">
-        {PRESET_TAGS.filter((t) => !selected.includes(t)).map((tag) => (
+        {allPresets.filter((t) => !selected.includes(t) && !inputLower).map((tag) => (
           <button
             key={tag}
             onClick={() => toggle(tag)}
@@ -169,19 +270,6 @@ function TagsInput({
             #{tag}
           </button>
         ))}
-      </div>
-      {/* Custom tag input */}
-      <div className="flex gap-1.5">
-        <Input
-          className="h-7 text-xs flex-1"
-          placeholder="Add custom tag…"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") addCustom(); }}
-        />
-        <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={addCustom}>
-          Add
-        </Button>
       </div>
     </div>
   );
@@ -193,12 +281,12 @@ function MoodCalendar({
   currentDate,
   todayStr,
   onSelectDate,
-}: {
+}: Readonly<{
   pastReflections: Reflection[];
   currentDate: string;
   todayStr: string;
   onSelectDate: (d: string) => void;
-}) {
+}>) {
   const days: { date: string; reflection: Reflection | null }[] = [];
   for (let i = 13; i >= 0; i--) {
     const d = new Date(todayStr + "T00:00:00");
@@ -248,6 +336,64 @@ function MoodCalendar({
   );
 }
 
+// 14-day mood + energy trend chart
+function TrendChart({ reflections, todayStr }: Readonly<{ reflections: Reflection[]; todayStr: string }>) {
+  const chartData = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(todayStr + "T00:00:00");
+    d.setDate(d.getDate() - i);
+    const ds = toISODate(d);
+    const r = reflections.find((x) => x.reflection_date === ds);
+    chartData.push({
+      day: d.toLocaleDateString("en-IN", { weekday: "short" }).slice(0, 2),
+      energy: r?.energy_level || null,
+      mood: r?.mood ? (MOOD_SCORE[r.mood] ?? null) : null,
+    });
+  }
+
+  const hasAnyData = chartData.some((d) => d.energy !== null || d.mood !== null);
+  if (!hasAnyData) return null;
+
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <h2 className="font-semibold text-sm">14-Day Trend</h2>
+          <div className="ml-auto flex items-center gap-3 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2 w-4 rounded-sm bg-blue-400/50" />Energy
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-0.5 w-4 bg-amber-400" />Mood
+            </span>
+          </div>
+        </div>
+        <ResponsiveContainer width="100%" height={110}>
+          <ComposedChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+            <XAxis dataKey="day" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
+            <YAxis domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
+            <Tooltip
+              contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))" }}
+              labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+            />
+            <Bar dataKey="energy" fill="hsl(217 91% 60% / 0.35)" radius={[2, 2, 0, 0]} name="Energy" />
+            <Line
+              dataKey="mood"
+              stroke="hsl(38 92% 50%)"
+              strokeWidth={2}
+              dot={{ r: 3, fill: "hsl(38 92% 50%)" }}
+              connectNulls
+              name="Mood"
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function JournalPage() {
@@ -260,6 +406,8 @@ export default function JournalPage() {
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
+  const [userTags, setUserTags] = useState<string[]>([]);
+  const [carryingForward, setCarryingForward] = useState(false);
 
   const timers = useRef<Record<string, NodeJS.Timeout>>({});
   const isToday = currentDate === todayStr;
@@ -296,8 +444,18 @@ export default function JournalPage() {
     setAllReflections(results.filter((r): r is Reflection => r !== null));
   }, [todayStr]);
 
+  const fetchUserTags = useCallback(async () => {
+    try {
+      const res = await fetch("/api/daily-tracker/reflections/tags");
+      if (res.ok) setUserTags(await res.json());
+    } catch {
+      // non-critical
+    }
+  }, []);
+
   useEffect(() => { fetchReflection(currentDate); }, [currentDate, fetchReflection]);
   useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { fetchUserTags(); }, [fetchUserTags]);
 
   // ── Save (debounced per field) ──
 
@@ -338,6 +496,37 @@ export default function JournalPage() {
     if (next <= todayStr) setCurrentDate(next);
   }
 
+  async function carryForwardIntentions() {
+    setCarryingForward(true);
+    try {
+      const yesterday = toISODate(new Date(new Date(currentDate + "T00:00:00").getTime() - 86400000));
+      const res = await fetch(`/api/daily-tracker/reflections?date=${yesterday}`);
+      const prev = await res.json();
+      if (prev?.intentions) {
+        save({ intentions: prev.intentions });
+        toast.success("Intentions copied from yesterday");
+      } else {
+        toast.info("No intentions found for yesterday");
+      }
+    } catch {
+      toast.error("Failed to fetch yesterday's entry");
+    } finally {
+      setCarryingForward(false);
+    }
+  }
+
+  function exportMarkdown() {
+    const md = buildMarkdown({ ...data, reflection_date: currentDate });
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `journal-${currentDate}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Exported as Markdown");
+  }
+
   // Search filter
   const filteredPast = allReflections
     .filter((r) => r.reflection_date !== currentDate)
@@ -361,9 +550,20 @@ export default function JournalPage() {
               <p className="text-sm font-semibold">{formatDateFull(toDate(currentDate))}</p>
               {isToday && <span className="text-xs text-primary font-medium">Today</span>}
             </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => changeDate(1)} disabled={isToday}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                title="Export as Markdown"
+                onClick={exportMarkdown}
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => changeDate(1)} disabled={isToday}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           {!isToday && (
             <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={() => setCurrentDate(todayStr)}>
@@ -379,6 +579,9 @@ export default function JournalPage() {
           />
         </CardContent>
       </Card>
+
+      {/* ── 14-Day Trend Chart ── */}
+      <TrendChart reflections={allReflections} todayStr={todayStr} />
 
       {/* ── Mood & Energy ── */}
       <Card>
@@ -478,7 +681,9 @@ export default function JournalPage() {
           <div className="flex items-center gap-2">
             <Heart className="h-4 w-4 text-rose-500" />
             <h2 className="font-semibold text-sm">Gratitude</h2>
-            <span className="text-[10px] text-muted-foreground ml-auto">3 things</span>
+            <span className="text-[10px] text-muted-foreground ml-auto">
+              {data.gratitude.split("\n").filter((l) => l.trim()).length} things
+            </span>
           </div>
           <GratitudeInputs
             value={data.gratitude}
@@ -532,6 +737,18 @@ export default function JournalPage() {
             <Target className="h-4 w-4 text-blue-500" />
             <h2 className="font-semibold text-sm">Tomorrow&apos;s Intentions</h2>
             <span className="text-[10px] text-muted-foreground ml-auto">{wordCount(data.intentions)} words</span>
+            {!data.intentions && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] px-2 text-muted-foreground"
+                onClick={carryForwardIntentions}
+                disabled={carryingForward}
+              >
+                <ClipboardCopy className="h-3 w-3 mr-1" />
+                Copy from yesterday
+              </Button>
+            )}
           </div>
           <textarea
             className="w-full min-h-20 text-sm bg-muted/30 border border-border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
@@ -552,6 +769,7 @@ export default function JournalPage() {
           <TagsInput
             value={data.tags}
             onChange={(v) => save({ tags: v }, 300)}
+            suggestions={userTags}
           />
         </CardContent>
       </Card>

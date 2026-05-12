@@ -27,8 +27,6 @@ import {
   useDailyTracker,
   toISODate,
   computeOverallStreak,
-  MOODS,
-  Journey,
   LifeGoal,
   HabitLog,
 } from "./daily-tracker-context";
@@ -160,6 +158,7 @@ export default function DailyTrackerOverviewPage() {
   const [journeyDialog, setJourneyDialog] = useState(false);
   const [editJourneyName, setEditJourneyName] = useState("");
   const [editJourneyDays, setEditJourneyDays] = useState(249);
+  const [showAllIncomplete, setShowAllIncomplete] = useState(false);
 
   const fetchTodayData = useCallback(async () => {
     if (!journey) return;
@@ -225,7 +224,8 @@ export default function DailyTrackerOverviewPage() {
   const overallStreak = computeOverallStreak(rangeLogs, totalHabits, todayStr);
   const daysRemaining = Math.max(0, journey.total_days - dayNumber);
 
-  const incompleteHabits = habits.filter((h) => !logs.get(h.id)?.completed).slice(0, 5);
+  const incompleteHabits = habits.filter((h) => !logs.get(h.id)?.completed);
+  const visibleIncomplete = showAllIncomplete ? incompleteHabits : incompleteHabits.slice(0, 5);
   const topGoals = lifeGoals.slice(0, 4);
 
   const journeyProgress = Math.min(100, Math.round((dayNumber / journey.total_days) * 100));
@@ -338,7 +338,7 @@ export default function DailyTrackerOverviewPage() {
               </Link>
             </div>
             <div className="divide-y">
-              {incompleteHabits.map((habit) => {
+              {visibleIncomplete.map((habit) => {
                 const completed = logs.get(habit.id)?.completed ?? false;
                 return (
                   <div key={habit.id} className="flex items-center gap-3 px-4 py-3">
@@ -359,6 +359,16 @@ export default function DailyTrackerOverviewPage() {
                 );
               })}
             </div>
+            {incompleteHabits.length > 5 && (
+              <button
+                onClick={() => setShowAllIncomplete((v) => !v)}
+                className="w-full px-4 py-2.5 text-xs text-primary hover:bg-muted/30 transition-colors border-t"
+              >
+                {showAllIncomplete
+                  ? "Show less"
+                  : `Show ${incompleteHabits.length - 5} more`}
+              </button>
+            )}
           </CardContent>
         </Card>
       )}

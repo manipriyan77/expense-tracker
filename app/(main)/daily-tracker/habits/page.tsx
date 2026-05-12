@@ -30,6 +30,9 @@ import {
   Flame,
   ArrowUp,
   ArrowDown,
+  Archive,
+  RotateCcw,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -42,6 +45,35 @@ import {
   HabitLog,
 } from "../daily-tracker-context";
 
+// ─── Habit templates ──────────────────────────────────────────────────────────
+
+const HABIT_TEMPLATES: { title: string; category: string; frequency: string }[] = [
+  { title: "Morning walk / run", category: "health", frequency: "daily" },
+  { title: "Drink 2L water", category: "health", frequency: "daily" },
+  { title: "No junk food", category: "health", frequency: "daily" },
+  { title: "Sleep by 11 pm", category: "health", frequency: "daily" },
+  { title: "Meditate 10 min", category: "spirituality", frequency: "daily" },
+  { title: "Read 20 pages", category: "personal", frequency: "daily" },
+  { title: "Track expenses", category: "finance", frequency: "daily" },
+  { title: "Workout", category: "health", frequency: "custom" },
+  { title: "Journaling", category: "personal", frequency: "daily" },
+  { title: "No social media before 9 am", category: "personal", frequency: "daily" },
+  { title: "Deep work block (2h)", category: "work", frequency: "weekdays" },
+  { title: "Review tasks & plan tomorrow", category: "work", frequency: "weekdays" },
+  { title: "Gratitude practice", category: "spirituality", frequency: "daily" },
+  { title: "Cold shower", category: "health", frequency: "daily" },
+  { title: "Learn something new (30 min)", category: "personal", frequency: "daily" },
+];
+
+const FREQUENCY_OPTIONS = [
+  { value: "daily", label: "Every day" },
+  { value: "weekdays", label: "Weekdays only (Mon–Fri)" },
+  { value: "weekly", label: "Once a week" },
+  { value: "custom", label: "Custom days" },
+];
+
+const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(d: Date) {
@@ -53,6 +85,19 @@ function formatDate(d: Date) {
   });
 }
 
+// Check if a habit should be logged on a given date based on its frequency
+function isHabitScheduledOn(habit: Habit, dateStr: string): boolean {
+  if (!habit.frequency || habit.frequency === "daily") return true;
+  const d = new Date(dateStr + "T00:00:00");
+  const dow = (d.getDay() + 6) % 7; // 0=Mon … 6=Sun
+  if (habit.frequency === "weekdays") return dow <= 4;
+  if (habit.frequency === "weekly") return true; // show every day, user picks their day
+  if (habit.frequency === "custom" && habit.frequency_days?.length) {
+    return habit.frequency_days.includes(dow);
+  }
+  return true;
+}
+
 // ─── Heatmap ──────────────────────────────────────────────────────────────────
 
 function Heatmap({
@@ -60,12 +105,12 @@ function Heatmap({
   totalHabits,
   todayStr,
   onSelectDate,
-}: {
+}: Readonly<{
   rangeLogs: Map<string, Set<string>>;
   totalHabits: number;
   todayStr: string;
   onSelectDate: (date: string) => void;
-}) {
+}>) {
   const weeks: { date: string; pct: number; isToday: boolean; isFuture: boolean }[][] = [];
   const today = new Date(todayStr + "T00:00:00");
   const start = new Date(today);
@@ -91,12 +136,12 @@ function Heatmap({
   return (
     <div className="space-y-1.5">
       <div className="grid grid-cols-7 gap-0.5 mb-0.5">
-        {["M", "T", "W", "T", "F", "S", "S"].map((l, i) => (
-          <div key={i} className="text-center text-[10px] text-muted-foreground">{l}</div>
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((l) => (
+          <div key={l} className="text-center text-[10px] text-muted-foreground">{l[0]}</div>
         ))}
       </div>
-      {weeks.map((week, wi) => (
-        <div key={wi} className="grid grid-cols-7 gap-0.5">
+      {weeks.map((week) => (
+        <div key={week[0]?.date} className="grid grid-cols-7 gap-0.5">
           {week.map((cell) => (
             <button
               key={cell.date}
@@ -107,7 +152,7 @@ function Heatmap({
                 h-5 w-full rounded-sm transition-all
                 ${cell.isFuture ? "bg-muted/30 cursor-default" : heatmapColor(cell.pct)}
                 ${cell.isToday ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : ""}
-                ${!cell.isFuture ? "hover:opacity-80 cursor-pointer" : ""}
+                ${cell.isFuture ? "" : "hover:opacity-80 cursor-pointer"}
               `}
             />
           ))}
@@ -124,37 +169,40 @@ function Heatmap({
   );
 }
 
-// ─── Note Input ───────────────────────────────────────────────────────────────
+// ─── Note Textarea ────────────────────────────────────────────────────────────
 
 function NoteInput({
   defaultValue,
   onSave,
   onCancel,
-}: {
+}: Readonly<{
   defaultValue: string;
   onSave: (v: string) => void;
   onCancel: () => void;
-}) {
+}>) {
   const [value, setValue] = useState(defaultValue);
   return (
-    <div className="flex items-center gap-2">
-      <Input
+    <div className="space-y-1.5">
+      <textarea
         autoFocus
-        className="h-7 text-xs flex-1"
-        placeholder="Add a note for today..."
+        className="w-full text-xs bg-background border border-border rounded-md p-2 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-16 placeholder:text-muted-foreground"
+        placeholder="Add a note for today…"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") onSave(value);
+          if (e.key === "Enter" && e.metaKey) onSave(value);
           if (e.key === "Escape") onCancel();
         }}
       />
-      <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => onSave(value)}>
-        <Check className="h-3.5 w-3.5 text-green-600" />
-      </Button>
-      <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={onCancel}>
-        <X className="h-3.5 w-3.5 text-muted-foreground" />
-      </Button>
+      <div className="flex items-center gap-1.5">
+        <Button size="sm" variant="outline" className="h-6 text-xs flex-1" onClick={onCancel}>
+          <X className="h-3 w-3 mr-1" />Cancel
+        </Button>
+        <Button size="sm" className="h-6 text-xs flex-1" onClick={() => onSave(value)}>
+          <Check className="h-3 w-3 mr-1 text-green-200" />Save
+        </Button>
+      </div>
+      <p className="text-[10px] text-muted-foreground">⌘ + Enter to save</p>
     </div>
   );
 }
@@ -173,8 +221,16 @@ export default function HabitsPage() {
   const [logs, setLogs] = useState<Map<string, HabitLog>>(new Map());
   const [expandedNote, setExpandedNote] = useState<string | null>(null);
   const [habitDialog, setHabitDialog] = useState(false);
+  const [templatesDialog, setTemplatesDialog] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string>("all");
+
+  // Add habit form state
   const [newHabitTitle, setNewHabitTitle] = useState("");
   const [newHabitCategory, setNewHabitCategory] = useState("general");
+  const [newHabitFrequency, setNewHabitFrequency] = useState("daily");
+  const [newHabitDays, setNewHabitDays] = useState<number[]>([]);
+
   const [localHabits, setLocalHabits] = useState<Habit[]>(habits);
 
   useEffect(() => { setLocalHabits(habits); }, [habits]);
@@ -246,26 +302,67 @@ export default function HabitsPage() {
     }
   }
 
-  async function addHabit() {
-    if (!newHabitTitle.trim()) return;
+  async function addHabit(title: string, category: string, frequency: string, frequencyDays: number[]) {
+    if (!title.trim()) return;
     try {
       const res = await fetch("/api/daily-tracker/habits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: newHabitTitle.trim(),
-          category: newHabitCategory,
+          title: title.trim(),
+          category,
           order_index: localHabits.length,
+          frequency,
+          frequency_days: frequency === "custom" ? frequencyDays : null,
         }),
       });
-      if (!res.ok) throw new Error();
-      setNewHabitTitle("");
-      setNewHabitCategory("general");
-      setHabitDialog(false);
+      if (!res.ok) throw new Error("Failed to add habit");
       await refetchHabits();
       toast.success("Habit added");
     } catch {
       toast.error("Failed to add habit");
+    }
+  }
+
+  async function submitAddHabit() {
+    await addHabit(newHabitTitle, newHabitCategory, newHabitFrequency, newHabitDays);
+    setNewHabitTitle("");
+    setNewHabitCategory("general");
+    setNewHabitFrequency("daily");
+    setNewHabitDays([]);
+    setHabitDialog(false);
+  }
+
+  async function addFromTemplate(t: { title: string; category: string; frequency: string }) {
+    await addHabit(t.title, t.category, t.frequency, []);
+  }
+
+  async function archiveHabit(id: string) {
+    setLocalHabits((prev) => prev.map((h) => h.id === id ? { ...h, is_archived: true } : h));
+    try {
+      await fetch(`/api/daily-tracker/habits/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_archived: true }),
+      });
+      await refetchHabits();
+      toast.success("Habit archived");
+    } catch {
+      toast.error("Failed to archive");
+    }
+  }
+
+  async function unarchiveHabit(id: string) {
+    try {
+      await fetch(`/api/daily-tracker/habits/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_archived: false }),
+      });
+      await refetchHabits();
+      toast.success("Habit restored");
+    } catch {
+      toast.error("Failed to restore");
     }
   }
 
@@ -280,9 +377,10 @@ export default function HabitsPage() {
   }
 
   async function moveHabit(id: string, dir: "up" | "down") {
-    const idx = localHabits.findIndex((h) => h.id === id);
-    if ((dir === "up" && idx === 0) || (dir === "down" && idx === localHabits.length - 1)) return;
-    const next = [...localHabits];
+    const activeList = localHabits.filter((h) => !(h as Habit & { is_archived?: boolean }).is_archived);
+    const idx = activeList.findIndex((h) => h.id === id);
+    if ((dir === "up" && idx === 0) || (dir === "down" && idx === activeList.length - 1)) return;
+    const next = [...activeList];
     const swapIdx = dir === "up" ? idx - 1 : idx + 1;
     [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
     const updated = next.map((h, i) => ({ ...h, order_index: i }));
@@ -305,14 +403,30 @@ export default function HabitsPage() {
     }
   }
 
-  const completedCount = localHabits.filter((h) => logs.get(h.id)?.completed).length;
-  const totalHabits = localHabits.length;
+  function toggleCustomDay(dow: number) {
+    setNewHabitDays((prev) =>
+      prev.includes(dow) ? prev.filter((d) => d !== dow) : [...prev, dow]
+    );
+  }
+
+  // Derived
+  const activeHabits = localHabits.filter((h) => !(h as Habit & { is_archived?: boolean }).is_archived);
+  const archivedHabits = localHabits.filter((h) => (h as Habit & { is_archived?: boolean }).is_archived);
+  const scheduledHabits = activeHabits.filter((h) => isHabitScheduledOn(h, currentDate));
+  const filteredHabits = activeCategory === "all"
+    ? scheduledHabits
+    : scheduledHabits.filter((h) => (h.category ?? "general") === activeCategory);
+
+  const completedCount = scheduledHabits.filter((h) => logs.get(h.id)?.completed).length;
+  const totalHabits = scheduledHabits.length;
   const completionPct = totalHabits > 0 ? Math.round((completedCount / totalHabits) * 100) : 0;
 
   const habitsByCategory = HABIT_CATEGORIES.map((cat) => ({
     ...cat,
-    habits: localHabits.filter((h) => (h.category ?? "general") === cat.value),
+    habits: filteredHabits.filter((h) => (h.category ?? "general") === cat.value),
   })).filter((g) => g.habits.length > 0);
+
+  const usedCategories = Array.from(new Set(scheduledHabits.map((h) => h.category ?? "general")));
 
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-4 pb-10">
@@ -379,7 +493,7 @@ export default function HabitsPage() {
           </div>
           <Heatmap
             rangeLogs={rangeLogs}
-            totalHabits={totalHabits}
+            totalHabits={activeHabits.length}
             todayStr={todayStr}
             onSelectDate={setCurrentDate}
           />
@@ -394,29 +508,74 @@ export default function HabitsPage() {
               <Flame className="h-4 w-4 text-orange-500" />
               <h2 className="font-semibold text-sm">Habits</h2>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1 text-xs"
-              onClick={() => setHabitDialog(true)}
-            >
-              <Plus className="h-3.5 w-3.5" />Add
-            </Button>
-          </div>
-
-          {localHabits.length === 0 ? (
-            <div className="px-4 py-8 text-center">
-              <p className="text-sm text-muted-foreground">No habits yet.</p>
+            <div className="flex items-center gap-1">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="mt-2 gap-1"
+                className="h-7 gap-1 text-xs"
+                onClick={() => setTemplatesDialog(true)}
+              >
+                <Sparkles className="h-3.5 w-3.5" />Templates
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1 text-xs"
                 onClick={() => setHabitDialog(true)}
               >
-                <Plus className="h-3.5 w-3.5" />Add your first habit
+                <Plus className="h-3.5 w-3.5" />Add
               </Button>
             </div>
-          ) : (
+          </div>
+
+          {/* Category filter pills */}
+          {usedCategories.length > 1 && (
+            <div className="flex gap-1.5 px-4 py-2 border-b overflow-x-auto">
+              <button
+                onClick={() => setActiveCategory("all")}
+                className={`shrink-0 text-xs px-3 py-1 rounded-full transition-colors ${
+                  activeCategory === "all"
+                    ? "bg-primary text-primary-foreground font-medium"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                All
+              </button>
+              {HABIT_CATEGORIES.filter((c) => usedCategories.includes(c.value)).map((cat) => (
+                <button
+                  key={cat.value}
+                  onClick={() => setActiveCategory(cat.value)}
+                  className={`shrink-0 text-xs px-3 py-1 rounded-full transition-colors ${
+                    activeCategory === cat.value
+                      ? `bg-primary text-primary-foreground font-medium`
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {activeHabits.length === 0 && (
+            <div className="px-4 py-8 text-center">
+              <p className="text-sm text-muted-foreground">No habits yet.</p>
+              <div className="flex gap-2 justify-center mt-2">
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => setTemplatesDialog(true)}>
+                  <Sparkles className="h-3.5 w-3.5" />Start from templates
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => setHabitDialog(true)}>
+                  <Plus className="h-3.5 w-3.5" />Add your own
+                </Button>
+              </div>
+            </div>
+          )}
+          {activeHabits.length > 0 && filteredHabits.length === 0 && (
+            <div className="px-4 py-6 text-center">
+              <p className="text-sm text-muted-foreground">No habits in this category today.</p>
+            </div>
+          )}
+          {activeHabits.length > 0 && filteredHabits.length > 0 && (
             <div className="divide-y">
               {habitsByCategory.map((catGroup) => (
                 <div key={catGroup.value}>
@@ -433,7 +592,10 @@ export default function HabitsPage() {
                     const note = log?.note ?? "";
                     const streak = computeHabitStreak(habit.id, rangeLogs, todayStr);
                     const isExpanded = expandedNote === habit.id;
-                    const allIdx = localHabits.findIndex((h) => h.id === habit.id);
+                    const allIdx = activeHabits.findIndex((h) => h.id === habit.id);
+                    const freqLabel = habit.frequency && habit.frequency !== "daily"
+                      ? FREQUENCY_OPTIONS.find((f) => f.value === habit.frequency)?.label
+                      : null;
 
                     return (
                       <div key={habit.id} className="group border-b last:border-b-0">
@@ -452,6 +614,11 @@ export default function HabitsPage() {
                             <span className={`text-sm font-medium ${completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
                               {habit.title}
                             </span>
+                            {freqLabel && (
+                              <span className="ml-2 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                                {freqLabel}
+                              </span>
+                            )}
                             {note && !isExpanded && (
                               <p className="text-xs text-muted-foreground italic truncate mt-0.5">{note}</p>
                             )}
@@ -466,6 +633,7 @@ export default function HabitsPage() {
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 text-muted-foreground"
+                              title="Add note"
                               onClick={() => setExpandedNote(isExpanded ? null : habit.id)}
                             >
                               <Edit2 className="h-3 w-3" />
@@ -484,14 +652,24 @@ export default function HabitsPage() {
                               size="icon"
                               className="h-6 w-6"
                               onClick={() => moveHabit(habit.id, "down")}
-                              disabled={allIdx === localHabits.length - 1}
+                              disabled={allIdx === activeHabits.length - 1}
                             >
                               <ArrowDown className="h-3 w-3" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-orange-500"
+                              title="Archive habit"
+                              onClick={() => archiveHabit(habit.id)}
+                            >
+                              <Archive className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               className="h-6 w-6 text-destructive hover:text-destructive"
+                              title="Delete habit"
                               onClick={() => deleteHabit(habit.id)}
                             >
                               <Trash2 className="h-3 w-3" />
@@ -514,6 +692,43 @@ export default function HabitsPage() {
               ))}
             </div>
           )}
+
+          {/* Archived habits section */}
+          {archivedHabits.length > 0 && (
+            <div className="border-t">
+              <button
+                onClick={() => setShowArchived((v) => !v)}
+                className="flex items-center gap-2 w-full px-4 py-2.5 text-xs text-muted-foreground hover:bg-muted/20 transition-colors"
+              >
+                <Archive className="h-3.5 w-3.5" />
+                Archived ({archivedHabits.length})
+                <ChevronRight className={`h-3 w-3 ml-auto transition-transform ${showArchived ? "rotate-90" : ""}`} />
+              </button>
+              {showArchived && archivedHabits.map((habit) => (
+                <div key={habit.id} className="flex items-center gap-3 px-4 py-2.5 opacity-50 border-t last:border-b">
+                  <Archive className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground flex-1 line-through">{habit.title}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    title="Restore habit"
+                    onClick={() => unarchiveHabit(habit.id)}
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-destructive hover:text-destructive"
+                    onClick={() => deleteHabit(habit.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -531,31 +746,118 @@ export default function HabitsPage() {
                 placeholder="e.g. Walk 10,000 steps"
                 value={newHabitTitle}
                 onChange={(e) => setNewHabitTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addHabit()}
+                onKeyDown={(e) => e.key === "Enter" && submitAddHabit()}
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Category</Label>
-              <Select value={newHabitCategory} onValueChange={setNewHabitCategory}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {HABIT_CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Category</Label>
+                <Select value={newHabitCategory} onValueChange={setNewHabitCategory}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {HABIT_CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Frequency</Label>
+                <Select value={newHabitFrequency} onValueChange={setNewHabitFrequency}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FREQUENCY_OPTIONS.map((f) => (
+                      <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            {newHabitFrequency === "custom" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Active days</Label>
+                <div className="flex gap-1.5">
+                  {DAY_LABELS.map((label, i) => (
+                    <button
+                      key={label}
+                      onClick={() => toggleCustomDay(i)}
+                      className={`flex-1 text-xs py-1.5 rounded-md border transition-colors ${
+                        newHabitDays.includes(i)
+                          ? "bg-primary text-primary-foreground border-primary font-medium"
+                          : "border-border text-muted-foreground hover:border-primary hover:text-foreground"
+                      }`}
+                    >
+                      {label.slice(0, 2)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setHabitDialog(false)}>
                 Cancel
               </Button>
-              <Button className="flex-1" onClick={addHabit}>
+              <Button className="flex-1" onClick={submitAddHabit} disabled={!newHabitTitle.trim()}>
                 Add Habit
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Templates Dialog ── */}
+      <Dialog open={templatesDialog} onOpenChange={setTemplatesDialog}>
+        <DialogContent className="max-w-sm max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Popular Habits
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-1">Tap any habit to add it instantly.</p>
+          <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+            {HABIT_CATEGORIES.map((cat) => {
+              const catTemplates = HABIT_TEMPLATES.filter((t) => t.category === cat.value);
+              if (catTemplates.length === 0) return null;
+              return (
+                <div key={cat.value}>
+                  <p className={`text-[10px] font-semibold uppercase tracking-wider px-1 py-1.5 ${cat.color}`}>
+                    {cat.label}
+                  </p>
+                  {catTemplates.map((t) => {
+                    const alreadyAdded = localHabits.some((h) => h.title.toLowerCase() === t.title.toLowerCase());
+                    return (
+                      <button
+                        key={t.title}
+                        disabled={alreadyAdded}
+                        onClick={async () => {
+                          await addFromTemplate(t);
+                          toast.success(`"${t.title}" added`);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between gap-2 ${
+                          alreadyAdded
+                            ? "opacity-40 cursor-not-allowed bg-muted/30"
+                            : "hover:bg-muted/60 cursor-pointer"
+                        }`}
+                      >
+                        <span>{t.title}</span>
+                        {alreadyAdded
+                          ? <Check className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                          : <Plus className="h-3.5 w-3.5 text-primary shrink-0 opacity-0 group-hover:opacity-100" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+          <Button variant="outline" className="mt-2" onClick={() => setTemplatesDialog(false)}>
+            Done
+          </Button>
         </DialogContent>
       </Dialog>
     </div>

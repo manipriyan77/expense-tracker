@@ -31,9 +31,19 @@ export async function POST(request: NextRequest) {
     const { title, order_index } = body;
     if (!title) return NextResponse.json({ error: "Missing title" }, { status: 400 });
 
+    const { category, frequency, frequency_days } = body;
+
     const { data, error } = await supabase
       .from("daily_habits")
-      .insert({ title, order_index: order_index ?? 0, user_id: user.id, is_active: true })
+      .insert({
+        title,
+        order_index: order_index ?? 0,
+        user_id: user.id,
+        is_active: true,
+        category: category ?? "general",
+        frequency: frequency ?? "daily",
+        frequency_days: frequency_days ?? null,
+      })
       .select()
       .single();
 
