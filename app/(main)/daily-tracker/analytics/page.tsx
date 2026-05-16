@@ -381,7 +381,7 @@ export default function AnalyticsPage() {
               <YAxis domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9 }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
               <Tooltip
                 contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))" }}
-                formatter={(v: number) => [`${v}%`, "Completion"]}
+                formatter={(v: number | undefined) => [`${v ?? 0}%`, "Completion"]}
                 labelStyle={{ color: "hsl(var(--muted-foreground))", fontSize: 10 }}
               />
               <Bar dataKey="pct" radius={[2, 2, 0, 0]} name="Completion">
