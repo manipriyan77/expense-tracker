@@ -32,6 +32,15 @@ import {
   CheckSquare,
   LayoutDashboard,
   Star,
+  Calculator,
+  Brain,
+  Dumbbell,
+  ClipboardList,
+  History,
+  Play,
+  Library,
+  LineChart,
+  Ruler,
 } from "lucide-react";
 import { Button } from "./button";
 import { usePrivacyStore } from "@/store/privacy-store";
@@ -89,6 +98,15 @@ const HUB_ITEMS = [
     bg: "bg-primary/10 hover:bg-primary/20",
     border: "border-primary/20",
   },
+  {
+    title: "Workout",
+    href: "/workout",
+    icon: Dumbbell,
+    description: "Track your training",
+    color: "text-green-500",
+    bg: "bg-green-500/10 hover:bg-green-500/20",
+    border: "border-green-500/20",
+  },
 ];
 
 // ─── Section nav items ──────────────────────────────────────────────────────
@@ -103,6 +121,17 @@ const DAILY_TRACKER_NAV: NavItem[] = [
 
 const TASKS_NAV: NavItem[] = [
   { title: "My Tasks", href: "/tasks", icon: CheckSquare },
+];
+
+const WORKOUT_NAV: NavItem[] = [
+  { title: "Overview", href: "/workout", icon: LayoutDashboard },
+  { title: "Log Workout", href: "/workout/log", icon: Play },
+  { title: "Routines", href: "/workout/routines", icon: ClipboardList },
+  { title: "History", href: "/workout/history", icon: History },
+  { title: "Exercises", href: "/workout/exercises", icon: Library },
+  { title: "Programs", href: "/workout/programs", icon: BookOpen },
+  { title: "Analytics", href: "/workout/analytics", icon: LineChart },
+  { title: "Body Measurements", href: "/workout/body", icon: Ruler },
 ];
 
 const FINANCE_NAV: NavItem[] = [
@@ -125,10 +154,12 @@ const FINANCE_NAV: NavItem[] = [
     subItems: [
       { title: "Budgets", href: "/budgets", icon: BarChart3 },
       { title: "Goals", href: "/goals", icon: Flag },
+      { title: "Goals Intelligence", href: "/goals-analysis", icon: Brain },
       { title: "Cashflow", href: "/cashflow-planning", icon: ArrowLeftRight },
     ],
   },
   { title: "Investments", href: "/investments", icon: TrendingUp },
+  { title: "SIP / SWP Calculator", href: "/sip-calculator", icon: Calculator },
   { title: "Net Worth", href: "/net-worth", icon: Scale },
   {
     title: "Analytics",
@@ -143,12 +174,13 @@ const FINANCE_NAV: NavItem[] = [
 
 // ─── Section detection ──────────────────────────────────────────────────────
 
-type Section = "home" | "daily-tracker" | "tasks" | "finance";
+type Section = "home" | "daily-tracker" | "tasks" | "finance" | "workout";
 
 function getSection(pathname: string): Section {
   if (pathname === "/home") return "home";
   if (pathname.startsWith("/daily-tracker")) return "daily-tracker";
   if (pathname.startsWith("/tasks")) return "tasks";
+  if (pathname.startsWith("/workout")) return "workout";
   return "finance";
 }
 
@@ -159,6 +191,7 @@ const SECTION_META: Record<
   "daily-tracker": { label: "Daily Tracker", nav: DAILY_TRACKER_NAV, accent: "text-orange-500" },
   tasks: { label: "Tasks", nav: TASKS_NAV, accent: "text-violet-500" },
   finance: { label: "Finance", nav: FINANCE_NAV, accent: "text-primary" },
+  workout: { label: "Workout", nav: WORKOUT_NAV, accent: "text-green-500" },
 };
 
 // ─── Props ──────────────────────────────────────────────────────────────────

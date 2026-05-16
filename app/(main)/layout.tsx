@@ -66,7 +66,17 @@ const PAGE_TITLES: Record<string, string> = {
   "/daily-tracker/journal": "Journal",
   "/daily-tracker/analytics": "Analytics",
   "/tasks": "Tasks",
+  "/workout": "Workout",
+  "/workout/log": "Log Workout",
+  "/workout/routines": "Routines",
+  "/workout/history": "History",
+  "/workout/exercises": "Exercise Library",
+  "/workout/analytics": "Analytics",
+  "/workout/body": "Body Measurements",
+  "/workout/programs": "Programs",
   "/settings": "Settings",
+  "/sip-calculator": "SIP / SWP Calculator",
+  "/goals-analysis": "Goals Intelligence",
 };
 
 // Top-level pages reachable directly — no back button needed
@@ -79,6 +89,14 @@ const SIDEBAR_ROOTS = new Set([
   "/daily-tracker/journal",
   "/daily-tracker/analytics",
   "/tasks",
+  "/workout",
+  "/workout/log",
+  "/workout/routines",
+  "/workout/history",
+  "/workout/exercises",
+  "/workout/analytics",
+  "/workout/body",
+  "/workout/programs",
   "/transactions",
   "/budgets",
   "/goals",
@@ -128,6 +146,13 @@ export default function MainLayout({
     } else if (pathname.startsWith("/tasks")) {
       crumbs.push({ label: "Tasks", href: "/tasks" });
       if (pathname !== "/tasks") crumbs.push({ label: pageTitle });
+    } else if (pathname.startsWith("/workout")) {
+      if (pathname === "/workout") {
+        crumbs.push({ label: "Workout" });
+      } else {
+        crumbs.push({ label: "Workout", href: "/workout" });
+        crumbs.push({ label: pageTitle });
+      }
     } else {
       crumbs.push({ label: "Finance", href: "/dashboard" });
       if (pathname !== "/dashboard") crumbs.push({ label: pageTitle });
