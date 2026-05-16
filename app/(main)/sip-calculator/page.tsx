@@ -322,7 +322,7 @@ function SIPCalculator() {
                 <XAxis dataKey="year" tickFormatter={(v) => `Y${v}`} tick={{ fontSize: 10 }} stroke="#94a3b8" />
                 <YAxis tickFormatter={(v) => fmtShort(v).replace("₹", "").trim()} tick={{ fontSize: 10 }} stroke="#94a3b8" width={50} />
                 <Tooltip contentStyle={TOOLTIP_STYLE} // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(v: any, name: string) => [fmtShort(Number(v)), name]} labelFormatter={(l) => `Year ${l}`} />
+                  formatter={(v: any, name: string | undefined) => [fmtShort(Number(v)), name ?? ""]} labelFormatter={(l) => `Year ${l}`} />
                 <Area type="monotone" dataKey="invested" name="Invested" stroke="#3b82f6" strokeWidth={2} fill="url(#sipInvested)" />
                 <Area type="monotone" dataKey="value" name="Future Value" stroke="#8b5cf6" strokeWidth={2} fill="url(#sipValue)" />
               </AreaChart>
@@ -545,7 +545,7 @@ function SWPCalculator() {
                 <XAxis dataKey="year" tickFormatter={(v) => `Y${v}`} tick={{ fontSize: 10 }} stroke="#94a3b8" />
                 <YAxis tickFormatter={(v) => fmtShort(v).replace("₹", "").trim()} tick={{ fontSize: 10 }} stroke="#94a3b8" width={50} />
                 <Tooltip contentStyle={TOOLTIP_STYLE} // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(v: any, name: string) => [fmtShort(Number(v)), name]} labelFormatter={(l) => `Year ${l}`} />
+                  formatter={(v: any, name: string | undefined) => [fmtShort(Number(v)), name ?? ""]} labelFormatter={(l) => `Year ${l}`} />
                 <Area type="monotone" dataKey="totalWithdrawn" name="Total Withdrawn" stroke="#22c55e" strokeWidth={2} fill="url(#swpWithdrawn)" />
                 <Area type="monotone" dataKey="balance" name="Remaining Balance" stroke="#8b5cf6" strokeWidth={2} fill="url(#swpBalance)" />
               </AreaChart>

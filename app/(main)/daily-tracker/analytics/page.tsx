@@ -449,7 +449,7 @@ export default function AnalyticsPage() {
               <YAxis domain={[0, 100]} ticks={[0, 50, 100]} tick={{ fontSize: 9 }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
               <Tooltip
                 contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))" }}
-                formatter={(v: number) => [`${v}%`, "Avg"]}
+                formatter={(v: number | undefined) => [`${v ?? 0}%`, "Avg"]}
               />
               <Bar dataKey="avg" radius={[3, 3, 0, 0]} fill="hsl(var(--primary) / 0.6)" name="Avg" />
             </BarChart>

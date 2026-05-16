@@ -28,6 +28,8 @@ export interface Habit {
   title: string;
   order_index: number;
   category: string;
+  frequency?: "daily" | "weekdays" | "weekends" | "weekly" | "custom" | string;
+  frequency_days?: number[];
 }
 
 export interface HabitLog {
