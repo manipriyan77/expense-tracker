@@ -52,8 +52,6 @@ import {
   Car,
   Briefcase,
   CreditCard,
-  ArrowUpCircle,
-  ArrowDownCircle,
   Trash2,
   Edit,
   MoreVertical,
@@ -66,11 +64,20 @@ import {
   Camera,
   Activity,
   PiggyBank,
+  Target,
+  Zap,
+  Droplets,
+  AlertTriangle,
+  CheckCircle2,
+  CalendarClock,
+  BadgePercent,
 } from "lucide-react";
 import Link from "next/link";
 import {
+  ComposedChart,
   AreaChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -80,7 +87,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend,
 } from "recharts";
 
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
@@ -278,7 +284,29 @@ export default function NetWorthPage() {
     return Object.entries(totals).map(([name, value]) => ({ name, value })).filter((i) => i.value > 0);
   }, [stocks]);
 
-  // Net worth trend: from Jan 2026 only, up to 6 months (snapshot or current net worth)
+  // ── Goal tracking (localStorage) ──
+  const [goalAmount, setGoalAmount] = useState<number>(0);
+  const [goalDialogOpen, setGoalDialogOpen] = useState(false);
+  const [goalInput, setGoalInput] = useState("");
+
+  useEffect(() => {
+    const stored = localStorage.getItem("nw_goal");
+    if (stored) setGoalAmount(parseFloat(stored));
+  }, []);
+
+  const saveGoal = () => {
+    const val = parseFloat(goalInput);
+    if (!isNaN(val) && val > 0) {
+      setGoalAmount(val);
+      localStorage.setItem("nw_goal", String(val));
+      setGoalDialogOpen(false);
+      toast.success("Goal saved!");
+    }
+  };
+
+  const goalProgress = goalAmount > 0 ? Math.min((netWorth / goalAmount) * 100, 100) : 0;
+
+  // ── Net worth trend: from Jan 2026 only, up to 6 months (snapshot or current net worth)
   const NET_WORTH_START_YEAR = 2026;
   const NET_WORTH_START_MONTH = 2; // March
 
@@ -363,6 +391,194 @@ export default function NetWorthPage() {
 
     return months;
   }, [snapshots, netWorth]);
+
+  // Month-over-month delta
+  const momDelta = useMemo(() => {
+    if (historicalData.length < 2) return null;
+    const prev = historicalData[historicalData.length - 2].netWorth;
+    const curr = historicalData[historicalData.length - 1].netWorth;
+    const abs = curr - prev;
+    const pct = prev !== 0 ? (abs / Math.abs(prev)) * 100 : 0;
+    return { abs, pct };
+  }, [historicalData]);
+
+  // Projected trend: extrapolate 3 months forward using avg monthly change
+  const chartData = useMemo(() => {
+    const historical = historicalData.map((d, i) => ({
+      month: d.month,
+      actual: d.netWorth,
+      projected: i === historicalData.length - 1 ? d.netWorth : undefined,
+      sourceLabel: d.sourceLabel,
+    }));
+
+    if (historicalData.length < 2) return historical;
+
+    const changes = historicalData.slice(1).map((d, i) => d.netWorth - historicalData[i].netWorth);
+    const avgChange = changes.reduce((s, c) => s + c, 0) / changes.length;
+    const lastNW = historicalData[historicalData.length - 1].netWorth;
+    const lastDate = new Date();
+
+    const projected = [1, 2, 3].map((offset) => {
+      const d = new Date(lastDate.getFullYear(), lastDate.getMonth() + offset, 1);
+      return {
+        month: d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+        actual: undefined,
+        projected: lastNW + avgChange * offset,
+        sourceLabel: "Projected",
+      };
+    });
+
+    return [...historical, ...projected];
+  }, [historicalData]);
+
+  const debtRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
+
+  // Liquidity breakdown
+  const liquidityData = useMemo(() => {
+    const mfValue = mutualFunds.reduce((s, f) => s + f.currentValue, 0);
+    const stockValue = stocks.reduce((s, s2) => s + s2.currentValue, 0);
+    const forexValue = forexEntries.reduce((sum, e) => {
+      if (e.type === "deposit") return sum + e.amount;
+      if (e.type === "withdrawal") return sum - e.amount;
+      if (e.type === "pnl") return sum + e.amount;
+      return sum;
+    }, 0);
+    const cashBank = assets.filter((a) => a.type === "cash" || a.type === "bank").reduce((s, a) => s + a.value, 0);
+    const goldValue = holdings.reduce((s, h) => s + h.quantityGrams * h.currentPricePerGram, 0);
+    const otherValue = otherInvestments.reduce((s, x) => s + x.currentValue, 0);
+    const illiquid = assets.filter((a) => a.type === "property" || a.type === "vehicle").reduce((s, a) => s + a.value, 0);
+    const liquid = cashBank + mfValue + stockValue + forexValue;
+    const semiLiquid = goldValue + otherValue;
+    return { liquid, semiLiquid, illiquid, total: liquid + semiLiquid + illiquid };
+  }, [assets, holdings, mutualFunds, stocks, forexEntries, otherInvestments]);
+
+  // Financial health score (0–100)
+  const healthScore = useMemo(() => {
+    let score = 0;
+    // Debt ratio (0–40)
+    if (debtRatio < 10) score += 40;
+    else if (debtRatio < 20) score += 32;
+    else if (debtRatio < 30) score += 24;
+    else if (debtRatio < 50) score += 12;
+    else score += 0;
+    // Liquidity (0–30): liquid % of total assets
+    const liquidPct = totalAssets > 0 ? (liquidityData.liquid / totalAssets) * 100 : 0;
+    if (liquidPct > 50) score += 30;
+    else if (liquidPct > 30) score += 22;
+    else if (liquidPct > 15) score += 14;
+    else score += 5;
+    // Diversification (0–20): number of non-zero asset categories
+    const nonZeroCategories = assetBreakdown.filter((i) => i.value > 0).length;
+    score += Math.min(nonZeroCategories * 4, 20);
+    // MoM growth (0–10)
+    if (momDelta && momDelta.pct > 2) score += 10;
+    else if (momDelta && momDelta.pct > 0) score += 6;
+    else if (momDelta && momDelta.pct > -2) score += 2;
+    return Math.min(score, 100);
+  }, [debtRatio, liquidityData, assetBreakdown, momDelta, totalAssets]);
+
+  const healthLabel = healthScore >= 80 ? "Excellent" : healthScore >= 60 ? "Good" : healthScore >= 40 ? "Fair" : "Needs Attention";
+  const healthColor = healthScore >= 80 ? "text-emerald-500" : healthScore >= 60 ? "text-blue-500" : healthScore >= 40 ? "text-amber-500" : "text-red-500";
+  const healthBg = healthScore >= 80 ? "bg-emerald-500" : healthScore >= 60 ? "bg-blue-500" : healthScore >= 40 ? "bg-amber-500" : "bg-red-500";
+
+  // Sub-scores for detailed breakdown
+  const healthSubScores = useMemo(() => {
+    let debtScore = 0;
+    if (debtRatio < 10) debtScore = 40;
+    else if (debtRatio < 20) debtScore = 32;
+    else if (debtRatio < 30) debtScore = 24;
+    else if (debtRatio < 50) debtScore = 12;
+
+    const liquidPct = totalAssets > 0 ? (liquidityData.liquid / totalAssets) * 100 : 0;
+    let liquidScore = 5;
+    if (liquidPct > 50) liquidScore = 30;
+    else if (liquidPct > 30) liquidScore = 22;
+    else if (liquidPct > 15) liquidScore = 14;
+
+    const categories = assetBreakdown.filter((i) => i.value > 0).length;
+    const divScore = Math.min(categories * 4, 20);
+
+    let growthScore = 0;
+    if (momDelta && momDelta.pct > 2) growthScore = 10;
+    else if (momDelta && momDelta.pct > 0) growthScore = 6;
+    else if (momDelta && momDelta.pct > -2) growthScore = 2;
+
+    return { debtScore, liquidScore, divScore, growthScore };
+  }, [debtRatio, liquidityData, assetBreakdown, momDelta, totalAssets]);
+
+  // Health insights
+  const healthInsights = useMemo(() => {
+    const tips: { text: string; severity: "warn" | "bad" | "good" }[] = [];
+    if (debtRatio >= 50) tips.push({ text: "High debt-to-asset ratio. Consider paying down high-interest liabilities first.", severity: "bad" });
+    else if (debtRatio >= 30) tips.push({ text: "Debt ratio is moderate. Aim below 30% for a healthier balance sheet.", severity: "warn" });
+    else tips.push({ text: "Debt ratio is healthy. Keep liabilities in check as assets grow.", severity: "good" });
+
+    const liquidPct = totalAssets > 0 ? (liquidityData.liquid / totalAssets) * 100 : 0;
+    if (liquidPct < 15) tips.push({ text: "Liquid assets are low. Consider keeping 3–6 months of expenses in liquid form.", severity: "bad" });
+    else if (liquidPct < 30) tips.push({ text: "Liquidity is fair but could be improved. Maintain a larger liquid buffer.", severity: "warn" });
+    else tips.push({ text: "Good liquidity. Liquid assets cover a healthy share of your portfolio.", severity: "good" });
+
+    const cats = assetBreakdown.filter((i) => i.value > 0).length;
+    if (cats < 3) tips.push({ text: "Portfolio is concentrated. Diversify across more asset classes to reduce risk.", severity: "warn" });
+
+    if (momDelta && momDelta.pct < 0) tips.push({ text: `Net worth declined ${Math.abs(momDelta.pct).toFixed(1)}% this month. Review expenses or underperforming assets.`, severity: "bad" });
+
+    return tips.slice(0, 3);
+  }, [debtRatio, liquidityData, assetBreakdown, momDelta, totalAssets]);
+
+  // Liquidity breakdown with actual items
+  const liquidityBreakdown = useMemo(() => {
+    const cashBank = assets
+      .filter((a) => a.type === "cash" || a.type === "bank")
+      .map((a) => ({ name: a.name, value: a.value }));
+    const mfValue = mutualFunds.reduce((s, f) => s + f.currentValue, 0);
+    const stockValue = stocks.reduce((s, s2) => s + s2.currentValue, 0);
+    const forexValue = forexEntries.reduce((sum, e) => {
+      if (e.type === "deposit") return sum + e.amount;
+      if (e.type === "withdrawal") return sum - e.amount;
+      if (e.type === "pnl") return sum + e.amount;
+      return sum;
+    }, 0);
+    const goldValue = holdings.reduce((s, h) => s + h.quantityGrams * h.currentPricePerGram, 0);
+    const otherValue = otherInvestments.reduce((s, x) => s + x.currentValue, 0);
+    const illiquidAssets = assets
+      .filter((a) => a.type === "property" || a.type === "vehicle")
+      .map((a) => ({ name: a.name, value: a.value }));
+
+    const liquidItems = [
+      ...cashBank,
+      ...(mfValue > 0 ? [{ name: "Mutual Funds", value: mfValue }] : []),
+      ...(stockValue > 0 ? [{ name: "Stocks", value: stockValue }] : []),
+      ...(forexValue > 0 ? [{ name: "Forex", value: forexValue }] : []),
+    ];
+    const semiItems = [
+      ...(goldValue > 0 ? [{ name: "Gold", value: goldValue }] : []),
+      ...(otherValue > 0 ? [{ name: "Other Investments", value: otherValue }] : []),
+    ];
+    const instantLiquid = cashBank.reduce((s, a) => s + a.value, 0);
+
+    return { liquidItems, semiItems, illiquidItems: illiquidAssets, instantLiquid };
+  }, [assets, holdings, mutualFunds, stocks, forexEntries, otherInvestments]);
+
+  // Debt analytics
+  const debtAnalytics = useMemo(() => {
+    const annualInterest = liabilities.reduce((s, l) => {
+      if (l.interest_rate) return s + (l.balance * l.interest_rate) / 100;
+      return s;
+    }, 0);
+    const monthlyMinimum = liabilities.reduce((s, l) => s + (l.minimum_payment || 0), 0);
+    // Rough payoff months using minimum payment (simplified)
+    const payoffEstimates = liabilities
+      .filter((l) => l.minimum_payment && l.minimum_payment > 0)
+      .map((l) => {
+        const rate = (l.interest_rate || 0) / 100 / 12;
+        if (rate === 0) return { name: l.name, months: Math.ceil(l.balance / l.minimum_payment!) };
+        const n = -Math.log(1 - (rate * l.balance) / l.minimum_payment!) / Math.log(1 + rate);
+        return { name: l.name, months: isFinite(n) && n > 0 ? Math.ceil(n) : null };
+      });
+    return { annualInterest, monthlyMinimum, payoffEstimates };
+  }, [liabilities]);
+
   const handleAddAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -513,7 +729,6 @@ export default function NetWorthPage() {
     }
   };
 
-  const debtRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
   const financialHealthColor = debtRatio < 30 ? "text-emerald-400" : debtRatio < 60 ? "text-amber-400" : "text-red-400";
   const financialHealthLabel = debtRatio < 30 ? "Healthy" : debtRatio < 60 ? "Moderate" : "High Risk";
 
@@ -539,18 +754,35 @@ export default function NetWorthPage() {
               <p className={`text-4xl sm:text-5xl font-mono font-bold tracking-tight leading-none ${netWorth >= 0 ? "text-white" : "text-red-400"}`}>
                 {format(netWorth)}
               </p>
-              <p className="text-xs text-slate-500 mt-1.5">Assets − Liabilities</p>
+              <div className="flex items-center gap-3 mt-1.5">
+                <p className="text-xs text-slate-500">Assets − Liabilities</p>
+                {momDelta && (
+                  <span className={`flex items-center gap-0.5 text-xs font-semibold ${momDelta.abs >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {momDelta.abs >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                    {momDelta.abs >= 0 ? "+" : ""}{momDelta.pct.toFixed(1)}% MoM
+                  </span>
+                )}
+              </div>
             </div>
-            <button
-              onClick={async () => {
-                try { await createSnapshot(); toast.success("Snapshot saved!"); }
-                catch { toast.error("Failed to save snapshot"); }
-              }}
-              className="flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 transition-colors text-white px-3 py-1.5 rounded-lg mt-1 shrink-0"
-            >
-              <Camera className="h-3.5 w-3.5" />
-              Snapshot
-            </button>
+            <div className="flex items-center gap-2 mt-1 shrink-0">
+              <button
+                onClick={() => { setGoalInput(goalAmount > 0 ? String(goalAmount) : ""); setGoalDialogOpen(true); }}
+                className="flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 transition-colors text-white px-3 py-1.5 rounded-lg"
+              >
+                <Target className="h-3.5 w-3.5" />
+                Goal
+              </button>
+              <button
+                onClick={async () => {
+                  try { await createSnapshot(); toast.success("Snapshot saved!"); }
+                  catch { toast.error("Failed to save snapshot"); }
+                }}
+                className="flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 transition-colors text-white px-3 py-1.5 rounded-lg"
+              >
+                <Camera className="h-3.5 w-3.5" />
+                Snapshot
+              </button>
+            </div>
           </div>
 
           {/* Assets vs Liabilities visual bar */}
@@ -575,6 +807,22 @@ export default function NetWorthPage() {
                   <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
                   Liabilities {totalAssets > 0 ? `${((totalLiabilities / (totalAssets + totalLiabilities)) * 100).toFixed(0)}%` : ""}
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* Goal progress */}
+          {goalAmount > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] uppercase tracking-widest text-slate-400 flex items-center gap-1"><Target className="h-3 w-3" /> Goal Progress</span>
+                <span className="text-[10px] text-slate-400">{format(netWorth)} / {format(goalAmount)} · {goalProgress.toFixed(1)}%</span>
+              </div>
+              <div className="h-2 w-full rounded-full overflow-hidden bg-slate-700">
+                <div
+                  className="h-full rounded-full bg-linear-to-r from-blue-500 to-emerald-500 transition-all duration-700"
+                  style={{ width: `${goalProgress}%` }}
+                />
               </div>
             </div>
           )}
@@ -631,7 +879,7 @@ export default function NetWorthPage() {
           </CardHeader>
           <CardContent className="pt-4 pb-2 px-2">
             <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={historicalData} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+              <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
                 <defs>
                   <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
@@ -657,19 +905,22 @@ export default function NetWorthPage() {
                 <Tooltip
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
-                    const p = payload[0].payload as { month: string; netWorth: number; sourceLabel: string };
+                    const p = payload[0].payload as { month: string; actual?: number; projected?: number; sourceLabel?: string };
+                    const val = p.actual ?? p.projected;
+                    const isProj = p.actual === undefined;
                     return (
                       <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-xs">
-                        <p className="font-semibold mb-1">{p.month}</p>
-                        <p className={`font-mono font-bold ${p.netWorth >= 0 ? "text-blue-600" : "text-red-500"}`}>{format(p.netWorth)}</p>
-                        <p className="text-muted-foreground mt-1 max-w-50">{p.sourceLabel}</p>
+                        <p className="font-semibold mb-1">{p.month}{isProj ? " (projected)" : ""}</p>
+                        <p className={`font-mono font-bold ${(val ?? 0) >= 0 ? "text-blue-600" : "text-red-500"}`}>{format(val ?? 0)}</p>
+                        {p.sourceLabel && !isProj && <p className="text-muted-foreground mt-1 max-w-50">{p.sourceLabel}</p>}
                       </div>
                     );
                   }}
                 />
                 <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="2 2" />
-                <Area type="monotone" dataKey="netWorth" stroke="#3b82f6" strokeWidth={2} fill="url(#nwGrad)" dot={{ r: 3, fill: "#3b82f6" }} activeDot={{ r: 5 }} name="Net Worth" />
-              </AreaChart>
+                <Area type="monotone" dataKey="actual" stroke="#3b82f6" strokeWidth={2} fill="url(#nwGrad)" dot={{ r: 3, fill: "#3b82f6" }} activeDot={{ r: 5 }} name="Net Worth" connectNulls={false} />
+                <Line type="monotone" dataKey="projected" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3, fill: "#3b82f6", strokeDasharray: "0" }} activeDot={{ r: 5 }} name="Projected" connectNulls={false} />
+              </ComposedChart>
             </ResponsiveContainer>
           </CardContent>
 
@@ -799,6 +1050,228 @@ export default function NetWorthPage() {
                   })}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Financial Health + Liquidity row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Health Score */}
+          <Card>
+            <div className="px-4 pt-4 pb-3 border-b flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-500" />
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Financial Health Score</p>
+              </div>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${healthScore >= 80 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" : healthScore >= 60 ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" : healthScore >= 40 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"}`}>{healthLabel}</span>
+            </div>
+            <CardContent className="pt-4 pb-4 space-y-5">
+              {/* Score gauge + overall */}
+              <div className="flex items-center gap-5">
+                <div className="relative w-24 h-24 shrink-0">
+                  <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
+                    <circle cx="48" cy="48" r="40" fill="none" stroke="currentColor" strokeWidth="10" className="text-muted/30" />
+                    <circle cx="48" cy="48" r="40" fill="none" strokeWidth="10"
+                      strokeDasharray={`${(healthScore / 100) * 251} 251`}
+                      strokeLinecap="round"
+                      className={healthBg.replace("bg-", "stroke-")}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className={`text-2xl font-bold font-mono leading-none ${healthColor}`}>{healthScore}</span>
+                    <span className="text-[9px] text-muted-foreground">/100</span>
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  {/* Segmented score bar */}
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">Score Breakdown</p>
+                  <div className="relative h-3 w-full rounded-full overflow-hidden bg-muted">
+                    <div className="absolute inset-y-0 left-0 flex h-full rounded-full overflow-hidden transition-all duration-700" style={{ width: `${healthScore}%` }}>
+                      {[
+                        { val: healthSubScores.debtScore, color: "#10b981", label: "Debt" },
+                        { val: healthSubScores.liquidScore, color: "#3b82f6", label: "Liquidity" },
+                        { val: healthSubScores.divScore, color: "#8b5cf6", label: "Diversification" },
+                        { val: healthSubScores.growthScore, color: "#f59e0b", label: "Growth" },
+                      ].filter(s => s.val > 0).map((seg) => (
+                        <div key={seg.label} className="h-full" style={{ flex: seg.val, backgroundColor: seg.color }} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    {[
+                      { label: "Debt", color: "#10b981" },
+                      { label: "Liquidity", color: "#3b82f6" },
+                      { label: "Divers.", color: "#8b5cf6" },
+                      { label: "Growth", color: "#f59e0b" },
+                    ].map((l) => (
+                      <span key={l.label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: l.color }} />{l.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub-score rows */}
+              <div className="space-y-3">
+                {[
+                  {
+                    label: "Debt Management", icon: Shield, score: healthSubScores.debtScore, max: 40,
+                    value: `${debtRatio.toFixed(1)}% debt-to-asset`, color: "#10b981",
+                    status: debtRatio < 30 ? "good" : debtRatio < 60 ? "fair" : "bad",
+                    target: "Target < 30%",
+                  },
+                  {
+                    label: "Liquidity", icon: Droplets, score: healthSubScores.liquidScore, max: 30,
+                    value: `${totalAssets > 0 ? ((liquidityData.liquid / totalAssets) * 100).toFixed(1) : 0}% liquid assets`, color: "#3b82f6",
+                    status: liquidityData.liquid / (totalAssets || 1) > 0.3 ? "good" : liquidityData.liquid / (totalAssets || 1) > 0.15 ? "fair" : "bad",
+                    target: "Target > 30%",
+                  },
+                  {
+                    label: "Diversification", icon: BarChart3, score: healthSubScores.divScore, max: 20,
+                    value: `${assetBreakdown.filter(i => i.value > 0).length} of 6 asset classes`, color: "#8b5cf6",
+                    status: assetBreakdown.filter(i => i.value > 0).length >= 4 ? "good" : assetBreakdown.filter(i => i.value > 0).length >= 2 ? "fair" : "bad",
+                    target: "Target ≥ 4 classes",
+                  },
+                  {
+                    label: "Growth (MoM)", icon: TrendingUp, score: healthSubScores.growthScore, max: 10,
+                    value: momDelta ? `${momDelta.abs >= 0 ? "+" : ""}${momDelta.pct.toFixed(2)}% this month` : "No prior snapshot",
+                    color: "#f59e0b",
+                    status: !momDelta ? "fair" : momDelta.pct > 0 ? "good" : "bad",
+                    target: "Target > 0%",
+                  },
+                ].map((row) => {
+                  const Icon = row.icon;
+                  return (
+                    <div key={row.label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-sm font-medium">{row.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{row.value}</span>
+                          <span className="font-mono text-xs font-bold" style={{ color: row.color }}>{row.score}/{row.max}</span>
+                          {row.status === "good" && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
+                          {row.status === "fair" && <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
+                          {row.status === "bad" && <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />}
+                        </div>
+                      </div>
+                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(row.score / row.max) * 100}%`, backgroundColor: row.color }} />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{row.target}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Insights */}
+              {healthInsights.length > 0 && (
+                <div className="border-t pt-3 space-y-2">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Insights</p>
+                  {healthInsights.map((tip, i) => (
+                    <div key={i} className={`flex items-start gap-2 text-xs rounded-lg px-3 py-2 ${tip.severity === "good" ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400" : tip.severity === "warn" ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400" : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"}`}>
+                      {tip.severity === "good" ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-px" /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />}
+                      <span>{tip.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Liquidity Breakdown */}
+          <Card>
+            <div className="px-4 pt-4 pb-3 border-b flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Droplets className="h-4 w-4 text-blue-500" />
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Liquidity Analysis</p>
+              </div>
+              <span className="text-[10px] text-muted-foreground">{format(liquidityData.total)} total</span>
+            </div>
+            <CardContent className="pt-4 pb-4 space-y-4">
+              {/* Stacked bar */}
+              <div>
+                <div className="flex h-4 w-full rounded-lg overflow-hidden gap-0.5">
+                  {liquidityData.total > 0 && [
+                    { value: liquidityData.liquid, color: "#10b981" },
+                    { value: liquidityData.semiLiquid, color: "#f59e0b" },
+                    { value: liquidityData.illiquid, color: "#ef4444" },
+                  ].map((seg, i) => seg.value > 0 && (
+                    <div key={i} className="h-full transition-all duration-700 rounded-sm" style={{ flex: seg.value, backgroundColor: seg.color }} />
+                  ))}
+                  {liquidityData.total === 0 && <div className="flex-1 bg-muted rounded-lg" />}
+                </div>
+                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                  {[
+                    { label: "Liquid", color: "#10b981", pct: liquidityData.total > 0 ? (liquidityData.liquid / liquidityData.total) * 100 : 0 },
+                    { label: "Semi-Liquid", color: "#f59e0b", pct: liquidityData.total > 0 ? (liquidityData.semiLiquid / liquidityData.total) * 100 : 0 },
+                    { label: "Illiquid", color: "#ef4444", pct: liquidityData.total > 0 ? (liquidityData.illiquid / liquidityData.total) * 100 : 0 },
+                  ].map((l) => (
+                    <span key={l.label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ backgroundColor: l.color }} />
+                      {l.label} {l.pct.toFixed(0)}%
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Instant liquidity highlight */}
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg px-3 py-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Instant Liquidity</p>
+                    <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70">Cash & bank accounts (manual assets only)</p>
+                  </div>
+                  <p className="font-mono text-sm font-bold text-emerald-700 dark:text-emerald-400">{format(liquidityBreakdown.instantLiquid)}</p>
+                </div>
+                {liquidityBreakdown.instantLiquid === 0 && (
+                  <div className="mt-2 flex items-center gap-1.5 text-[10px] text-emerald-700/70 dark:text-emerald-500/70">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    <span>No cash or bank assets added. Go to the <strong>Assets tab</strong> → Add Asset → select type <strong>Cash</strong> or <strong>Bank Account</strong> to track this.</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Tier breakdown */}
+              {[
+                { label: "Liquid Assets", sublabel: "Can be accessed within days", value: liquidityData.liquid, items: liquidityBreakdown.liquidItems, color: "#10b981", dot: "bg-emerald-500" },
+                { label: "Semi-Liquid Assets", sublabel: "May take days to weeks to convert", value: liquidityData.semiLiquid, items: liquidityBreakdown.semiItems, color: "#f59e0b", dot: "bg-amber-500" },
+                { label: "Illiquid Assets", sublabel: "Property, vehicles — takes months", value: liquidityData.illiquid, items: liquidityBreakdown.illiquidItems, color: "#ef4444", dot: "bg-red-500" },
+              ].map((tier) => {
+                const pct = liquidityData.total > 0 ? (tier.value / liquidityData.total) * 100 : 0;
+                return (
+                  <div key={tier.label} className="border rounded-lg overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2.5 h-2.5 rounded-full ${tier.dot}`} />
+                        <div>
+                          <p className="text-sm font-semibold">{tier.label}</p>
+                          <p className="text-[10px] text-muted-foreground">{tier.sublabel}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-mono text-sm font-bold" style={{ color: tier.color }}>{format(tier.value)}</p>
+                        <p className="text-[10px] text-muted-foreground">{pct.toFixed(1)}% of portfolio</p>
+                      </div>
+                    </div>
+                    {tier.items.length > 0 && (
+                      <div className="divide-y divide-border/60">
+                        {tier.items.map((item) => (
+                          <div key={item.name} className="flex items-center justify-between px-3 py-1.5 text-xs">
+                            <span className="text-muted-foreground">{item.name}</span>
+                            <span className="font-mono font-medium">{format(item.value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {tier.items.length === 0 && (
+                      <p className="text-[10px] text-muted-foreground px-3 py-2 italic">None tracked</p>
+                    )}
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
         </div>
@@ -1087,6 +1560,71 @@ export default function NetWorthPage() {
                 )}
               </CardContent>
             </Card>
+          {/* Debt Intelligence */}
+          {liabilities.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <div className="px-4 pt-4 pb-3 border-b flex items-center gap-2">
+                  <BadgePercent className="h-4 w-4 text-orange-500" />
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Annual Interest Burden</p>
+                </div>
+                <CardContent className="pt-4 pb-4">
+                  <p className="font-mono text-2xl font-bold text-orange-500">{format(debtAnalytics.annualInterest)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">per year in interest across all debts</p>
+                  <div className="mt-3 space-y-1.5">
+                    {liabilities.filter(l => l.interest_rate).map(l => (
+                      <div key={l.id} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground truncate max-w-32">{l.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-orange-500 font-medium">{l.interest_rate}% APR</span>
+                          <span className="font-mono">{format((l.balance * (l.interest_rate ?? 0)) / 100)}/yr</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="pt-1 border-t flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Monthly minimums</span>
+                      <span className="font-mono font-semibold">{format(debtAnalytics.monthlyMinimum)}/mo</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <div className="px-4 pt-4 pb-3 border-b flex items-center gap-2">
+                  <CalendarClock className="h-4 w-4 text-purple-500" />
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Payoff Timeline</p>
+                </div>
+                <CardContent className="pt-4 pb-4">
+                  {debtAnalytics.payoffEstimates.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-4 text-center">Add minimum payments to see payoff estimates</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {debtAnalytics.payoffEstimates.map((item) => {
+                        const years = item.months ? Math.floor(item.months / 12) : null;
+                        const months = item.months ? item.months % 12 : null;
+                        const label = item.months === null ? "Never (payment too low)" : years && years > 0 ? `${years}y ${months}mo` : `${item.months}mo`;
+                        const bad = item.months === null || (item.months ?? 0) > 60;
+                        return (
+                          <div key={item.name}>
+                            <div className="flex items-center justify-between mb-1 text-xs">
+                              <span className="font-medium truncate max-w-40">{item.name}</span>
+                              <span className={`font-mono font-semibold ${bad ? "text-red-500" : "text-purple-500"}`}>{label}</span>
+                            </div>
+                            {item.months !== null && (
+                              <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-purple-500 transition-all" style={{ width: `${Math.max(5, 100 - Math.min((item.months / 120) * 100, 100))}%` }} />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           </TabsContent>
 
           {/* BREAKDOWN TAB */}
@@ -1238,6 +1776,35 @@ export default function NetWorthPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Goal Dialog */}
+      <Dialog open={goalDialogOpen} onOpenChange={setGoalDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set Net Worth Goal</DialogTitle>
+            <DialogDescription>Track your progress towards a target net worth</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Target Net Worth</Label>
+              <Input
+                type="number"
+                placeholder="e.g., 10000000"
+                value={goalInput}
+                onChange={(e) => setGoalInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && saveGoal()}
+              />
+              <p className="text-xs text-muted-foreground">Current: {format(netWorth)}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button className="flex-1" onClick={saveGoal}>Save Goal</Button>
+              {goalAmount > 0 && (
+                <Button variant="outline" onClick={() => { setGoalAmount(0); localStorage.removeItem("nw_goal"); setGoalDialogOpen(false); }}>Clear</Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Asset Dialog */}
       <Dialog open={isEditAssetOpen} onOpenChange={setIsEditAssetOpen}>

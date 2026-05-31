@@ -41,6 +41,7 @@ import {
   Library,
   LineChart,
   Ruler,
+  GraduationCap,
 } from "lucide-react";
 import { Button } from "./button";
 import { usePrivacyStore } from "@/store/privacy-store";
@@ -107,6 +108,15 @@ const HUB_ITEMS = [
     bg: "bg-green-500/10 hover:bg-green-500/20",
     border: "border-green-500/20",
   },
+  {
+    title: "Learning",
+    href: "/learning",
+    icon: GraduationCap,
+    description: "Track your learning",
+    color: "text-indigo-500",
+    bg: "bg-indigo-500/10 hover:bg-indigo-500/20",
+    border: "border-indigo-500/20",
+  },
 ];
 
 // ─── Section nav items ──────────────────────────────────────────────────────
@@ -121,6 +131,11 @@ const DAILY_TRACKER_NAV: NavItem[] = [
 
 const TASKS_NAV: NavItem[] = [
   { title: "My Tasks", href: "/tasks", icon: CheckSquare },
+];
+
+const LEARNING_NAV: NavItem[] = [
+  { title: "Overview", href: "/learning", icon: LayoutDashboard },
+  { title: "Topics", href: "/learning/topics", icon: GraduationCap },
 ];
 
 const WORKOUT_NAV: NavItem[] = [
@@ -174,13 +189,14 @@ const FINANCE_NAV: NavItem[] = [
 
 // ─── Section detection ──────────────────────────────────────────────────────
 
-type Section = "home" | "daily-tracker" | "tasks" | "finance" | "workout";
+type Section = "home" | "daily-tracker" | "tasks" | "finance" | "workout" | "learning";
 
 function getSection(pathname: string): Section {
   if (pathname === "/home") return "home";
   if (pathname.startsWith("/daily-tracker")) return "daily-tracker";
   if (pathname.startsWith("/tasks")) return "tasks";
   if (pathname.startsWith("/workout")) return "workout";
+  if (pathname.startsWith("/learning")) return "learning";
   return "finance";
 }
 
@@ -192,6 +208,7 @@ const SECTION_META: Record<
   tasks: { label: "Tasks", nav: TASKS_NAV, accent: "text-violet-500" },
   finance: { label: "Finance", nav: FINANCE_NAV, accent: "text-primary" },
   workout: { label: "Workout", nav: WORKOUT_NAV, accent: "text-green-500" },
+  learning: { label: "Learning", nav: LEARNING_NAV, accent: "text-indigo-500" },
 };
 
 // ─── Props ──────────────────────────────────────────────────────────────────

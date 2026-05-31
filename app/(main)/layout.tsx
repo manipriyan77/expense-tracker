@@ -74,6 +74,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/workout/analytics": "Analytics",
   "/workout/body": "Body Measurements",
   "/workout/programs": "Programs",
+  "/learning": "Learning",
+  "/learning/topics": "Topics",
   "/settings": "Settings",
   "/sip-calculator": "SIP / SWP Calculator",
   "/goals-analysis": "Goals Intelligence",
@@ -97,6 +99,8 @@ const SIDEBAR_ROOTS = new Set([
   "/workout/analytics",
   "/workout/body",
   "/workout/programs",
+  "/learning",
+  "/learning/topics",
   "/transactions",
   "/budgets",
   "/goals",
@@ -151,6 +155,13 @@ export default function MainLayout({
         crumbs.push({ label: "Workout" });
       } else {
         crumbs.push({ label: "Workout", href: "/workout" });
+        crumbs.push({ label: pageTitle });
+      }
+    } else if (pathname.startsWith("/learning")) {
+      if (pathname === "/learning") {
+        crumbs.push({ label: "Learning" });
+      } else {
+        crumbs.push({ label: "Learning", href: "/learning" });
         crumbs.push({ label: pageTitle });
       }
     } else {
