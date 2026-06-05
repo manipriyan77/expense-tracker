@@ -81,6 +81,7 @@ import {
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
+import PortfolioSnapshot from "@/components/portfolio-snapshot";
 
 type AssetClass =
   | "stocks"
@@ -1688,7 +1689,7 @@ export default function InvestmentsPage() {
       <main className="px-4 sm:px-6 lg:px-8 py-3 space-y-3">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-7 h-auto gap-0.5 p-1 bg-muted/60 rounded-lg">
+          <TabsList className="grid w-full grid-cols-8 h-auto gap-0.5 p-1 bg-muted/60 rounded-lg">
             <TabsTrigger
               value="all"
               className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
@@ -1751,6 +1752,12 @@ export default function InvestmentsPage() {
               className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
             >
               Silver
+            </TabsTrigger>
+            <TabsTrigger
+              value="portfolio-snapshot"
+              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
+            >
+              Portfolio
             </TabsTrigger>
           </TabsList>
 
@@ -5154,6 +5161,11 @@ export default function InvestmentsPage() {
                 })}
               </div>
             )}
+          </TabsContent>
+
+          {/* ── PORTFOLIO SNAPSHOT TAB ── */}
+          <TabsContent value="portfolio-snapshot" className="mt-4">
+            <PortfolioSnapshot />
           </TabsContent>
         </Tabs>
       </main>

@@ -3,16 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  BarChart,
   Bar,
   AreaChart,
   Area,
+  ComposedChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   Legend,
+  ReferenceLine,
 } from "recharts";
 import {
   TrendingUp,
@@ -32,6 +34,12 @@ import {
   Brain,
   TrendingUpIcon,
   Zap,
+  Activity,
+  Shield,
+  ChevronUp,
+  ChevronDown,
+  Sparkles,
+  Wallet,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +57,38 @@ import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { ListPageSkeleton } from "@/components/ui/skeleton";
 
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
+
+// ── Investment portfolio snapshot (from Tickertape CSV export, 05-Jun-26) ────
+const MF_HOLDINGS = [
+  { name: "HDFC ELSS Tax Saver", amc: "HDFC", category: "Equity", subCategory: "ELSS", plan: "Direct", nav: 1422.13, units: 1.27, invested: 1998.85, current: 1798.99, weight: 0.24, pnl: -199.86, pnlPct: -10.0, xirr: -15.55, since: "2025-09-17" },
+  { name: "HDFC Liquid Fund", amc: "HDFC", category: "Debt", subCategory: "Liquid Fund", plan: "Direct", nav: 5476.95, units: 3.86, invested: 21141.69, current: 21146.51, weight: 2.78, pnl: 4.82, pnlPct: 0.02, xirr: 6.2, since: "2024-09-22" },
+  { name: "HDFC Retirement Savings-Equity", amc: "HDFC", category: "Other", subCategory: "Retirement Fund", plan: "Direct", nav: 53.58, units: 44.54, invested: 2499.86, current: 2386.74, weight: 0.31, pnl: -113.12, pnlPct: -4.53, xirr: -4.54, since: "2025-05-07" },
+  { name: "HDFC Focused Fund", amc: "HDFC", category: "Equity", subCategory: "Focused Fund", plan: "Standard", nav: 219.81, units: 313.56, invested: 70996.51, current: 68925.32, weight: 9.07, pnl: -2071.19, pnlPct: -2.92, xirr: -11.62, since: "2025-11-07" },
+  { name: "HDFC Pharma and Healthcare Fund", amc: "HDFC", category: "Equity", subCategory: "Sectoral - Pharma", plan: "Standard", nav: 19.38, units: 2912.51, invested: 49997.48, current: 56435.71, weight: 7.43, pnl: 6438.23, pnlPct: 12.88, xirr: 17.68, since: "2025-07-07" },
+  { name: "Kotak Multicap Fund", amc: "Kotak", category: "Equity", subCategory: "Multi Cap", plan: "Standard", nav: 19.37, units: 2594.97, invested: 49997.51, current: 50262.03, weight: 6.61, pnl: 264.52, pnlPct: 0.53, xirr: 1.93, since: "2025-11-07" },
+  { name: "SBI Liquid Fund", amc: "SBI", category: "Debt", subCategory: "Liquid Fund", plan: "Direct", nav: 4359.95, units: 3.29, invested: 14299.78, current: 14339.87, weight: 1.89, pnl: 40.09, pnlPct: 0.28, xirr: 6.12, since: "2024-06-10" },
+  { name: "SBI Contra Fund", amc: "SBI", category: "Equity", subCategory: "Contra Fund", plan: "Standard", nav: 368.33, units: 130.51, invested: 49997.65, current: 48071.93, weight: 6.33, pnl: -1925.72, pnlPct: -3.85, xirr: -5.15, since: "2025-07-07" },
+  { name: "ICICI Pru Equity Min Variance", amc: "ICICI", category: "Equity", subCategory: "Thematic", plan: "Standard", nav: 10.25, units: 1416.47, invested: 14999.25, current: 14518.84, weight: 1.91, pnl: -480.41, pnlPct: -3.2, xirr: -4.82, since: "2025-09-08" },
+  { name: "ICICI Pru India Opp Fund", amc: "ICICI", category: "Equity", subCategory: "Thematic", plan: "Standard", nav: 35.26, units: 1976.41, invested: 70996.44, current: 69688.39, weight: 9.17, pnl: -1308.05, pnlPct: -1.84, xirr: -7.45, since: "2026-02-09" },
+  { name: "ICICI Pru Innovation Fund", amc: "ICICI", category: "Equity", subCategory: "Thematic", plan: "Standard", nav: 18.35, units: 529.91, invested: 9999.5, current: 9723.94, weight: 1.28, pnl: -275.56, pnlPct: -2.76, xirr: -4.74, since: "2025-11-07" },
+  { name: "Tata Business Cycle Fund", amc: "Tata", category: "Equity", subCategory: "Thematic", plan: "Standard", nav: 18.51, units: 526.34, invested: 9999.5, current: 9743.96, weight: 1.28, pnl: -255.54, pnlPct: -2.56, xirr: -4.4, since: "2025-11-07" },
+  { name: "Tata Income Plus Arbitrage FOF", amc: "Tata", category: "Other", subCategory: "FoFs Hybrid", plan: "Standard", nav: 10.43, units: 958.94, invested: 9999.5, current: 10005.92, weight: 1.32, pnl: 6.42, pnlPct: 0.06, xirr: 0.81, since: "2026-05-07" },
+  { name: "Tata Resources & Energy Fund", amc: "Tata", category: "Equity", subCategory: "Sectoral - Energy", plan: "Standard", nav: 48.92, units: 907.2, invested: 41997.88, current: 44382.16, weight: 5.84, pnl: 2384.28, pnlPct: 5.68, xirr: 40.77, since: "2026-03-09" },
+  { name: "Tata Small Cap Fund", amc: "Tata", category: "Equity", subCategory: "Small Cap", plan: "Standard", nav: 36.11, units: 2815.94, invested: 100994.94, current: 101683.52, weight: 13.38, pnl: 688.58, pnlPct: 0.68, xirr: 1.75, since: "2025-08-07" },
+  { name: "ITI Bharat Consumption Fund", amc: "ITI", category: "Equity", subCategory: "Sectoral - Consumption", plan: "Standard", nav: 10.82, units: 868.21, invested: 9999.5, current: 9390.71, weight: 1.24, pnl: -608.79, pnlPct: -6.09, xirr: -10.34, since: "2025-11-07" },
+  { name: "Nippon India Banking & FS Fund", amc: "Nippon", category: "Equity", subCategory: "Sectoral - Banking", plan: "Standard", nav: 609.0, units: 113.13, invested: 70995.61, current: 68898.36, weight: 9.07, pnl: -2097.26, pnlPct: -2.95, xirr: -11.76, since: "2025-11-07" },
+  { name: "Nippon India Flexi Cap Fund", amc: "Nippon", category: "Equity", subCategory: "Flexi Cap", plan: "Standard", nav: 15.91, units: 8068.53, invested: 129756.52, current: 128408.19, weight: 16.9, pnl: -1348.33, pnlPct: -1.04, xirr: -2.35, since: "2025-07-07" },
+  { name: "Nippon India Conservative Hybrid", amc: "Nippon", category: "Hybrid", subCategory: "Conservative Hybrid", plan: "Standard", nav: 60.61, units: 495.17, invested: 29438.28, current: 30012.78, weight: 3.95, pnl: 574.5, pnlPct: 1.95, xirr: 2.24, since: "2025-10-27" },
+] as const;
+
+
+const STOCK_HOLDINGS = [
+  { name: "GOLDBEES", type: "ETF", qty: 55, avgCost: 127.47, ltp: 127.78, portfolioWeight: 27.23, invested: 7010.85, current: 7027.90, pnl: 17.05, pnlPct: 0.24, dailyChange: -0.72, dailyChangePct: -0.56 },
+  { name: "HDFCBANK", type: "Stock", qty: 10, avgCost: 756.40, ltp: 747.05, portfolioWeight: 28.94, invested: 7564.00, current: 7470.50, pnl: -93.50, pnlPct: -1.24, dailyChange: -7.15, dailyChangePct: -0.95 },
+  { name: "RPOWER", type: "Stock", qty: 55, avgCost: 27.49, ltp: 28.59, portfolioWeight: 6.09, invested: 1511.95, current: 1572.45, pnl: 60.50, pnlPct: 4.0, dailyChange: 1.20, dailyChangePct: 4.38 },
+  { name: "SILVERBEES", type: "ETF", qty: 40, avgCost: 246.08, ltp: 243.58, portfolioWeight: 37.74, invested: 9843.20, current: 9743.20, pnl: -100.00, pnlPct: -1.02, dailyChange: -2.98, dailyChangePct: -1.21 },
+  { name: "Equity & Gold Allocation", type: "Smallcase", qty: null, avgCost: null, ltp: null, portfolioWeight: 2.02, invested: 403.14, current: 520.92, pnl: 117.78, pnlPct: 29.22, dailyChange: null, dailyChangePct: null },
+] as const;
 
 function shortAmount(v: number): string {
   if (v >= 10_000_000) return `₹${(v / 10_000_000).toFixed(1)}Cr`;
@@ -90,7 +130,7 @@ export default function CashflowPlanningPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const now = new Date();
+  const now = useMemo(() => new Date(), []);
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
   const currentMonthLabel = now.toLocaleDateString("en-IN", {
@@ -546,6 +586,104 @@ export default function CashflowPlanningPage() {
     };
   }, [sixMonthAvg, patterns, debts, scenarioIncomeBoost, scenarioExtraExpense]);
 
+  // ── Last month for delta comparison ──────────────────
+  const lastMonthTxns = useMemo(() => {
+    const lm = currentMonth === 0 ? 11 : currentMonth - 1;
+    const ly = currentMonth === 0 ? currentYear - 1 : currentYear;
+    return transactions.filter((t) => {
+      const d = new Date(t.date);
+      return d.getMonth() === lm && d.getFullYear() === ly;
+    });
+  }, [transactions, currentMonth, currentYear]);
+
+  const lastMonthIncome = useMemo(
+    () => lastMonthTxns.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0),
+    [lastMonthTxns],
+  );
+  const lastMonthExpenses = useMemo(
+    () => lastMonthTxns.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0),
+    [lastMonthTxns],
+  );
+  const lastMonthSurplus = lastMonthIncome - lastMonthExpenses;
+  const savingsRateNum = currentIncome > 0 ? (surplus / currentIncome) * 100 : 0;
+  const lastMonthSavingsRate = lastMonthIncome > 0 ? (lastMonthSurplus / lastMonthIncome) * 100 : 0;
+
+  // ── Category breakdown (current month) ──────────────
+  const categoryBreakdown = useMemo(() => {
+    const cats: Record<string, number> = {};
+    currentMonthTxns
+      .filter((t) => t.type === "expense")
+      .forEach((t) => {
+        cats[t.category] = (cats[t.category] || 0) + t.amount;
+      });
+    const total = Object.values(cats).reduce((s, v) => s + v, 0);
+    return Object.entries(cats)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 7)
+      .map(([cat, amount]) => ({ cat, amount, pct: total > 0 ? Math.round((amount / total) * 100) : 0 }));
+  }, [currentMonthTxns]);
+
+  // ── Budget / goal health ──────────────────────────────
+  const budgetHealthScore = useMemo(() => {
+    if (budgets.length === 0) return null;
+    const onTrack = budgets.filter((b) => (b.spent_amount || 0) <= b.limit_amount).length;
+    return { score: Math.round((onTrack / budgets.length) * 100), onTrack, total: budgets.length };
+  }, [budgets]);
+
+  const overallGoalProgress = useMemo(() => {
+    if (activeGoals.length === 0) return null;
+    const avg =
+      activeGoals.reduce((s, g) => s + Math.min(100, (g.currentAmount / g.targetAmount) * 100), 0) /
+      activeGoals.length;
+    return Math.round(avg);
+  }, [activeGoals]);
+
+  // ── Smart insights ────────────────────────────────────
+  const smartInsights = useMemo(() => {
+    const insights: { key: string; text: string; type: "positive" | "warning" | "neutral" }[] = [];
+
+    if (currentIncome > 0) {
+      const srDelta = savingsRateNum - lastMonthSavingsRate;
+      if (Math.abs(srDelta) >= 2) {
+        insights.push({
+          key: "sr",
+          text: srDelta > 0
+            ? `Savings rate up ${srDelta.toFixed(1)}pp vs last month`
+            : `Savings rate down ${Math.abs(srDelta).toFixed(1)}pp vs last month`,
+          type: srDelta > 0 ? "positive" : "warning",
+        });
+      }
+    }
+
+    if (categoryBreakdown.length > 0) {
+      const top = categoryBreakdown[0];
+      insights.push({ key: "top-cat", text: `${top.cat} is your top spend at ${top.pct}% of expenses`, type: "neutral" });
+    }
+
+    const overBudgets = budgets.filter((b) => (b.spent_amount || 0) > b.limit_amount);
+    if (overBudgets.length > 0) {
+      insights.push({ key: "over-budget", text: `${overBudgets.length} budget${overBudgets.length > 1 ? "s" : ""} over limit this month`, type: "warning" });
+    } else if (budgets.length > 0) {
+      insights.push({ key: "all-budget", text: "All budgets within limit this month", type: "positive" });
+    }
+
+    const urgentGoals = activeGoals.filter((g) => {
+      if (!g.targetDate) return false;
+      const d = new Date(g.targetDate);
+      const moLeft = (d.getFullYear() - now.getFullYear()) * 12 + (d.getMonth() - now.getMonth());
+      return moLeft <= 3 && moLeft >= 0;
+    });
+    if (urgentGoals.length > 0) {
+      insights.push({ key: "urgent-goal", text: `"${urgentGoals[0].title}" goal deadline within 3 months`, type: "warning" });
+    }
+
+    if (forecast18.totalFreedEMI > 0) {
+      insights.push({ key: "emi-free", text: `${forecast18.closingIn18.length} EMI${forecast18.closingIn18.length > 1 ? "s" : ""} clearing in 18 months — frees ${shortAmount(forecast18.totalFreedEMI)}/mo`, type: "positive" });
+    }
+
+    return insights.slice(0, 4);
+  }, [savingsRateNum, lastMonthSavingsRate, categoryBreakdown, budgets, activeGoals, forecast18, currentIncome, now]);
+
   if (loading && transactions.length === 0) {
     return <ListPageSkeleton />;
   }
@@ -621,123 +759,211 @@ export default function CashflowPlanningPage() {
             <TabsTrigger value="calculator" className="flex items-center gap-1.5">
               <Brain className="h-3.5 w-3.5" /> Smart Calculator
             </TabsTrigger>
+            <TabsTrigger value="investments" className="flex items-center gap-1.5">
+              <TrendingUpIcon className="h-3.5 w-3.5" /> Investments
+            </TabsTrigger>
           </TabsList>
 
           {/* ══════════════ OVERVIEW TAB ══════════════ */}
           <TabsContent value="overview" className="space-y-4">
+
+            {/* ── Financial Pulse ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Savings Rate */}
+              <Card className="relative overflow-hidden">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Savings Rate</p>
+                    <Activity className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  </div>
+                  <p className={`font-mono font-bold text-xl ${savingsRateNum >= 20 ? "text-green-600 dark:text-green-400" : savingsRateNum >= 10 ? "text-yellow-600 dark:text-yellow-400" : "text-red-500"}`}>
+                    {currentIncome > 0 ? `${savingsRateNum.toFixed(1)}%` : "—"}
+                  </p>
+                  {currentIncome > 0 && lastMonthIncome > 0 && (() => {
+                    const delta = savingsRateNum - lastMonthSavingsRate;
+                    return (
+                      <p className={`text-[10px] flex items-center gap-0.5 mt-0.5 font-mono ${delta >= 0 ? "text-green-500" : "text-red-500"}`}>
+                        {delta >= 0 ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                        {Math.abs(delta).toFixed(1)}pp vs last mo
+                      </p>
+                    );
+                  })()}
+                  {currentIncome === 0 && <p className="text-[10px] text-muted-foreground mt-0.5">No income logged</p>}
+                </CardContent>
+                <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${savingsRateNum >= 20 ? "bg-green-500" : savingsRateNum >= 10 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${Math.min(100, Math.max(0, savingsRateNum * 2))}%` }} />
+              </Card>
+
+              {/* Net Surplus */}
+              <Card className="relative overflow-hidden">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Net Surplus</p>
+                    <Wallet className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  </div>
+                  <p className={`font-mono font-bold text-xl ${surplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                    {surplus < 0 ? "-" : "+"}{shortAmount(Math.abs(surplus))}
+                  </p>
+                  {lastMonthIncome > 0 && (() => {
+                    const delta = surplus - lastMonthSurplus;
+                    return (
+                      <p className={`text-[10px] flex items-center gap-0.5 mt-0.5 font-mono ${delta >= 0 ? "text-green-500" : "text-red-500"}`}>
+                        {delta >= 0 ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                        {shortAmount(Math.abs(delta))} vs last mo
+                      </p>
+                    );
+                  })()}
+                  {lastMonthIncome === 0 && <p className="text-[10px] text-muted-foreground mt-0.5">{currentMonthLabel}</p>}
+                </CardContent>
+                <div className={`absolute bottom-0 left-0 h-0.5 right-0 ${surplus >= 0 ? "bg-green-500" : "bg-red-500"}`} />
+              </Card>
+
+              {/* Budget Health */}
+              <Card className="relative overflow-hidden">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Budget Health</p>
+                    <Shield className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  </div>
+                  {budgetHealthScore ? (
+                    <>
+                      <p className={`font-mono font-bold text-xl ${budgetHealthScore.score === 100 ? "text-green-600 dark:text-green-400" : budgetHealthScore.score >= 70 ? "text-yellow-600 dark:text-yellow-400" : "text-red-500"}`}>
+                        {budgetHealthScore.onTrack}/{budgetHealthScore.total}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">budgets on track</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-mono font-bold text-xl text-muted-foreground">—</p>
+                      <Link href="/budgets" className="text-[10px] text-primary hover:underline mt-0.5 block">Set budgets</Link>
+                    </>
+                  )}
+                </CardContent>
+                {budgetHealthScore && (
+                  <div className="absolute bottom-0 left-0 h-0.5 bg-green-500" style={{ width: `${budgetHealthScore.score}%`, right: 0 }} />
+                )}
+              </Card>
+
+              {/* Goal Progress */}
+              <Card className="relative overflow-hidden">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Goal Progress</p>
+                    <Target className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  </div>
+                  {overallGoalProgress !== null ? (
+                    <>
+                      <p className={`font-mono font-bold text-xl ${overallGoalProgress >= 75 ? "text-green-600 dark:text-green-400" : overallGoalProgress >= 40 ? "text-yellow-600 dark:text-yellow-400" : "text-blue-600 dark:text-blue-400"}`}>
+                        {overallGoalProgress}%
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">avg across {activeGoals.length} goal{activeGoals.length !== 1 ? "s" : ""}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-mono font-bold text-xl text-muted-foreground">—</p>
+                      <Link href="/goals" className="text-[10px] text-primary hover:underline mt-0.5 block">Create a goal</Link>
+                    </>
+                  )}
+                </CardContent>
+                {overallGoalProgress !== null && (
+                  <div className="absolute bottom-0 left-0 h-0.5 bg-indigo-500" style={{ width: `${overallGoalProgress}%` }} />
+                )}
+              </Card>
+            </div>
+
+            {/* ── Smart Insights ── */}
+            {smartInsights.length > 0 && (
+              <div className="flex items-start gap-2 overflow-x-auto pb-0.5 no-scrollbar">
+                <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                  <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Insights</span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {smartInsights.map((ins) => (
+                    <div key={ins.key} className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium border shrink-0
+                      ${ins.type === "positive" ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-950/20 dark:border-green-800 dark:text-green-300"
+                        : ins.type === "warning" ? "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/20 dark:border-amber-800 dark:text-amber-300"
+                        : "bg-muted border-border text-muted-foreground"}`}>
+                      {ins.type === "positive" ? <CheckCircle2 className="h-3 w-3 shrink-0" />
+                        : ins.type === "warning" ? <AlertCircle className="h-3 w-3 shrink-0" />
+                        : <Lightbulb className="h-3 w-3 shrink-0" />}
+                      {ins.text}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ── Cashflow section ── */}
             <section>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                  Cashflow
-                </p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Cashflow</p>
                 <div className="flex items-center gap-3">
-                  <Link
-                    href="/transactions"
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
+                  <Link href="/transactions" className="text-xs text-primary hover:underline flex items-center gap-1">
                     <ReceiptText className="h-3 w-3" /> Transactions
                   </Link>
-                  <Link
-                    href="/recurring"
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
+                  <Link href="/recurring" className="text-xs text-primary hover:underline flex items-center gap-1">
                     <CalendarClock className="h-3 w-3" /> Recurring
                   </Link>
-                  <Link
-                    href="/insights"
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
+                  <Link href="/insights" className="text-xs text-primary hover:underline flex items-center gap-1">
                     <Lightbulb className="h-3 w-3" /> Insights
                   </Link>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Enhanced chart — bars + surplus line */}
                 <Card className="lg:col-span-2 rounded-lg">
                   <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                     <div className="flex items-center justify-between">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        6-Month Cashflow
-                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">6-Month Cashflow</p>
                       <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground">
                         <span className="flex items-center gap-1">
-                          <TrendingUp className="h-3 w-3 text-green-500" />
-                          Avg {shortAmount(sixMonthAvg.income)}/mo
+                          <TrendingUp className="h-3 w-3 text-green-500" />Avg {shortAmount(sixMonthAvg.income)}/mo
                         </span>
                         <span className="flex items-center gap-1">
-                          <TrendingDown className="h-3 w-3 text-red-500" />
-                          Avg {shortAmount(sixMonthAvg.expenses)}/mo
+                          <TrendingDown className="h-3 w-3 text-red-500" />Avg {shortAmount(sixMonthAvg.expenses)}/mo
                         </span>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-3 px-4 pb-4">
+                  <CardContent className="pt-3 px-2 pb-2">
                     {cashflowData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={200}>
-                        <BarChart
-                          data={cashflowData}
-                          barCategoryGap="30%"
-                          barGap={2}
-                        >
-                          <CartesianGrid
-                            strokeDasharray="3 3"
-                            stroke="var(--border)"
-                            vertical={false}
-                          />
-                          <XAxis
-                            dataKey="label"
-                            tick={{ fontSize: 10 }}
-                            axisLine={false}
-                            tickLine={false}
-                          />
-                          <YAxis
-                            tickFormatter={shortAmount}
-                            tick={{ fontSize: 10 }}
-                            axisLine={false}
-                            tickLine={false}
-                            width={44}
-                          />
+                      <ResponsiveContainer width="100%" height={210}>
+                        <ComposedChart data={cashflowData.map((m) => ({ ...m, Surplus: m.Income - m.Expenses }))} barCategoryGap="28%" barGap={2}>
+                          <defs>
+                            <linearGradient id="surplusGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#a855f7" stopOpacity={0.15} />
+                              <stop offset="100%" stopColor="#a855f7" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                          <XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                          <YAxis tickFormatter={shortAmount} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={44} />
                           <Tooltip
-                            contentStyle={{
-                              backgroundColor: "var(--card)",
-                              border: "1px solid var(--border)",
-                              borderRadius: "8px",
-                              fontSize: "12px",
-                            }}
-                            formatter={(v: unknown) => [format(v as number)]}
+                            contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }}
+                            formatter={(v: unknown, name: string) => [format(v as number), name]}
                           />
-                          <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Bar
-                            dataKey="Income"
-                            fill="#22c55e"
-                            radius={[4, 4, 0, 0]}
-                          />
-                          <Bar
-                            dataKey="Expenses"
-                            fill="#ef4444"
-                            radius={[4, 4, 0, 0]}
-                          />
-                        </BarChart>
+                          <Legend wrapperStyle={{ fontSize: 10 }} iconSize={8} />
+                          <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                          <Bar dataKey="Income" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                          <Line type="monotone" dataKey="Surplus" stroke="#a855f7" strokeWidth={2} dot={{ r: 3, fill: "#a855f7", strokeWidth: 0 }} strokeDasharray="4 2" name="Surplus" />
+                        </ComposedChart>
                       </ResponsiveContainer>
                     ) : (
-                      <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+                      <div className="h-[210px] flex items-center justify-center text-muted-foreground text-sm">
                         Add transactions to see cashflow trends
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
+                {/* Recent Transactions */}
                 <Card className="rounded-lg">
                   <CardHeader className="pb-0 border-b border-border px-4 pt-4">
                     <div className="flex items-center justify-between pb-2">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        Recent
-                      </p>
-                      <Link
-                        href="/transactions"
-                        className="text-xs text-primary hover:underline flex items-center gap-1"
-                      >
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Recent</p>
+                      <Link href="/transactions" className="text-xs text-primary hover:underline flex items-center gap-1">
                         All <ArrowRight className="h-3 w-3" />
                       </Link>
                     </div>
@@ -746,54 +972,39 @@ export default function CashflowPlanningPage() {
                     {recentTxns.length > 0 ? (
                       <div className="divide-y divide-border">
                         {recentTxns.map((t) => (
-                          <div
-                            key={t.id}
-                            className="flex items-center justify-between px-4 py-2.5"
-                          >
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium truncate">
-                                {t.description || t.category}
-                              </p>
+                          <div key={t.id} className="flex items-center gap-2.5 px-3 py-2.5">
+                            <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${t.type === "income" ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300" : "bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400"}`}>
+                              {t.type === "income" ? "↑" : "↓"}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-medium truncate">{t.description || t.category}</p>
                               <p className="text-[10px] text-muted-foreground">
-                                {new Date(t.date).toLocaleDateString("en-IN", {
-                                  day: "numeric",
-                                  month: "short",
-                                })}{" "}
-                                · {t.category}
+                                {new Date(t.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {t.category}
                               </p>
                             </div>
-                            <span
-                              className={`text-sm font-mono font-semibold shrink-0 ml-2 ${t.type === "income" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                            >
-                              {t.type === "income" ? "+" : "-"}
-                              {format(t.amount)}
+                            <span className={`text-xs font-mono font-semibold shrink-0 ${t.type === "income" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                              {t.type === "income" ? "+" : "-"}{format(t.amount)}
                             </span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="h-[140px] flex items-center justify-center text-muted-foreground text-xs">
-                        No transactions yet
-                      </div>
+                      <div className="h-[140px] flex items-center justify-center text-muted-foreground text-xs">No transactions yet</div>
                     )}
                   </CardContent>
                 </Card>
               </div>
 
+              {/* Upcoming Recurring */}
               {upcomingRecurring.length > 0 && (
                 <Card className="rounded-lg mt-4">
                   <CardHeader className="pb-0 border-b border-border px-4 pt-4">
                     <div className="flex items-center justify-between pb-2">
                       <div className="flex items-center gap-1.5">
                         <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          Upcoming Recurring
-                        </p>
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Upcoming Recurring</p>
                       </div>
-                      <Link
-                        href="/recurring"
-                        className="text-xs text-primary hover:underline flex items-center gap-1"
-                      >
+                      <Link href="/recurring" className="text-xs text-primary hover:underline flex items-center gap-1">
                         Manage <ArrowRight className="h-3 w-3" />
                       </Link>
                     </div>
@@ -802,21 +1013,12 @@ export default function CashflowPlanningPage() {
                     <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border">
                       {upcomingRecurring.map((p) => (
                         <div key={p.id} className="px-4 py-3">
-                          <p className="text-xs font-medium truncate">
-                            {p.name}
-                          </p>
-                          <p
-                            className={`font-mono text-sm font-semibold mt-0.5 ${p.type === "income" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                          >
-                            {p.type === "expense" ? "-" : "+"}
-                            {format(p.amount)}
+                          <p className="text-xs font-medium truncate">{p.name}</p>
+                          <p className={`font-mono text-sm font-semibold mt-0.5 ${p.type === "income" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                            {p.type === "expense" ? "-" : "+"}{format(p.amount)}
                           </p>
                           <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">
-                            {p.frequency} ·{" "}
-                            {new Date(p.next_date).toLocaleDateString("en-IN", {
-                              day: "numeric",
-                              month: "short",
-                            })}
+                            {p.frequency} · {new Date(p.next_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                           </p>
                         </div>
                       ))}
@@ -826,241 +1028,119 @@ export default function CashflowPlanningPage() {
               )}
             </section>
 
-            {/* ── 6-Month Forecast section ── */}
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                    6-Month Forecast
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Based on past averages and recurring bills
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <Card className="lg:col-span-2 rounded-lg">
-                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        Income vs Expenses — Next 6 Months
-                      </p>
-                      <span className="text-[10px] font-mono text-muted-foreground italic shrink-0">
-                        Forecast
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="px-2 pt-4 pb-2">
-                    {forecastData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={200}>
-                        <AreaChart
-                          data={forecastData}
-                          margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
-                        >
-                          <defs>
-                            <linearGradient
-                              id="incomeGrad"
-                              x1="0"
-                              y1="0"
-                              x2="0"
-                              y2="1"
-                            >
-                              <stop
-                                offset="5%"
-                                stopColor="#22c55e"
-                                stopOpacity={0.45}
-                              />
-                              <stop
-                                offset="95%"
-                                stopColor="#22c55e"
-                                stopOpacity={0.05}
-                              />
-                            </linearGradient>
-                            <linearGradient
-                              id="expenseGrad"
-                              x1="0"
-                              y1="0"
-                              x2="0"
-                              y2="1"
-                            >
-                              <stop
-                                offset="5%"
-                                stopColor="#ef4444"
-                                stopOpacity={0.45}
-                              />
-                              <stop
-                                offset="95%"
-                                stopColor="#ef4444"
-                                stopOpacity={0.05}
-                              />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid
-                            strokeDasharray="3 3"
-                            vertical={false}
-                            className="stroke-muted"
-                          />
-                          <XAxis
-                            dataKey="label"
-                            tick={{ fontSize: 10 }}
-                            tickLine={false}
-                            axisLine={false}
-                          />
-                          <YAxis
-                            tick={{ fontSize: 10 }}
-                            tickLine={false}
-                            axisLine={false}
-                            tickFormatter={(v) =>
-                              v >= 100_000
-                                ? `${(v / 100_000).toFixed(1)}L`
-                                : v >= 1_000
-                                  ? `${(v / 1_000).toFixed(0)}K`
-                                  : `${v}`
-                            }
-                            width={40}
-                          />
-                          <Tooltip
-                            formatter={(v: unknown) => format(Number(v ?? 0))}
-                            contentStyle={{ fontSize: 12 }}
-                          />
-                          <Legend
-                            iconType="square"
-                            iconSize={8}
-                            wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="Income"
-                            stroke="#22c55e"
-                            strokeWidth={2}
-                            fill="url(#incomeGrad)"
-                            dot={false}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="Expenses"
-                            stroke="#ef4444"
-                            strokeWidth={2}
-                            fill="url(#expenseGrad)"
-                            dot={false}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
-                        Add transactions to generate a forecast
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-lg">
-                  <CardHeader className="pb-0 border-b border-border px-4 pt-4">
-                    <div className="pb-2">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        Monthly Savings Forecast
-                      </p>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0 flex flex-col">
-                    <div className="overflow-y-auto divide-y divide-border max-h-52">
-                      {forecastData.map((m) => (
-                        <div key={m.label} className="px-4 py-2.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium">
-                              {m.label}
-                            </span>
-                            <span
-                              className={`text-xs font-mono font-semibold ${m.Surplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                            >
-                              {m.Surplus >= 0 ? "+" : ""}
-                              {shortAmount(m.Surplus)} saved
-                            </span>
+            {/* ── Spending Breakdown + 6-Month Forecast ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Category breakdown */}
+              <Card className="lg:col-span-2 rounded-lg">
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Spending by Category — {currentMonthLabel}</p>
+                    <Link href="/analytics" className="text-xs text-primary hover:underline flex items-center gap-1">
+                      Full breakdown <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-4 py-3">
+                  {categoryBreakdown.length > 0 ? (
+                    <div className="space-y-2.5">
+                      {categoryBreakdown.map((c, i) => {
+                        const COLORS = ["#6366f1","#f97316","#3b82f6","#ec4899","#22c55e","#eab308","#ef4444"];
+                        const color = COLORS[i % COLORS.length];
+                        return (
+                          <div key={c.cat}>
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                <span className="text-xs font-medium">{c.cat}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+                                <span>{format(c.amount)}</span>
+                                <span className="text-[10px] w-6 text-right">{c.pct}%</span>
+                              </div>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full rounded-full transition-all" style={{ width: `${c.pct}%`, backgroundColor: color }} />
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground font-mono">
-                            <span className="text-green-600 dark:text-green-400">
-                              ↑{shortAmount(m.Income)}
-                            </span>
-                            <span>income</span>
-                            <span>·</span>
-                            <span className="text-red-500">
-                              ↓{shortAmount(m.Expenses)}
-                            </span>
-                            <span>expenses</span>
-                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="h-24 flex items-center justify-center text-muted-foreground text-xs">
+                      No expenses logged this month
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 6-Month Forecast mini */}
+              <Card className="rounded-lg">
+                <CardHeader className="pb-0 border-b border-border px-4 pt-4">
+                  <div className="flex items-center justify-between pb-2">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">6-Month Forecast</p>
+                    <span className="text-[10px] font-mono text-muted-foreground italic">Projected</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0 flex flex-col">
+                  <div className="divide-y divide-border overflow-y-auto max-h-52">
+                    {forecastData.map((m) => (
+                      <div key={m.label} className="flex items-center justify-between px-4 py-2">
+                        <span className="text-xs font-medium w-14 shrink-0">{m.label}</span>
+                        <div className="flex-1 mx-3 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${m.Surplus >= 0 ? "bg-green-500" : "bg-red-500"}`}
+                            style={{ width: `${Math.min(100, Math.abs(m.Surplus) / Math.max(m.Income, 1) * 100)}%` }}
+                          />
                         </div>
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-t border-border shrink-0">
-                      <div>
-                        <span className="text-xs font-semibold">
-                          6-month total savings
+                        <span className={`text-xs font-mono font-semibold shrink-0 w-16 text-right ${m.Surplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                          {m.Surplus >= 0 ? "+" : ""}{shortAmount(m.Surplus)}
                         </span>
-                        <p className="text-[10px] text-muted-foreground">
-                          Expected cumulative surplus
-                        </p>
                       </div>
-                      <span
-                        className={`text-sm font-mono font-bold ${projectedAnnualSurplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                      >
-                        {projectedAnnualSurplus >= 0 ? "+" : ""}
-                        {shortAmount(projectedAnnualSurplus)}
-                      </span>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-t border-border shrink-0">
+                    <div>
+                      <span className="text-xs font-semibold">Total projected</span>
+                      <p className="text-[10px] text-muted-foreground">Cumulative 6-mo surplus</p>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </section>
+                    <span className={`text-sm font-mono font-bold ${projectedAnnualSurplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                      {projectedAnnualSurplus >= 0 ? "+" : ""}{shortAmount(projectedAnnualSurplus)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* ── Planning section ── */}
             <section>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                  Planning
-                </p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Planning</p>
                 <div className="flex items-center gap-3">
-                  <Link
-                    href="/goals"
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
+                  <Link href="/goals" className="text-xs text-primary hover:underline flex items-center gap-1">
                     <Target className="h-3 w-3" /> Goals
                   </Link>
-                  <Link
-                    href="/budgets"
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
+                  <Link href="/budgets" className="text-xs text-primary hover:underline flex items-center gap-1">
                     <CreditCard className="h-3 w-3" /> Budgets
                   </Link>
-                  <Link
-                    href="/debt-tracker"
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
+                  <Link href="/debt-tracker" className="text-xs text-primary hover:underline flex items-center gap-1">
                     <Landmark className="h-3 w-3" /> Debts
                   </Link>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Goals */}
+                {/* Goals — ring progress */}
                 <Card className="rounded-lg">
                   <CardHeader className="pb-0 border-b border-border px-4 pt-4">
                     <div className="flex items-center justify-between pb-2">
                       <div className="flex items-center gap-1.5">
                         <Target className="h-3.5 w-3.5 text-muted-foreground" />
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          Goals
-                        </p>
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Goals</p>
                         {activeGoals.length > 0 && (
-                          <span className="text-[9px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
-                            {activeGoals.length}
-                          </span>
+                          <span className="text-[9px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{activeGoals.length}</span>
                         )}
                       </div>
-                      <Link
-                        href="/goals"
-                        className="text-xs text-primary hover:underline flex items-center gap-1"
-                      >
+                      <Link href="/goals" className="text-xs text-primary hover:underline flex items-center gap-1">
                         All <ArrowRight className="h-3 w-3" />
                       </Link>
                     </div>
@@ -1069,25 +1149,34 @@ export default function CashflowPlanningPage() {
                     {activeGoals.length > 0 ? (
                       <div className="divide-y divide-border">
                         {activeGoals.map((g) => {
-                          const pct = Math.min(
-                            100,
-                            (g.currentAmount / g.targetAmount) * 100,
-                          );
+                          const pct = Math.min(100, (g.currentAmount / g.targetAmount) * 100);
+                          const ringColor = pct >= 75 ? "#22c55e" : pct >= 40 ? "#6366f1" : "#f97316";
+                          const deadlineDate = g.targetDate ? new Date(g.targetDate) : null;
+                          const moLeft = deadlineDate
+                            ? Math.max(0, (deadlineDate.getFullYear() - now.getFullYear()) * 12 + (deadlineDate.getMonth() - now.getMonth()))
+                            : null;
                           return (
-                            <div key={g.id} className="px-4 py-3">
-                              <div className="flex justify-between items-center mb-1.5">
-                                <span className="text-sm font-medium truncate max-w-[150px]">
-                                  {g.title}
-                                </span>
-                                <span className="text-xs font-mono text-muted-foreground ml-2">
+                            <div key={g.id} className="flex items-center gap-3 px-4 py-3">
+                              <div className="relative shrink-0">
+                                <RingProgress value={pct} size={44} stroke={4} color={ringColor} />
+                                <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold font-mono" style={{ color: ringColor }}>
                                   {pct.toFixed(0)}%
                                 </span>
                               </div>
-                              <Progress value={pct} className="h-1" />
-                              <div className="flex justify-between text-[10px] text-muted-foreground mt-1 font-mono">
-                                <span>{format(g.currentAmount)}</span>
-                                <span>{format(g.targetAmount)}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{g.title}</p>
+                                <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                                  {format(g.currentAmount)} / {format(g.targetAmount)}
+                                </p>
+                                {moLeft !== null && (
+                                  <p className={`text-[10px] mt-0.5 ${moLeft <= 3 ? "text-amber-500" : "text-muted-foreground"}`}>
+                                    {moLeft === 0 ? "Due this month" : `${moLeft} mo left`}
+                                  </p>
+                                )}
                               </div>
+                              {g.priority === "high" && (
+                                <Badge variant="outline" className="text-[9px] border-red-200 text-red-600 dark:border-red-800 dark:text-red-400 shrink-0">High</Badge>
+                              )}
                             </div>
                           );
                         })}
@@ -1096,35 +1185,24 @@ export default function CashflowPlanningPage() {
                       <div className="h-[140px] flex flex-col items-center justify-center text-muted-foreground gap-2">
                         <Trophy className="h-6 w-6 opacity-40" />
                         <p className="text-xs">No active goals</p>
-                        <Link href="/goals">
-                          <Button size="sm" variant="outline">
-                            Create Goal
-                          </Button>
-                        </Link>
+                        <Link href="/goals"><Button size="sm" variant="outline">Create Goal</Button></Link>
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
-                {/* Budgets */}
+                {/* Budgets — gauge-style */}
                 <Card className="rounded-lg">
                   <CardHeader className="pb-0 border-b border-border px-4 pt-4">
                     <div className="flex items-center justify-between pb-2">
                       <div className="flex items-center gap-1.5">
                         <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          Budgets
-                        </p>
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Budgets</p>
                         {budgets.length > 0 && (
-                          <span className="text-[9px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
-                            {budgets.length}
-                          </span>
+                          <span className="text-[9px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{budgets.length}</span>
                         )}
                       </div>
-                      <Link
-                        href="/budgets"
-                        className="text-xs text-primary hover:underline flex items-center gap-1"
-                      >
+                      <Link href="/budgets" className="text-xs text-primary hover:underline flex items-center gap-1">
                         All <ArrowRight className="h-3 w-3" />
                       </Link>
                     </div>
@@ -1134,32 +1212,38 @@ export default function CashflowPlanningPage() {
                       <div className="divide-y divide-border">
                         {sortedBudgets.map((b) => {
                           const spent = b.spent_amount || 0;
-                          const pct =
-                            b.limit_amount > 0
-                              ? Math.min(100, (spent / b.limit_amount) * 100)
-                              : 0;
+                          const pct = b.limit_amount > 0 ? Math.min(100, (spent / b.limit_amount) * 100) : 0;
                           const over = spent > b.limit_amount;
+                          const warn = !over && pct >= 80;
+                          const barColor = over ? "#ef4444" : warn ? "#f59e0b" : "#22c55e";
                           return (
                             <div key={b.id} className="px-4 py-3">
-                              <div className="flex justify-between items-center mb-1.5">
-                                <span className="text-sm font-medium truncate max-w-[130px]">
-                                  {b.category}
-                                </span>
-                                <span
-                                  className={`text-xs font-mono ml-2 ${over ? "text-red-500" : "text-muted-foreground"}`}
-                                >
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  {over ? (
+                                    <AlertCircle className="h-3 w-3 text-red-500 shrink-0" />
+                                  ) : warn ? (
+                                    <AlertCircle className="h-3 w-3 text-amber-500 shrink-0" />
+                                  ) : (
+                                    <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                                  )}
+                                  <span className="text-xs font-medium truncate">{b.category}</span>
+                                </div>
+                                <span className={`text-xs font-mono ml-2 shrink-0 ${over ? "text-red-500" : "text-muted-foreground"}`}>
                                   {format(spent)} / {format(b.limit_amount)}
                                 </span>
                               </div>
-                              <Progress
-                                value={pct}
-                                className={`h-1 ${over ? "[&>div]:bg-red-500" : ""}`}
-                              />
-                              {over && (
-                                <p className="text-[10px] text-red-500 mt-0.5">
-                                  Over by {format(spent - b.limit_amount)}
-                                </p>
-                              )}
+                              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+                              </div>
+                              <div className="flex items-center justify-between mt-1">
+                                <span className="text-[10px] text-muted-foreground">{pct.toFixed(0)}% used</span>
+                                {over ? (
+                                  <span className="text-[10px] text-red-500 font-medium">Over by {format(spent - b.limit_amount)}</span>
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground">{format(b.limit_amount - spent)} left</span>
+                                )}
+                              </div>
                             </div>
                           );
                         })}
@@ -1168,35 +1252,24 @@ export default function CashflowPlanningPage() {
                       <div className="h-[140px] flex flex-col items-center justify-center text-muted-foreground gap-2">
                         <CreditCard className="h-6 w-6 opacity-40" />
                         <p className="text-xs">No budgets set</p>
-                        <Link href="/budgets">
-                          <Button size="sm" variant="outline">
-                            Set Budget
-                          </Button>
-                        </Link>
+                        <Link href="/budgets"><Button size="sm" variant="outline">Set Budget</Button></Link>
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
-                {/* Debt summary */}
+                {/* Debts */}
                 <Card className="rounded-lg">
                   <CardHeader className="pb-0 border-b border-border px-4 pt-4">
                     <div className="flex items-center justify-between pb-2">
                       <div className="flex items-center gap-1.5">
                         <Landmark className="h-3.5 w-3.5 text-muted-foreground" />
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          Debts
-                        </p>
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Debts</p>
                         {debts.length > 0 && (
-                          <span className="text-[9px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
-                            {debts.length}
-                          </span>
+                          <span className="text-[9px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{debts.length}</span>
                         )}
                       </div>
-                      <Link
-                        href="/debt-tracker"
-                        className="text-xs text-primary hover:underline flex items-center gap-1"
-                      >
+                      <Link href="/debt-tracker" className="text-xs text-primary hover:underline flex items-center gap-1">
                         All <ArrowRight className="h-3 w-3" />
                       </Link>
                     </div>
@@ -1206,47 +1279,41 @@ export default function CashflowPlanningPage() {
                       <div className="divide-y divide-border flex flex-col">
                         <div className="px-4 py-3 bg-muted/30 shrink-0">
                           <div className="flex justify-between items-center">
-                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                              Total Outstanding
-                            </span>
-                            <span className="font-mono text-lg font-bold text-red-600 dark:text-red-400">
-                              {format(totalDebt)}
-                            </span>
+                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Total Outstanding</span>
+                            <span className="font-mono text-lg font-bold text-red-600 dark:text-red-400">{format(totalDebt)}</span>
                           </div>
-                          {totalMinPayment > 0 && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5 text-right">
-                              {format(totalMinPayment)}/mo minimum
-                            </p>
-                          )}
+                          <div className="flex items-center justify-between mt-1">
+                            {totalMinPayment > 0 && (
+                              <span className="text-[10px] text-muted-foreground">{format(totalMinPayment)}/mo minimum</span>
+                            )}
+                            {forecast18.totalFreedEMI > 0 && (
+                              <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">
+                                {shortAmount(forecast18.totalFreedEMI)}/mo freed in 18mo
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="overflow-y-auto max-h-55 divide-y divide-border">
+                        <div className="overflow-y-auto max-h-52 divide-y divide-border">
                           {debts.map((d) => {
-                            const paidPct =
-                              d.original_amount > 0
-                                ? Math.min(
-                                    100,
-                                    ((d.original_amount - d.balance) /
-                                      d.original_amount) *
-                                      100,
-                                  )
-                                : 0;
+                            const paidPct = d.original_amount > 0
+                              ? Math.min(100, ((d.original_amount - d.balance) / d.original_amount) * 100)
+                              : 0;
                             return (
-                              <div key={d.id} className="px-4 py-3">
-                                <div className="flex justify-between items-center mb-1.5">
-                                  <span className="text-sm font-medium truncate max-w-[140px]">
-                                    {d.name}
-                                  </span>
-                                  <span className="text-xs font-mono text-muted-foreground ml-2">
-                                    {format(d.balance)}
+                              <div key={d.id} className="flex items-center gap-3 px-4 py-3">
+                                <div className="relative shrink-0">
+                                  <RingProgress value={paidPct} size={40} stroke={3.5} color="#3b82f6" />
+                                  <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold font-mono text-blue-600 dark:text-blue-400">
+                                    {paidPct.toFixed(0)}%
                                   </span>
                                 </div>
-                                <Progress
-                                  value={paidPct}
-                                  className="h-1 [&>div]:bg-blue-500"
-                                />
-                                <p className="text-[10px] text-muted-foreground mt-0.5">
-                                  {paidPct.toFixed(0)}% paid off
-                                </p>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium truncate">{d.name}</p>
+                                  <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{format(d.balance)} remaining</p>
+                                  {d.minimum_payment > 0 && (
+                                    <p className="text-[10px] text-muted-foreground">{format(d.minimum_payment)}/mo</p>
+                                  )}
+                                </div>
+                                <Badge variant="outline" className="text-[9px] capitalize shrink-0">{d.type}</Badge>
                               </div>
                             );
                           })}
@@ -1256,11 +1323,7 @@ export default function CashflowPlanningPage() {
                       <div className="h-[140px] flex flex-col items-center justify-center text-muted-foreground gap-2">
                         <Landmark className="h-6 w-6 opacity-40" />
                         <p className="text-xs">No debts tracked</p>
-                        <Link href="/debt-tracker">
-                          <Button size="sm" variant="outline">
-                            Add Debt
-                          </Button>
-                        </Link>
+                        <Link href="/debt-tracker"><Button size="sm" variant="outline">Add Debt</Button></Link>
                       </div>
                     )}
                   </CardContent>
@@ -1832,8 +1895,677 @@ export default function CashflowPlanningPage() {
               format={format}
             />
           </TabsContent>
+
+          {/* ══════════════ INVESTMENTS TAB ══════════════ */}
+          <TabsContent value="investments" className="space-y-4">
+            <InvestmentsTab format={format} />
+          </TabsContent>
         </Tabs>
       </main>
+    </div>
+  );
+}
+
+// ── Ring progress SVG ─────────────────────────────────────────────────────────
+function RingProgress({ value, size = 44, stroke = 4, color = "#6366f1" }: { value: number; size?: number; stroke?: number; color?: string }) {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (Math.min(100, Math.max(0, value)) / 100) * circ;
+  return (
+    <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={stroke} className="text-muted/40" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// ── Investments Tab ───────────────────────────────────────────────────────────
+type SortKey = "name" | "invested" | "current" | "pnl" | "pnlPct" | "xirr" | "weight";
+
+function SortIcon({ active, dir }: { active: boolean; dir: 1 | -1 }) {
+  if (!active) return <span className="text-muted-foreground/40">⇅</span>;
+  return <span>{dir === -1 ? "↓" : "↑"}</span>;
+}
+
+function InvestmentsTab({ format }: { format: (v: number) => string }) {
+  const [mfSort, setMfSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "weight", dir: -1 });
+  const [mfFilter, setMfFilter] = useState<string>("All");
+  const [activeView, setActiveView] = useState<"overview" | "mf" | "stocks">("overview");
+  const [expandedSector, setExpandedSector] = useState<string | null>(null);
+
+  // ── Derived totals ──────────────────────────────────────────────────────────
+  const mfInvested = MF_HOLDINGS.reduce((s, f) => s + f.invested, 0);
+  const mfCurrent  = MF_HOLDINGS.reduce((s, f) => s + f.current, 0);
+  const mfPnl      = mfCurrent - mfInvested;
+
+  const stInvested = STOCK_HOLDINGS.reduce((s, f) => s + f.invested, 0);
+  const stCurrent  = STOCK_HOLDINGS.reduce((s, f) => s + f.current, 0);
+  const stPnl      = stCurrent - stInvested;
+
+  const totalInvested = mfInvested + stInvested;
+  const totalCurrent  = mfCurrent + stCurrent;
+  const totalPnl      = totalCurrent - totalInvested;
+  const totalPnlPct   = totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0;
+
+  // ── Asset allocation by MF category ────────────────────────────────────────
+  const CAT_COLORS: Record<string, string> = {
+    Equity: "#6366f1", Debt: "#22c55e", Hybrid: "#f97316", Other: "#a855f7", "Stocks/ETFs": "#3b82f6",
+  };
+  const catMap: Record<string, number> = {};
+  MF_HOLDINGS.forEach((f) => { catMap[f.category] = (catMap[f.category] ?? 0) + f.current; });
+  catMap["Stocks/ETFs"] = stCurrent;
+  const allocItems = Object.entries(catMap)
+    .map(([cat, val]) => ({ cat, val, pct: totalCurrent > 0 ? (val / totalCurrent) * 100 : 0, color: CAT_COLORS[cat] ?? "#94a3b8" }))
+    .sort((a, b) => b.val - a.val);
+
+  // ── AMC breakdown ─────────────────────────────────────────────────────────
+  const amcMap: Record<string, { invested: number; current: number; count: number }> = {};
+  MF_HOLDINGS.forEach((f) => {
+    if (!amcMap[f.amc]) amcMap[f.amc] = { invested: 0, current: 0, count: 0 };
+    amcMap[f.amc].invested += f.invested;
+    amcMap[f.amc].current  += f.current;
+    amcMap[f.amc].count    += 1;
+  });
+  const amcItems = Object.entries(amcMap)
+    .map(([amc, v]) => ({ amc, ...v, pct: mfCurrent > 0 ? (v.current / mfCurrent) * 100 : 0, pnlPct: v.invested > 0 ? ((v.current - v.invested) / v.invested) * 100 : 0 }))
+    .sort((a, b) => b.current - a.current);
+
+  // ── Sector (sub-category) breakdown with constituent funds ─────────────────
+  const SECTOR_COLORS = [
+    "#6366f1","#3b82f6","#22c55e","#f97316","#ec4899",
+    "#eab308","#14b8a6","#a855f7","#ef4444","#64748b",
+    "#0ea5e9","#84cc16","#f43f5e","#8b5cf6","#06b6d4",
+  ];
+  type SectorEntry = { sector: string; current: number; invested: number; count: number; pct: number; pnlPct: number; color: string; funds: { name: string; current: number; invested: number; pnl: number; xirr: number }[] };
+  const sectorMap: Record<string, { current: number; invested: number; count: number; funds: { name: string; current: number; invested: number; pnl: number; xirr: number }[] }> = {};
+  MF_HOLDINGS.forEach((f) => {
+    if (!sectorMap[f.subCategory]) sectorMap[f.subCategory] = { current: 0, invested: 0, count: 0, funds: [] };
+    sectorMap[f.subCategory].current  += f.current;
+    sectorMap[f.subCategory].invested += f.invested;
+    sectorMap[f.subCategory].count    += 1;
+    sectorMap[f.subCategory].funds.push({ name: f.name, current: f.current, invested: f.invested, pnl: f.pnl, xirr: f.xirr });
+  });
+  STOCK_HOLDINGS.forEach((s) => {
+    if (!sectorMap[s.type]) sectorMap[s.type] = { current: 0, invested: 0, count: 0, funds: [] };
+    sectorMap[s.type].current  += s.current;
+    sectorMap[s.type].invested += s.invested;
+    sectorMap[s.type].count    += 1;
+    sectorMap[s.type].funds.push({ name: s.name, current: s.current, invested: s.invested, pnl: s.pnl, xirr: s.pnlPct });
+  });
+  const sectorItems: SectorEntry[] = Object.entries(sectorMap)
+    .map(([sector, v], i) => ({
+      sector, current: v.current, invested: v.invested, count: v.count, funds: v.funds,
+      pct:    totalCurrent > 0 ? (v.current / totalCurrent) * 100 : 0,
+      pnlPct: v.invested > 0 ? ((v.current - v.invested) / v.invested) * 100 : 0,
+      color:  SECTOR_COLORS[i % SECTOR_COLORS.length],
+    }))
+    .sort((a, b) => b.current - a.current);
+
+  // ── Top performers / laggards ─────────────────────────────────────────────
+  const mfByXirr = [...MF_HOLDINGS].sort((a, b) => b.xirr - a.xirr);
+  const topGainers  = mfByXirr.slice(0, 4);
+  const topLaggards = [...mfByXirr].reverse().slice(0, 4);
+
+  // ── Portfolio health score ────────────────────────────────────────────────
+  const numProfitable = MF_HOLDINGS.filter((f) => f.xirr > 0).length;
+  const profitPct     = (numProfitable / MF_HOLDINGS.length) * 100;
+  const directPct     = (MF_HOLDINGS.filter((f) => f.plan === "Direct").length / MF_HOLDINGS.length) * 100;
+  const maxSectorPct  = Math.max(...sectorItems.map((s) => s.pct));
+  const diversScore   = Math.round(Math.max(0, 100 - maxSectorPct));
+  const healthScore   = Math.round((profitPct * 0.4) + (directPct * 0.3) + (diversScore * 0.3));
+
+  // ── Filtered + sorted MF table ────────────────────────────────────────────
+  const categories = ["All", ...Array.from(new Set(MF_HOLDINGS.map((f) => f.category)))];
+  const filteredMF = [...MF_HOLDINGS]
+    .filter((f) => mfFilter === "All" || f.category === mfFilter)
+    .sort((a, b) => (a[mfSort.key] as number) > (b[mfSort.key] as number) ? mfSort.dir : -mfSort.dir);
+
+  function toggleSort(key: SortKey) {
+    setMfSort((prev) => prev.key === key ? { key, dir: prev.dir === -1 ? 1 : -1 } : { key, dir: -1 });
+  }
+
+  // ── avg XIRR ──────────────────────────────────────────────────────────────
+  const avgXirr = MF_HOLDINGS.reduce((s, f) => s + f.xirr, 0) / MF_HOLDINGS.length;
+  const greenFunds = MF_HOLDINGS.filter((f) => f.xirr > 0).length;
+
+  return (
+    <div className="space-y-4">
+
+      {/* ══ HERO BAND — always visible ══ */}
+      <div className="rounded-xl bg-slate-900 dark:bg-black overflow-hidden">
+        <div className="flex h-1.5 w-full">
+          {allocItems.map((item) => (
+            <div key={item.cat} style={{ width: `${item.pct}%`, backgroundColor: item.color }} />
+          ))}
+        </div>
+        <div className="px-5 py-4 grid grid-cols-3 sm:grid-cols-6 gap-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Value</p>
+            <p className="font-mono font-bold text-base text-white">{format(totalCurrent)}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">05 Jun 2026</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Invested</p>
+            <p className="font-mono font-bold text-base text-white">{format(totalInvested)}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">{MF_HOLDINGS.length}MF · {STOCK_HOLDINGS.length}stocks</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">P&amp;L</p>
+            <p className={`font-mono font-bold text-base ${totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {totalPnl >= 0 ? "+" : ""}{format(Math.abs(totalPnl))}
+            </p>
+            <p className={`text-[10px] font-mono mt-0.5 ${totalPnlPct >= 0 ? "text-green-500" : "text-red-500"}`}>
+              {totalPnlPct >= 0 ? "+" : ""}{totalPnlPct.toFixed(3)}%
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Avg XIRR</p>
+            <p className={`font-mono font-bold text-base ${avgXirr >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {avgXirr >= 0 ? "+" : ""}{avgXirr.toFixed(2)}%
+            </p>
+            <p className="text-[10px] text-slate-500 mt-0.5">across MF</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Profitable</p>
+            <p className="font-mono font-bold text-base text-white">{greenFunds}/{MF_HOLDINGS.length}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">funds in green</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Health</p>
+            <p className={`font-mono font-bold text-base ${healthScore >= 70 ? "text-green-400" : healthScore >= 45 ? "text-yellow-400" : "text-red-400"}`}>
+              {healthScore}/100
+            </p>
+            <p className="text-[10px] text-slate-500 mt-0.5">{healthScore >= 70 ? "Diversified" : "Review"}</p>
+          </div>
+        </div>
+        <div className="px-5 pb-3 flex gap-4 flex-wrap border-t border-slate-800 pt-2">
+          {allocItems.map((item) => (
+            <div key={item.cat} className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
+              <span className="text-[10px] text-slate-400">{item.cat}</span>
+              <span className="text-[10px] font-mono text-slate-500">{item.pct.toFixed(1)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ══ INNER TAB NAV ══ */}
+      <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+        {(["overview", "mf", "stocks"] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setActiveView(v)}
+            className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              activeView === v
+                ? "bg-background shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {v === "overview" ? "Overview" : v === "mf" ? `Mutual Funds (${MF_HOLDINGS.length})` : `Stocks & ETFs (${STOCK_HOLDINGS.length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* ══════════════════════════════════════════
+          OVERVIEW TAB
+      ══════════════════════════════════════════ */}
+      {activeView === "overview" && (
+        <div className="space-y-4">
+
+          {/* 6 stat cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {[
+              { label: "MF Portfolio", value: format(mfCurrent), sub: `${mfPnl >= 0 ? "+" : ""}${format(Math.abs(mfPnl))} P&L`, pos: mfPnl >= 0, bar: (mfCurrent / totalCurrent) * 100, color: "bg-indigo-500" },
+              { label: "Stocks / ETFs", value: format(stCurrent), sub: `${stPnl >= 0 ? "+" : ""}${format(Math.abs(stPnl))} P&L`, pos: stPnl >= 0, bar: (stCurrent / totalCurrent) * 100, color: "bg-blue-500" },
+              { label: "Best XIRR", value: `+${topGainers[0]?.xirr.toFixed(2)}%`, sub: topGainers[0]?.name ?? "", pos: true, bar: 100, color: "bg-green-500" },
+              { label: "Worst XIRR", value: `${topLaggards[0]?.xirr.toFixed(2)}%`, sub: topLaggards[0]?.name ?? "", pos: false, bar: Math.min(100, Math.abs(topLaggards[0]?.xirr ?? 0) * 5), color: "bg-red-500" },
+              { label: "Direct Plans", value: `${MF_HOLDINGS.filter((f) => f.plan === "Direct").length}/${MF_HOLDINGS.length}`, sub: `${directPct.toFixed(0)}% direct`, pos: directPct > 50, bar: directPct, color: "bg-violet-500" },
+              { label: "Profitable Funds", value: `${greenFunds}/${MF_HOLDINGS.length}`, sub: `${((greenFunds / MF_HOLDINGS.length) * 100).toFixed(0)}% in green`, pos: greenFunds > MF_HOLDINGS.length / 2, bar: (greenFunds / MF_HOLDINGS.length) * 100, color: "bg-emerald-500" },
+            ].map((s) => (
+              <Card key={s.label} className="relative overflow-hidden">
+                <CardContent className="p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">{s.label}</p>
+                  <p className={`font-mono font-bold text-base ${s.pos ? "" : "text-red-500"}`}>{s.value}</p>
+                  <p className={`text-[10px] mt-0.5 truncate font-mono ${s.pos ? "text-muted-foreground" : "text-red-400"}`}>{s.sub}</p>
+                </CardContent>
+                <div className={`absolute bottom-0 left-0 h-0.5 ${s.color}`} style={{ width: `${s.bar}%` }} />
+              </Card>
+            ))}
+          </div>
+
+          {/* Sector grid */}
+          {/* ══ SECTOR BREAKDOWN — tile grid ══ */}
+      <Card>
+        <CardHeader className="pb-0 px-4 pt-4">
+          <div className="flex items-center justify-between pb-3 border-b border-border">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Sector / Sub-Category Allocation</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Tap a tile to inspect constituent funds</p>
+            </div>
+            <span className="text-[10px] font-mono text-muted-foreground">{sectorItems.length} sectors</span>
+          </div>
+          {/* Proportional stacked bar */}
+          <div className="flex h-2 w-full overflow-hidden mt-3 mb-0.5 rounded-sm">
+            {sectorItems.map((s) => (
+              <div key={s.sector} style={{ width: `${s.pct}%`, backgroundColor: s.color, cursor: "pointer" }}
+                title={`${s.sector}: ${s.pct.toFixed(1)}%`}
+                onClick={() => setExpandedSector(expandedSector === s.sector ? null : s.sector)} />
+            ))}
+          </div>
+        </CardHeader>
+
+        <CardContent className="px-4 pt-3 pb-4 space-y-1.5">
+          {/* Row-based grid — detail panel injects immediately after the row containing the selected tile */}
+          {(() => {
+            const COLS = 4;
+            const rows: (typeof sectorItems[number])[][] = [];
+            for (let i = 0; i < sectorItems.length; i += COLS) {
+              rows.push(sectorItems.slice(i, i + COLS));
+            }
+            const selItem = sectorItems.find((s) => s.sector === expandedSector) ?? null;
+
+            return rows.map((row, rowIdx) => {
+              const rowHasSel = row.some((s) => s.sector === expandedSector);
+              return (
+                <div key={rowIdx} className="space-y-1.5">
+                  {/* Tile row */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {row.map((s) => {
+                      const isSelected = expandedSector === s.sector;
+                      const pnlAmt = s.current - s.invested;
+                      return (
+                        <button
+                          key={s.sector}
+                          onClick={() => setExpandedSector(isSelected ? null : s.sector)}
+                          className={`relative rounded-lg border p-3 text-left transition-all ${
+                            isSelected
+                              ? "border-foreground/30 shadow-sm ring-1 ring-foreground/10 bg-muted/40"
+                              : "border-border hover:border-foreground/20 hover:bg-muted/20"
+                          }`}
+                        >
+                          <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full" style={{ backgroundColor: s.color }} />
+                          <div className="pl-2.5">
+                            <p className="font-mono font-bold text-base leading-none mb-1" style={{ color: s.color }}>
+                              {s.pct.toFixed(1)}%
+                            </p>
+                            <p className="text-[11px] font-semibold truncate leading-tight mb-0.5">{s.sector}</p>
+                            <p className="text-[9px] text-muted-foreground mb-2">{s.count} holding{s.count !== 1 ? "s" : ""}</p>
+                            <div className="h-1 rounded-full bg-muted overflow-hidden mb-2">
+                              <div className="h-full rounded-full" style={{ width: `${s.pct}%`, backgroundColor: s.color }} />
+                            </div>
+                            <div className="flex items-center justify-between gap-1">
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                                s.pnlPct >= 0
+                                  ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400"
+                                  : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"
+                              }`}>
+                                {s.pnlPct >= 0 ? "+" : ""}{s.pnlPct.toFixed(2)}%
+                              </span>
+                              <span className={`text-[9px] font-mono ${pnlAmt >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                {pnlAmt >= 0 ? "+" : ""}{shortAmount(Math.abs(pnlAmt))}
+                              </span>
+                            </div>
+                          </div>
+                          {/* Triangle pointer when selected */}
+                          {isSelected && (
+                            <div className="absolute -bottom-1.75 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 border-r border-b border-foreground/20 bg-card z-10" />
+                          )}
+                        </button>
+                      );
+                    })}
+                    {/* Phantom tiles to preserve grid alignment on last row */}
+                    {row.length < COLS && Array.from({ length: COLS - row.length }).map((_, i) => (
+                      <div key={`ph-${i}`} className="hidden sm:block" />
+                    ))}
+                  </div>
+
+                  {/* Inline detail panel — only renders below the row that contains the selection */}
+                  {rowHasSel && selItem && (
+                    <div className="rounded-xl border border-border overflow-hidden">
+                      {/* Header */}
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border" style={{ backgroundColor: selItem.color + "15" }}>
+                        <div className="flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: selItem.color }} />
+                          <p className="text-xs font-bold">{selItem.sector}</p>
+                          <span className="text-[10px] text-muted-foreground">{selItem.count} holding{selItem.count !== 1 ? "s" : ""}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px] font-mono">
+                          <span className="text-muted-foreground hidden sm:inline">{format(selItem.current)}</span>
+                          <span className={selItem.pnlPct >= 0 ? "text-green-500" : "text-red-500"}>
+                            {selItem.pnlPct >= 0 ? "+" : ""}{selItem.pnlPct.toFixed(2)}%
+                          </span>
+                          <button onClick={() => setExpandedSector(null)} className="ml-1 h-5 w-5 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center text-[10px] text-muted-foreground hover:text-foreground transition-colors">✕</button>
+                        </div>
+                      </div>
+                      {/* Fund rows */}
+                      <div className="divide-y divide-border/60">
+                        {selItem.funds.map((fund) => {
+                          const fundPct = selItem.current > 0 ? (fund.current / selItem.current) * 100 : 0;
+                          return (
+                            <div key={fund.name} className="grid grid-cols-[1fr_auto_auto] gap-4 items-center px-4 py-2.5 hover:bg-muted/20 transition-colors">
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium truncate">{fund.name}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <div className="w-24 h-1 rounded-full bg-muted overflow-hidden">
+                                    <div className="h-full rounded-full" style={{ width: `${fundPct}%`, backgroundColor: selItem.color }} />
+                                  </div>
+                                  <span className="text-[9px] font-mono text-muted-foreground">{fundPct.toFixed(1)}%</span>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs font-mono font-semibold">{format(fund.current)}</p>
+                                <p className={`text-[10px] font-mono ${fund.pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                  {fund.pnl >= 0 ? "+" : ""}{format(Math.abs(fund.pnl))}
+                                </p>
+                              </div>
+                              <div className="text-right w-16 shrink-0">
+                                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold font-mono ${
+                                  fund.xirr >= 10 ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400"
+                                  : fund.xirr >= 0 ? "bg-muted text-muted-foreground"
+                                  : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"
+                                }`}>
+                                  {fund.xirr >= 0 ? "+" : ""}{fund.xirr.toFixed(2)}%
+                                </span>
+                                <p className="text-[9px] text-muted-foreground mt-0.5">XIRR</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            });
+          })()}
+        </CardContent>
+      </Card>
+
+      {/* ══ AMC CONCENTRATION + TOP PERFORMERS ══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* AMC Concentration */}
+        <Card>
+          <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">AMC Concentration</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Fund house exposure as % of MF portfolio</p>
+          </CardHeader>
+          <CardContent className="px-4 py-3 space-y-3">
+            {amcItems.map((a, i) => {
+              const pnl = a.current - a.invested;
+              const AMC_COLORS = ["#6366f1","#3b82f6","#22c55e","#f97316","#a855f7","#ec4899"];
+              const color = AMC_COLORS[i % AMC_COLORS.length];
+              return (
+                <div key={a.amc}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-md flex items-center justify-center text-[9px] font-bold text-white shrink-0" style={{ backgroundColor: color }}>
+                        {a.amc.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold">{a.amc}</p>
+                        <p className="text-[9px] text-muted-foreground">{a.count} fund{a.count !== 1 ? "s" : ""} · {format(a.invested)} in</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-mono font-semibold">{format(a.current)}</p>
+                      <p className={`text-[10px] font-mono ${pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+                        {pnl >= 0 ? "+" : ""}{a.pnlPct.toFixed(2)}% {pnl >= 0 ? "↑" : "↓"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${a.pct}%`, backgroundColor: color }} />
+                    </div>
+                    <span className="text-[10px] font-mono text-muted-foreground w-9 text-right">{a.pct.toFixed(1)}%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+
+        {/* Top Performers vs Laggards */}
+        <Card>
+          <CardHeader className="pb-0 border-b border-border px-4 pt-4">
+            <div className="flex items-center justify-between pb-3">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Performance Leaderboard</p>
+              <span className="text-[10px] text-muted-foreground">By XIRR</span>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {/* Winners */}
+            <div className="px-3 pt-2 pb-1">
+              <p className="text-[9px] uppercase tracking-widest text-green-600 dark:text-green-400 font-bold mb-1 flex items-center gap-1">
+                <TrendingUp className="h-3 w-3" /> Top performers
+              </p>
+            </div>
+            {topGainers.map((f, i) => (
+              <div key={f.name} className="flex items-center gap-2.5 px-3 py-2 border-b border-border/50">
+                <span className="text-[10px] font-mono text-muted-foreground w-4 text-center">#{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-medium truncate">{f.name}</p>
+                  <div className="mt-0.5 h-1 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-green-500" style={{ width: `${Math.min(100, (f.xirr / 50) * 100)}%` }} />
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs font-mono font-bold text-green-600 dark:text-green-400">+{f.xirr.toFixed(2)}%</p>
+                  <p className="text-[9px] text-muted-foreground">{format(f.current)}</p>
+                </div>
+              </div>
+            ))}
+            {/* Laggards */}
+            <div className="px-3 pt-2 pb-1">
+              <p className="text-[9px] uppercase tracking-widest text-red-500 font-bold mb-1 flex items-center gap-1">
+                <TrendingDown className="h-3 w-3" /> Needs review
+              </p>
+            </div>
+            {topLaggards.map((f, i) => (
+              <div key={f.name} className="flex items-center gap-2.5 px-3 py-2 border-b border-border/50 last:border-0">
+                <span className="text-[10px] font-mono text-muted-foreground w-4 text-center">#{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-medium truncate">{f.name}</p>
+                  <div className="mt-0.5 h-1 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-red-500" style={{ width: `${Math.min(100, (Math.abs(f.xirr) / 20) * 100)}%` }} />
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs font-mono font-bold text-red-600 dark:text-red-400">{f.xirr.toFixed(2)}%</p>
+                  <p className="text-[9px] text-muted-foreground">{format(f.current)}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════
+          MUTUAL FUNDS TAB
+      ══════════════════════════════════════════ */}
+      {activeView === "mf" && (
+        <Card>
+          <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Mutual Fund Holdings</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                  Invested {format(mfInvested)} · Current {format(mfCurrent)} · P&amp;L{" "}
+                  <span className={mfPnl >= 0 ? "text-green-500" : "text-red-500"}>
+                    {mfPnl >= 0 ? "+" : ""}{format(Math.abs(mfPnl))}
+                  </span>
+                </p>
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                {categories.map((cat) => (
+                  <button key={cat} onClick={() => setMfFilter(cat)}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${mfFilter === cat ? "bg-primary text-primary-foreground border-primary" : "bg-muted border-border text-muted-foreground hover:text-foreground"}`}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40">
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground cursor-pointer" onClick={() => toggleSort("name")}>Fund <SortIcon active={mfSort.key === "name"} dir={mfSort.dir} /></th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden md:table-cell">Sub-Category</th>
+                    <th className="text-right px-3 py-2 font-medium text-muted-foreground cursor-pointer whitespace-nowrap" onClick={() => toggleSort("invested")}>Invested <SortIcon active={mfSort.key === "invested"} dir={mfSort.dir} /></th>
+                    <th className="text-right px-3 py-2 font-medium text-muted-foreground cursor-pointer whitespace-nowrap" onClick={() => toggleSort("current")}>Current <SortIcon active={mfSort.key === "current"} dir={mfSort.dir} /></th>
+                    <th className="text-right px-3 py-2 font-medium text-muted-foreground cursor-pointer whitespace-nowrap" onClick={() => toggleSort("pnl")}>P&amp;L <SortIcon active={mfSort.key === "pnl"} dir={mfSort.dir} /></th>
+                    <th className="text-right px-3 py-2 font-medium text-muted-foreground cursor-pointer whitespace-nowrap" onClick={() => toggleSort("pnlPct")}>P&amp;L% <SortIcon active={mfSort.key === "pnlPct"} dir={mfSort.dir} /></th>
+                    <th className="text-right px-3 py-2 font-medium text-muted-foreground cursor-pointer" onClick={() => toggleSort("xirr")}>XIRR <SortIcon active={mfSort.key === "xirr"} dir={mfSort.dir} /></th>
+                    <th className="text-right px-3 py-2 font-medium text-muted-foreground cursor-pointer" onClick={() => toggleSort("weight")}>Wt% <SortIcon active={mfSort.key === "weight"} dir={mfSort.dir} /></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMF.map((f) => {
+                    const rowBg = f.xirr > 5 ? "bg-green-50/40 dark:bg-green-950/10" : f.xirr < -5 ? "bg-red-50/40 dark:bg-red-950/10" : "";
+                    return (
+                      <tr key={f.name} className={`border-b border-border hover:bg-muted/30 transition-colors ${rowBg}`}>
+                        <td className="px-4 py-2.5">
+                          <p className="font-medium truncate max-w-45">{f.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{f.plan} · NAV ₹{f.nav.toLocaleString()}</p>
+                        </td>
+                        <td className="px-3 py-2.5 hidden md:table-cell">
+                          <span className="text-[10px] text-muted-foreground">{f.subCategory}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono">{format(f.invested)}</td>
+                        <td className="px-3 py-2.5 text-right font-mono">{format(f.current)}</td>
+                        <td className={`px-3 py-2.5 text-right font-mono font-semibold ${f.pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                          {f.pnl >= 0 ? "+" : ""}{format(Math.abs(f.pnl))}
+                        </td>
+                        <td className={`px-3 py-2.5 text-right font-mono ${f.pnlPct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                          {f.pnlPct >= 0 ? "+" : ""}{f.pnlPct.toFixed(2)}%
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold font-mono ${f.xirr >= 10 ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400" : f.xirr >= 0 ? "bg-muted text-muted-foreground" : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"}`}>
+                            {f.xirr >= 0 ? "+" : ""}{f.xirr.toFixed(2)}%
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden hidden sm:block">
+                              <div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.min(100, f.weight / 0.17 * 100)}%` }} />
+                            </div>
+                            <span className="font-mono text-[10px] text-muted-foreground">{f.weight.toFixed(1)}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-border bg-muted/40 font-semibold">
+                    <td className="px-4 py-2.5" colSpan={2}>Total · {filteredMF.length} funds</td>
+                    <td className="px-3 py-2.5 text-right font-mono">{format(filteredMF.reduce((s, f) => s + f.invested, 0))}</td>
+                    <td className="px-3 py-2.5 text-right font-mono">{format(filteredMF.reduce((s, f) => s + f.current, 0))}</td>
+                    <td className={`px-3 py-2.5 text-right font-mono ${filteredMF.reduce((s, f) => s + f.pnl, 0) >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                      {(() => { const t = filteredMF.reduce((s, f) => s + f.pnl, 0); return `${t >= 0 ? "+" : ""}${format(Math.abs(t))}`; })()}
+                    </td>
+                    <td colSpan={3} />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Stocks & ETFs Table ── */}
+      {activeView === "stocks" && (
+        <Card>
+          <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Stocks, ETFs &amp; Smallcases</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+              Invested {format(stInvested)} · Current {format(stCurrent)} · P&amp;L{" "}
+              <span className={stPnl >= 0 ? "text-green-500" : "text-red-500"}>{stPnl >= 0 ? "+" : ""}{format(Math.abs(stPnl))}</span>
+            </p>
+          </CardHeader>
+          <CardContent className="p-0">
+            {STOCK_HOLDINGS.map((s, si) => {
+              const priceDiff = s.ltp != null && s.avgCost != null ? s.ltp - s.avgCost : null;
+              return (
+                <div key={s.name} className={`${si < STOCK_HOLDINGS.length - 1 ? "border-b border-border" : ""} px-4 py-3 hover:bg-muted/20 transition-colors`}>
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${s.pnl >= 0 ? "bg-green-600" : "bg-red-500"}`}>
+                        {s.name.slice(0, 2)}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-bold">{s.name}</p>
+                          <Badge variant="outline" className="text-[9px]">{s.type}</Badge>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {s.qty != null ? `${s.qty} units` : ""}
+                          {s.avgCost != null ? ` · Avg ₹${s.avgCost.toFixed(2)}` : ""}
+                          {s.ltp != null ? ` · LTP ₹${s.ltp.toFixed(2)}` : ""}
+                          {priceDiff != null && (
+                            <span className={priceDiff >= 0 ? " text-green-500" : " text-red-500"}>
+                              {" "}({priceDiff >= 0 ? "+" : ""}₹{priceDiff.toFixed(2)}/unit)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 space-y-0.5">
+                      <p className="text-sm font-mono font-bold">{format(s.current)}</p>
+                      <p className={`text-xs font-mono font-semibold ${s.pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                        {s.pnl >= 0 ? "+" : ""}{format(Math.abs(s.pnl))} ({s.pnlPct >= 0 ? "+" : ""}{s.pnlPct.toFixed(2)}%)
+                      </p>
+                      {s.dailyChangePct != null && (
+                        <p className={`text-[10px] font-mono ${s.dailyChangePct >= 0 ? "text-green-500" : "text-red-500"}`}>
+                          Day: {s.dailyChangePct >= 0 ? "+" : ""}{s.dailyChangePct.toFixed(2)}%
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {/* Mini weight + P&L bar */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[9px] text-muted-foreground mb-0.5">Portfolio weight</p>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-blue-500" style={{ width: `${s.portfolioWeight}%` }} />
+                      </div>
+                      <p className="text-[9px] font-mono text-muted-foreground mt-0.5">{s.portfolioWeight.toFixed(2)}%</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-muted-foreground mb-0.5">Invested {format(s.invested)}</p>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className={`h-full rounded-full ${s.pnl >= 0 ? "bg-green-500" : "bg-red-500"}`}
+                          style={{ width: `${Math.min(100, Math.abs(s.pnlPct) * 3)}%` }} />
+                      </div>
+                      <p className={`text-[9px] font-mono mt-0.5 ${s.pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+                        {s.pnlPct >= 0 ? "+" : ""}{s.pnlPct.toFixed(2)}% return
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {/* Stocks total footer */}
+            <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-t-2 border-border">
+              <div>
+                <p className="text-xs font-semibold">Total · {STOCK_HOLDINGS.length} holdings</p>
+                <p className="text-[10px] text-muted-foreground font-mono">Invested {format(stInvested)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-mono font-bold">{format(stCurrent)}</p>
+                <p className={`text-xs font-mono font-semibold ${stPnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                  {stPnl >= 0 ? "+" : ""}{format(Math.abs(stPnl))}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
