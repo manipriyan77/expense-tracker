@@ -941,7 +941,7 @@ export default function CashflowPlanningPage() {
                           <YAxis tickFormatter={shortAmount} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={44} />
                           <Tooltip
                             contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }}
-                            formatter={(v: unknown, name: string) => [format(v as number), name]}
+                            formatter={(v: unknown, name: unknown) => [format(v as number), name as string] as [string, string]}
                           />
                           <Legend wrapperStyle={{ fontSize: 10 }} iconSize={8} />
                           <ReferenceLine y={0} stroke="hsl(var(--border))" />
