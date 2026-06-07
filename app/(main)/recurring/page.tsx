@@ -650,17 +650,19 @@ export default function RecurringPage() {
 
       <main className="px-4 sm:px-6 lg:px-8 py-3">
         <Tabs defaultValue="recurring" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="recurring">Recurring Patterns</TabsTrigger>
-            <TabsTrigger value="bills">
-              Bills & Subscriptions
-              {overdueBills.length > 0 && (
-                <span className="ml-1.5 rounded-full bg-red-500 text-white text-[10px] px-1.5 py-0.5 leading-none">
-                  {overdueBills.length}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto no-scrollbar">
+            <TabsList className="flex w-max min-w-full">
+              <TabsTrigger value="recurring">Recurring Patterns</TabsTrigger>
+              <TabsTrigger value="bills">
+                Bills & Subscriptions
+                {overdueBills.length > 0 && (
+                  <span className="ml-1.5 rounded-full bg-red-500 text-white text-[10px] px-1.5 py-0.5 leading-none">
+                    {overdueBills.length}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="recurring" className="space-y-4 mt-0">
             {/* Upcoming Recurring Transactions */}

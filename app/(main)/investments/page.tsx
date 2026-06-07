@@ -1689,77 +1689,79 @@ export default function InvestmentsPage() {
       <main className="px-4 sm:px-6 lg:px-8 py-3 space-y-3">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-8 h-auto gap-0.5 p-1 bg-muted/60 rounded-lg">
-            <TabsTrigger
-              value="all"
-              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
-            >
-              <BarChart3 className="h-3 w-3 mr-1 hidden sm:inline" />
-              All
-            </TabsTrigger>
-            <TabsTrigger
-              value="stocks"
-              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
-            >
-              Stocks
-              {stocks.length > 0 && (
-                <span className="ml-1 text-[10px] font-mono bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 px-1 rounded">
-                  {stocks.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="mutual-funds"
-              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
-            >
-              Funds
-              {mutualFunds.length > 0 && (
-                <span className="ml-1 text-[10px] font-mono bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 px-1 rounded">
-                  {mutualFunds.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="gold"
-              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
-            >
-              Gold
-              {holdings.length > 0 && (
-                <span className="ml-1 text-[10px] font-mono bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400 px-1 rounded">
-                  {holdings.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="forex"
-              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
-            >
-              Forex
-            </TabsTrigger>
-            <TabsTrigger
-              value="other-investments"
-              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
-            >
-              Other
-              {otherInvestments.length > 0 && (
-                <span className="ml-1 text-[10px] font-mono bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400 px-1 rounded">
-                  {otherInvestments.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="silver"
-              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
-            >
-              Silver
-            </TabsTrigger>
-            <TabsTrigger
-              value="portfolio-snapshot"
-              className="text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
-            >
-              Portfolio
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
+            <TabsList className="flex w-max min-w-full h-auto gap-0.5 p-1 bg-muted/60 rounded-lg">
+              <TabsTrigger
+                value="all"
+                className="text-xs py-2 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md shrink-0"
+              >
+                <BarChart3 className="h-3 w-3 mr-1 hidden sm:inline" />
+                All
+              </TabsTrigger>
+              <TabsTrigger
+                value="stocks"
+                className="text-xs py-2 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md shrink-0"
+              >
+                Stocks
+                {stocks.length > 0 && (
+                  <span className="ml-1 text-[10px] font-mono bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 px-1 rounded">
+                    {stocks.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="mutual-funds"
+                className="text-xs py-2 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md shrink-0"
+              >
+                Funds
+                {mutualFunds.length > 0 && (
+                  <span className="ml-1 text-[10px] font-mono bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 px-1 rounded">
+                    {mutualFunds.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="gold"
+                className="text-xs py-2 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md shrink-0"
+              >
+                Gold
+                {holdings.length > 0 && (
+                  <span className="ml-1 text-[10px] font-mono bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400 px-1 rounded">
+                    {holdings.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="forex"
+                className="text-xs py-2 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md shrink-0"
+              >
+                Forex
+              </TabsTrigger>
+              <TabsTrigger
+                value="other-investments"
+                className="text-xs py-2 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md shrink-0"
+              >
+                Other
+                {otherInvestments.length > 0 && (
+                  <span className="ml-1 text-[10px] font-mono bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400 px-1 rounded">
+                    {otherInvestments.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="silver"
+                className="text-xs py-2 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md shrink-0"
+              >
+                Silver
+              </TabsTrigger>
+              <TabsTrigger
+                value="portfolio-snapshot"
+                className="text-xs py-2 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md shrink-0"
+              >
+                Portfolio
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* ALL TAB — Investment Dashboard */}
           <TabsContent value="all" className="space-y-4 mt-4">

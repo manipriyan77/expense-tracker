@@ -665,20 +665,22 @@ export default function GoalsAnalysisPage() {
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="h-10 rounded-xl bg-muted p-1 gap-1">
-          <TabsTrigger value="roadmap" className="rounded-lg text-sm flex items-center gap-1.5 px-4">
-            <Flame className="h-3.5 w-3.5" /> Focus
-          </TabsTrigger>
-          <TabsTrigger value="queue" className="rounded-lg text-sm flex items-center gap-1.5 px-4">
-            <ListOrdered className="h-3.5 w-3.5" /> Queue
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="rounded-lg text-sm flex items-center gap-1.5 px-4">
-            <BarChart3 className="h-3.5 w-3.5" /> Analytics
-          </TabsTrigger>
-          <TabsTrigger value="strategy" className="rounded-lg text-sm flex items-center gap-1.5 px-4">
-            <Brain className="h-3.5 w-3.5" /> Strategy
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto no-scrollbar">
+          <TabsList className="h-10 rounded-xl bg-muted p-1 gap-1 flex w-max min-w-full">
+            <TabsTrigger value="roadmap" className="rounded-lg text-sm flex items-center gap-1.5 px-4">
+              <Flame className="h-3.5 w-3.5" /> Focus
+            </TabsTrigger>
+            <TabsTrigger value="queue" className="rounded-lg text-sm flex items-center gap-1.5 px-4">
+              <ListOrdered className="h-3.5 w-3.5" /> Queue
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="rounded-lg text-sm flex items-center gap-1.5 px-4">
+              <BarChart3 className="h-3.5 w-3.5" /> Analytics
+            </TabsTrigger>
+            <TabsTrigger value="strategy" className="rounded-lg text-sm flex items-center gap-1.5 px-4">
+              <Brain className="h-3.5 w-3.5" /> Strategy
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Focus tab */}
         <TabsContent value="roadmap" className="mt-5 space-y-4">

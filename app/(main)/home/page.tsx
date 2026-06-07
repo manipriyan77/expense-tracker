@@ -292,7 +292,7 @@ export default function HomePage() {
             View all <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {FINANCE_LINKS.map(({ href, label, icon: Icon, color }) => (
             <Link key={href} href={href}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer group">

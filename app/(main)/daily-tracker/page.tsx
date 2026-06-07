@@ -306,7 +306,7 @@ export default function DailyTrackerOverviewPage() {
       </Card>
 
       {/* ── Quick Stats ── */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
           { label: "Day", value: String(dayNumber), sub: `of ${journey.total_days}` },
           { label: "Streak", value: String(overallStreak), sub: overallStreak === 1 ? "day" : "days" },

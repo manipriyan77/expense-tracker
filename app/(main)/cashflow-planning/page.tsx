@@ -753,16 +753,18 @@ export default function CashflowPlanningPage() {
 
       <main className="px-3 sm:px-6 lg:px-8 py-3">
         <Tabs defaultValue="overview">
-          <TabsList className="mb-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="forecast">18-Month Forecast</TabsTrigger>
-            <TabsTrigger value="calculator" className="flex items-center gap-1.5">
-              <Brain className="h-3.5 w-3.5" /> Smart Calculator
-            </TabsTrigger>
-            <TabsTrigger value="investments" className="flex items-center gap-1.5">
-              <TrendingUpIcon className="h-3.5 w-3.5" /> Investments
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto no-scrollbar mb-4">
+            <TabsList className="flex w-max min-w-full">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="forecast">18-Month Forecast</TabsTrigger>
+              <TabsTrigger value="calculator" className="flex items-center gap-1.5">
+                <Brain className="h-3.5 w-3.5" /> Smart Calculator
+              </TabsTrigger>
+              <TabsTrigger value="investments" className="flex items-center gap-1.5">
+                <TrendingUpIcon className="h-3.5 w-3.5" /> Investments
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* ══════════════ OVERVIEW TAB ══════════════ */}
           <TabsContent value="overview" className="space-y-4">
