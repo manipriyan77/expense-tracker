@@ -29,86 +29,18 @@ import { useGoldStore } from "@/store/gold-store";
 import { useForexStore } from "@/store/forex-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { ListPageSkeleton } from "@/components/ui/skeleton";
-
-// ── Scoring functions (mirrors dashboard) ────────────────────────────────────
-function scoreSavings(r: number) {
-  if (r >= 20) return 25;
-  if (r >= 15) return 20;
-  if (r >= 10) return 15;
-  if (r >= 5) return 10;
-  if (r > 0) return 5;
-  return 0;
-}
-function scoreBudget(count: number, under: number) {
-  if (count === 0) return 12;
-  const rate = (under / count) * 100;
-  if (rate >= 100) return 20;
-  if (rate >= 80) return 16;
-  if (rate >= 60) return 12;
-  if (rate >= 40) return 8;
-  if (rate >= 20) return 4;
-  return 0;
-}
-function scoreDebt(hasAssets: boolean, ratio: number) {
-  if (!hasAssets) return 12;
-  if (ratio < 10) return 20;
-  if (ratio < 20) return 16;
-  if (ratio < 30) return 12;
-  if (ratio < 50) return 8;
-  if (ratio < 80) return 4;
-  return 0;
-}
-function scoreGoals(avg: number | null) {
-  if (avg === null) return 8;
-  if (avg >= 75) return 15;
-  if (avg >= 50) return 12;
-  if (avg >= 25) return 9;
-  if (avg >= 10) return 6;
-  return 3;
-}
-function scoreInvestments(types: number) {
-  if (types >= 3) return 20;
-  if (types >= 2) return 15;
-  if (types >= 1) return 10;
-  return 5;
-}
-function gradeFromTotal(t: number) {
-  if (t >= 85) return "A";
-  if (t >= 70) return "B";
-  if (t >= 55) return "C";
-  if (t >= 40) return "D";
-  return "F";
-}
-function gradeLabelFromTotal(t: number) {
-  if (t >= 85) return "Excellent";
-  if (t >= 70) return "Good";
-  if (t >= 55) return "Fair";
-  if (t >= 40) return "Needs Work";
-  return "Critical";
-}
-function ringColorFromTotal(t: number) {
-  if (t >= 85) return "#22c55e";
-  if (t >= 70) return "#10b981";
-  if (t >= 55) return "#f59e0b";
-  if (t >= 40) return "#f97316";
-  return "#ef4444";
-}
-function pillarRatioColor(pts: number, max: number) {
-  const r = pts / max;
-  if (r >= 0.8) return "text-green-600 dark:text-green-400";
-  if (r >= 0.6) return "text-emerald-600 dark:text-emerald-400";
-  if (r >= 0.4) return "text-amber-600 dark:text-amber-400";
-  if (r >= 0.2) return "text-orange-600 dark:text-orange-400";
-  return "text-red-600 dark:text-red-400";
-}
-function pillarBarColor(pts: number, max: number) {
-  const r = pts / max;
-  if (r >= 0.8) return "bg-green-500";
-  if (r >= 0.6) return "bg-emerald-500";
-  if (r >= 0.4) return "bg-amber-500";
-  if (r >= 0.2) return "bg-orange-500";
-  return "bg-red-500";
-}
+import {
+  scoreSavings,
+  scoreBudget,
+  scoreDebt,
+  scoreGoals,
+  scoreInvestments,
+  gradeFromTotal,
+  gradeLabelFromTotal,
+  ringColorFromTotal,
+  pillarRatioColor,
+  pillarBarColor,
+} from "@/lib/health-score-utils";
 
 // ── Pillar metadata ───────────────────────────────────────────────────────────
 const PILLAR_META: Record<
@@ -128,7 +60,7 @@ const PILLAR_META: Record<
     icon: PiggyBank,
     weight: "25 pts",
     description: "What portion of your monthly income you're actually keeping.",
-    what: "Savings rate = (Income − Expenses) ÷ Income × 100. Higher is better. This pillar is worth the most (25 pts) because saving consistently is the foundation of financial health.",
+    what: "Savings rate = (Income − Real Expenses) ÷ Income × 100. Savings/investment-category transactions (Savings, Investments, Goal contributions) are excluded from expenses since they represent money you're keeping, not spending.",
     how: [
       "Track every expense so you know where money goes",
       "Aim for 15%+ savings rate — that earns you 20/25 pts",
@@ -173,23 +105,23 @@ const PILLAR_META: Record<
     icon: Landmark,
     weight: "20 pts",
     description:
-      "Your total debt as a percentage of your total assets (debt-to-asset ratio).",
-    what: "Debt ratio = Total liabilities ÷ Total assets × 100. A lower percentage is better. If you have no assets tracked, you get a neutral 12/20.",
+      "Liabilities as a percentage of your total portfolio (assets + liabilities).",
+    what: "Debt ratio = Total liabilities ÷ (Total assets + Total liabilities) × 100. This matches the Net Worth page. Lower is better — below 15% earns full 20 pts. No assets tracked gives a neutral 12/20.",
     how: [
       "Pay down high-interest debt first (credit cards, personal loans)",
-      "Aim to keep debt below 30% of total assets",
-      "Below 10% gets you the full 20 pts",
-      "Track all your assets (investments, property) to lower the ratio",
+      "Aim to keep liabilities below 25% of your total portfolio",
+      "Below 15% earns full 20 pts",
+      "Grow assets (investments, savings) to reduce the ratio even without paying off debt",
     ],
     link: "/debt-tracker",
     linkLabel: "Manage debt",
     ranges: [
-      { label: "Debt < 10% of assets", pts: 20, max: 20 },
-      { label: "10 – 20%", pts: 16, max: 20 },
-      { label: "20 – 30%", pts: 12, max: 20 },
-      { label: "30 – 50%", pts: 8, max: 20 },
-      { label: "50 – 80%", pts: 4, max: 20 },
-      { label: "≥ 80% or no assets (neutral)", pts: 12, max: 20 },
+      { label: "Liabilities < 15% of portfolio", pts: 20, max: 20 },
+      { label: "15 – 25%", pts: 16, max: 20 },
+      { label: "25 – 35%", pts: 12, max: 20 },
+      { label: "35 – 50%", pts: 8, max: 20 },
+      { label: "50 – 67%", pts: 4, max: 20 },
+      { label: "≥ 67% or no assets (neutral)", pts: 12, max: 20 },
     ],
   },
   Goals: {
@@ -281,10 +213,25 @@ export default function HealthScorePage() {
   const income = currentMonthTxs
     .filter((t) => t.type === "income")
     .reduce((s, t) => s + t.amount, 0);
-  const expenses = currentMonthTxs
+
+  // Savings/investment-category expenses are money being saved, not spent.
+  // Exclude them from "real expenses" so the savings rate reflects actual consumption.
+  const SAVINGS_CATEGORIES = new Set(["savings", "investment", "investments"]);
+  const isSavingsTx = (t: { category?: string; goal_id?: string | null; subtype?: string }) =>
+    SAVINGS_CATEGORIES.has((t.category ?? "").toLowerCase()) ||
+    !!t.goal_id ||
+    (t.subtype ?? "").toLowerCase() === "goal savings";
+
+  const allExpenses = currentMonthTxs
     .filter((t) => t.type === "expense")
     .reduce((s, t) => s + t.amount, 0);
-  const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
+  const savingsExpenses = currentMonthTxs
+    .filter((t) => t.type === "expense" && isSavingsTx(t))
+    .reduce((s, t) => s + t.amount, 0);
+  // Real expenses = spending only (excludes savings/investments recorded as expenses)
+  const expenses = allExpenses - savingsExpenses;
+  const totalSaved = income - expenses; // includes savings-category "expenses"
+  const savingsRate = income > 0 ? (totalSaved / income) * 100 : 0;
 
   const stocksValue = useMemo(
     () => stocks.reduce((s, x) => s + x.currentValue, 0),
@@ -322,8 +269,12 @@ export default function HealthScorePage() {
     goldValue +
     forexValue;
   const totalLiabilities = liabilities.reduce((s, l) => s + l.balance, 0);
+  // Debt ratio = liabilities as % of total portfolio (assets + liabilities)
+  // This matches the net worth page's formula so both pages show the same %.
   const debtRatio =
-    totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
+    (totalAssets + totalLiabilities) > 0
+      ? (totalLiabilities / (totalAssets + totalLiabilities)) * 100
+      : 0;
 
   const budgetUnderCount = budgets.filter(
     (b) => (b.spent_amount || 0) <= b.limit_amount,
@@ -360,7 +311,7 @@ export default function HealthScorePage() {
             : "No income recorded this month",
         detail:
           income > 0
-            ? `You saved ${format(income - expenses)} of ${format(income)} this month`
+            ? `You saved ${format(totalSaved)} of ${format(income)} this month`
             : "Add income transactions to calculate your savings rate",
       },
       {
@@ -420,6 +371,7 @@ export default function HealthScorePage() {
     ];
   }, [
     savingsRate,
+    totalSaved,
     budgets,
     budgetUnderCount,
     totalAssets,
@@ -429,7 +381,6 @@ export default function HealthScorePage() {
     activeGoals,
     investTypes,
     income,
-    expenses,
     stocksValue,
     mfValue,
     goldValue,
@@ -687,11 +638,15 @@ export default function HealthScorePage() {
                           <div className="rounded-lg border overflow-hidden divide-y divide-border">
                             {[
                               { label: "Total Income", value: income, color: "text-emerald-600 dark:text-emerald-400", empty: income === 0 },
-                              { label: "Total Expenses", value: expenses, color: "text-red-500 dark:text-red-400", empty: expenses === 0 },
-                              { label: "Saved", value: income - expenses, color: income - expenses >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-500 dark:text-red-400", empty: income === 0 },
+                              { label: "Real Expenses", value: expenses, color: "text-red-500 dark:text-red-400", empty: expenses === 0, note: "excludes savings/investment transactions" },
+                              { label: "Savings & Investments", value: savingsExpenses, color: "text-blue-600 dark:text-blue-400", empty: savingsExpenses === 0, note: "savings-category expenses" },
+                              { label: "Total Saved", value: totalSaved, color: totalSaved >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400", empty: income === 0 },
                             ].map((row) => (
                               <div key={row.label} className="flex items-center justify-between px-3 py-2.5 text-xs">
-                                <span className="text-muted-foreground">{row.label}</span>
+                                <div>
+                                  <span className="text-muted-foreground">{row.label}</span>
+                                  {"note" in row && row.note && <p className="text-[10px] text-muted-foreground/60">{row.note}</p>}
+                                </div>
                                 {row.empty ? <span className="text-muted-foreground italic">not recorded</span> : <span className={`font-mono font-semibold ${row.color}`}>{format(row.value)}</span>}
                               </div>
                             ))}

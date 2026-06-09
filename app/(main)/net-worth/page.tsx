@@ -306,9 +306,9 @@ export default function NetWorthPage() {
 
   const goalProgress = goalAmount > 0 ? Math.min((netWorth / goalAmount) * 100, 100) : 0;
 
-  // ── Net worth trend: from Jan 2026 only, up to 6 months (snapshot or current net worth)
+  // ── Net worth trend: from May 2026 only, up to 6 months (latest snapshot per month or live)
   const NET_WORTH_START_YEAR = 2026;
-  const NET_WORTH_START_MONTH = 2; // March
+  const NET_WORTH_START_MONTH = 4; // May (0-indexed)
 
   const historicalData = useMemo(() => {
     const now = new Date();
@@ -319,11 +319,12 @@ export default function NetWorthPage() {
       netWorth: number;
       sourceLabel: string;
     }[] = [];
+    // Sort ascending so .at(-1) gives the latest snapshot in a month
     const sortedSnapshots = [...snapshots].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
 
-    const endDate = now >= startDate ? now : new Date(2026, 5, 1);
+    const endDate = now >= startDate ? now : startDate;
     const monthCount =
       (endDate.getFullYear() - startDate.getFullYear()) * 12 +
       (endDate.getMonth() - startDate.getMonth()) +
@@ -332,67 +333,42 @@ export default function NetWorthPage() {
 
     for (let i = fromMonth; i < monthCount && months.length < 6; i++) {
       const d = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
-      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-        2,
-        "0",
-      )}`;
-      const monthLabel = d.toLocaleDateString("en-US", {
-        month: "short",
-        year: "2-digit",
-      });
-
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const monthLabel = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
       const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-      // Use the LATEST snapshot in the month (not the earliest), so that
-      // a bad early-month snapshot is overridden by a later, more complete one.
+
+      const isCurrentMonth =
+        d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+
+      // Use only the LATEST snapshot taken within this exact month
       const snapshotsInMonth = sortedSnapshots.filter((s) => {
         const sDate = new Date(s.date);
         return sDate >= d && sDate <= endOfMonth;
       });
-      const snapshotInMonth = snapshotsInMonth.at(-1);
-      const lastSnapshotBefore = sortedSnapshots.filter(
-        (s) => new Date(s.date) <= endOfMonth,
-      );
-      const latestBefore = lastSnapshotBefore[lastSnapshotBefore.length - 1];
-      const isCurrentMonth =
-        d.getMonth() === now.getMonth() &&
-        d.getFullYear() === now.getFullYear();
+      const latestInMonth = snapshotsInMonth.at(-1);
 
       let value: number;
       let sourceLabel: string;
-      // Current month always uses live net worth (today's calculation)
+
       if (isCurrentMonth) {
         value = netWorth;
-        sourceLabel = "Current net worth (Assets − Liabilities today)";
-      } else if (snapshotInMonth) {
-        value = snapshotInMonth.net_worth;
-        const snapDate = new Date(snapshotInMonth.date);
-        sourceLabel = `Snapshot on ${snapDate.toLocaleDateString("en-US", {
-          dateStyle: "medium",
-        })}`;
-      } else if (latestBefore) {
-        value = latestBefore.net_worth;
-        const snapDate = new Date(latestBefore.date);
-        sourceLabel = `Carried from snapshot on ${snapDate.toLocaleDateString(
-          "en-US",
-          { dateStyle: "medium" },
-        )}`;
+        sourceLabel = "Live net worth (Assets − Liabilities today)";
+      } else if (latestInMonth) {
+        value = latestInMonth.net_worth;
+        const snapDate = new Date(latestInMonth.date);
+        sourceLabel = `Snapshot on ${snapDate.toLocaleDateString("en-US", { dateStyle: "medium" })}`;
       } else {
-        value = netWorth;
-        sourceLabel = "Current net worth (no snapshot yet)";
+        // No snapshot for this past month — skip it rather than carry a stale value
+        continue;
       }
 
-      months.push({
-        month: monthLabel,
-        monthKey,
-        netWorth: value,
-        sourceLabel,
-      });
+      months.push({ month: monthLabel, monthKey, netWorth: value, sourceLabel });
     }
 
     return months;
   }, [snapshots, netWorth]);
 
-  // Month-over-month delta
+  // Month-over-month delta (most recent completed change)
   const momDelta = useMemo(() => {
     if (historicalData.length < 2) return null;
     const prev = historicalData[historicalData.length - 2].netWorth;
@@ -402,7 +378,7 @@ export default function NetWorthPage() {
     return { abs, pct };
   }, [historicalData]);
 
-  // Projected trend: extrapolate 3 months forward using avg monthly change
+  // Projected trend: use the most recent MoM change as the current savings rate
   const chartData = useMemo(() => {
     const historical = historicalData.map((d, i) => ({
       month: d.month,
@@ -411,10 +387,16 @@ export default function NetWorthPage() {
       sourceLabel: d.sourceLabel,
     }));
 
+    if (historicalData.length < 1) return historical;
+
+    // Current savings rate = most recent month-over-month change
+    // Need at least 2 data points to calculate a meaningful savings rate
     if (historicalData.length < 2) return historical;
 
-    const changes = historicalData.slice(1).map((d, i) => d.netWorth - historicalData[i].netWorth);
-    const avgChange = changes.reduce((s, c) => s + c, 0) / changes.length;
+    const currentSavingsRate =
+      historicalData[historicalData.length - 1].netWorth -
+      historicalData[historicalData.length - 2].netWorth;
+
     const lastNW = historicalData[historicalData.length - 1].netWorth;
     const lastDate = new Date();
 
@@ -423,15 +405,18 @@ export default function NetWorthPage() {
       return {
         month: d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
         actual: undefined,
-        projected: lastNW + avgChange * offset,
-        sourceLabel: "Projected",
+        projected: lastNW + currentSavingsRate * offset,
+        sourceLabel: `Projected at ${currentSavingsRate >= 0 ? "+" : ""}${format(currentSavingsRate)}/mo savings rate`,
       };
     });
 
     return [...historical, ...projected];
-  }, [historicalData]);
+  }, [historicalData, format]);
 
-  const debtRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
+  // Debt ratio: liabilities as % of total portfolio (assets + liabilities) — matches the hero bar
+  const debtRatio = (totalAssets + totalLiabilities) > 0
+    ? (totalLiabilities / (totalAssets + totalLiabilities)) * 100
+    : 0;
 
   // Liquidity breakdown
   const liquidityData = useMemo(() => {
@@ -453,12 +438,14 @@ export default function NetWorthPage() {
   }, [assets, holdings, mutualFunds, stocks, forexEntries, otherInvestments]);
 
   // Financial health score (0–100)
+  // debtRatio = liabilities % of total portfolio — thresholds on that scale:
+  //   < 15% excellent, < 25% good, < 35% fair, < 50% poor, ≥ 50% bad
   const healthScore = useMemo(() => {
     let score = 0;
     // Debt ratio (0–40)
-    if (debtRatio < 10) score += 40;
-    else if (debtRatio < 20) score += 32;
-    else if (debtRatio < 30) score += 24;
+    if (debtRatio < 15) score += 40;
+    else if (debtRatio < 25) score += 32;
+    else if (debtRatio < 35) score += 24;
     else if (debtRatio < 50) score += 12;
     else score += 0;
     // Liquidity (0–30): liquid % of total assets
@@ -484,9 +471,9 @@ export default function NetWorthPage() {
   // Sub-scores for detailed breakdown
   const healthSubScores = useMemo(() => {
     let debtScore = 0;
-    if (debtRatio < 10) debtScore = 40;
-    else if (debtRatio < 20) debtScore = 32;
-    else if (debtRatio < 30) debtScore = 24;
+    if (debtRatio < 15) debtScore = 40;
+    else if (debtRatio < 25) debtScore = 32;
+    else if (debtRatio < 35) debtScore = 24;
     else if (debtRatio < 50) debtScore = 12;
 
     const liquidPct = totalAssets > 0 ? (liquidityData.liquid / totalAssets) * 100 : 0;
@@ -509,8 +496,8 @@ export default function NetWorthPage() {
   // Health insights
   const healthInsights = useMemo(() => {
     const tips: { text: string; severity: "warn" | "bad" | "good" }[] = [];
-    if (debtRatio >= 50) tips.push({ text: "High debt-to-asset ratio. Consider paying down high-interest liabilities first.", severity: "bad" });
-    else if (debtRatio >= 30) tips.push({ text: "Debt ratio is moderate. Aim below 30% for a healthier balance sheet.", severity: "warn" });
+    if (debtRatio >= 50) tips.push({ text: "Liabilities exceed half your portfolio. Consider paying down high-interest debts first.", severity: "bad" });
+    else if (debtRatio >= 35) tips.push({ text: "Debt ratio is elevated. Aim to keep liabilities below 30% of your total portfolio.", severity: "warn" });
     else tips.push({ text: "Debt ratio is healthy. Keep liabilities in check as assets grow.", severity: "good" });
 
     const liquidPct = totalAssets > 0 ? (liquidityData.liquid / totalAssets) * 100 : 0;
@@ -729,8 +716,8 @@ export default function NetWorthPage() {
     }
   };
 
-  const financialHealthColor = debtRatio < 30 ? "text-emerald-400" : debtRatio < 60 ? "text-amber-400" : "text-red-400";
-  const financialHealthLabel = debtRatio < 30 ? "Healthy" : debtRatio < 60 ? "Moderate" : "High Risk";
+  const financialHealthColor = debtRatio < 25 ? "text-emerald-400" : debtRatio < 40 ? "text-amber-400" : "text-red-400";
+  const financialHealthLabel = debtRatio < 25 ? "Healthy" : debtRatio < 40 ? "Moderate" : "High Risk";
 
   if (loading && assets.length === 0) {
     return (
@@ -863,7 +850,9 @@ export default function NetWorthPage() {
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Net Worth Trend</p>
                 <p className="text-xs text-muted-foreground mt-0.5">Up to 6 months of history</p>
               </div>
-              {historicalData.length > 1 && (() => {
+              {historicalData.length < 2 ? (
+                <span className="text-[10px] text-muted-foreground italic">Take a snapshot next month to see trends & projections</span>
+              ) : (() => {
                 const first = historicalData[0]?.netWorth ?? 0;
                 const last = historicalData[historicalData.length - 1]?.netWorth ?? 0;
                 const change = last - first;
@@ -910,9 +899,9 @@ export default function NetWorthPage() {
                     const isProj = p.actual === undefined;
                     return (
                       <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-xs">
-                        <p className="font-semibold mb-1">{p.month}{isProj ? " (projected)" : ""}</p>
+                        <p className="font-semibold mb-1">{p.month}{isProj ? " · projected" : ""}</p>
                         <p className={`font-mono font-bold ${(val ?? 0) >= 0 ? "text-blue-600" : "text-red-500"}`}>{format(val ?? 0)}</p>
-                        {p.sourceLabel && !isProj && <p className="text-muted-foreground mt-1 max-w-50">{p.sourceLabel}</p>}
+                        {p.sourceLabel && <p className="text-muted-foreground mt-1 max-w-50">{p.sourceLabel}</p>}
                       </div>
                     );
                   }}
@@ -970,209 +959,187 @@ export default function NetWorthPage() {
           )}
         </Card>
 
-        {/* Asset Allocation + Breakdown side by side */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          {/* Donut chart */}
-          <Card className="lg:col-span-2">
-            <div className="px-4 pt-4 pb-2 border-b">
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Asset Allocation</p>
-              <p className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm mt-0.5">{format(totalAssets)}</p>
-            </div>
-            <CardContent className="pt-4 pb-2 flex items-center justify-center">
-              {allocationItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Activity className="h-8 w-8 text-muted-foreground/40 mb-2" />
-                  <p className="text-xs text-muted-foreground">No assets yet</p>
-                </div>
-              ) : (
-                <div className="relative">
-                  <ResponsiveContainer width={200} height={200}>
+        {/* Asset Allocation — single combined card */}
+        <Card>
+          <div className="px-4 pt-3 pb-2.5 border-b flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Asset Allocation</p>
+            <p className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-xs">{format(totalAssets)}</p>
+          </div>
+          <CardContent className="pt-3 pb-3 px-4">
+            {allocationItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Activity className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                <p className="text-xs text-muted-foreground">No assets yet</p>
+              </div>
+            ) : (
+              <div className="flex gap-5 items-center">
+                <div className="relative shrink-0">
+                  <ResponsiveContainer width={148} height={148}>
                     <PieChart>
-                      <Pie data={allocationItems} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={58} paddingAngle={3}>
+                      <Pie data={allocationItems} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={68} innerRadius={42} paddingAngle={3}>
                         {allocationItems.map((_, index) => <Cell key={index} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} strokeWidth={0} />)}
                       </Pie>
-                      <Tooltip
-                        formatter={(value) => format((value ?? 0) as number)}
-                        contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                      />
+                      <Tooltip formatter={(value) => format((value ?? 0) as number)} contentStyle={{ fontSize: 11, borderRadius: 8 }} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-widest">Total</p>
-                    <p className="font-mono font-bold text-sm leading-tight">{format(totalAssets)}</p>
+                    <p className="text-[8px] text-muted-foreground uppercase tracking-widest">Total</p>
+                    <p className="font-mono font-bold text-[11px] leading-tight">{format(totalAssets)}</p>
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Asset category list */}
-          <Card className="lg:col-span-3">
-            <div className="px-4 pt-4 pb-2 border-b">
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">By Category</p>
-            </div>
-            <CardContent className="px-0 pt-0 pb-0">
-              {allocationItems.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-8">No data yet</p>
-              ) : (
-                <div className="divide-y divide-border">
+                <div className="flex-1 min-w-0">
                   {allocationItems.map((item, idx) => {
                     const pct = totalAssets > 0 ? (item.value / totalAssets) * 100 : 0;
                     const color = ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length];
                     const Icon = item.icon;
                     const inner = (
-                      <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: color + "22" }}>
-                          <Icon className="h-3.5 w-3.5" style={{ color }} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium flex items-center gap-1.5">
-                              {item.name}
-                              {item.href && <ExternalLink className="h-3 w-3 text-muted-foreground" />}
-                            </span>
-                            <div className="flex items-center gap-2 text-xs">
-                              <span className="font-mono font-semibold">{format(item.value)}</span>
-                              <span className="text-muted-foreground w-9 text-right">{pct.toFixed(1)}%</span>
-                            </div>
+                      <div className="flex items-center gap-2 py-1.5 hover:bg-muted/30 transition-colors px-1 rounded-md group">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <Icon className="h-3 w-3 shrink-0 text-muted-foreground group-hover:opacity-100" style={{ color }} />
+                        <span className="text-xs font-medium flex-1 min-w-0 truncate flex items-center gap-1">
+                          {item.name}
+                          {item.href && <ExternalLink className="h-2.5 w-2.5 text-muted-foreground" />}
+                        </span>
+                        <div className="flex items-center gap-2.5 text-xs shrink-0">
+                          <div className="w-14 h-1 bg-muted rounded-full overflow-hidden hidden sm:block">
+                            <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
                           </div>
-                          <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: color }} />
-                          </div>
+                          <span className="font-mono font-semibold tabular-nums">{format(item.value)}</span>
+                          <span className="text-muted-foreground w-8 text-right tabular-nums">{pct.toFixed(1)}%</span>
                         </div>
                       </div>
                     );
-                    return item.href ? (
-                      <Link key={item.name} href={item.href}>{inner}</Link>
-                    ) : (
-                      <div key={item.name}>{inner}</div>
-                    );
+                    return item.href ? <Link key={item.name} href={item.href}>{inner}</Link> : <div key={item.name}>{inner}</div>;
                   })}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Financial Health + Liquidity row */}
+        {/* Financial Health + Liquidity row — compact advanced */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Health Score */}
+
+          {/* Health Score — compact */}
           <Card>
-            <div className="px-4 pt-4 pb-3 border-b flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-amber-500" />
+            <div className="px-4 pt-3 pb-2.5 border-b flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-amber-500" />
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Financial Health Score</p>
               </div>
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${healthScore >= 80 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" : healthScore >= 60 ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" : healthScore >= 40 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"}`}>{healthLabel}</span>
+              <div className="flex items-center gap-2">
+                <span className={`font-mono text-lg font-bold leading-none ${healthColor}`}>{healthScore}</span>
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${healthScore >= 80 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" : healthScore >= 60 ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" : healthScore >= 40 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"}`}>{healthLabel}</span>
+              </div>
             </div>
-            <CardContent className="pt-4 pb-4 space-y-5">
-              {/* Score gauge + overall */}
-              <div className="flex items-center gap-5">
-                <div className="relative w-24 h-24 shrink-0">
-                  <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
-                    <circle cx="48" cy="48" r="40" fill="none" stroke="currentColor" strokeWidth="10" className="text-muted/30" />
-                    <circle cx="48" cy="48" r="40" fill="none" strokeWidth="10"
-                      strokeDasharray={`${(healthScore / 100) * 251} 251`}
-                      strokeLinecap="round"
-                      className={healthBg.replace("bg-", "stroke-")}
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className={`text-2xl font-bold font-mono leading-none ${healthColor}`}>{healthScore}</span>
-                    <span className="text-[9px] text-muted-foreground">/100</span>
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  {/* Segmented score bar */}
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">Score Breakdown</p>
-                  <div className="relative h-3 w-full rounded-full overflow-hidden bg-muted">
-                    <div className="absolute inset-y-0 left-0 flex h-full rounded-full overflow-hidden transition-all duration-700" style={{ width: `${healthScore}%` }}>
-                      {[
-                        { val: healthSubScores.debtScore, color: "#10b981", label: "Debt" },
-                        { val: healthSubScores.liquidScore, color: "#3b82f6", label: "Liquidity" },
-                        { val: healthSubScores.divScore, color: "#8b5cf6", label: "Diversification" },
-                        { val: healthSubScores.growthScore, color: "#f59e0b", label: "Growth" },
-                      ].filter(s => s.val > 0).map((seg) => (
-                        <div key={seg.label} className="h-full" style={{ flex: seg.val, backgroundColor: seg.color }} />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <CardContent className="pt-3 pb-3 space-y-3">
+              {/* Segmented bar */}
+              <div>
+                <div className="relative h-2 w-full rounded-full overflow-hidden bg-muted">
+                  <div className="absolute inset-y-0 left-0 flex h-full rounded-full overflow-hidden transition-all duration-700" style={{ width: `${healthScore}%` }}>
                     {[
-                      { label: "Debt", color: "#10b981" },
-                      { label: "Liquidity", color: "#3b82f6" },
-                      { label: "Divers.", color: "#8b5cf6" },
-                      { label: "Growth", color: "#f59e0b" },
-                    ].map((l) => (
-                      <span key={l.label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: l.color }} />{l.label}
-                      </span>
+                      { val: healthSubScores.debtScore, color: "#10b981" },
+                      { val: healthSubScores.liquidScore, color: "#3b82f6" },
+                      { val: healthSubScores.divScore, color: "#8b5cf6" },
+                      { val: healthSubScores.growthScore, color: "#f59e0b" },
+                    ].filter(s => s.val > 0).map((seg, i) => (
+                      <div key={i} className="h-full" style={{ flex: seg.val, backgroundColor: seg.color }} />
                     ))}
                   </div>
                 </div>
+                <div className="flex items-center gap-3 mt-1.5">
+                  {[
+                    { label: "Debt", color: "#10b981" }, { label: "Liquidity", color: "#3b82f6" },
+                    { label: "Divers.", color: "#8b5cf6" }, { label: "Growth", color: "#f59e0b" },
+                  ].map((l) => (
+                    <span key={l.label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: l.color }} />{l.label}
+                    </span>
+                  ))}
+                </div>
               </div>
 
-              {/* Sub-score rows */}
-              <div className="space-y-3">
-                {[
+              {/* Sub-score rows with gap-to-max */}
+              {(() => {
+                const liquidPct = totalAssets > 0 ? (liquidityData.liquid / totalAssets) * 100 : 0;
+                const divCount = assetBreakdown.filter(i => i.value > 0).length;
+                const rows = [
                   {
                     label: "Debt Management", icon: Shield, score: healthSubScores.debtScore, max: 40,
-                    value: `${debtRatio.toFixed(1)}% debt-to-asset`, color: "#10b981",
-                    status: debtRatio < 30 ? "good" : debtRatio < 60 ? "fair" : "bad",
-                    target: "Target < 30%",
+                    value: `${debtRatio.toFixed(1)}% of portfolio`, color: "#10b981",
+                    status: debtRatio < 25 ? "good" : debtRatio < 40 ? "fair" : "bad",
+                    toMax: healthSubScores.debtScore < 40
+                      ? debtRatio < 25 ? null : `Reduce liabilities to < 25% of portfolio (need ${format(Math.max(0, totalLiabilities - (totalAssets + totalLiabilities) * 0.15))} less debt)`
+                      : null,
                   },
                   {
                     label: "Liquidity", icon: Droplets, score: healthSubScores.liquidScore, max: 30,
-                    value: `${totalAssets > 0 ? ((liquidityData.liquid / totalAssets) * 100).toFixed(1) : 0}% liquid assets`, color: "#3b82f6",
-                    status: liquidityData.liquid / (totalAssets || 1) > 0.3 ? "good" : liquidityData.liquid / (totalAssets || 1) > 0.15 ? "fair" : "bad",
-                    target: "Target > 30%",
+                    value: `${liquidPct.toFixed(1)}% liquid`, color: "#3b82f6",
+                    status: liquidPct > 30 ? "good" : liquidPct > 15 ? "fair" : "bad",
+                    toMax: healthSubScores.liquidScore < 30
+                      ? liquidPct > 50 ? null : `Add ${format(Math.max(0, totalAssets * 0.5 - liquidityData.liquid))} more in liquid assets (MF, stocks, cash) to exceed 50%`
+                      : null,
                   },
                   {
                     label: "Diversification", icon: BarChart3, score: healthSubScores.divScore, max: 20,
-                    value: `${assetBreakdown.filter(i => i.value > 0).length} of 6 asset classes`, color: "#8b5cf6",
-                    status: assetBreakdown.filter(i => i.value > 0).length >= 4 ? "good" : assetBreakdown.filter(i => i.value > 0).length >= 2 ? "fair" : "bad",
-                    target: "Target ≥ 4 classes",
+                    value: `${divCount} of 6 classes`, color: "#8b5cf6",
+                    status: divCount >= 4 ? "good" : divCount >= 2 ? "fair" : "bad",
+                    toMax: healthSubScores.divScore < 20
+                      ? `Add ${Math.max(0, 5 - divCount)} more asset class${5 - divCount === 1 ? "" : "es"} — missing: ${["Gold","Mutual Funds","Stocks","Forex","Other Investments","Other Assets"].filter(n => !assetBreakdown.find(a => a.name === n && a.value > 0)).slice(0, 3).join(", ")}`
+                      : null,
                   },
                   {
                     label: "Growth (MoM)", icon: TrendingUp, score: healthSubScores.growthScore, max: 10,
-                    value: momDelta ? `${momDelta.abs >= 0 ? "+" : ""}${momDelta.pct.toFixed(2)}% this month` : "No prior snapshot",
+                    value: momDelta ? `${momDelta.abs >= 0 ? "+" : ""}${momDelta.pct.toFixed(2)}%` : "No snapshot",
                     color: "#f59e0b",
-                    status: !momDelta ? "fair" : momDelta.pct > 0 ? "good" : "bad",
-                    target: "Target > 0%",
+                    status: !momDelta ? "fair" : momDelta.pct > 2 ? "good" : momDelta.pct > 0 ? "fair" : "bad",
+                    toMax: healthSubScores.growthScore < 10
+                      ? !momDelta
+                        ? "Take a monthly snapshot to start tracking growth"
+                        : momDelta.pct <= 2
+                          ? "Grow net worth by > 2% this month to earn full 10 pts"
+                          : null
+                      : null,
                   },
-                ].map((row) => {
-                  const Icon = row.icon;
-                  return (
-                    <div key={row.label}>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-sm font-medium">{row.label}</span>
+                ];
+                return (
+                  <div className="space-y-2.5">
+                    {rows.map((row) => {
+                      const Icon = row.icon;
+                      const gap = row.max - row.score;
+                      return (
+                        <div key={row.label}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="text-xs font-medium w-28 shrink-0">{row.label}</span>
+                            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(row.score / row.max) * 100}%`, backgroundColor: row.color }} />
+                            </div>
+                            <span className="text-[10px] text-muted-foreground w-16 text-right shrink-0 tabular-nums">{row.value}</span>
+                            <span className="font-mono text-[10px] font-bold shrink-0 w-8 text-right" style={{ color: row.color }}>{row.score}/{row.max}</span>
+                            {row.status === "good"
+                              ? <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                              : <AlertTriangle className={`h-3 w-3 shrink-0 ${row.status === "bad" ? "text-red-500" : "text-amber-500"}`} />}
+                          </div>
+                          {row.toMax && (
+                            <div className="ml-5 mt-1 flex items-start gap-1.5">
+                              <span className="text-[10px] text-muted-foreground leading-tight">{row.toMax}</span>
+                              <span className="shrink-0 text-[10px] font-semibold text-amber-500 ml-auto">+{gap} pts</span>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">{row.value}</span>
-                          <span className="font-mono text-xs font-bold" style={{ color: row.color }}>{row.score}/{row.max}</span>
-                          {row.status === "good" && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
-                          {row.status === "fair" && <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
-                          {row.status === "bad" && <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />}
-                        </div>
-                      </div>
-                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(row.score / row.max) * 100}%`, backgroundColor: row.color }} />
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{row.target}</p>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
-              {/* Insights */}
+              {/* Insights — compact chips */}
               {healthInsights.length > 0 && (
-                <div className="border-t pt-3 space-y-2">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Insights</p>
+                <div className="border-t pt-2.5 space-y-1.5">
                   {healthInsights.map((tip, i) => (
-                    <div key={i} className={`flex items-start gap-2 text-xs rounded-lg px-3 py-2 ${tip.severity === "good" ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400" : tip.severity === "warn" ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400" : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"}`}>
-                      {tip.severity === "good" ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-px" /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />}
+                    <div key={i} className={`flex items-start gap-1.5 text-[11px] rounded-md px-2.5 py-1.5 ${tip.severity === "good" ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400" : tip.severity === "warn" ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400" : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"}`}>
+                      {tip.severity === "good" ? <CheckCircle2 className="h-3 w-3 shrink-0 mt-px" /> : <AlertTriangle className="h-3 w-3 shrink-0 mt-px" />}
                       <span>{tip.text}</span>
                     </div>
                   ))}
@@ -1181,97 +1148,92 @@ export default function NetWorthPage() {
             </CardContent>
           </Card>
 
-          {/* Liquidity Breakdown */}
+          {/* Liquidity Analysis — compact advanced */}
           <Card>
-            <div className="px-4 pt-4 pb-3 border-b flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Droplets className="h-4 w-4 text-blue-500" />
+            <div className="px-4 pt-3 pb-2.5 border-b flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Droplets className="h-3.5 w-3.5 text-blue-500" />
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Liquidity Analysis</p>
               </div>
-              <span className="text-[10px] text-muted-foreground">{format(liquidityData.total)} total</span>
+              <span className="text-[10px] text-muted-foreground font-mono">{format(liquidityData.total)}</span>
             </div>
-            <CardContent className="pt-4 pb-4 space-y-4">
-              {/* Stacked bar */}
+            <CardContent className="pt-3 pb-3 space-y-3">
+              {/* Stacked bar + legend inline */}
               <div>
-                <div className="flex h-4 w-full rounded-lg overflow-hidden gap-0.5">
-                  {liquidityData.total > 0 && [
+                <div className="flex h-3 w-full rounded-md overflow-hidden gap-px">
+                  {liquidityData.total > 0 ? [
                     { value: liquidityData.liquid, color: "#10b981" },
                     { value: liquidityData.semiLiquid, color: "#f59e0b" },
                     { value: liquidityData.illiquid, color: "#ef4444" },
                   ].map((seg, i) => seg.value > 0 && (
-                    <div key={i} className="h-full transition-all duration-700 rounded-sm" style={{ flex: seg.value, backgroundColor: seg.color }} />
-                  ))}
-                  {liquidityData.total === 0 && <div className="flex-1 bg-muted rounded-lg" />}
+                    <div key={i} className="h-full transition-all duration-700" style={{ flex: seg.value, backgroundColor: seg.color }} />
+                  )) : <div className="flex-1 bg-muted rounded-md" />}
                 </div>
-                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                <div className="flex items-center gap-4 mt-1.5">
                   {[
-                    { label: "Liquid", color: "#10b981", pct: liquidityData.total > 0 ? (liquidityData.liquid / liquidityData.total) * 100 : 0 },
-                    { label: "Semi-Liquid", color: "#f59e0b", pct: liquidityData.total > 0 ? (liquidityData.semiLiquid / liquidityData.total) * 100 : 0 },
-                    { label: "Illiquid", color: "#ef4444", pct: liquidityData.total > 0 ? (liquidityData.illiquid / liquidityData.total) * 100 : 0 },
+                    { label: "Liquid", color: "#10b981", val: liquidityData.liquid, pct: liquidityData.total > 0 ? (liquidityData.liquid / liquidityData.total) * 100 : 0 },
+                    { label: "Semi-Liquid", color: "#f59e0b", val: liquidityData.semiLiquid, pct: liquidityData.total > 0 ? (liquidityData.semiLiquid / liquidityData.total) * 100 : 0 },
+                    { label: "Illiquid", color: "#ef4444", val: liquidityData.illiquid, pct: liquidityData.total > 0 ? (liquidityData.illiquid / liquidityData.total) * 100 : 0 },
                   ].map((l) => (
-                    <span key={l.label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ backgroundColor: l.color }} />
-                      {l.label} {l.pct.toFixed(0)}%
-                    </span>
+                    <div key={l.label} className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-sm inline-block shrink-0" style={{ backgroundColor: l.color }} />
+                      <span className="text-[10px] text-muted-foreground">{l.label} <span className="font-semibold tabular-nums">{l.pct.toFixed(0)}%</span></span>
+                    </div>
                   ))}
                 </div>
               </div>
 
-              {/* Instant liquidity highlight */}
-              <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg px-3 py-2.5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Instant Liquidity</p>
-                    <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70">Cash & bank accounts (manual assets only)</p>
-                  </div>
-                  <p className="font-mono text-sm font-bold text-emerald-700 dark:text-emerald-400">{format(liquidityBreakdown.instantLiquid)}</p>
+              {/* Instant liquidity — compact */}
+              <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/20 rounded-md px-3 py-2">
+                <div>
+                  <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Instant Liquidity</p>
+                  <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70">Cash & bank accounts</p>
                 </div>
-                {liquidityBreakdown.instantLiquid === 0 && (
-                  <div className="mt-2 flex items-center gap-1.5 text-[10px] text-emerald-700/70 dark:text-emerald-500/70">
-                    <AlertTriangle className="h-3 w-3 shrink-0" />
-                    <span>No cash or bank assets added. Go to the <strong>Assets tab</strong> → Add Asset → select type <strong>Cash</strong> or <strong>Bank Account</strong> to track this.</span>
-                  </div>
-                )}
+                <div className="text-right">
+                  <p className="font-mono text-sm font-bold text-emerald-700 dark:text-emerald-400">{format(liquidityBreakdown.instantLiquid)}</p>
+                  {liquidityBreakdown.instantLiquid === 0 && (
+                    <p className="text-[10px] text-emerald-600/60 dark:text-emerald-500/60 mt-0.5">Add Cash/Bank asset to track</p>
+                  )}
+                </div>
               </div>
 
-              {/* Tier breakdown */}
-              {[
-                { label: "Liquid Assets", sublabel: "Can be accessed within days", value: liquidityData.liquid, items: liquidityBreakdown.liquidItems, color: "#10b981", dot: "bg-emerald-500" },
-                { label: "Semi-Liquid Assets", sublabel: "May take days to weeks to convert", value: liquidityData.semiLiquid, items: liquidityBreakdown.semiItems, color: "#f59e0b", dot: "bg-amber-500" },
-                { label: "Illiquid Assets", sublabel: "Property, vehicles — takes months", value: liquidityData.illiquid, items: liquidityBreakdown.illiquidItems, color: "#ef4444", dot: "bg-red-500" },
-              ].map((tier) => {
-                const pct = liquidityData.total > 0 ? (tier.value / liquidityData.total) * 100 : 0;
-                return (
-                  <div key={tier.label} className="border rounded-lg overflow-hidden">
-                    <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2.5 h-2.5 rounded-full ${tier.dot}`} />
-                        <div>
-                          <p className="text-sm font-semibold">{tier.label}</p>
-                          <p className="text-[10px] text-muted-foreground">{tier.sublabel}</p>
+              {/* Compact tier rows */}
+              <div className="space-y-1.5">
+                {[
+                  { label: "Liquid Assets", sublabel: "Within days", value: liquidityData.liquid, items: liquidityBreakdown.liquidItems, color: "#10b981", dotCls: "bg-emerald-500" },
+                  { label: "Semi-Liquid", sublabel: "Days to weeks", value: liquidityData.semiLiquid, items: liquidityBreakdown.semiItems, color: "#f59e0b", dotCls: "bg-amber-500" },
+                  { label: "Illiquid", sublabel: "Months", value: liquidityData.illiquid, items: liquidityBreakdown.illiquidItems, color: "#ef4444", dotCls: "bg-red-500" },
+                ].map((tier) => {
+                  const pct = liquidityData.total > 0 ? (tier.value / liquidityData.total) * 100 : 0;
+                  return (
+                    <div key={tier.label} className="border rounded-md overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2 bg-muted/20">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${tier.dotCls}`} />
+                          <span className="text-xs font-semibold">{tier.label}</span>
+                          <span className="text-[10px] text-muted-foreground hidden sm:inline">{tier.sublabel}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground tabular-nums">{pct.toFixed(1)}%</span>
+                          <span className="font-mono text-xs font-bold" style={{ color: tier.color }}>{format(tier.value)}</span>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-mono text-sm font-bold" style={{ color: tier.color }}>{format(tier.value)}</p>
-                        <p className="text-[10px] text-muted-foreground">{pct.toFixed(1)}% of portfolio</p>
-                      </div>
+                      {tier.items.length > 0 ? (
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 px-3 py-1.5">
+                          {tier.items.map((item) => (
+                            <div key={item.name} className="flex items-center gap-1.5 text-[11px]">
+                              <span className="text-muted-foreground">{item.name}</span>
+                              <span className="font-mono font-medium">{format(item.value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground px-3 py-1.5 italic">None tracked</p>
+                      )}
                     </div>
-                    {tier.items.length > 0 && (
-                      <div className="divide-y divide-border/60">
-                        {tier.items.map((item) => (
-                          <div key={item.name} className="flex items-center justify-between px-3 py-1.5 text-xs">
-                            <span className="text-muted-foreground">{item.name}</span>
-                            <span className="font-mono font-medium">{format(item.value)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {tier.items.length === 0 && (
-                      <p className="text-[10px] text-muted-foreground px-3 py-2 italic">None tracked</p>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -1292,7 +1254,7 @@ export default function NetWorthPage() {
           {/* ASSETS TAB */}
           <TabsContent value="assets" className="space-y-4">
 
-            {/* Auto-tracked investments */}
+            {/* Auto-tracked investments — compact */}
             {allocationItems.filter((i) => i.href).length > 0 && (
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Auto-Tracked Investments</p>
@@ -1305,27 +1267,29 @@ export default function NetWorthPage() {
                         const color = ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length];
                         return (
                           <Link key={item.name} href={item.href!}>
-                            <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
-                              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: color + "22" }}>
-                                <Icon className="h-4 w-4" style={{ color }} />
+                            <div className="flex items-center gap-2.5 px-3 py-2 hover:bg-muted/30 transition-colors">
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: color + "22" }}>
+                                <Icon className="h-3 w-3" style={{ color }} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium flex items-center gap-1.5">
+                                <p className="text-xs font-medium flex items-center gap-1">
                                   {item.name}
-                                  <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                  <ExternalLink className="h-2.5 w-2.5 text-muted-foreground" />
                                 </p>
-                                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">auto-tracked</p>
                               </div>
-                              <div className="text-right shrink-0">
-                                <p className="font-mono text-sm font-semibold" style={{ color }}>{format(item.value)}</p>
-                                <p className="text-[10px] text-muted-foreground">{pct.toFixed(1)}%</p>
+                              <div className="flex items-center gap-3 shrink-0">
+                                <div className="w-16 h-1 bg-muted rounded-full overflow-hidden hidden sm:block">
+                                  <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                                </div>
+                                <span className="font-mono text-xs font-semibold tabular-nums" style={{ color }}>{format(item.value)}</span>
+                                <span className="text-[10px] text-muted-foreground w-8 text-right tabular-nums">{pct.toFixed(1)}%</span>
                               </div>
                             </div>
                           </Link>
                         );
                       })}
                     </div>
-                    <div className="px-4 py-3 border-t bg-muted/20 flex items-center justify-between text-xs text-muted-foreground">
+                    <div className="px-3 py-2 border-t bg-muted/20 flex items-center justify-between text-xs text-muted-foreground">
                       <span>{allocationItems.filter((i) => i.href).length} investment categories</span>
                       <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">{format(externalAssetsTotal)}</span>
                     </div>
@@ -1388,48 +1352,46 @@ export default function NetWorthPage() {
             <Card>
               <CardContent className="p-0">
                 {assets.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                      <PiggyBank className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm font-medium text-muted-foreground">No manual assets yet</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">Add cash, property, bank accounts etc.</p>
+                  <div className="flex flex-col items-center justify-center py-10 text-center">
+                    <PiggyBank className="h-7 w-7 text-muted-foreground/40 mb-2" />
+                    <p className="text-xs font-medium text-muted-foreground">No manual assets yet</p>
+                    <p className="text-[11px] text-muted-foreground/60 mt-0.5">Add cash, property, bank accounts etc.</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-border">
                     {assets.map((asset) => {
                       const pct = totalAssets > 0 ? (asset.value / totalAssets) * 100 : 0;
                       return (
-                        <div key={asset.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
-                          <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
+                        <div key={asset.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-muted/30 transition-colors">
+                          <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400 [&>svg]:h-3 [&>svg]:w-3">
                             {getAssetIcon(asset.type)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{asset.name}</p>
-                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{asset.type.replace("_", " ")}</p>
+                            <p className="text-xs font-medium truncate">{asset.name}</p>
+                            <p className="text-[10px] text-muted-foreground capitalize">{asset.type.replace("_", " ")}</p>
                           </div>
-                          <div className="text-right shrink-0 mr-1">
-                            <p className="font-mono text-sm font-semibold text-emerald-600 dark:text-emerald-400">{format(asset.value)}</p>
-                            <p className="text-[10px] text-muted-foreground">{pct.toFixed(1)}%</p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">{format(asset.value)}</span>
+                            <span className="text-[10px] text-muted-foreground w-7 text-right tabular-nums">{pct.toFixed(1)}%</span>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground">
+                                  <MoreVertical className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEditAssetDialog(asset)}><Edit className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600" onClick={async () => { if (confirm(`Delete ${asset.name}?`)) { try { await deleteAsset(asset.id); toast.success("Asset deleted!"); } catch { toast.error("Failed to delete asset"); } } }}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground">
-                                <MoreVertical className="h-3.5 w-3.5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openEditAssetDialog(asset)}><Edit className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
-                              <DropdownMenuItem className="text-red-600" onClick={async () => { if (confirm(`Delete ${asset.name}?`)) { try { await deleteAsset(asset.id); toast.success("Asset deleted!"); } catch { toast.error("Failed to delete asset"); } } }}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
                         </div>
                       );
                     })}
                   </div>
                 )}
                 {assets.length > 0 && (
-                  <div className="px-4 py-3 border-t bg-muted/20 flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="px-3 py-2 border-t bg-muted/20 flex items-center justify-between text-xs text-muted-foreground">
                     <span>{assets.length} asset{assets.length !== 1 ? "s" : ""}</span>
                     <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">{format(totalManualAssets)}</span>
                   </div>
@@ -1553,7 +1515,7 @@ export default function NetWorthPage() {
                   <div className="px-4 py-3 border-t bg-muted/20 flex items-center justify-between text-xs text-muted-foreground">
                     <span className="flex items-center gap-1.5">
                       <Shield className="h-3 w-3" />
-                      {debtRatio.toFixed(1)}% debt-to-asset · {financialHealthLabel}
+                      {debtRatio.toFixed(1)}% of portfolio · {financialHealthLabel}
                     </span>
                     <span className="font-mono font-semibold text-red-500 dark:text-red-400">{format(totalLiabilities)}</span>
                   </div>

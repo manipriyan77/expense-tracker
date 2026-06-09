@@ -1764,540 +1764,267 @@ export default function InvestmentsPage() {
           </div>
 
           {/* ALL TAB — Investment Dashboard */}
-          <TabsContent value="all" className="space-y-4 mt-4">
+          <TabsContent value="all" className="space-y-3 mt-4">
             {!hasAnyData ? (
               <Card>
                 <CardContent className="py-14 text-center">
                   <TrendingUp className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-semibold text-foreground mb-1">
-                    No investments yet
-                  </p>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Start tracking your portfolio
-                  </p>
-                  <Button onClick={() => openAddDialog()}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Investment
-                  </Button>
+                  <p className="font-semibold text-foreground mb-1">No investments yet</p>
+                  <p className="text-sm text-muted-foreground mb-4">Start tracking your portfolio</p>
+                  <Button onClick={() => openAddDialog()}><Plus className="h-4 w-4 mr-2" />Add Investment</Button>
                 </CardContent>
               </Card>
             ) : (
               <>
-                {/* Asset Type Performance Cards */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  {assetPerf.map((a) => {
-                    const ret = a.invested > 0 ? (a.pnl / a.invested) * 100 : 0;
-                    const isPos = a.pnl >= 0;
-                    const allocationPct =
-                      portfolio.totalCurrent > 0
-                        ? (a.current / portfolio.totalCurrent) * 100
-                        : 0;
-                    return (
-                      <Card
-                        key={a.key}
-                        className="cursor-pointer hover:shadow-lg transition-all duration-200 overflow-hidden group border-border/60 hover:border-border"
-                        onClick={() => setActiveTab(a.key)}
-                      >
-                        <CardContent className="p-0">
-                          {/* colored top accent */}
-                          <div
-                            className="h-0.5 w-full"
-                            style={{ backgroundColor: a.color }}
-                          />
-                          <div className="p-3">
-                            <div className="flex items-center justify-between mb-2.5">
-                              <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
-                                {a.label}
-                              </span>
-                              <span
-                                className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-full"
-                                style={{
-                                  backgroundColor: a.color + "20",
-                                  color: a.color,
-                                }}
-                              >
-                                {allocationPct.toFixed(0)}%
-                              </span>
-                            </div>
-                            <div className="font-mono text-lg font-bold text-foreground leading-tight">
-                              {format(a.current)}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground mt-0.5 mb-2">
-                              <span className="font-mono">
-                                {format(a.invested)}
-                              </span>{" "}
-                              invested
-                            </div>
-                            {/* mini allocation bar */}
-                            <div className="h-1 rounded-full bg-muted overflow-hidden mb-2">
-                              <div
-                                className="h-full rounded-full transition-all"
-                                style={{
-                                  width: `${Math.min(allocationPct, 100)}%`,
-                                  backgroundColor: a.color,
-                                }}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div
-                                className={`font-mono text-sm font-semibold flex items-center gap-0.5 ${isPos ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                              >
-                                {isPos ? (
-                                  <ArrowUpRight className="h-3.5 w-3.5" />
-                                ) : (
-                                  <ArrowDownRight className="h-3.5 w-3.5" />
-                                )}
-                                {isPos ? "+" : ""}
-                                {ret.toFixed(1)}%
-                              </div>
-                              <div className="text-[10px] text-muted-foreground">
-                                {a.count}{" "}
-                                {a.count === 1 ? "holding" : "holdings"}
-                              </div>
+                {/* ── Asset Class Table ── */}
+                <Card className="overflow-hidden">
+                  <div className="px-4 pt-3 pb-2 border-b flex items-center justify-between">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Asset Breakdown</p>
+                    <p className="text-[10px] text-muted-foreground">{assetPerf.length} asset classes · {assetPerf.reduce((s,a)=>s+a.count,0)} holdings</p>
+                  </div>
+                  {/* Stacked allocation bar */}
+                  <div className="flex h-1.5 w-full">
+                    {assetPerf.map((a) => (
+                      <div key={a.key} className="h-full transition-all duration-700"
+                        style={{ flex: a.current, backgroundColor: a.color }} />
+                    ))}
+                  </div>
+                  <div className="divide-y divide-border">
+                    {/* Header row */}
+                    <div className="hidden sm:grid px-4 py-1.5 bg-muted/30 text-[10px] uppercase tracking-widest text-muted-foreground"
+                      style={{ gridTemplateColumns: "1fr 100px 100px 90px 80px 70px" }}>
+                      <span>Asset Class</span>
+                      <span className="text-right">Invested</span>
+                      <span className="text-right">Current</span>
+                      <span className="text-right">P&amp;L</span>
+                      <span className="text-right">Return</span>
+                      <span className="text-right">Alloc</span>
+                    </div>
+                    {assetPerf.map((a) => {
+                      const ret = a.invested > 0 ? (a.pnl / a.invested) * 100 : 0;
+                      const alloc = portfolio.totalCurrent > 0 ? (a.current / portfolio.totalCurrent) * 100 : 0;
+                      const isPos = a.pnl >= 0;
+                      return (
+                        <div key={a.key}
+                          className="px-4 py-2.5 hover:bg-muted/30 transition-colors cursor-pointer sm:grid items-center gap-2 flex flex-wrap"
+                          style={{ gridTemplateColumns: "1fr 100px 100px 90px 80px 70px" }}
+                          onClick={() => setActiveTab(a.key)}>
+                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: a.color }} />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium">{a.label}</p>
+                              <p className="text-[10px] text-muted-foreground">{a.count} {a.count===1?"holding":"holdings"}</p>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
+                          <p className="font-mono text-xs text-muted-foreground text-right tabular-nums hidden sm:block">{format(a.invested)}</p>
+                          <p className="font-mono text-xs font-semibold text-right tabular-nums hidden sm:block">{format(a.current)}</p>
+                          <p className={`font-mono text-xs font-semibold text-right tabular-nums hidden sm:block ${isPos ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                            {isPos ? "+" : ""}{format(a.pnl)}
+                          </p>
+                          <div className={`text-xs font-bold text-right flex items-center justify-end gap-0.5 ${isPos ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                            {isPos ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                            {isPos?"+":""}{ret.toFixed(1)}%
+                          </div>
+                          <div className="text-right hidden sm:block">
+                            <p className="text-[10px] font-semibold tabular-nums" style={{ color: a.color }}>{alloc.toFixed(0)}%</p>
+                            <div className="h-1 w-full bg-muted rounded-full overflow-hidden mt-0.5">
+                              <div className="h-full rounded-full" style={{ width: `${alloc}%`, backgroundColor: a.color }} />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
 
-                {/* Charts Row */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Asset Allocation Pie */}
+                {/* ── Portfolio Insights ── */}
+                {(() => {
+                  const insights: { text: string; type: "good"|"warn"|"info" }[] = [];
+                  const topAsset = assetPerf.sort((a,b)=>b.current-a.current)[0];
+                  if (topAsset) {
+                    const conc = portfolio.totalCurrent > 0 ? (topAsset.current/portfolio.totalCurrent)*100 : 0;
+                    if (conc > 60) insights.push({ text: `${topAsset.label} is ${conc.toFixed(0)}% of your portfolio — consider diversifying`, type: "warn" });
+                  }
+                  const winners = performers.best.filter(p=>p.returnPct>20);
+                  if (winners.length > 0) insights.push({ text: `${winners[0].name} is up ${winners[0].returnPct.toFixed(1)}% — top performer`, type: "good" });
+                  const losers = performers.worst.filter(p=>p.returnPct<-10);
+                  if (losers.length > 0) insights.push({ text: `${losers[0].name} is down ${Math.abs(losers[0].returnPct).toFixed(1)}% — review position`, type: "warn" });
+                  if (assetPerf.length < 3) insights.push({ text: `You have ${assetPerf.length} asset class${assetPerf.length===1?"":"es"} — adding more improves diversification`, type: "info" });
+                  if (insights.length === 0) insights.push({ text: `Portfolio spread across ${assetPerf.length} asset classes with ${portfolio.returnPct >= 0 ? "+" : ""}${portfolio.returnPct.toFixed(1)}% overall return`, type: "good" });
+                  return (
+                    <div className="flex flex-wrap gap-2">
+                      {insights.slice(0,3).map((ins, i) => (
+                        <div key={i} className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg border flex-1 min-w-64 ${ins.type==="good" ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900 text-green-700 dark:text-green-400" : ins.type==="warn" ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900 text-amber-700 dark:text-amber-400" : "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-400"}`}>
+                          {ins.type==="good" ? <TrendingUp className="h-3.5 w-3.5 shrink-0" /> : ins.type==="warn" ? <TrendingDown className="h-3.5 w-3.5 shrink-0" /> : <Activity className="h-3.5 w-3.5 shrink-0" />}
+                          {ins.text}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* ── Allocation chart + Top Holdings ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+                  {/* Donut + legend */}
                   {allocationData.length > 0 && (
-                    <Card className="overflow-hidden">
-                      <CardHeader className="pb-2 border-b border-border/50">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm font-semibold">
-                            Asset Allocation
-                          </CardTitle>
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                            by current value
-                          </span>
+                    <Card className="lg:col-span-2 overflow-hidden">
+                      <div className="px-4 pt-3 pb-2 border-b flex items-center justify-between">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Allocation</p>
+                        <p className="text-[10px] text-muted-foreground font-mono">{format(portfolio.totalCurrent)}</p>
+                      </div>
+                      <CardContent className="pt-3 pb-3 flex gap-3 items-center">
+                        <div className="relative shrink-0">
+                          <ResponsiveContainer width={120} height={120}>
+                            <PieChart>
+                              <Pie data={allocationData} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value" strokeWidth={0}>
+                                {allocationData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                              </Pie>
+                              <Tooltip formatter={(v: unknown) => [format(v as number)]} contentStyle={{ backgroundColor:"hsl(var(--card))", border:"1px solid hsl(var(--border))", borderRadius:8, fontSize:11 }} />
+                            </PieChart>
+                          </ResponsiveContainer>
                         </div>
-                      </CardHeader>
-                      <CardContent className="pt-2">
-                        <ResponsiveContainer width="100%" height={240}>
-                          <PieChart>
-                            <Pie
-                              data={allocationData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={60}
-                              outerRadius={95}
-                              paddingAngle={3}
-                              dataKey="value"
-                              strokeWidth={0}
-                            >
-                              {allocationData.map((entry, i) => (
-                                <Cell
-                                  key={i}
-                                  fill={entry.color}
-                                  opacity={0.9}
-                                />
-                              ))}
-                            </Pie>
-                            <Tooltip
-                              formatter={(v: unknown) => [format(v as number)]}
-                              contentStyle={{
-                                backgroundColor: "hsl(var(--card))",
-                                border: "1px solid hsl(var(--border))",
-                                borderRadius: "8px",
-                                fontSize: 12,
-                                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                              }}
-                            />
-                            <Legend
-                              iconType="circle"
-                              iconSize={7}
-                              wrapperStyle={{ fontSize: 11 }}
-                              formatter={(
-                                value,
-                                entry: { payload?: { value?: number } },
-                              ) => (
-                                <span className="text-foreground">
-                                  {value}{" "}
-                                  {entry.payload?.value
-                                    ? `(${((entry.payload.value / portfolio.totalCurrent) * 100).toFixed(1)}%)`
-                                    : ""}
-                                </span>
-                              )}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          {allocationData.map((d) => {
+                            const pct = portfolio.totalCurrent > 0 ? (d.value/portfolio.totalCurrent)*100 : 0;
+                            return (
+                              <div key={d.name} className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                                <span className="text-xs truncate flex-1">{d.name}</span>
+                                <span className="text-[10px] font-mono font-semibold tabular-nums" style={{ color: d.color }}>{pct.toFixed(0)}%</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </CardContent>
                     </Card>
                   )}
 
-                  {/* Invested vs Current Bar */}
-                  {assetBarData.length > 0 && (
-                    <Card className="overflow-hidden">
-                      <CardHeader className="pb-2 border-b border-border/50">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm font-semibold">
-                            Invested vs Current
-                          </CardTitle>
-                          <div className="flex items-center gap-3">
-                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <span className="w-2 h-2 rounded-full bg-slate-400" />
-                              Invested
-                            </span>
-                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <span className="w-2 h-2 rounded-full bg-blue-500" />
-                              Current
-                            </span>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-2">
-                        <ResponsiveContainer width="100%" height={240}>
-                          <BarChart
-                            data={assetBarData}
-                            barCategoryGap="35%"
-                            barGap={3}
-                          >
-                            <CartesianGrid
-                              strokeDasharray="3 3"
-                              vertical={false}
-                              stroke="rgba(128,128,128,0.1)"
-                            />
-                            <XAxis
-                              dataKey="name"
-                              tick={{ fontSize: 10 }}
-                              axisLine={false}
-                              tickLine={false}
-                            />
-                            <YAxis
-                              tick={{ fontSize: 10 }}
-                              axisLine={false}
-                              tickLine={false}
-                              tickFormatter={(v) =>
-                                v >= 10000000
-                                  ? `${(v / 10000000).toFixed(1)}Cr`
-                                  : v >= 100000
-                                    ? `${(v / 100000).toFixed(1)}L`
-                                    : v >= 1000
-                                      ? `${(v / 1000).toFixed(0)}K`
-                                      : String(v)
-                              }
-                            />
-                            <Tooltip
-                              formatter={(v: unknown) => [format(v as number)]}
-                              contentStyle={{
-                                backgroundColor: "hsl(var(--card))",
-                                border: "1px solid hsl(var(--border))",
-                                borderRadius: "8px",
-                                fontSize: 12,
-                                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                              }}
-                            />
-                            <Bar
-                              dataKey="Invested"
-                              fill="#94a3b8"
-                              radius={[4, 4, 0, 0]}
-                              opacity={0.7}
-                            />
-                            <Bar
-                              dataKey="Current"
-                              fill="#3b82f6"
-                              radius={[4, 4, 0, 0]}
-                            />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-
-                {/* Top Holdings + Best/Worst Performers */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Top Holdings by Value */}
+                  {/* Top Holdings */}
                   {topHoldings.length > 0 && (
-                    <Card className="overflow-hidden">
-                      <CardHeader className="pb-2 border-b border-border/50">
-                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                          <Trophy className="h-4 w-4 text-yellow-500" />
-                          Top Holdings by Value
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-3 space-y-3">
+                    <Card className="lg:col-span-3 overflow-hidden">
+                      <div className="px-4 pt-3 pb-2 border-b flex items-center gap-2">
+                        <Trophy className="h-3.5 w-3.5 text-yellow-500" />
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Top Holdings by Value</p>
+                      </div>
+                      <div className="divide-y divide-border">
                         {topHoldings.map((h, i) => {
                           const pnl = h.current - h.invested;
-                          const ret =
-                            h.invested > 0 ? (pnl / h.invested) * 100 : 0;
-                          const total = topHoldings[0].current || 1;
-                          const rankColors = [
-                            "text-yellow-500",
-                            "text-slate-400",
-                            "text-amber-600",
-                            "text-muted-foreground",
-                            "text-muted-foreground",
-                          ];
+                          const ret = h.invested > 0 ? (pnl/h.invested)*100 : 0;
+                          const pct = topHoldings[0].current > 0 ? (h.current/topHoldings[0].current)*100 : 0;
+                          const rankColors = ["text-yellow-500","text-slate-400","text-amber-600","text-muted-foreground","text-muted-foreground"];
                           return (
-                            <div key={i}>
-                              <div className="flex items-center justify-between mb-1.5">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span
-                                    className={`text-xs font-bold w-5 text-center shrink-0 ${rankColors[i] ?? "text-muted-foreground"}`}
-                                  >
-                                    #{i + 1}
-                                  </span>
-                                  <span
-                                    className="w-2 h-2 rounded-full shrink-0"
-                                    style={{ backgroundColor: h.color }}
-                                  />
-                                  <span className="text-sm font-medium text-foreground truncate">
-                                    {h.name}
-                                  </span>
-                                  <span
-                                    className="text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0"
-                                    style={{
-                                      backgroundColor: h.color + "20",
-                                      color: h.color,
-                                    }}
-                                  >
-                                    {h.badge}
-                                  </span>
-                                </div>
-                                <div className="text-right shrink-0 ml-2">
-                                  <div className="text-sm font-semibold font-mono text-foreground">
-                                    {format(h.current)}
-                                  </div>
-                                  <div
-                                    className={`text-xs font-mono ${pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                                  >
-                                    {pnl >= 0 ? "+" : ""}
-                                    {ret.toFixed(1)}%
-                                  </div>
-                                </div>
+                            <div key={i} className="px-4 py-2">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`text-[10px] font-bold w-4 shrink-0 ${rankColors[i]}`}>#{i+1}</span>
+                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: h.color }} />
+                                <span className="text-xs font-medium truncate flex-1">{h.name}</span>
+                                <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold shrink-0" style={{ backgroundColor: h.color+"20", color: h.color }}>{h.badge}</span>
+                                <span className="font-mono text-xs font-semibold tabular-nums shrink-0">{format(h.current)}</span>
+                                <span className={`font-mono text-[10px] shrink-0 ${pnl>=0?"text-green-600 dark:text-green-400":"text-red-500"}`}>{pnl>=0?"+":""}{ret.toFixed(1)}%</span>
                               </div>
-                              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                                <div
-                                  className="h-full rounded-full transition-all"
-                                  style={{
-                                    width: `${(h.current / total) * 100}%`,
-                                    backgroundColor: h.color,
-                                    opacity: 0.8,
-                                  }}
-                                />
+                              <div className="h-1 rounded-full bg-muted overflow-hidden ml-6">
+                                <div className="h-full rounded-full transition-all" style={{ width:`${pct}%`, backgroundColor: h.color, opacity:0.8 }} />
                               </div>
                             </div>
                           );
                         })}
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Best & Worst Performers */}
-                  {(performers.best.length > 0 ||
-                    performers.worst.length > 0) && (
-                    <Card className="overflow-hidden">
-                      <CardHeader className="pb-2 border-b border-border/50">
-                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                          <Activity className="h-4 w-4 text-blue-500" />
-                          Performance Leaders
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-3">
-                        {performers.best.length > 0 && (
-                          <>
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                              <p className="text-[10px] font-semibold text-green-600 dark:text-green-400 uppercase tracking-widest">
-                                Best Performers
-                              </p>
-                            </div>
-                            <div className="space-y-2 mb-4">
-                              {performers.best.map((p, i) => (
-                                <div
-                                  key={i}
-                                  className="flex items-center justify-between p-2 rounded-lg bg-green-50/50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30"
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span
-                                      className="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0"
-                                      style={{
-                                        backgroundColor: p.color + "25",
-                                        color: p.color,
-                                      }}
-                                    >
-                                      {p.badge}
-                                    </span>
-                                    <span className="text-sm text-foreground truncate">
-                                      {p.name}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-sm font-semibold text-green-600 dark:text-green-400 shrink-0 ml-2 font-mono">
-                                    <TrendingUp className="h-3 w-3" />+
-                                    {p.returnPct.toFixed(1)}%
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                        {performers.worst.length > 0 &&
-                          performers.worst[0]?.returnPct < 0 && (
-                            <>
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                                <p className="text-[10px] font-semibold text-red-500 uppercase tracking-widest">
-                                  Needs Attention
-                                </p>
-                              </div>
-                              <div className="space-y-2">
-                                {performers.worst
-                                  .filter((p) => p.returnPct < 0)
-                                  .map((p, i) => (
-                                    <div
-                                      key={i}
-                                      className="flex items-center justify-between p-2 rounded-lg bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30"
-                                    >
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <span
-                                          className="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0"
-                                          style={{
-                                            backgroundColor: p.color + "25",
-                                            color: p.color,
-                                          }}
-                                        >
-                                          {p.badge}
-                                        </span>
-                                        <span className="text-sm text-foreground truncate">
-                                          {p.name}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-1 text-sm font-semibold text-red-500 shrink-0 ml-2 font-mono">
-                                        <TrendingDown className="h-3 w-3" />
-                                        {p.returnPct.toFixed(1)}%
-                                      </div>
-                                    </div>
-                                  ))}
-                              </div>
-                            </>
-                          )}
-                      </CardContent>
+                      </div>
                     </Card>
                   )}
                 </div>
 
-                {/* Sector & Category Breakdown */}
-                {(sectorData.length > 0 || mfCategoryData.length > 0) && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {sectorData.length > 0 && (
-                      <Card className="overflow-hidden p-0">
-                        <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                            Stock Sector Allocation
-                          </p>
-                        </CardHeader>
-                        <div className="divide-y divide-border">
-                          {(() => {
-                            const total = sectorData.reduce(
-                              (s, d) => s + d.value,
-                              0,
-                            );
-                            return sectorData.slice(0, 6).map((item, i) => {
-                              const pct =
-                                total > 0 ? (item.value / total) * 100 : 0;
-                              const color =
-                                SECTOR_COLORS[i % SECTOR_COLORS.length];
-                              return (
-                                <div key={item.name} className="px-4 py-2.5">
-                                  <div className="flex items-center justify-between mb-1.5">
-                                    <div className="flex items-center gap-2">
-                                      <span
-                                        className="w-2 h-2 rounded-full shrink-0"
-                                        style={{ backgroundColor: color }}
-                                      />
-                                      <span className="text-sm font-medium capitalize">
-                                        {item.name}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <span className="font-mono text-[10px] text-muted-foreground">
-                                        {pct.toFixed(1)}%
-                                      </span>
-                                      <span className="font-mono font-semibold text-sm">
-                                        {format(item.value)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="h-1 rounded-full bg-muted overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full"
-                                      style={{
-                                        width: `${pct}%`,
-                                        backgroundColor: color,
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            });
-                          })()}
-                        </div>
-                      </Card>
-                    )}
+                {/* ── Performers + Sector/MF breakdown ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                  {/* Performers */}
+                  {(performers.best.length > 0 || performers.worst.length > 0) && (
+                    <Card className="overflow-hidden">
+                      <div className="px-4 pt-3 pb-2 border-b flex items-center gap-2">
+                        <Activity className="h-3.5 w-3.5 text-blue-500" />
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Performers</p>
+                      </div>
+                      <div className="p-3 space-y-1">
+                        {performers.best.slice(0,3).map((p, i) => (
+                          <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-green-50/60 dark:bg-green-950/20">
+                            <TrendingUp className="h-3 w-3 text-green-500 shrink-0" />
+                            <span className="text-[10px] px-1 py-0.5 rounded font-semibold shrink-0" style={{ backgroundColor: p.color+"25", color: p.color }}>{p.badge}</span>
+                            <span className="text-xs truncate flex-1">{p.name}</span>
+                            <span className="font-mono text-xs font-bold text-green-600 dark:text-green-400 shrink-0">+{p.returnPct.toFixed(1)}%</span>
+                          </div>
+                        ))}
+                        {performers.worst.filter(p=>p.returnPct<0).slice(0,2).map((p, i) => (
+                          <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-red-50/60 dark:bg-red-950/20">
+                            <TrendingDown className="h-3 w-3 text-red-500 shrink-0" />
+                            <span className="text-[10px] px-1 py-0.5 rounded font-semibold shrink-0" style={{ backgroundColor: p.color+"25", color: p.color }}>{p.badge}</span>
+                            <span className="text-xs truncate flex-1">{p.name}</span>
+                            <span className="font-mono text-xs font-bold text-red-500 shrink-0">{p.returnPct.toFixed(1)}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
 
-                    {mfCategoryData.length > 0 && (
-                      <Card className="overflow-hidden p-0">
-                        <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                            Mutual Fund Categories
-                          </p>
-                        </CardHeader>
-                        <div className="divide-y divide-border">
-                          {(() => {
-                            const total = mfCategoryData.reduce(
-                              (s, d) => s + d.value,
-                              0,
-                            );
-                            return mfCategoryData.map((item, i) => {
-                              const pct =
-                                total > 0 ? (item.value / total) * 100 : 0;
-                              const color =
-                                SECTOR_COLORS[i % SECTOR_COLORS.length];
-                              return (
-                                <div key={item.name} className="px-4 py-2.5">
-                                  <div className="flex items-center justify-between mb-1.5">
-                                    <div className="flex items-center gap-2">
-                                      <span
-                                        className="w-2 h-2 rounded-full shrink-0"
-                                        style={{ backgroundColor: color }}
-                                      />
-                                      <span className="text-sm font-medium">
-                                        {item.name}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <span className="font-mono text-[10px] text-muted-foreground">
-                                        {pct.toFixed(1)}%
-                                      </span>
-                                      <span className="font-mono font-semibold text-sm">
-                                        {format(item.value)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="h-1 rounded-full bg-muted overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full"
-                                      style={{
-                                        width: `${pct}%`,
-                                        backgroundColor: color,
-                                      }}
-                                    />
-                                  </div>
+                  {/* Stock Sectors */}
+                  {sectorData.length > 0 && (
+                    <Card className="overflow-hidden">
+                      <div className="px-4 pt-3 pb-2 border-b">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Stock Sectors</p>
+                      </div>
+                      <div className="divide-y divide-border">
+                        {(() => {
+                          const total = sectorData.reduce((s,d)=>s+d.value,0);
+                          return sectorData.slice(0,6).map((item,i) => {
+                            const pct = total>0?(item.value/total)*100:0;
+                            const color = SECTOR_COLORS[i%SECTOR_COLORS.length];
+                            return (
+                              <div key={item.name} className="px-3 py-2">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                  <span className="text-xs capitalize truncate flex-1">{item.name}</span>
+                                  <span className="font-mono text-[10px] text-muted-foreground tabular-nums">{pct.toFixed(0)}%</span>
+                                  <span className="font-mono text-xs font-semibold tabular-nums">{format(item.value)}</span>
                                 </div>
-                              );
-                            });
-                          })()}
-                        </div>
-                      </Card>
-                    )}
-                  </div>
-                )}
+                                <div className="h-1 rounded-full bg-muted overflow-hidden ml-3.5">
+                                  <div className="h-full rounded-full" style={{ width:`${pct}%`, backgroundColor: color }} />
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* MF Categories */}
+                  {mfCategoryData.length > 0 && (
+                    <Card className="overflow-hidden">
+                      <div className="px-4 pt-3 pb-2 border-b">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">MF Categories</p>
+                      </div>
+                      <div className="divide-y divide-border">
+                        {(() => {
+                          const total = mfCategoryData.reduce((s,d)=>s+d.value,0);
+                          return mfCategoryData.map((item,i) => {
+                            const pct = total>0?(item.value/total)*100:0;
+                            const color = SECTOR_COLORS[i%SECTOR_COLORS.length];
+                            return (
+                              <div key={item.name} className="px-3 py-2">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                  <span className="text-xs truncate flex-1">{item.name}</span>
+                                  <span className="font-mono text-[10px] text-muted-foreground tabular-nums">{pct.toFixed(0)}%</span>
+                                  <span className="font-mono text-xs font-semibold tabular-nums">{format(item.value)}</span>
+                                </div>
+                                <div className="h-1 rounded-full bg-muted overflow-hidden ml-3.5">
+                                  <div className="h-full rounded-full" style={{ width:`${pct}%`, backgroundColor: color }} />
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </Card>
+                  )}
+                </div>
               </>
             )}
           </TabsContent>

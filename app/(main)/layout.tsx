@@ -40,7 +40,9 @@ const PAGE_TITLES: Record<string, string> = {
   "/home": "Trackwise",
   "/dashboard": "Finance Dashboard",
   "/transactions": "Transactions",
-  "/expenses": "Expenses",
+  "/expenses": "Money Flow",
+  "/expenses?tab=income": "Money Flow",
+  "/expenses?tab=summary": "Money Flow",
   "/incomes": "Income",
   "/budgets": "Budgets",
   "/budget-templates": "Budget Templates",
@@ -60,6 +62,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/bills": "Bills",
   "/health-score": "Health Score",
   "/insights": "Insights",
+  "/analytics?tab=insights": "Insights",
   "/daily-tracker": "Overview",
   "/daily-tracker/habits": "Habits",
   "/daily-tracker/goals": "Life Goals",
@@ -79,6 +82,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/settings": "Settings",
   "/sip-calculator": "SIP / SWP Calculator",
   "/goals-analysis": "Goals Intelligence",
+  "/goals?tab=intelligence": "Goals Intelligence",
 };
 
 // Top-level pages reachable directly — no back button needed
@@ -102,6 +106,7 @@ const SIDEBAR_ROOTS = new Set([
   "/learning",
   "/learning/topics",
   "/transactions",
+  "/expenses",
   "/budgets",
   "/goals",
   "/net-worth",

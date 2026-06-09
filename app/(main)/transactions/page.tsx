@@ -40,6 +40,17 @@ import {
 import { MonthSelector } from "@/components/ui/month-selector";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  PieChart,
+  Pie,
+} from "recharts";
+import {
   TransactionListItemRow,
   type MergedListItem,
   type TransactionRowModel,
@@ -629,6 +640,45 @@ function TransactionsPageInner() {
     .reduce((sum, t) => sum + t.amount, 0);
   const balance = totalIncome - totalExpenses;
 
+  // Chart: spending by category for the selected month
+  const [chartView, setChartView] = useState<"category" | "daily">("category");
+
+  const categorySpendData = useMemo(() => {
+    const totals: Record<string, number> = {};
+    filteredTransactions
+      .filter((t) => t.type === "expense")
+      .forEach((t) => {
+        const key = t.category || "Uncategorized";
+        totals[key] = (totals[key] || 0) + t.amount;
+      });
+    return Object.entries(totals)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredTransactions]);
+
+  const dailySpendData = useMemo(() => {
+    const daysInMonth = new Date(
+      selectedMonth.getFullYear(),
+      selectedMonth.getMonth() + 1,
+      0,
+    ).getDate();
+    const byDay: Record<number, { income: number; expense: number }> = {};
+    for (let d = 1; d <= daysInMonth; d++) byDay[d] = { income: 0, expense: 0 };
+    filteredTransactions.forEach((t) => {
+      const day = new Date(t.date).getDate();
+      if (t.type === "expense") byDay[day].expense += t.amount;
+      else byDay[day].income += t.amount;
+    });
+    return Object.entries(byDay)
+      .map(([day, vals]) => ({ day: Number(day), ...vals }))
+      .filter((d) => d.income > 0 || d.expense > 0);
+  }, [filteredTransactions, selectedMonth]);
+
+  const CHART_COLORS = [
+    "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444",
+    "#06b6d4", "#f97316", "#84cc16", "#ec4899", "#6366f1",
+  ];
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -961,6 +1011,152 @@ function TransactionsPageInner() {
               </Card>
             )}
           </div>
+
+          {/* Spending Overview Chart */}
+          {filteredTransactions.length > 0 && (
+            <Card className="mb-4 overflow-hidden">
+              <div className="px-4 pt-3 pb-2 border-b flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Spending Overview</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {selectedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+                  <button
+                    onClick={() => setChartView("category")}
+                    className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${chartView === "category" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    By Category
+                  </button>
+                  <button
+                    onClick={() => setChartView("daily")}
+                    className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${chartView === "daily" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Daily
+                  </button>
+                </div>
+              </div>
+
+              {chartView === "category" && (
+                <div className="px-4 py-3">
+                  {categorySpendData.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-6">No expense data for this month</p>
+                  ) : (
+                    <div className="flex gap-4 items-center">
+                      {/* Donut */}
+                      <div className="relative shrink-0">
+                        <ResponsiveContainer width={130} height={130}>
+                          <PieChart>
+                            <Pie
+                              data={categorySpendData}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={58}
+                              innerRadius={36}
+                              paddingAngle={2}
+                            >
+                              {categorySpendData.map((_, i) => (
+                                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={0} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              formatter={(v) => format(v as number)}
+                              contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                          <p className="text-[8px] text-muted-foreground uppercase tracking-widest">Total</p>
+                          <p className="font-mono font-bold text-[10px]">{format(totalExpenses)}</p>
+                        </div>
+                      </div>
+                      {/* Bar list */}
+                      <div className="flex-1 min-w-0 space-y-2 max-h-52 overflow-y-auto pr-1">
+                        {categorySpendData.map((item, i) => {
+                          const pct = totalExpenses > 0 ? (item.value / totalExpenses) * 100 : 0;
+                          const color = CHART_COLORS[i % CHART_COLORS.length];
+                          return (
+                            <div key={item.name} className="grid items-center gap-2" style={{ gridTemplateColumns: "8px minmax(0,1fr) 60px 32px" }}>
+                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium truncate">{item.name}</p>
+                                <div className="h-1 w-full bg-muted rounded-full overflow-hidden mt-0.5">
+                                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                                </div>
+                              </div>
+                              <span className="font-mono text-xs tabular-nums text-right">{format(item.value)}</span>
+                              <span className="text-[10px] text-muted-foreground text-right tabular-nums">{pct.toFixed(0)}%</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {chartView === "daily" && (
+                <div className="px-2 pt-3 pb-1">
+                  {dailySpendData.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-6">No transactions for this month</p>
+                  ) : (
+                    <>
+                      <ResponsiveContainer width="100%" height={160}>
+                        <BarChart data={dailySpendData} margin={{ top: 2, right: 8, left: 0, bottom: 2 }} barGap={2}>
+                          <XAxis
+                            dataKey="day"
+                            tick={{ fontSize: 10 }}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(v) => `${v}`}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 10 }}
+                            tickLine={false}
+                            axisLine={false}
+                            width={44}
+                            tickFormatter={(v: number) => {
+                              const abs = Math.abs(v);
+                              if (abs >= 1e5) return `₹${(abs / 1e5).toFixed(0)}L`;
+                              if (abs >= 1000) return `₹${(abs / 1000).toFixed(0)}k`;
+                              return `₹${Math.round(abs)}`;
+                            }}
+                          />
+                          <Tooltip
+                            content={({ active, payload, label }) => {
+                              if (!active || !payload?.length) return null;
+                              const exp = (payload.find((p) => p.dataKey === "expense")?.value as number) ?? 0;
+                              const inc = (payload.find((p) => p.dataKey === "income")?.value as number) ?? 0;
+                              return (
+                                <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-xs">
+                                  <p className="font-semibold mb-1">Day {label}</p>
+                                  {exp > 0 && <p className="text-red-500">Expense: <span className="font-mono">{format(exp)}</span></p>}
+                                  {inc > 0 && <p className="text-emerald-600">Income: <span className="font-mono">{format(inc)}</span></p>}
+                                </div>
+                              );
+                            }}
+                          />
+                          <Bar dataKey="expense" fill="#ef4444" radius={[2, 2, 0, 0]} maxBarSize={20} />
+                          <Bar dataKey="income" fill="#10b981" radius={[2, 2, 0, 0]} maxBarSize={20} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                      <div className="flex items-center gap-4 justify-center mt-1">
+                        <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                          <span className="w-2 h-2 rounded-sm bg-red-500 inline-block" />Expense
+                        </span>
+                        <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                          <span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />Income
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </Card>
+          )}
 
           {/* Transactions Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 min-w-0">

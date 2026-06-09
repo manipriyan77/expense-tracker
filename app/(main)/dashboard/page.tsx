@@ -68,60 +68,14 @@ import { DashboardCustomizer } from "@/components/dashboard/DashboardCustomizer"
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { StatsSkeleton } from "@/components/ui/skeleton";
 import { useDashboardPreferencesStore } from "@/store/dashboard-preferences-store";
-// financial health card removed
-// achievements removed from dashboard
-// import { StreaksBadges } from "@/components/streaks-badges";
-
-// ── Financial Health Score helpers (module-level to avoid cognitive complexity) ──
-// 5 pillars, 25+20+20+15+20 = 100 pts max
-function scoreSavings(savingsRate: number): number {
-  if (savingsRate >= 20) return 25;
-  if (savingsRate >= 15) return 20;
-  if (savingsRate >= 10) return 15;
-  if (savingsRate >= 5) return 10;
-  if (savingsRate > 0) return 5;
-  return 0;
-}
-function scoreBudget(budgetCount: number, underCount: number): number {
-  if (budgetCount === 0) return 12;
-  const rate = (underCount / budgetCount) * 100;
-  if (rate >= 100) return 20;
-  if (rate >= 80) return 16;
-  if (rate >= 60) return 12;
-  if (rate >= 40) return 8;
-  if (rate >= 20) return 4;
-  return 0;
-}
-function scoreDebt(hasAssets: boolean, debtRatio: number): number {
-  if (!hasAssets) return 12;
-  if (debtRatio < 10) return 20;
-  if (debtRatio < 20) return 16;
-  if (debtRatio < 30) return 12;
-  if (debtRatio < 50) return 8;
-  if (debtRatio < 80) return 4;
-  return 0;
-}
-function scoreGoals(avgPct: number | null): number {
-  if (avgPct === null) return 8;
-  if (avgPct >= 75) return 15;
-  if (avgPct >= 50) return 12;
-  if (avgPct >= 25) return 9;
-  if (avgPct >= 10) return 6;
-  return 3;
-}
-function scoreInvestments(activeTypes: number): number {
-  if (activeTypes >= 3) return 20;
-  if (activeTypes >= 2) return 15;
-  if (activeTypes >= 1) return 10;
-  return 5;
-}
-function gradeFromTotal(total: number): string {
-  if (total >= 85) return "A";
-  if (total >= 70) return "B";
-  if (total >= 55) return "C";
-  if (total >= 40) return "D";
-  return "F";
-}
+import {
+  scoreSavings,
+  scoreBudget,
+  scoreDebt,
+  scoreGoals,
+  scoreInvestments,
+  gradeFromTotal,
+} from "@/lib/health-score-utils";
 function gradeLabelFromTotal(total: number): string {
   if (total >= 85) return "Excellent";
   if (total >= 70) return "Good";
@@ -171,8 +125,8 @@ function tipBudget(count: number, underCount: number): string {
   return "";
 }
 function tipDebt(ratio: number): string {
-  if (ratio >= 30)
-    return `Debt ratio ${ratio.toFixed(1)}% — pay down debt to aim under 30%`;
+  if (ratio >= 25)
+    return `Debt ratio ${ratio.toFixed(1)}% — pay down debt to aim under 25%`;
   return "";
 }
 function tipGoals(avgPct: number | null): string {
@@ -214,8 +168,8 @@ const PILLAR_INFO: Record<string, { description: string; how: string }> = {
   },
   Debt: {
     description:
-      "Your total liabilities as a percentage of total assets (debt-to-asset ratio).",
-    how: "Pay down high-interest debt first. Aim to keep debt below 30% of assets.",
+      "Liabilities as % of total portfolio (assets + liabilities) — matches Net Worth page.",
+    how: "Pay down high-interest debt first. Aim to keep liabilities below 25% of portfolio.",
   },
   Goals: {
     description: "Average completion % across all active financial goals.",
@@ -246,12 +200,12 @@ const PILLAR_RANGES: Record<string, string[]> = {
     "None set          →  12 / 20 pts (neutral)",
   ],
   Debt: [
-    "Debt < 10% of assets  →  20 / 20 pts",
-    "10 – 20%               →  16 / 20 pts",
-    "20 – 30%               →  12 / 20 pts",
-    "30 – 50%               →   8 / 20 pts",
-    "50 – 80%               →   4 / 20 pts",
-    "≥ 80% or no assets     →  12 / 20 pts (neutral)",
+    "Liabilities < 15% of portfolio  →  20 / 20 pts",
+    "15 – 25%                         →  16 / 20 pts",
+    "25 – 35%                         →  12 / 20 pts",
+    "35 – 50%                         →   8 / 20 pts",
+    "50 – 67%                         →   4 / 20 pts",
+    "≥ 67% or no assets               →  12 / 20 pts (neutral)",
   ],
   Goals: [
     "≥ 75% avg progress  →  15 / 15 pts",
@@ -404,15 +358,25 @@ export default function Dashboard() {
 
   const totalLiabilities = liabilities.reduce((s, l) => s + l.balance, 0);
   const netWorth = totalAssets - totalLiabilities;
+  // liabilities as % of total portfolio — matches net worth page formula
   const debtRatio =
-    totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
+    (totalAssets + totalLiabilities) > 0
+      ? (totalLiabilities / (totalAssets + totalLiabilities)) * 100
+      : 0;
 
   // Financial Health Score (0–100, 5 pillars: 25+20+20+15+20)
   const healthScore = useMemo(() => {
+    // Exclude savings/investment-category expenses from "real expenses"
+    const SAVINGS_CATS = new Set(["savings", "investment", "investments"]);
+    const isSavingsTx = (t: { category?: string; goal_id?: string | null; subtype?: string }) =>
+      SAVINGS_CATS.has((t.category ?? "").toLowerCase()) || !!t.goal_id || (t.subtype ?? "").toLowerCase() === "goal savings";
+
+    const realExpenses = currentMonthTransactions
+      .filter((t) => t.type === "expense" && !isSavingsTx(t))
+      .reduce((s, t) => s + t.amount, 0);
     const savingsRate =
       currentMonthIncome > 0
-        ? ((currentMonthIncome - currentMonthExpenses) / currentMonthIncome) *
-          100
+        ? ((currentMonthIncome - realExpenses) / currentMonthIncome) * 100
         : 0;
 
     // Previous month data for trend indicator
@@ -425,11 +389,11 @@ export default function Dashboard() {
     const prevIncome = prevTxs
       .filter((t) => t.type === "income")
       .reduce((s, t) => s + t.amount, 0);
-    const prevExpenses = prevTxs
-      .filter((t) => t.type === "expense")
+    const prevRealExpenses = prevTxs
+      .filter((t) => t.type === "expense" && !isSavingsTx(t))
       .reduce((s, t) => s + t.amount, 0);
     const prevSavingsRate =
-      prevIncome > 0 ? ((prevIncome - prevExpenses) / prevIncome) * 100 : 0;
+      prevIncome > 0 ? ((prevIncome - prevRealExpenses) / prevIncome) * 100 : 0;
 
     const budgetUnderCount = budgets.filter(
       (b) => (b.spent_amount || 0) <= b.limit_amount,
@@ -533,7 +497,7 @@ export default function Dashboard() {
     };
   }, [
     currentMonthIncome,
-    currentMonthExpenses,
+    currentMonthTransactions,
     transactions,
     budgets,
     totalAssets,
@@ -842,17 +806,17 @@ export default function Dashboard() {
                 </p>
                 <p
                   className={`text-[10px] uppercase tracking-wide font-medium mt-0.5 ${
-                    debtRatio < 30
+                    debtRatio < 25
                       ? "text-green-400"
-                      : debtRatio < 50
+                      : debtRatio < 40
                         ? "text-amber-400"
                         : "text-red-400"
                   }`}
                 >
                   ●{" "}
-                  {debtRatio < 30
+                  {debtRatio < 25
                     ? "Healthy"
-                    : debtRatio < 50
+                    : debtRatio < 40
                       ? "Moderate"
                       : "High"}
                 </p>

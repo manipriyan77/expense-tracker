@@ -15,7 +15,6 @@ import {
   Settings,
   ArrowLeftRight,
   TrendingUp,
-  TrendingDown,
   Receipt,
   Repeat,
   Landmark,
@@ -25,7 +24,6 @@ import {
   Flag,
   Scale,
   Activity,
-  Lightbulb,
   CalendarDays,
   BookOpen,
   Sparkles,
@@ -33,7 +31,6 @@ import {
   LayoutDashboard,
   Star,
   Calculator,
-  Brain,
   Dumbbell,
   ClipboardList,
   History,
@@ -154,11 +151,10 @@ const FINANCE_NAV: NavItem[] = [
   { title: "Calendar", href: "/calendar", icon: CalendarDays },
   { title: "Transactions", href: "/transactions", icon: Receipt },
   {
-    title: "Finance",
+    title: "Cash Flow",
     icon: Banknote,
     subItems: [
-      { title: "Expenses", href: "/expenses", icon: TrendingDown },
-      { title: "Income", href: "/incomes", icon: TrendingUp },
+      { title: "Money Flow", href: "/expenses", icon: ArrowLeftRight },
       { title: "Recurring", href: "/recurring", icon: Repeat },
       { title: "Debt Tracker", href: "/debt-tracker", icon: Landmark },
     ],
@@ -169,7 +165,6 @@ const FINANCE_NAV: NavItem[] = [
     subItems: [
       { title: "Budgets", href: "/budgets", icon: BarChart3 },
       { title: "Goals", href: "/goals", icon: Flag },
-      { title: "Goals Intelligence", href: "/goals-analysis", icon: Brain },
       { title: "Cashflow", href: "/cashflow-planning", icon: ArrowLeftRight },
     ],
   },
@@ -181,7 +176,6 @@ const FINANCE_NAV: NavItem[] = [
     icon: PieChart,
     subItems: [
       { title: "Reports", href: "/analytics", icon: BarChart3 },
-      { title: "Insights", href: "/insights", icon: Lightbulb },
       { title: "Health Score", href: "/health-score", icon: Activity },
     ],
   },

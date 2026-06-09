@@ -18,6 +18,7 @@ import {
   Target,
   ArrowRight,
   CheckSquare,
+  ArrowLeftRight,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { useTransactionsStore } from "@/store/transactions-store";
@@ -65,12 +66,14 @@ function formatDay(date: Date) {
 // ─── Finance quick links ───────────────────────────────────────────────────────
 
 const FINANCE_LINKS = [
-  { href: "/dashboard", label: "Dashboard", icon: BarChart3, color: "text-primary" },
-  { href: "/transactions", label: "Transactions", icon: Receipt, color: "text-blue-500" },
-  { href: "/goals", label: "Goals", icon: Flag, color: "text-green-500" },
-  { href: "/net-worth", label: "Net Worth", icon: Scale, color: "text-violet-500" },
-  { href: "/investments", label: "Investments", icon: TrendingUp, color: "text-orange-500" },
-  { href: "/budgets", label: "Budgets", icon: Target, color: "text-pink-500" },
+  { href: "/dashboard",   label: "Dashboard",    icon: BarChart3,      color: "text-primary" },
+  { href: "/transactions",label: "Transactions", icon: Receipt,        color: "text-blue-500" },
+  { href: "/expenses",    label: "Money Flow",   icon: ArrowLeftRight, color: "text-cyan-500" },
+  { href: "/budgets",     label: "Budgets",      icon: Target,         color: "text-pink-500" },
+  { href: "/goals",       label: "Goals",        icon: Flag,           color: "text-green-500" },
+  { href: "/investments", label: "Investments",  icon: TrendingUp,     color: "text-orange-500" },
+  { href: "/net-worth",   label: "Net Worth",    icon: Scale,          color: "text-violet-500" },
+  { href: "/analytics",   label: "Analytics",    icon: BarChart3,      color: "text-indigo-500" },
 ];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -292,13 +295,13 @@ export default function HomePage() {
             View all <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {FINANCE_LINKS.map(({ href, label, icon: Icon, color }) => (
             <Link key={href} href={href}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer group">
-                <CardContent className="p-3 flex flex-col items-center gap-1.5 text-center">
-                  <Icon className={`h-5 w-5 ${color} group-hover:scale-110 transition-transform`} />
-                  <span className="text-xs font-medium text-foreground">{label}</span>
+                <CardContent className="p-2.5 flex flex-col items-center gap-1 text-center">
+                  <Icon className={`h-4 w-4 ${color} group-hover:scale-110 transition-transform`} />
+                  <span className="text-[10px] font-medium text-foreground leading-tight text-center">{label}</span>
                 </CardContent>
               </Card>
             </Link>
