@@ -674,7 +674,23 @@ export default function GoalsPage() {
     const remaining = goal.targetAmount - goal.currentAmount;
     const requiredMonthly = remaining > 0 ? remaining / monthsLeft : 0;
     const priority = goal.priority ?? "medium";
-    return { progress, isCompleted, isOverdue, daysLeft, monthsLeft, remaining, requiredMonthly, priority };
+
+    // Projected completion date at current contribution pace
+    const monthly = goal.monthlyContribution ?? 0;
+    let projectedDate: Date | null = null;
+    let projectedLate = false;
+    if (!isCompleted && remaining > 0 && monthly > 0) {
+      const monthsNeeded = Math.ceil(remaining / monthly);
+      projectedDate = new Date();
+      projectedDate.setMonth(projectedDate.getMonth() + monthsNeeded);
+      projectedLate = projectedDate > new Date(goal.targetDate);
+    }
+
+    // Milestone reached: highest crossed milestone
+    const milestones = [75, 50, 25];
+    const latestMilestone = milestones.find(m => progress >= m) ?? null;
+
+    return { progress, isCompleted, isOverdue, daysLeft, monthsLeft, remaining, requiredMonthly, priority, projectedDate, projectedLate, latestMilestone };
   };
 
   // Filtered + sorted goals
@@ -1365,7 +1381,7 @@ export default function GoalsPage() {
               <Card className="overflow-hidden">
                 <div className="divide-y divide-border">
                   {displayGoals.map((goal) => {
-                    const { progress, isCompleted, isOverdue, daysLeft, requiredMonthly, priority } = goalAnalytics(goal);
+                    const { progress, isCompleted, isOverdue, daysLeft, requiredMonthly, priority, projectedDate, projectedLate, latestMilestone } = goalAnalytics(goal);
                     const probability = calculateGoalProbability(goal);
                     const accentColor = isCompleted ? "#10b981" : isOverdue ? "#ef4444" : priority === "high" ? "#f43f5e" : priority === "medium" ? "#f59e0b" : "#60a5fa";
                     const barColor = isCompleted ? "bg-emerald-500" : isOverdue ? "bg-red-400" : progress >= 75 ? "bg-emerald-500" : progress >= 40 ? "bg-blue-500" : "bg-amber-400";
@@ -1432,6 +1448,18 @@ export default function GoalsPage() {
                           <span className={`text-[10px] shrink-0 hidden sm:inline ${chanceCls}`}>
                             {isCompleted ? "Achieved!" : `${probability.probability.toFixed(0)}% on-track`}
                           </span>
+                          {/* Milestone badge */}
+                          {latestMilestone !== null && !isCompleted && (
+                            <span className="shrink-0 hidden sm:inline px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">
+                              {latestMilestone}%+
+                            </span>
+                          )}
+                          {/* Projected date */}
+                          {projectedDate && !isCompleted && (
+                            <span className={`shrink-0 hidden lg:inline text-[9px] font-mono ${projectedLate ? "text-amber-500" : "text-emerald-500"}`}>
+                              {projectedLate ? "⚠ " : "✓ "}proj {projectedDate.toLocaleDateString("en-IN", { month: "short", year: "2-digit" })}
+                            </span>
+                          )}
 
                           {/* Actions */}
                           <div className="shrink-0 flex items-center gap-1 ml-auto" onClick={(e) => e.stopPropagation()}>

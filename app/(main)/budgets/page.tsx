@@ -11,9 +11,7 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +30,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
+
 import {
   Plus,
   TrendingDown,
@@ -90,9 +88,6 @@ export default function BudgetsPage() {
     updateBudget,
     deleteBudget,
     deleteAllBudgets,
-    currentMonth,
-    currentYear,
-    setMonth,
   } = useBudgetsStore();
   const { transactions, fetchTransactions } = useTransactionsStore();
   const { goals, fetchGoals } = useGoalsStore();
@@ -1076,6 +1071,19 @@ export default function BudgetsPage() {
                 const percentage = (spent / budget.limit_amount) * 100;
                 const remaining = budget.limit_amount - spent;
 
+                // Burn rate: for monthly budgets compare spend pace to days elapsed
+                const now = new Date();
+                const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                const dayOfMonth = now.getDate();
+                const expectedPct = budget.period === "monthly" ? (dayOfMonth / daysInMonth) * 100 : null;
+                const burnStatus = expectedPct !== null
+                  ? percentage > expectedPct + 15 ? "over"
+                  : percentage < expectedPct - 15 ? "under"
+                  : "on-track"
+                  : null;
+                const daysLeft = budget.period === "monthly" ? daysInMonth - dayOfMonth : null;
+                const dailyBudget = daysLeft !== null && daysLeft > 0 ? remaining / daysLeft : null;
+
                 return (
                   <Card
                     key={budget.id}
@@ -1170,6 +1178,22 @@ export default function BudgetsPage() {
                           />
                         </div>
                       </div>
+
+                      {/* Burn rate / pacing row */}
+                      {burnStatus && (
+                        <div className={`flex items-center justify-between px-2 py-0.5 rounded text-[10px] ${
+                          burnStatus === "over" ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                          : burnStatus === "under" ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                          : "bg-muted/60 text-muted-foreground"
+                        }`}>
+                          <span className="uppercase tracking-widest font-medium">
+                            {burnStatus === "over" ? "⚡ Burning fast" : burnStatus === "under" ? "✓ Under pace" : "● On pace"}
+                          </span>
+                          {dailyBudget !== null && remaining > 0 && (
+                            <span className="font-mono">{format(dailyBudget)}/day left</span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Alert banner */}
                       {percentage >= 80 && (

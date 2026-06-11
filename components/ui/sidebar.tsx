@@ -216,10 +216,23 @@ interface SidebarProps {
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function Sidebar({ className, mobileOpen = false, onMobileClose }: SidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sidebar-collapsed") === "true";
+    }
+    return false;
+  });
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { hydrateFromStorage } = usePrivacyStore();
+
+  const toggleCollapse = () => {
+    const next = !isCollapsed;
+    setIsCollapsed(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sidebar-collapsed", String(next));
+    }
+  };
 
   const currentHref = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
   const section = getSection(pathname);
@@ -411,7 +424,7 @@ export function Sidebar({ className, mobileOpen = false, onMobileClose }: Sideba
 
       {/* Collapse toggle (desktop only) */}
       <div className="hidden md:flex items-center justify-end px-3 py-2 border-b border-sidebar-border">
-        <Button variant="ghost" size="sm" onClick={() => setIsCollapsed(!isCollapsed)}
+        <Button variant="ghost" size="sm" onClick={toggleCollapse}
           className="p-1 h-7 w-7 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >

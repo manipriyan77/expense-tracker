@@ -30,6 +30,17 @@ import { useForexStore } from "@/store/forex-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { ListPageSkeleton } from "@/components/ui/skeleton";
 import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  ReferenceLine,
+} from "recharts";
+import {
   scoreSavings,
   scoreBudget,
   scoreDebt,
@@ -393,6 +404,32 @@ export default function HealthScorePage() {
   const gradeLabel = gradeLabelFromTotal(total);
   const ringColor = ringColorFromTotal(total);
 
+  // 6-month score history (using savings pillar as the variable; others are static per month)
+  const scoreHistory = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const monthOffset = 5 - i;
+      const d = new Date(now.getFullYear(), now.getMonth() - monthOffset, 1);
+      const mo = d.getMonth();
+      const yr = d.getFullYear();
+      const txs = transactions.filter((t) => {
+        const td = new Date(t.date);
+        return td.getMonth() === mo && td.getFullYear() === yr;
+      });
+      const inc = txs.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
+      const SAVINGS_CATS = new Set(["savings", "investment", "investments"]);
+      const exp = txs.filter((t) => t.type === "expense" && !SAVINGS_CATS.has((t.category ?? "").toLowerCase()) && !t.goal_id).reduce((s, t) => s + t.amount, 0);
+      const rate = inc > 0 ? ((inc - exp) / inc) * 100 : 0;
+      const sPts = scoreSavings(rate);
+      const bPts = scoreBudget(budgets.length, budgets.filter((b) => (b.spent_amount || 0) <= b.limit_amount).length);
+      const dPts = scoreDebt(totalAssets > 0, debtRatio);
+      const gPts = scoreGoals(avgGoalPct);
+      const iPts = scoreInvestments(investTypes);
+      const sc = sPts + bPts + dPts + gPts + iPts;
+      return { label: d.toLocaleDateString("en-US", { month: "short" }), score: sc, isCurrent: monthOffset === 0 };
+    });
+  }, [transactions, budgets, totalAssets, debtRatio, avgGoalPct, investTypes]);
+
   const gradeTextColor =
     total >= 85
       ? "text-green-500"
@@ -545,6 +582,38 @@ export default function HealthScorePage() {
                   <span className="text-xs font-semibold">Total</span>
                   <span className={`font-mono text-sm font-bold ${gradeTextColor}`}>{total} / 100</span>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* 6-month score history */}
+            <Card>
+              <CardHeader className="pb-2 border-b pt-3 px-4">
+                <CardTitle className="text-xs text-muted-foreground uppercase tracking-widest">Score History · 6 months</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-3 px-3 pb-3">
+                <ResponsiveContainer width="100%" height={140}>
+                  <BarChart data={scoreHistory} barCategoryGap="30%" margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <ReferenceLine y={70} stroke="#10b981" strokeDasharray="3 2" />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: 12 }}
+                      formatter={(v: number | undefined) => [`${v ?? 0} / 100`, "Health Score"]}
+                    />
+                    <Bar dataKey="score" radius={[4, 4, 0, 0]} maxBarSize={28}>
+                      {scoreHistory.map((entry, i) => (
+                        <Cell key={i} fill={
+                          entry.isCurrent ? ringColor
+                          : entry.score >= 70 ? "#10b981"
+                          : entry.score >= 55 ? "#f59e0b"
+                          : "#ef4444"
+                        } fillOpacity={entry.isCurrent ? 1 : 0.6} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+                <p className="text-[10px] text-muted-foreground text-center mt-1">Green line = 70 (Good threshold)</p>
               </CardContent>
             </Card>
           </div>

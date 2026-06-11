@@ -78,6 +78,8 @@ import {
   AreaChart,
   Area,
   Line,
+  Bar,
+  BarChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -412,6 +414,16 @@ export default function NetWorthPage() {
 
     return [...historical, ...projected];
   }, [historicalData, format]);
+
+  // Waterfall: month-over-month net worth change breakdown
+  const waterfallData = useMemo(() => {
+    if (historicalData.length < 2) return [];
+    return historicalData.slice(1).map((d, i) => {
+      const prev = historicalData[i].netWorth;
+      const delta = d.netWorth - prev;
+      return { month: d.month, delta, positive: delta >= 0 ? delta : 0, negative: delta < 0 ? delta : 0 };
+    });
+  }, [historicalData]);
 
   // Debt ratio: liabilities as % of total portfolio (assets + liabilities) — matches the hero bar
   const debtRatio = (totalAssets + totalLiabilities) > 0
@@ -958,6 +970,42 @@ export default function NetWorthPage() {
             </div>
           )}
         </Card>
+
+        {/* Month-over-month waterfall */}
+        {waterfallData.length > 0 && (
+          <Card>
+            <div className="px-4 pt-3 pb-2 border-b flex items-center justify-between">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Month-over-Month Change</p>
+            </div>
+            <CardContent className="pt-3 px-4 pb-4">
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={waterfallData} barCategoryGap="35%" margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => {
+                    const abs = Math.abs(v);
+                    if (abs >= 100000) return `${v < 0 ? "-" : ""}₹${(abs / 100000).toFixed(1)}L`;
+                    if (abs >= 1000) return `${v < 0 ? "-" : ""}₹${(abs / 1000).toFixed(0)}K`;
+                    return `₹${v}`;
+                  }} />
+                  <ReferenceLine y={0} stroke="var(--border)" />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: 12 }}
+                    formatter={(v: unknown, name: unknown) => {
+                      const val = v as number | undefined;
+                      if (!val) return ["—", String(name)];
+                      const abs = Math.abs(val);
+                      const label = name === "positive" ? "Gained" : "Lost";
+                      return [`${val > 0 ? "+" : ""}${abs >= 100000 ? `₹${(abs / 100000).toFixed(2)}L` : `₹${abs.toLocaleString("en-IN")}`}`, label];
+                    }}
+                  />
+                  <Bar dataKey="positive" stackId="a" radius={[4, 4, 0, 0]} fill="#22c55e" fillOpacity={0.85} />
+                  <Bar dataKey="negative" stackId="a" radius={[0, 0, 4, 4]} fill="#ef4444" fillOpacity={0.85} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Asset Allocation — single combined card */}
         <Card>

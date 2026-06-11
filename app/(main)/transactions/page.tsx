@@ -915,6 +915,55 @@ function TransactionsPageInner() {
               </div>
             </div>
 
+            {/* Smart Filter Chips */}
+            {(filterCategory !== "all" || filterType !== "all" || minAmount || maxAmount) && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground shrink-0">Active:</span>
+                {filterType !== "all" && (
+                  <button
+                    onClick={() => setFilterType("all")}
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition-colors ${filterType === "income" ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700" : "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700"}`}
+                  >
+                    {filterType === "income" ? "▲" : "▼"} {filterType}
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+                {filterCategory !== "all" && (
+                  <button
+                    onClick={() => setFilterCategory("all")}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700 transition-colors"
+                  >
+                    {filterCategory}
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+                {minAmount && (
+                  <button
+                    onClick={() => setMinAmount("")}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border bg-muted text-muted-foreground border-border transition-colors"
+                  >
+                    ≥ ₹{minAmount}
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+                {maxAmount && (
+                  <button
+                    onClick={() => setMaxAmount("")}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border bg-muted text-muted-foreground border-border transition-colors"
+                  >
+                    ≤ ₹{maxAmount}
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+                <button
+                  onClick={() => { setFilterCategory("all"); setFilterType("all"); setMinAmount(""); setMaxAmount(""); }}
+                  className="text-[10px] text-muted-foreground hover:text-destructive underline underline-offset-2 ml-1"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+
             {/* Advanced Filters */}
             {showFilters && (
               <Card className="p-3 border-border/50">

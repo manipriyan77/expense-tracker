@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Progress } from "@/components/ui/progress";
 import {
   PieChart,
   Pie,
@@ -31,6 +30,10 @@ import {
   Tooltip as RechartTooltip,
   ResponsiveContainer,
   ReferenceLine,
+  AreaChart,
+  Area,
+  LineChart,
+  Line,
 } from "recharts";
 import {
   TrendingUp,
@@ -311,6 +314,72 @@ export default function Dashboard() {
   const currentMonthExpenses = currentMonthTransactions
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
+
+  // Real expenses exclude savings/investment categories (same logic as health score)
+  const SAVINGS_CATS = new Set(["savings", "investment", "investments"]);
+  const isSavingsTx = (t: { category?: string; goal_id?: string | null; subtype?: string }) =>
+    SAVINGS_CATS.has((t.category ?? "").toLowerCase()) || !!t.goal_id || (t.subtype ?? "").toLowerCase() === "goal savings";
+
+  const currentMonthRealExpenses = useMemo(
+    () => currentMonthTransactions.filter((t) => t.type === "expense" && !isSavingsTx(t)).reduce((s, t) => s + t.amount, 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentMonthTransactions],
+  );
+  const currentMonthSaved = currentMonthIncome - currentMonthRealExpenses;
+
+  // Previous month for period comparison
+  const prevMonthIdx = currentMonth === 0 ? 11 : currentMonth - 1;
+  const prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+  const prevMonthTransactions = useMemo(() =>
+    transactions.filter((t) => {
+      const d = new Date(t.date);
+      return d.getMonth() === prevMonthIdx && d.getFullYear() === prevMonthYear;
+    }),
+  [transactions, prevMonthIdx, prevMonthYear]);
+  const prevMonthIncome = prevMonthTransactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const prevMonthExpenses = prevMonthTransactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+
+  // Sparkline: daily cumulative expense curve for current month (up to today)
+  const expenseSparkline = useMemo(() => {
+    const today = new Date().getDate();
+    const byDay: Record<number, number> = {};
+    currentMonthTransactions
+      .filter((t) => t.type === "expense")
+      .forEach((t) => { const d = new Date(t.date).getDate(); byDay[d] = (byDay[d] ?? 0) + t.amount; });
+    let cum = 0;
+    return Array.from({ length: today }, (_, i) => {
+      cum += byDay[i + 1] ?? 0;
+      return { v: cum };
+    });
+  }, [currentMonthTransactions]);
+
+  const incomeSparkline = useMemo(() => {
+    const today = new Date().getDate();
+    const byDay: Record<number, number> = {};
+    currentMonthTransactions
+      .filter((t) => t.type === "income")
+      .forEach((t) => { const d = new Date(t.date).getDate(); byDay[d] = (byDay[d] ?? 0) + t.amount; });
+    let cum = 0;
+    return Array.from({ length: today }, (_, i) => {
+      cum += byDay[i + 1] ?? 0;
+      return { v: cum };
+    });
+  }, [currentMonthTransactions]);
+
+  const incomeDelta = prevMonthIncome > 0 ? ((currentMonthIncome - prevMonthIncome) / prevMonthIncome) * 100 : null;
+  const expenseDelta = prevMonthExpenses > 0 ? ((currentMonthExpenses - prevMonthExpenses) / prevMonthExpenses) * 100 : null;
+  // Savings rate uses real expenses (excludes savings/investment categories) — same as health score
+  const savingsRate = currentMonthIncome > 0 ? (currentMonthSaved / currentMonthIncome) * 100 : 0;
+
+  const financialPulse = useMemo(() => {
+    if (currentMonthIncome === 0) return null;
+    const rate = savingsRate;
+    if (rate >= 20) return { text: `Saving ${rate.toFixed(0)}% of income — great pace`, color: "text-green-400" };
+    if (rate >= 15) return { text: `Saving ${rate.toFixed(0)}% of income — on track`, color: "text-emerald-400" };
+    if (rate > 0) return { text: `Saving ${rate.toFixed(0)}% of income — aim for 15%+`, color: "text-amber-400" };
+    return { text: `Real spending exceeds income by ${format(Math.abs(currentMonthSaved))} this month`, color: "text-red-400" };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMonthIncome, currentMonthSaved, savingsRate]);
 
   // Net Worth calculations
   // include investments tracked in other modules (stocks, mutual funds, gold, forex)
@@ -762,517 +831,308 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Financial Pulse */}
+            {financialPulse && (
+              <div className="border-t border-slate-700/60 px-1 py-2 flex items-center gap-2">
+                <span className={`text-[11px] font-medium ${financialPulse.color}`}>
+                  ● {financialPulse.text}
+                </span>
+              </div>
+            )}
+
             {/* Stats strip */}
             <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
-              <Link
-                href="/net-worth"
-                className="px-4 py-3 hover:bg-slate-800/60 transition-colors"
-              >
-                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
-                  Assets
-                </p>
-                <p className="font-mono text-base font-semibold text-green-400">
-                  {format(totalAssets)}
-                </p>
-                <p className="text-[10px] text-slate-500 mt-0.5">
-                  {assets.length +
-                    (stocksValue > 0 ? 1 : 0) +
-                    (mfValue > 0 ? 1 : 0) +
-                    (goldValue > 0 ? 1 : 0) +
-                    (forexValue > 0 ? 1 : 0)}{" "}
-                  tracked
-                </p>
+              {/* Income */}
+              <Link href="/transactions" className="px-3 py-2.5 hover:bg-slate-800/60 transition-colors group">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Income</p>
+                <div className="flex items-end justify-between gap-1">
+                  <p className="font-mono text-base font-semibold text-green-400">{format(currentMonthIncome)}</p>
+                  <div className="w-14 h-7 shrink-0">
+                    <LineChart width={56} height={28} data={incomeSparkline}>
+                      <Line type="monotone" dataKey="v" stroke="#4ade80" strokeWidth={1.5} dot={false} />
+                    </LineChart>
+                  </div>
+                </div>
+                {incomeDelta !== null && (
+                  <p className={`text-[10px] mt-0.5 font-mono ${incomeDelta >= 0 ? "text-green-500" : "text-red-400"}`}>
+                    {incomeDelta >= 0 ? "▲" : "▼"} {Math.abs(incomeDelta).toFixed(1)}% vs last mo
+                  </p>
+                )}
               </Link>
-              <Link
-                href="/debt-tracker"
-                className="px-4 py-3 hover:bg-slate-800/60 transition-colors"
-              >
-                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
-                  Liabilities
-                </p>
-                <p className="font-mono text-base font-semibold text-red-400">
-                  {format(totalLiabilities)}
-                </p>
-                <p className="text-[10px] text-slate-500 mt-0.5">
-                  {liabilities.length} items
-                </p>
+
+              {/* Expenses */}
+              <Link href="/transactions" className="px-3 py-2.5 hover:bg-slate-800/60 transition-colors group">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Expenses</p>
+                <div className="flex items-end justify-between gap-1">
+                  <p className="font-mono text-base font-semibold text-red-400">{format(currentMonthExpenses)}</p>
+                  <div className="w-14 h-7 shrink-0">
+                    <LineChart width={56} height={28} data={expenseSparkline}>
+                      <Line type="monotone" dataKey="v" stroke="#f87171" strokeWidth={1.5} dot={false} />
+                    </LineChart>
+                  </div>
+                </div>
+                {expenseDelta !== null && (
+                  <p className={`text-[10px] mt-0.5 font-mono ${expenseDelta <= 0 ? "text-green-500" : "text-red-400"}`}>
+                    {expenseDelta >= 0 ? "▲" : "▼"} {Math.abs(expenseDelta).toFixed(1)}% vs last mo
+                  </p>
+                )}
               </Link>
-              <div className="px-4 py-3">
-                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
-                  Debt Ratio
+
+              {/* Savings rate */}
+              <div className="px-3 py-2.5">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Savings Rate</p>
+                <p className={`font-mono text-base font-semibold ${savingsRate >= 15 ? "text-green-400" : savingsRate >= 5 ? "text-amber-400" : "text-red-400"}`}>
+                  {currentMonthIncome > 0 ? `${savingsRate.toFixed(1)}%` : "—"}
                 </p>
-                <p className="font-mono text-base font-semibold text-slate-200">
-                  {debtRatio.toFixed(1)}%
-                </p>
-                <p
-                  className={`text-[10px] uppercase tracking-wide font-medium mt-0.5 ${
-                    debtRatio < 25
-                      ? "text-green-400"
-                      : debtRatio < 40
-                        ? "text-amber-400"
-                        : "text-red-400"
-                  }`}
-                >
-                  ●{" "}
-                  {debtRatio < 25
-                    ? "Healthy"
-                    : debtRatio < 40
-                      ? "Moderate"
-                      : "High"}
+                <p className={`text-[10px] uppercase tracking-wide font-medium mt-0.5 ${debtRatio < 25 ? "text-green-400" : debtRatio < 40 ? "text-amber-400" : "text-red-400"}`}>
+                  ● Debt {debtRatio.toFixed(1)}%
                 </p>
               </div>
-              <div className="px-4 py-3">
-                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
-                  Returns
+
+              {/* Investment returns */}
+              <div className="px-3 py-2.5">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Returns</p>
+                <p className={`font-mono text-base font-semibold ${totalInvestmentValue >= totalInvested ? "text-green-400" : "text-red-400"}`}>
+                  {totalInvested > 0 ? `${(((totalInvestmentValue - totalInvested) / totalInvested) * 100).toFixed(1)}%` : "—"}
                 </p>
-                <p
-                  className={`font-mono text-base font-semibold ${totalInvestmentValue >= totalInvested ? "text-green-400" : "text-red-400"}`}
-                >
-                  {totalInvested > 0
-                    ? `${(((totalInvestmentValue - totalInvested) / totalInvested) * 100).toFixed(1)}%`
-                    : "—"}
-                </p>
-                <p className="text-[10px] text-slate-500 mt-0.5">
-                  on {format(totalInvested)}
-                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5">on {format(totalInvested)}</p>
               </div>
             </div>
           </div>
         </div>
 
-        <main className="px-3 sm:px-6 lg:px-8 py-3 space-y-3">
+        <main className="px-3 sm:px-6 lg:px-8 py-3 space-y-2.5">
           {/* Goal prompt banner */}
           {hasNoGoals && !goalBannerDismissed && (
-            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 flex items-center gap-3">
-              <Trophy className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">
-                  Set your first financial goal
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Goals help you stay motivated and track progress.
-                </p>
-              </div>
-              <Link href="/goals">
-                <Button size="sm" variant="outline" className="shrink-0">
-                  Set Goal
-                </Button>
-              </Link>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 shrink-0"
-                onClick={() => setGoalBannerDismissed(true)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+            <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 flex items-center gap-2">
+              <Trophy className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <p className="text-xs flex-1 min-w-0"><span className="font-medium">No goals yet</span> — set one to stay motivated</p>
+              <Link href="/goals"><Button size="sm" variant="outline" className="h-7 px-2 text-xs shrink-0">Set Goal</Button></Link>
+              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setGoalBannerDismissed(true)}><X className="h-3 w-3" /></Button>
             </div>
           )}
 
-          {/* Financial Health Score */}
+          {/* ── ROW 1: Health Score + Cashflow (side by side) ── */}
           {isVisible("financial-health") && (
-            <Card className="rounded-lg overflow-hidden">
-              <div className="flex flex-col sm:flex-row">
-                {/* Score panel */}
-                <div className="bg-slate-900 dark:bg-black text-white px-6 py-5 flex items-center gap-5 sm:w-52 shrink-0">
-                  <div className="relative w-[72px] h-[72px] shrink-0">
-                    <svg
-                      viewBox="0 0 36 36"
-                      className="absolute inset-0 w-full h-full -rotate-90"
-                    >
-                      <circle
-                        cx="18"
-                        cy="18"
-                        r="15.915"
-                        stroke="#1e293b"
-                        strokeWidth="3"
-                        fill="none"
-                      />
-                      <circle
-                        cx="18"
-                        cy="18"
-                        r="15.915"
-                        stroke={healthScore.ringColor}
-                        strokeWidth="3"
-                        fill="none"
-                        strokeDasharray={`${healthScore.total} ${100 - healthScore.total}`}
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-xl font-mono font-bold leading-none">
-                        {healthScore.total}
-                      </span>
-                      <span className="text-[9px] text-slate-500 mt-0.5">
-                        / 100
-                      </span>
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-2.5">
+
+              {/* Health Score — compact ring + pillars */}
+              <Card className="lg:col-span-2 overflow-hidden">
+                <div className="flex h-full">
+                  {/* Ring + grade */}
+                  <div className="bg-slate-900 dark:bg-black text-white px-4 py-4 flex flex-col items-center justify-center gap-2 shrink-0 w-28">
+                    <div className="relative w-16 h-16">
+                      <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#1e293b" strokeWidth="3.5" />
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke={healthScore.ringColor} strokeWidth="3.5"
+                          strokeDasharray={`${healthScore.total} ${100 - healthScore.total}`} strokeLinecap="round" />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-lg font-mono font-bold leading-none">{healthScore.total}</span>
+                        <span className="text-[8px] text-slate-500">/100</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
-                      Health Score
-                    </p>
-                    <p
-                      className={`text-4xl font-bold font-mono leading-none ${healthScore.gradeColor}`}
-                    >
-                      {healthScore.grade}
-                    </p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {healthScore.gradeLabel}
-                    </p>
+                    <div className="text-center">
+                      <p className={`text-2xl font-bold font-mono leading-none ${healthScore.gradeColor}`}>{healthScore.grade}</p>
+                      <p className="text-[9px] text-slate-400 mt-0.5">{healthScore.gradeLabel}</p>
+                    </div>
                     {healthScore.trend !== null && (
-                      <div className="flex items-center gap-1 mt-2">
-                        {healthScore.trend > 0 && (
-                          <ArrowUpRight className="h-3 w-3 text-green-400" />
-                        )}
-                        {healthScore.trend < 0 && (
-                          <ArrowDownRight className="h-3 w-3 text-red-400" />
-                        )}
-                        {healthScore.trend === 0 && (
-                          <Minus className="h-3 w-3 text-slate-500" />
-                        )}
-                        <span
-                          className={`text-[10px] font-mono ${healthScore.trendColor}`}
-                        >
-                          {healthScore.trendText}
-                        </span>
+                      <div className={`flex items-center gap-0.5 text-[9px] font-mono ${healthScore.trendColor}`}>
+                        {healthScore.trend > 0 ? <ArrowUpRight className="h-2.5 w-2.5" /> : healthScore.trend < 0 ? <ArrowDownRight className="h-2.5 w-2.5" /> : <Minus className="h-2.5 w-2.5" />}
+                        {healthScore.trend > 0 ? "+" : ""}{healthScore.trend}
                       </div>
                     )}
-                    <Link
-                      href="/health-score"
-                      className="mt-2 text-[10px] text-slate-400 hover:text-white flex items-center gap-0.5 underline underline-offset-2"
-                    >
-                      View details
-                    </Link>
+                    <Link href="/health-score" className="text-[9px] text-slate-500 hover:text-white underline underline-offset-2 transition-colors">Details</Link>
                   </div>
-                </div>
-
-                {/* 5 Pillars */}
-                <div className="flex-1 px-5 py-4 space-y-3">
-                  {healthScore.components.map((c) => {
-                    const PillarIcon =
-                      PILLAR_ICONS[c.label as keyof typeof PILLAR_ICONS] ??
-                      BarChart3;
-                    const info = PILLAR_INFO[c.label];
-                    const ranges = PILLAR_RANGES[c.label] ?? [];
-                    return (
-                      <div key={c.label}>
-                        <div className="flex items-center justify-between mb-1">
+                  {/* Pillars */}
+                  <div className="flex-1 px-4 py-3 space-y-2 min-w-0">
+                    {healthScore.components.map((c) => {
+                      const PillarIcon = PILLAR_ICONS[c.label as keyof typeof PILLAR_ICONS] ?? BarChart3;
+                      const info = PILLAR_INFO[c.label];
+                      const ranges = PILLAR_RANGES[c.label] ?? [];
+                      return (
+                        <div key={c.label} className="flex items-center gap-2">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground cursor-help select-none">
-                                <PillarIcon className="h-3 w-3" />
-                                {c.label}
+                              <div className="flex items-center gap-1 cursor-help w-20 shrink-0">
+                                <PillarIcon className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground truncate">{c.label}</span>
                               </div>
                             </TooltipTrigger>
-                            <TooltipContent
-                              side="right"
-                              className="max-w-[240px] p-3 space-y-2"
-                            >
+                            <TooltipContent side="right" className="max-w-[220px] p-2.5 space-y-1.5">
                               <p className="font-semibold text-xs">{c.label}</p>
-                              {info && (
-                                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                  {info.description}
-                                </p>
-                              )}
-                              {ranges.length > 0 && (
-                                <div className="border-t border-border pt-2 space-y-0.5">
-                                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">
-                                    Scoring
-                                  </p>
-                                  {ranges.map((r) => (
-                                    <p
-                                      key={r}
-                                      className="text-[10px] font-mono text-muted-foreground"
-                                    >
-                                      {r}
-                                    </p>
-                                  ))}
-                                </div>
-                              )}
-                              {info?.how && (
-                                <div className="border-t border-border pt-2 flex items-start gap-1.5">
-                                  <Lightbulb className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
-                                  <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
-                                    {info.how}
-                                  </p>
-                                </div>
-                              )}
+                              {info && <p className="text-[10px] text-muted-foreground leading-relaxed">{info.description}</p>}
+                              {ranges.length > 0 && <div className="border-t border-border pt-1.5 space-y-0.5">{ranges.slice(0, 3).map((r) => <p key={r} className="text-[9px] font-mono text-muted-foreground">{r}</p>)}</div>}
+                              {info?.how && <div className="border-t border-border pt-1.5 flex gap-1"><Lightbulb className="h-2.5 w-2.5 text-amber-500 shrink-0 mt-px" /><p className="text-[10px] text-amber-500 leading-relaxed">{info.how}</p></div>}
                             </TooltipContent>
                           </Tooltip>
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-xs font-mono font-semibold">
-                              {c.value}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground font-mono">
-                              {c.pts}/{c.max}
-                            </span>
+                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(c.pts / c.max) * 100}%`, backgroundColor: c.color }} />
                           </div>
+                          <span className="text-[9px] font-mono text-muted-foreground w-7 text-right shrink-0">{c.pts}/{c.max}</span>
                         </div>
-                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{
-                              width: `${(c.pts / c.max) * 100}%`,
-                              backgroundColor: c.color,
-                            }}
-                          />
+                      );
+                    })}
+                    {healthScore.tips.length > 0 && (
+                      <div className="pt-1 border-t border-border/50">
+                        <div className="flex items-start gap-1.5">
+                          <Lightbulb className="h-2.5 w-2.5 text-amber-500 shrink-0 mt-px" />
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-tight">{healthScore.tips[0]}</p>
                         </div>
                       </div>
-                    );
-                  })}
+                    )}
+                  </div>
                 </div>
-              </div>
+              </Card>
 
-              {/* Tips strip */}
-              {healthScore.tips.length > 0 && (
-                <div className="border-t border-border bg-muted/30 px-5 py-3 space-y-1.5">
-                  {healthScore.tips.map((tip) => (
-                    <div
-                      key={tip}
-                      className="flex items-start gap-2 text-xs text-muted-foreground"
-                    >
-                      <Lightbulb className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-                      <span>{tip}</span>
+              {/* Month cashflow — compact stacked bars */}
+              <Card className="lg:col-span-3">
+                <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {new Date().toLocaleDateString("en-IN", { month: "long" })} Cashflow
+                  </p>
+                  <Link href="/transactions" className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                    All transactions <ArrowRight className="h-2.5 w-2.5" />
+                  </Link>
+                </div>
+                <div className="px-4 py-3 space-y-2">
+                  {/* Income bar */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-muted-foreground"><TrendingUp className="h-3 w-3 text-green-500" />Income</span>
+                      <div className="flex items-center gap-2">
+                        {incomeDelta !== null && <span className={`text-[10px] font-mono ${incomeDelta >= 0 ? "text-green-500" : "text-red-400"}`}>{incomeDelta >= 0 ? "▲" : "▼"}{Math.abs(incomeDelta).toFixed(1)}%</span>}
+                        <span className="font-mono text-sm font-semibold text-green-600 dark:text-green-400">{format(currentMonthIncome)}</span>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          )}
-
-          {/* Charts row */}
-          {isVisible("net-worth-chart") && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-              {/* Net Worth Timeline */}
-              <Card className="lg:col-span-2 rounded-lg">
-                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Net Worth Timeline
-                    </p>
-                    <div className="flex items-center gap-3">
-                      {snapshots.length > 0 && (
-                        <button
-                          onClick={async () => {
-                            await clearSnapshots();
-                            await createSnapshot();
-                          }}
-                          className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                        >
-                          Reset timeline
-                        </button>
-                      )}
-                      <Link
-                        href="/net-worth"
-                        className="text-xs text-primary hover:underline flex items-center gap-1"
-                      >
-                        View details <ArrowRight className="h-3 w-3" />
-                      </Link>
+                    <div className="h-2 bg-green-100 dark:bg-green-950/60 rounded-full overflow-hidden">
+                      <div className="h-full bg-green-500 rounded-full" style={{ width: "100%" }} />
                     </div>
                   </div>
-                </CardHeader>
-                <CardContent className="pt-3 px-4 pb-4">
-                  {nwChartData.length > 0 && (
-                    <div className="flex items-center gap-4 mb-2">
-                      {[
-                        { color: "#3b82f6", label: "Assets", shape: "bar" },
-                        {
-                          color: "#ef4444",
-                          label: "Liabilities",
-                          shape: "bar",
-                        },
-                        { color: "#22c55e", label: "Net Worth", shape: "bar" },
-                      ].map(({ color, label, shape }) => (
-                        <div key={label} className="flex items-center gap-1.5">
-                          {shape === "bar" ? (
-                            <span
-                              className="inline-block w-2.5 h-2.5 rounded-sm"
-                              style={{ backgroundColor: color, opacity: 0.85 }}
-                            />
-                          ) : (
-                            <span
-                              className="inline-block w-3 h-0.5 rounded-full"
-                              style={{ backgroundColor: color }}
-                            />
-                          )}
-                          <span className="text-[11px] text-muted-foreground">
-                            {label}
-                          </span>
-                        </div>
-                      ))}
+                  {/* Expenses bar */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-muted-foreground"><TrendingDown className="h-3 w-3 text-red-500" />Spending</span>
+                      <div className="flex items-center gap-2">
+                        {expenseDelta !== null && <span className={`text-[10px] font-mono ${expenseDelta <= 0 ? "text-green-500" : "text-red-400"}`}>{expenseDelta >= 0 ? "▲" : "▼"}{Math.abs(expenseDelta).toFixed(1)}%</span>}
+                        <span className="font-mono text-sm font-semibold text-red-600 dark:text-red-400">{format(currentMonthExpenses)}</span>
+                      </div>
                     </div>
-                  )}
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${currentMonthIncome > 0 ? Math.min(100, (currentMonthExpenses / currentMonthIncome) * 100) : 0}%` }} />
+                    </div>
+                  </div>
+                  {/* Saved bar */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-muted-foreground"><PiggyBank className="h-3 w-3 text-blue-500" />Saved<span className="text-[9px] text-muted-foreground/60">(excl. invest)</span></span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-mono ${savingsRate >= 15 ? "text-green-500" : savingsRate >= 5 ? "text-amber-500" : "text-red-400"}`}>{savingsRate.toFixed(1)}%</span>
+                        <span className={`font-mono text-sm font-semibold ${currentMonthSaved >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-500"}`}>{format(Math.max(0, currentMonthSaved))}</span>
+                      </div>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${currentMonthIncome > 0 ? Math.min(100, Math.max(0, savingsRate)) : 0}%` }} />
+                    </div>
+                  </div>
+                  {/* Summary row */}
+                  <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                    <span className="text-[10px] text-muted-foreground">Net surplus this month</span>
+                    <span className={`font-mono text-base font-bold ${currentMonthIncome - currentMonthExpenses >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                      {currentMonthIncome - currentMonthExpenses >= 0 ? "+" : ""}{format(currentMonthIncome - currentMonthExpenses)}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* ── ROW 2: Net Worth Chart + Allocation ── */}
+          {isVisible("net-worth-chart") && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
+              <Card className="lg:col-span-2">
+                <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+                  <div className="flex items-center gap-3">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Net Worth Timeline</p>
+                    {[{ color: "#3b82f6", label: "Assets" }, { color: "#ef4444", label: "Liab." }, { color: "#22c55e", label: "Net Worth" }].map(({ color, label }) => (
+                      <div key={label} className="hidden sm:flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: color, opacity: 0.85 }} />
+                        <span className="text-[10px] text-muted-foreground">{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {snapshots.length > 0 && (
+                      <button onClick={async () => { await clearSnapshots(); await createSnapshot(); }} className="text-[10px] text-muted-foreground hover:text-destructive transition-colors">Reset</button>
+                    )}
+                    <Link href="/net-worth" className="text-[10px] text-primary hover:underline flex items-center gap-0.5">Details <ArrowRight className="h-2.5 w-2.5" /></Link>
+                  </div>
+                </div>
+                <CardContent className="pt-3 px-3 pb-3">
                   {nwChartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={220}>
-                      <ComposedChart
-                        data={nwChartData}
-                        margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
-                        barCategoryGap="30%"
-                      >
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke="var(--border)"
-                          vertical={false}
-                        />
-                        <XAxis
-                          dataKey="date"
-                          tick={{ fontSize: 10 }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <YAxis
-                          tickFormatter={formatShort}
-                          tick={{ fontSize: 10 }}
-                          axisLine={false}
-                          tickLine={false}
-                          width={48}
-                        />
-                        <ReferenceLine
-                          y={0}
-                          stroke="var(--border)"
-                          strokeDasharray="3 3"
-                        />
-                        <RechartTooltip
-                          contentStyle={{
-                            backgroundColor: "var(--card)",
-                            border: "1px solid var(--border)",
-                            borderRadius: "8px",
-                            fontSize: "12px",
-                          }}
-                          formatter={(v: unknown, name?: string) => [
-                            format(v as number),
-                            name ?? "",
-                          ]}
-                        />
-                        <Bar
-                          dataKey="Assets"
-                          fill="#3b82f6"
-                          fillOpacity={0.75}
-                          radius={[3, 3, 0, 0]}
-                          maxBarSize={32}
-                        />
-                        <Bar
-                          dataKey="Liabilities"
-                          fill="#ef4444"
-                          fillOpacity={0.75}
-                          radius={[3, 3, 0, 0]}
-                          maxBarSize={32}
-                        />
-                        <Bar
-                          dataKey="Net Worth"
-                          fill="#22c55e"
-                          fillOpacity={0.85}
-                          radius={[3, 3, 0, 0]}
-                          maxBarSize={32}
-                        />
+                    <ResponsiveContainer width="100%" height={200}>
+                      <ComposedChart data={nwChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="30%">
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                        <YAxis tickFormatter={formatShort} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={44} />
+                        <ReferenceLine y={0} stroke="var(--border)" strokeDasharray="3 3" />
+                        <RechartTooltip contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
+                          formatter={(v: unknown, name?: string) => [format(v as number), name ?? ""]} />
+                        <Bar dataKey="Assets" fill="#3b82f6" fillOpacity={0.75} radius={[3, 3, 0, 0]} maxBarSize={28} />
+                        <Bar dataKey="Liabilities" fill="#ef4444" fillOpacity={0.75} radius={[3, 3, 0, 0]} maxBarSize={28} />
+                        <Bar dataKey="Net Worth" fill="#22c55e" fillOpacity={0.85} radius={[3, 3, 0, 0]} maxBarSize={28} />
                       </ComposedChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="h-[220px] flex flex-col items-center justify-center text-muted-foreground gap-2">
-                      <Camera className="h-8 w-8 opacity-40" />
-                      <p className="text-sm">
-                        Take snapshots to track your net worth over time
-                      </p>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleTakeSnapshot}
-                        disabled={takingSnapshot}
-                      >
-                        {takingSnapshot ? "Saving..." : "Take First Snapshot"}
-                      </Button>
+                    <div className="h-[200px] flex flex-col items-center justify-center text-muted-foreground gap-2">
+                      <Camera className="h-6 w-6 opacity-40" />
+                      <p className="text-xs">Take snapshots to track net worth over time</p>
+                      <Button size="sm" variant="outline" onClick={handleTakeSnapshot} disabled={takingSnapshot}>{takingSnapshot ? "Saving..." : "Take First Snapshot"}</Button>
                     </div>
                   )}
                 </CardContent>
               </Card>
 
-              {/* Asset Allocation */}
-              <Card className="rounded-lg">
-                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Allocation
-                    </p>
-                    <Link
-                      href="/investments"
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
-                    >
-                      Invest <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  </div>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 pt-3">
+              {/* Allocation donut */}
+              <Card>
+                <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Allocation</p>
+                  <Link href="/investments" className="text-[10px] text-primary hover:underline flex items-center gap-0.5">Invest <ArrowRight className="h-2.5 w-2.5" /></Link>
+                </div>
+                <CardContent className="px-4 pb-3 pt-2">
                   {allocationData.length > 0 ? (
                     <>
-                      <ResponsiveContainer width="100%" height={160}>
+                      <ResponsiveContainer width="100%" height={130}>
                         <PieChart>
-                          <Pie
-                            data={allocationData}
-                            dataKey="value"
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={45}
-                            outerRadius={70}
-                            paddingAngle={2}
-                          >
-                            {allocationData.map((_, i) => (
-                              <Cell
-                                key={i}
-                                fill={
-                                  ALLOCATION_COLORS[
-                                    i % ALLOCATION_COLORS.length
-                                  ]
-                                }
-                              />
-                            ))}
+                          <Pie data={allocationData} dataKey="value" cx="50%" cy="50%" innerRadius={38} outerRadius={60} paddingAngle={2}>
+                            {allocationData.map((_, i) => <Cell key={i} fill={ALLOCATION_COLORS[i % ALLOCATION_COLORS.length]} />)}
                           </Pie>
-                          <RechartTooltip
-                            formatter={(v: unknown) => [format(v as number)]}
-                          />
+                          <RechartTooltip formatter={(v: unknown) => [format(v as number)]} contentStyle={{ fontSize: 11, borderRadius: 6 }} />
                         </PieChart>
                       </ResponsiveContainer>
-                      <div className="space-y-1.5 mt-2">
+                      <div className="space-y-1 mt-1">
                         {allocationData.slice(0, 5).map((item, i) => {
-                          const total = allocationData.reduce(
-                            (s, d) => s + d.value,
-                            0,
-                          );
-                          const pct =
-                            total > 0 ? (item.value / total) * 100 : 0;
+                          const tot = allocationData.reduce((s, d) => s + d.value, 0);
+                          const pct = tot > 0 ? (item.value / tot) * 100 : 0;
                           return (
-                            <div
-                              key={i}
-                              className="flex items-center justify-between text-xs"
-                            >
-                              <div className="flex items-center gap-1.5">
-                                <span
-                                  className="w-2 h-2 rounded-full shrink-0"
-                                  style={{
-                                    background:
-                                      ALLOCATION_COLORS[
-                                        i % ALLOCATION_COLORS.length
-                                      ],
-                                  }}
-                                />
-                                <span className="text-muted-foreground truncate max-w-[100px]">
-                                  {item.name}
-                                </span>
+                            <div key={i} className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: ALLOCATION_COLORS[i % ALLOCATION_COLORS.length] }} />
+                                <span className="text-[10px] text-muted-foreground truncate max-w-[90px]">{item.name}</span>
                               </div>
-                              <span className="font-mono font-medium">
-                                {pct.toFixed(1)}%
-                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[10px] text-muted-foreground font-mono">{formatShort(item.value)}</span>
+                                <span className="text-[10px] font-mono font-semibold w-8 text-right">{pct.toFixed(0)}%</span>
+                              </div>
                             </div>
                           );
                         })}
                       </div>
                     </>
                   ) : (
-                    <div className="h-[220px] flex flex-col items-center justify-center text-muted-foreground gap-2">
-                      <Wallet className="h-8 w-8 opacity-40" />
-                      <p className="text-sm text-center">
-                        Add assets or investments to see allocation
-                      </p>
+                    <div className="h-[180px] flex flex-col items-center justify-center text-muted-foreground gap-2">
+                      <Wallet className="h-6 w-6 opacity-40" />
+                      <p className="text-xs text-center">Add assets or investments</p>
                     </div>
                   )}
                 </CardContent>
@@ -1280,359 +1140,120 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Data row: Holdings · Cashflow · Goals */}
+          {/* ── ROW 3: Holdings · Goals · Budgets ── */}
           {isVisible("investments") && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
               {/* Top Holdings */}
-              <Card className="rounded-lg">
-                <CardHeader className="pb-0 border-b border-border px-4 pt-4">
-                  <div className="flex items-center justify-between pb-2">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Top Holdings
-                    </p>
-                    <Link
-                      href="/investments"
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
-                    >
-                      All <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {topHoldings.length > 0 ? (
-                    <div className="divide-y divide-border">
-                      {topHoldings.map((h, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between px-4 py-2.5"
-                        >
-                          <div className="min-w-0 flex items-center gap-2">
-                            <span
-                              className={`text-[9px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wide shrink-0 ${
-                                h.type === "Stock"
-                                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
-                                  : h.type === "MF"
-                                    ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400"
-                                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
-                              }`}
-                            >
-                              {h.type}
-                            </span>
-                            <p className="text-sm font-medium truncate">
-                              {h.name}
-                            </p>
-                          </div>
-                          <div className="text-right shrink-0 ml-2">
-                            <p className="text-sm font-mono font-semibold">
-                              {format(h.value)}
-                            </p>
-                            <p
-                              className={`text-xs font-mono ${h.pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                            >
-                              {h.pnl >= 0 ? "+" : ""}
-                              {h.pnlPct.toFixed(1)}%
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="h-[120px] flex flex-col items-center justify-center text-muted-foreground gap-2">
-                      <TrendingUp className="h-6 w-6 opacity-40" />
-                      <p className="text-xs text-center">No investments yet</p>
-                      <Link href="/investments">
-                        <Button size="sm" variant="outline">
-                          Add Investment
-                        </Button>
-                      </Link>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Month Cashflow */}
-              <Card className="rounded-lg">
-                <CardHeader className="pb-0 border-b border-border px-4 pt-4">
-                  <div className="flex items-center justify-between pb-2">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      {new Date().toLocaleDateString("en-IN", {
-                        month: "long",
-                      })}{" "}
-                      Cashflow
-                    </p>
-                    <Link
-                      href="/transactions"
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
-                    >
-                      View <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="divide-y divide-border">
-                    <div className="px-4 py-3">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-                          <TrendingUp className="h-3 w-3 text-green-500" />
-                          Income
-                        </span>
-                        <span className="font-mono text-sm font-semibold text-green-600 dark:text-green-400">
-                          {format(currentMonthIncome)}
-                        </span>
-                      </div>
-                      <Progress
-                        value={100}
-                        className="h-1 bg-green-100 dark:bg-green-950"
-                      />
-                    </div>
-                    <div className="px-4 py-3">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-                          <TrendingDown className="h-3 w-3 text-red-500" />
-                          Expenses
-                        </span>
-                        <span className="font-mono text-sm font-semibold text-red-600 dark:text-red-400">
-                          {format(currentMonthExpenses)}
-                        </span>
-                      </div>
-                      <Progress
-                        value={
-                          currentMonthIncome > 0
-                            ? Math.min(
-                                100,
-                                (currentMonthExpenses / currentMonthIncome) *
-                                  100,
-                              )
-                            : 0
-                        }
-                        className="h-1"
-                      />
-                    </div>
-                    <div className="px-4 py-3 bg-muted/30">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          Surplus
-                        </span>
-                        <span
-                          className={`font-mono text-lg font-bold ${currentMonthIncome - currentMonthExpenses >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                        >
-                          {format(currentMonthIncome - currentMonthExpenses)}
-                        </span>
-                      </div>
-                      {currentMonthIncome > 0 && (
-                        <p className="text-[10px] text-muted-foreground mt-1 text-right">
-                          {(
-                            (currentMonthExpenses / currentMonthIncome) *
-                            100
-                          ).toFixed(0)}
-                          % of income spent
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Goals */}
-              <Card className="rounded-lg">
-                <CardHeader className="pb-0 border-b border-border px-4 pt-4">
-                  <div className="flex items-center justify-between pb-2">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Goals
-                    </p>
-                    <Link
-                      href="/goals"
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
-                    >
-                      All <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {activeGoals.length > 0 ? (
-                    <div className="divide-y divide-border">
-                      {activeGoals.slice(0, 3).map((goal) => {
-                        const pct = Math.min(
-                          100,
-                          (goal.currentAmount / goal.targetAmount) * 100,
-                        );
-                        return (
-                          <div key={goal.id} className="px-4 py-3">
-                            <div className="flex justify-between items-center mb-1.5">
-                              <span className="text-sm font-medium truncate max-w-[140px]">
-                                {goal.title}
-                              </span>
-                              <span className="text-xs font-mono text-muted-foreground ml-2">
-                                {pct.toFixed(0)}%
-                              </span>
-                            </div>
-                            <Progress value={pct} className="h-1" />
-                            <div className="flex justify-between text-[10px] text-muted-foreground mt-1 font-mono">
-                              <span>{format(goal.currentAmount)}</span>
-                              <span>{format(goal.targetAmount)}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="h-[120px] flex flex-col items-center justify-center text-muted-foreground gap-2">
-                      <Trophy className="h-6 w-6 opacity-40" />
-                      <p className="text-xs text-center">No active goals</p>
-                      <Link href="/goals">
-                        <Button size="sm" variant="outline">
-                          Create Goal
-                        </Button>
-                      </Link>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Goal ETAs */}
-          {isVisible("goal-etas") && goalETAs.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <TargetIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  Goal Estimates
-                </p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {goalETAs.map(({ goal, monthsRemaining, remaining }) => (
-                  <Card
-                    key={goal.id}
-                    className="rounded-lg hover:shadow-md transition-shadow"
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <h4 className="font-semibold text-sm">{goal.title}</h4>
-                        <Link href="/goals">
-                          <ArrowRight className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                        </Link>
-                      </div>
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                            Remaining
-                          </span>
-                          <span className="font-mono font-semibold">
-                            {format(remaining)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                            Est. Completion
-                          </span>
-                          <span className="font-mono font-semibold text-primary">
-                            {monthsRemaining === 1
-                              ? "This month"
-                              : `${monthsRemaining}mo`}
-                          </span>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-1 mt-2">
-                          <div
-                            className="bg-primary h-1 rounded-full transition-all"
-                            style={{
-                              width: `${Math.min(100, (goal.currentAmount / goal.targetAmount) * 100)}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Budget Usage Pie */}
-          {budgetPieData.length > 0 && (
-            <Card className="rounded-lg">
-              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    Budget Usage by Category
-                  </p>
-                  <Link
-                    href="/budgets"
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
-                    Budgets <ArrowRight className="h-3 w-3" />
-                  </Link>
+              <Card>
+                <div className="flex items-center justify-between px-4 pt-2.5 pb-2 border-b border-border">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Top Holdings</p>
+                  <Link href="/investments" className="text-[10px] text-primary hover:underline flex items-center gap-0.5">All <ArrowRight className="h-2.5 w-2.5" /></Link>
                 </div>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 pt-3">
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <ResponsiveContainer
-                    width="100%"
-                    height={180}
-                    className="shrink-0 sm:max-w-50"
-                  >
-                    <PieChart>
-                      <Pie
-                        data={budgetPieData}
-                        dataKey="spent"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        paddingAngle={2}
-                      >
-                        {budgetPieData.map((entry, i) => (
-                          <Cell
-                            key={entry.name}
-                            fill={budgetSliceColor(entry.pct, i)}
-                          />
-                        ))}
-                      </Pie>
-                      <RechartTooltip
-                        formatter={(
-                          v: unknown,
-                          _: unknown,
-                          props: { payload?: { pct?: number } },
-                        ) => [
-                          `${format(v as number)} (${props.payload?.pct ?? 0}% used)`,
-                        ]}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="flex-1 w-full space-y-2">
-                    {budgetPieData.map((b, i) => (
-                      <div
-                        key={b.name}
-                        className="flex items-center justify-between gap-2"
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span
-                            className="h-2 w-2 rounded-full shrink-0"
-                            style={{
-                              backgroundColor: budgetSliceColor(b.pct, i),
-                            }}
-                          />
-                          <span className="text-xs truncate">{b.name}</span>
+                <div className="divide-y divide-border/60">
+                  {topHoldings.length > 0 ? topHoldings.map((h, i) => (
+                    <div key={i} className="flex items-center justify-between px-4 py-1.5">
+                      <div className="min-w-0 flex items-center gap-2">
+                        <span className={`text-[8px] font-bold px-1 py-px rounded-sm uppercase shrink-0 leading-none ${h.type === "Stock" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" : h.type === "MF" ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400" : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"}`}>{h.type}</span>
+                        <p className="text-xs font-medium truncate">{h.name}</p>
+                      </div>
+                      <div className="text-right shrink-0 ml-2 flex items-center gap-2">
+                        <p className="text-xs font-mono font-semibold">{formatShort(h.value)}</p>
+                        <p className={`text-[10px] font-mono w-10 text-right ${h.pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>{h.pnl >= 0 ? "+" : ""}{h.pnlPct.toFixed(1)}%</p>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="h-20 flex flex-col items-center justify-center text-muted-foreground gap-1">
+                      <TrendingUp className="h-4 w-4 opacity-40" />
+                      <p className="text-[10px]">No investments yet</p>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              {/* Goals — single-line rows, no bottom sub-text */}
+              <Card>
+                <div className="flex items-center justify-between px-4 pt-2.5 pb-2 border-b border-border">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Goals</p>
+                  <Link href="/goals" className="text-[10px] text-primary hover:underline flex items-center gap-0.5">All <ArrowRight className="h-2.5 w-2.5" /></Link>
+                </div>
+                <div className="divide-y divide-border/60">
+                  {activeGoals.length > 0 ? activeGoals.slice(0, 5).map((goal) => {
+                    const pct = Math.min(100, (goal.currentAmount / goal.targetAmount) * 100);
+                    const eta = goalETAs.find((e) => e.goal.id === goal.id);
+                    const barColor = pct >= 75 ? "#22c55e" : pct >= 40 ? "#3b82f6" : pct > 0 ? "#f59e0b" : "#94a3b8";
+                    return (
+                      <div key={goal.id} className="flex items-center gap-3 px-4 py-2">
+                        {/* Progress ring (tiny) */}
+                        <div className="relative w-7 h-7 shrink-0">
+                          <svg viewBox="0 0 24 24" className="w-7 h-7 -rotate-90">
+                            <circle cx="12" cy="12" r="9" fill="none" stroke="var(--muted)" strokeWidth="2.5" />
+                            <circle cx="12" cy="12" r="9" fill="none" stroke={barColor} strokeWidth="2.5"
+                              strokeDasharray={`${(pct / 100) * 56.5} 56.5`} strokeLinecap="round" />
+                          </svg>
+                          <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold" style={{ color: barColor }}>{pct.toFixed(0)}</span>
                         </div>
-                        <span
-                          className={`text-xs font-mono font-semibold shrink-0 ${budgetPctTextColor(b.pct)}`}
-                        >
-                          {b.pct}%
-                        </span>
+                        {/* Name */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate leading-tight">{goal.title}</p>
+                          <p className="text-[9px] text-muted-foreground font-mono">{formatShort(goal.currentAmount)} / {formatShort(goal.targetAmount)}</p>
+                        </div>
+                        {/* ETA */}
+                        {eta ? (
+                          <span className="text-[9px] font-mono text-primary shrink-0">{eta.monthsRemaining === 1 ? "this mo" : `${eta.monthsRemaining}mo`}</span>
+                        ) : (
+                          <span className="text-[9px] text-muted-foreground shrink-0">—</span>
+                        )}
+                      </div>
+                    );
+                  }) : (
+                    <div className="h-20 flex flex-col items-center justify-center text-muted-foreground gap-1">
+                      <Trophy className="h-4 w-4 opacity-40" />
+                      <p className="text-[10px]">No active goals</p>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              {/* Budgets — inline bars, no wasted space */}
+              <Card>
+                <div className="flex items-center justify-between px-4 pt-2.5 pb-2 border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Budgets</p>
+                    {budgetPieData.length > 0 && (
+                      <span className={`text-[9px] font-mono px-1.5 py-px rounded-full ${budgetPieData.some(b => b.pct >= 100) ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" : budgetPieData.some(b => b.pct >= 80) ? "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400" : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"}`}>
+                        {budgetPieData.filter(b => b.pct < 80).length}/{budgetPieData.length} on track
+                      </span>
+                    )}
+                  </div>
+                  <Link href="/budgets" className="text-[10px] text-primary hover:underline flex items-center gap-0.5">Manage <ArrowRight className="h-2.5 w-2.5" /></Link>
+                </div>
+                {budgetPieData.length > 0 ? (
+                  <div className="px-4 py-2 space-y-1.5">
+                    {budgetPieData.slice(0, 7).map((b, i) => (
+                      <div key={b.name} className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground truncate w-28 shrink-0">{b.name}</span>
+                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(b.pct, 100)}%`, backgroundColor: budgetSliceColor(b.pct, i) }} />
+                        </div>
+                        <span className={`text-[10px] font-mono font-semibold w-8 text-right shrink-0 ${budgetPctTextColor(b.pct)}`}>{b.pct}%</span>
                       </div>
                     ))}
+                    {budgetPieData.length > 7 && (
+                      <p className="text-[9px] text-muted-foreground pt-0.5">+{budgetPieData.length - 7} more categories</p>
+                    )}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Recent Transactions */}
-          {isVisible("recent-transactions") && (
-            <div>
-              <RecentTransactionsWidget />
+                ) : (
+                  <div className="h-20 flex flex-col items-center justify-center text-muted-foreground gap-1">
+                    <Receipt className="h-4 w-4 opacity-40" />
+                    <p className="text-[10px]">No budget data this month</p>
+                  </div>
+                )}
+              </Card>
             </div>
           )}
+
+          {/* ── Recent Transactions ── */}
+          {isVisible("recent-transactions") && <RecentTransactionsWidget />}
         </main>
 
         <QuickAddButton />

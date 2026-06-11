@@ -1781,6 +1781,40 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
 
   const totalExpenseCats = categoryBreakdown.reduce((s, c) => s + c.amount, 0);
 
+  // Top merchants by spend (last 3 months, by description)
+  const topMerchants = useMemo(() => {
+    const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 3);
+    const map: Record<string, { amount: number; count: number; category: string }> = {};
+    transactions
+      .filter((t) => t.type === "expense" && new Date(t.date) >= cutoff && t.description)
+      .forEach((t) => {
+        const key = t.description.trim().toLowerCase();
+        if (!map[key]) map[key] = { amount: 0, count: 0, category: t.category };
+        map[key].amount += t.amount;
+        map[key].count += 1;
+      });
+    return Object.entries(map)
+      .map(([name, d]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), ...d }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 10);
+  }, [transactions]);
+
+  // Savings rate trend (last 6 months)
+  const savingsRateTrend = useMemo(() => {
+    const months: Record<string, { label: string; income: number; expenses: number; sortKey: string }> = {};
+    const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 6); cutoff.setDate(1);
+    transactions.forEach((t) => {
+      const d = new Date(t.date); if (d < cutoff) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (!months[key]) months[key] = { label: d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }), income: 0, expenses: 0, sortKey: key };
+      if (t.type === "income") months[key].income += t.amount;
+      else months[key].expenses += t.amount;
+    });
+    return Object.values(months)
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+      .map((m) => ({ label: m.label, rate: m.income > 0 ? Math.round(((m.income - m.expenses) / m.income) * 100) : 0 }));
+  }, [transactions]);
+
   // Day-of-week spending pattern (last 3 months)
   const dowPattern = useMemo(() => {
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -1982,6 +2016,66 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
           </CardContent>
         )}
       </Card>
+
+      {/* Savings rate trend */}
+      {savingsRateTrend.length > 1 && (
+        <Card>
+          <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Savings Rate Trend</p>
+            <p className="text-xs text-muted-foreground mt-0.5">% of income saved each month · last 6 months</p>
+          </CardHeader>
+          <CardContent className="pt-3 px-4 pb-4">
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={savingsRateTrend} barCategoryGap="40%">
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128,128,128,0.15)" />
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
+                <ReferenceLine y={15} stroke="#22c55e" strokeDasharray="4 2" label={{ value: "15% target", fontSize: 10, fill: "#22c55e", position: "right" }} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }} formatter={(v: number | undefined) => [`${v ?? 0}%`, "Savings rate"]} />
+                <Bar dataKey="rate" radius={[4, 4, 0, 0]}>
+                  {savingsRateTrend.map((entry, i) => (
+                    <Cell key={i} fill={entry.rate >= 15 ? "#22c55e" : entry.rate >= 0 ? "#f59e0b" : "#ef4444"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Top merchants */}
+      {topMerchants.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Top Merchants</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Where your money goes · last 3 months</p>
+          </CardHeader>
+          <CardContent className="pt-3 px-4 pb-4 space-y-2">
+            {topMerchants.map(({ name, amount, count, category }, i) => {
+              const max = topMerchants[0].amount;
+              const pct = max > 0 ? (amount / max) * 100 : 0;
+              const color = INSIGHTS_CATEGORY_COLORS[category] ?? "#6366f1";
+              return (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-[10px] font-mono text-muted-foreground w-4 shrink-0">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-sm font-medium truncate max-w-[180px]">{name}</span>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        <span className="text-[10px] text-muted-foreground">{count}×</span>
+                        <span className="font-mono text-sm font-semibold">{format(amount)}</span>
+                      </div>
+                    </div>
+                    <div className="h-1 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

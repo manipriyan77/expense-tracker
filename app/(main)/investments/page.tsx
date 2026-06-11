@@ -1664,25 +1664,55 @@ export default function InvestmentsPage() {
               <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-0.5">
                 Unrealised P&L
               </p>
-              <p
-                className={`font-mono text-sm font-semibold ${portfolio.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}
-              >
-                {portfolio.totalPnl >= 0 ? "+" : ""}
-                {format(portfolio.totalPnl)}
+              <p className={`font-mono text-sm font-semibold ${portfolio.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                {portfolio.totalPnl >= 0 ? "+" : ""}{format(portfolio.totalPnl)}
               </p>
             </div>
             <div className="px-4 py-3">
               <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-0.5">
                 Overall Return
               </p>
-              <p
-                className={`font-mono text-sm font-semibold ${portfolio.returnPct >= 0 ? "text-green-400" : "text-red-400"}`}
-              >
-                {portfolio.returnPct >= 0 ? "+" : ""}
-                {portfolio.returnPct.toFixed(2)}%
+              <p className={`font-mono text-sm font-semibold ${portfolio.returnPct >= 0 ? "text-green-400" : "text-red-400"}`}>
+                {portfolio.returnPct >= 0 ? "+" : ""}{portfolio.returnPct.toFixed(2)}%
               </p>
             </div>
           </div>
+
+          {/* Per-type gain breakdown strip */}
+          {(() => {
+            const stockInvested = stocks.reduce((s, x) => s + x.investedAmount, 0);
+            const stockCurrent = stocks.reduce((s, x) => s + x.currentValue, 0);
+            const mfInvested = mutualFunds.reduce((s, x) => s + x.investedAmount, 0);
+            const mfCurrent = mutualFunds.reduce((s, x) => s + x.currentValue, 0);
+            const goldInvested = holdings.reduce((s, x) => s + x.quantityGrams * x.purchasePricePerGram, 0);
+            const goldCurrent = holdings.reduce((s, x) => s + x.quantityGrams * x.currentPricePerGram, 0);
+            const bands = [
+              { label: "Stocks", invested: stockInvested, current: stockCurrent, color: "#3b82f6" },
+              { label: "MF", invested: mfInvested, current: mfCurrent, color: "#8b5cf6" },
+              { label: "Gold", invested: goldInvested, current: goldCurrent, color: "#f59e0b" },
+            ].filter((b) => b.invested > 0 || b.current > 0);
+            if (bands.length === 0) return null;
+            return (
+              <div className="border-t border-slate-800/80 grid divide-x divide-slate-800/80" style={{ gridTemplateColumns: `repeat(${bands.length}, 1fr)` }}>
+                {bands.map((b) => {
+                  const pnl = b.current - b.invested;
+                  const pct = b.invested > 0 ? (pnl / b.invested) * 100 : 0;
+                  return (
+                    <div key={b.label} className="px-4 py-2">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: b.color }} />
+                        <p className="text-[10px] uppercase tracking-widest text-slate-500">{b.label}</p>
+                      </div>
+                      <p className={`font-mono text-xs font-semibold ${pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {pnl >= 0 ? "+" : ""}{format(pnl)}
+                        <span className="text-[10px] opacity-70 ml-1">({pct >= 0 ? "+" : ""}{pct.toFixed(1)}%)</span>
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
