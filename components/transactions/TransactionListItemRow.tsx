@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   TrendingUp,
   TrendingDown,
@@ -38,6 +39,10 @@ interface TransactionListItemRowProps {
   readonly onMarkRecurringComplete: (patternId: string, dueDate: string) => void;
   readonly completingKey: string | null;
   readonly deleting: string | null;
+  /** When true, render a selection checkbox for booked transactions (power-user bulk actions). */
+  readonly selectionMode?: boolean;
+  readonly selected?: boolean;
+  readonly onToggleSelect?: (id: string) => void;
 }
 
 export function TransactionListItemRow({
@@ -48,6 +53,9 @@ export function TransactionListItemRow({
   onMarkRecurringComplete,
   completingKey,
   deleting,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
 }: TransactionListItemRowProps) {
   if (item.kind === "pending_recurring") {
     const { p } = item;
@@ -123,8 +131,20 @@ export function TransactionListItemRow({
 
   const transaction = item.t;
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+    <div
+      className={`flex items-center justify-between gap-3 px-4 py-2.5 transition-colors ${
+        selected ? "bg-primary/5" : ""
+      }`}
+    >
       <div className="flex items-center gap-3 min-w-0">
+        {selectionMode && (
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() => onToggleSelect?.(transaction.id)}
+            aria-label={`Select ${transaction.description}`}
+            className="shrink-0"
+          />
+        )}
         <div
           className={`shrink-0 p-1.5 rounded-full ${
             transaction.type === "income"

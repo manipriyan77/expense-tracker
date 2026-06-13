@@ -381,6 +381,61 @@ export default function Dashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonthIncome, currentMonthSaved, savingsRate]);
 
+  // ── Forecast & anomaly detection (advanced analytics) ──
+  const forecastInsights = useMemo(() => {
+    const now = new Date();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const dayOfMonth = now.getDate();
+    const elapsed = Math.max(1, dayOfMonth);
+
+    // Project end-of-month spend by run-rate
+    const projected =
+      dayOfMonth >= daysInMonth
+        ? currentMonthExpenses
+        : (currentMonthExpenses / elapsed) * daysInMonth;
+    const vsPrev =
+      prevMonthExpenses > 0
+        ? ((projected - prevMonthExpenses) / prevMonthExpenses) * 100
+        : null;
+
+    // Per-category anomaly: current spend vs avg of prior 3 months
+    const prior: Record<string, number[]> = {};
+    for (let k = 1; k <= 3; k++) {
+      const mIdx = (currentMonth - k + 12) % 12;
+      const yr = currentMonth - k < 0 ? currentYear - 1 : currentYear;
+      transactions.forEach((t) => {
+        if (t.type !== "expense") return;
+        const d = new Date(t.date);
+        if (d.getMonth() === mIdx && d.getFullYear() === yr) {
+          const cat = t.category || "Uncategorized";
+          (prior[cat] ??= [0, 0, 0])[k - 1] += t.amount;
+        }
+      });
+    }
+    const currentByCat: Record<string, number> = {};
+    currentMonthTransactions
+      .filter((t) => t.type === "expense")
+      .forEach((t) => {
+        const cat = t.category || "Uncategorized";
+        currentByCat[cat] = (currentByCat[cat] || 0) + t.amount;
+      });
+
+    const anomalies = Object.entries(currentByCat)
+      .map(([cat, curr]) => {
+        const hist = prior[cat] ?? [];
+        const months = hist.filter((v) => v > 0).length;
+        const avg = months > 0 ? hist.reduce((s, v) => s + v, 0) / months : 0;
+        const pct = avg > 0 ? ((curr - avg) / avg) * 100 : null;
+        return { cat, curr, avg, pct };
+      })
+      // meaningful spikes only: >40% above a non-trivial 3-mo average
+      .filter((a) => a.pct !== null && a.pct >= 40 && a.avg >= 500 && a.curr - a.avg >= 300)
+      .sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0))
+      .slice(0, 3);
+
+    return { projected, vsPrev, daysInMonth, dayOfMonth, anomalies };
+  }, [transactions, currentMonthTransactions, currentMonthExpenses, prevMonthExpenses, currentMonth, currentYear]);
+
   // Net Worth calculations
   // include investments tracked in other modules (stocks, mutual funds, gold, forex)
   const stocksValue = useMemo(
@@ -1043,6 +1098,88 @@ export default function Dashboard() {
                     </span>
                   </div>
                 </div>
+              </Card>
+            </div>
+          )}
+
+          {/* ── Forecast & Anomalies (advanced analytics) ── */}
+          {currentMonthExpenses > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
+              {/* End-of-month forecast */}
+              <Card className="overflow-hidden">
+                <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                    <TrendingUp className="h-3 w-3" /> Spend Forecast
+                  </p>
+                  <span className="text-[9px] text-muted-foreground">
+                    Day {forecastInsights.dayOfMonth}/{forecastInsights.daysInMonth}
+                  </span>
+                </div>
+                <CardContent className="px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                    Projected month-end
+                  </p>
+                  <p className="font-mono text-xl font-bold">{format(forecastInsights.projected)}</p>
+                  <div className="flex items-center gap-2 mt-1.5 text-[11px]">
+                    <span className="text-muted-foreground">
+                      So far {format(currentMonthExpenses)}
+                    </span>
+                    {forecastInsights.vsPrev !== null && (
+                      <span
+                        className={`font-mono ${forecastInsights.vsPrev <= 0 ? "text-green-500" : "text-red-500"}`}
+                      >
+                        {forecastInsights.vsPrev >= 0 ? "▲" : "▼"}
+                        {Math.abs(forecastInsights.vsPrev).toFixed(0)}% vs last month
+                      </span>
+                    )}
+                  </div>
+                  {/* pace bar */}
+                  <div className="mt-2.5 h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(100, (forecastInsights.dayOfMonth / forecastInsights.daysInMonth) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Spending anomalies */}
+              <Card className="lg:col-span-2 overflow-hidden">
+                <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                    <Lightbulb className="h-3 w-3 text-amber-500" /> Spending Anomalies
+                  </p>
+                  <span className="text-[9px] text-muted-foreground">vs 3-month average</span>
+                </div>
+                <CardContent className="px-4 py-3">
+                  {forecastInsights.anomalies.length === 0 ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                      <TrendingDown className="h-3.5 w-3.5 text-green-500" />
+                      No unusual category spikes this month — spending is in line with your norms.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {forecastInsights.anomalies.map((a) => (
+                        <div key={a.cat} className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="inline-flex items-center justify-center h-5 px-1.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-600 dark:text-red-400 shrink-0">
+                              ▲{Math.round(a.pct ?? 0)}%
+                            </span>
+                            <span className="text-sm font-medium truncate capitalize">{a.cat}</span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-mono text-xs font-semibold">{format(a.curr)}</span>
+                            <span className="text-[10px] text-muted-foreground ml-1">
+                              avg {format(a.avg)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
               </Card>
             </div>
           )}

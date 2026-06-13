@@ -62,6 +62,7 @@ import {
   Globe,
   Shield,
   Camera,
+  Download,
   Activity,
   PiggyBank,
   Target,
@@ -430,6 +431,62 @@ export default function NetWorthPage() {
     ? (totalLiabilities / (totalAssets + totalLiabilities)) * 100
     : 0;
 
+  // Export a comprehensive net-worth report as CSV (data & reporting)
+  const exportNetWorthReport = () => {
+    const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+    const lines: string[] = [];
+    const today = new Date().toLocaleDateString();
+
+    lines.push("Net Worth Report");
+    lines.push(`Generated,${esc(today)}`);
+    lines.push("");
+    lines.push("Summary");
+    lines.push(`Total Assets,${totalAssets}`);
+    lines.push(`Total Liabilities,${totalLiabilities}`);
+    lines.push(`Net Worth,${netWorth}`);
+    lines.push(`Debt Ratio (%),${debtRatio.toFixed(2)}`);
+    lines.push("");
+
+    lines.push("Asset Breakdown");
+    lines.push("Category,Value");
+    assetBreakdown
+      .filter((a) => a.value > 0)
+      .forEach((a) => lines.push(`${esc(a.name)},${a.value}`));
+    if (assets.length > 0) {
+      lines.push("");
+      lines.push("Manual Assets");
+      lines.push("Name,Value");
+      assets.forEach((a) => lines.push(`${esc(a.name)},${a.value}`));
+    }
+    lines.push("");
+
+    lines.push("Liabilities");
+    lines.push("Name,Type,Interest Rate (%),Balance");
+    liabilities.forEach((l) =>
+      lines.push(
+        `${esc(l.name)},${esc(l.type)},${l.interest_rate ?? ""},${l.balance}`,
+      ),
+    );
+    lines.push("");
+
+    if (historicalData.length > 0) {
+      lines.push("Net Worth Timeline");
+      lines.push("Month,Net Worth");
+      historicalData.forEach((d) => lines.push(`${esc(d.month)},${d.netWorth}`));
+    }
+
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = `net_worth_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("Net worth report exported!");
+  };
+
   // Liquidity breakdown
   const liquidityData = useMemo(() => {
     const mfValue = mutualFunds.reduce((s, f) => s + f.currentValue, 0);
@@ -780,6 +837,14 @@ export default function NetWorthPage() {
               >
                 <Camera className="h-3.5 w-3.5" />
                 Snapshot
+              </button>
+              <button
+                onClick={exportNetWorthReport}
+                className="flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 transition-colors text-white px-3 py-1.5 rounded-lg"
+                title="Export net worth report (CSV)"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Report</span>
               </button>
             </div>
           </div>

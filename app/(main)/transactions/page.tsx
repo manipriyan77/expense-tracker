@@ -36,6 +36,8 @@ import {
   X,
   ArrowUpDown,
   Trash2,
+  CheckSquare,
+  Loader2,
 } from "lucide-react";
 import { MonthSelector } from "@/components/ui/month-selector";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
@@ -133,6 +135,11 @@ function TransactionsPageInner() {
   // Sort options
   const [sortBy, setSortBy] = useState<"date" | "amount" | "description" | "category">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Power-user: multi-select / bulk actions
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   useEffect(() => {
     loadTransactions();
@@ -291,6 +298,63 @@ function TransactionsPageInner() {
     } finally {
       setIsDeletingMonth(false);
     }
+  };
+
+  // --- Power-user bulk actions ---------------------------------------------
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    clearSelection();
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (
+      !confirm(
+        `Delete ${ids.length} selected transaction(s)? Linked budgets and goals will be updated. This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setIsBulkDeleting(true);
+    try {
+      const results = await Promise.allSettled(
+        ids.map((id) =>
+          fetch(`/api/transactions/${id}`, { method: "DELETE" }).then((r) => {
+            if (!r.ok) throw new Error("failed");
+          }),
+        ),
+      );
+      const failed = results.filter((r) => r.status === "rejected").length;
+      const ok = ids.length - failed;
+      if (ok > 0) toast.success(`Deleted ${ok} transaction(s).`);
+      if (failed > 0) toast.error(`${failed} could not be deleted.`);
+      clearSelection();
+      await loadTransactions();
+      fetchGoals();
+    } catch {
+      toast.error("Bulk delete failed. Please try again.");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const handleBulkExport = () => {
+    const rows = transactions.filter((t) => selectedIds.has(t.id));
+    if (rows.length === 0) return;
+    exportRowsToCSV(rows, `transactions_selected_${selectedIds.size}`);
+    toast.success(`Exported ${rows.length} selected transaction(s).`);
   };
 
   // Get unique categories for filter dropdown
@@ -497,17 +561,11 @@ function TransactionsPageInner() {
     sortOrder,
   ]);
 
-  // CSV Export function
-  const exportToCSV = () => {
-    const headers = [
-      "Date",
-      "Type",
-      "Description",
-      "Category",
-      "Subtype",
-      "Amount",
-    ];
-    const rows = sortedBookedForExport.map((t) => [
+  // CSV Export helpers
+  const exportRowsToCSV = (rows: Transaction[], filenameBase: string) => {
+    const headers = ["Date", "Type", "Description", "Category", "Subtype", "Amount"];
+    const escape = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
+    const body = rows.map((t) => [
       new Date(t.date).toLocaleDateString(),
       t.type,
       t.description,
@@ -518,21 +576,26 @@ function TransactionsPageInner() {
 
     const csvContent = [
       headers.join(","),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+      ...body.map((row) => row.map((c) => escape(c)).join(",")),
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `transactions_${selectedMonth.toISOString().slice(0, 7)}.csv`,
-    );
+    link.setAttribute("download", `${filenameBase}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportToCSV = () => {
+    exportRowsToCSV(
+      sortedBookedForExport,
+      `transactions_${selectedMonth.toISOString().slice(0, 7)}`,
+    );
     toast.success("Transactions exported to CSV!");
   };
 
@@ -540,6 +603,45 @@ function TransactionsPageInner() {
   const incomeTransactions = incomeItems;
   const expenseTransactions = expenseItems;
   const recurringTransactions = recurringItems;
+
+  // Booked-transaction ids that are selectable in the current tab
+  const currentTabItems =
+    activeTab === "income"
+      ? incomeTransactions
+      : activeTab === "expense"
+        ? expenseTransactions
+        : activeTab === "recurring"
+          ? recurringTransactions
+          : allTransactions;
+  const selectableIds = currentTabItems
+    .filter((i) => i.kind === "transaction")
+    .map((i) => (i as { t: Transaction }).t.id);
+  const allVisibleSelected =
+    selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
+
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        selectableIds.forEach((id) => next.delete(id));
+      } else {
+        selectableIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const selectedTotals = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    transactions.forEach((t) => {
+      if (selectedIds.has(t.id)) {
+        if (t.type === "income") income += t.amount;
+        else expense += t.amount;
+      }
+    });
+    return { income, expense, net: income - expense };
+  }, [transactions, selectedIds]);
 
   const getPaginatedData = (data: MergedListItem[]) => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -640,6 +742,51 @@ function TransactionsPageInner() {
     .reduce((sum, t) => sum + t.amount, 0);
   const balance = totalIncome - totalExpenses;
 
+  // Month-over-month analytics: compare with the previous calendar month
+  const momDeltas = useMemo(() => {
+    const prev = new Date(
+      selectedMonth.getFullYear(),
+      selectedMonth.getMonth() - 1,
+      1,
+    );
+    let prevIncome = 0;
+    let prevExpense = 0;
+    transactions.forEach((t) => {
+      const d = new Date(t.date);
+      if (
+        d.getMonth() === prev.getMonth() &&
+        d.getFullYear() === prev.getFullYear()
+      ) {
+        if (t.type === "income") prevIncome += t.amount;
+        else prevExpense += t.amount;
+      }
+    });
+    const pct = (curr: number, base: number) =>
+      base === 0 ? (curr === 0 ? 0 : null) : ((curr - base) / base) * 100;
+    return {
+      income: pct(totalIncome, prevIncome),
+      expense: pct(totalExpenses, prevExpense),
+      prevExpense,
+    };
+  }, [transactions, selectedMonth, totalIncome, totalExpenses]);
+
+  const renderDelta = (pct: number | null, expenseLike: boolean) => {
+    if (pct === null) return null;
+    const rounded = Math.round(pct);
+    if (rounded === 0)
+      return <span className="text-[10px] text-slate-500 mt-0.5 block">— flat vs last month</span>;
+    const up = rounded > 0;
+    // For expenses, up is bad (red); for income, up is good (green)
+    const good = expenseLike ? !up : up;
+    return (
+      <span
+        className={`text-[10px] mt-0.5 block ${good ? "text-green-400" : "text-red-400"}`}
+      >
+        {up ? "▲" : "▼"} {Math.abs(rounded)}% vs last month
+      </span>
+    );
+  };
+
   // Chart: spending by category for the selected month
   const [chartView, setChartView] = useState<"category" | "daily">("category");
 
@@ -719,12 +866,16 @@ function TransactionsPageInner() {
               <div className="px-4 py-3">
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Income</p>
                 <p className="font-mono text-base font-semibold text-green-400">{format(totalIncome)}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{filteredTransactions.filter(t => t.type === "income").length} entries</p>
+                {renderDelta(momDeltas.income, false) ?? (
+                  <p className="text-[10px] text-slate-500 mt-0.5">{filteredTransactions.filter(t => t.type === "income").length} entries</p>
+                )}
               </div>
               <div className="px-4 py-3">
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Expenses</p>
                 <p className="font-mono text-base font-semibold text-red-400">{format(totalExpenses)}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{filteredTransactions.filter(t => t.type === "expense").length} entries</p>
+                {renderDelta(momDeltas.expense, true) ?? (
+                  <p className="text-[10px] text-slate-500 mt-0.5">{filteredTransactions.filter(t => t.type === "expense").length} entries</p>
+                )}
               </div>
               <div className="px-4 py-3">
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Balance</p>
@@ -803,6 +954,17 @@ function TransactionsPageInner() {
 
                 {/* Buttons */}
                 <div className="flex flex-wrap gap-2 shrink-0">
+                {/* Select / Bulk mode toggle */}
+                <Button
+                  variant={selectionMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
+                  className="shrink-0"
+                >
+                  <CheckSquare className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">{selectionMode ? "Done" : "Select"}</span>
+                </Button>
+
                 {/* Filter Toggle */}
                 <Button
                   variant="outline"
@@ -1207,6 +1369,23 @@ function TransactionsPageInner() {
             </Card>
           )}
 
+          {/* Select-all bar (bulk mode) */}
+          {selectionMode && selectableIds.length > 0 && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg border border-border bg-muted/40">
+              <button
+                type="button"
+                onClick={toggleSelectAllVisible}
+                className="flex items-center gap-2 text-xs font-medium text-foreground"
+              >
+                <CheckSquare className={`h-4 w-4 ${allVisibleSelected ? "text-primary" : "text-muted-foreground"}`} />
+                {allVisibleSelected ? "Deselect all" : `Select all ${selectableIds.length}`}
+              </button>
+              <span className="text-[11px] text-muted-foreground ml-auto">
+                {selectedIds.size} selected
+              </span>
+            </div>
+          )}
+
           {/* Transactions Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 min-w-0">
             <div className="overflow-x-auto -mx-1 px-1">
@@ -1252,6 +1431,9 @@ function TransactionsPageInner() {
                           onMarkRecurringComplete={handleCompleteRecurring}
                           completingKey={completingRecurringKey}
                           deleting={deleting}
+                          selectionMode={selectionMode}
+                          selected={item.kind === "transaction" && selectedIds.has(item.t.id)}
+                          onToggleSelect={toggleSelect}
                         />
                       ))}
                     </div>
@@ -1289,6 +1471,9 @@ function TransactionsPageInner() {
                           onMarkRecurringComplete={handleCompleteRecurring}
                           completingKey={completingRecurringKey}
                           deleting={deleting}
+                          selectionMode={selectionMode}
+                          selected={item.kind === "transaction" && selectedIds.has(item.t.id)}
+                          onToggleSelect={toggleSelect}
                         />
                       ))}
                     </div>
@@ -1326,6 +1511,9 @@ function TransactionsPageInner() {
                           onMarkRecurringComplete={handleCompleteRecurring}
                           completingKey={completingRecurringKey}
                           deleting={deleting}
+                          selectionMode={selectionMode}
+                          selected={item.kind === "transaction" && selectedIds.has(item.t.id)}
+                          onToggleSelect={toggleSelect}
                         />
                       ))}
                     </div>
@@ -1364,6 +1552,9 @@ function TransactionsPageInner() {
                           onMarkRecurringComplete={handleCompleteRecurring}
                           completingKey={completingRecurringKey}
                           deleting={deleting}
+                          selectionMode={selectionMode}
+                          selected={item.kind === "transaction" && selectedIds.has(item.t.id)}
+                          onToggleSelect={toggleSelect}
                         />
                       ))}
                     </div>
@@ -1377,6 +1568,55 @@ function TransactionsPageInner() {
             </TabsContent>
           </Tabs>
         </main>
+
+        {/* Floating bulk-action bar */}
+        {selectionMode && selectedIds.size > 0 && (
+          <div className="fixed inset-x-0 bottom-16 md:bottom-6 z-40 flex justify-center px-4 pointer-events-none">
+            <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-card/95 backdrop-blur px-3 py-2 shadow-lg">
+              <span className="text-xs font-medium px-1.5">
+                {selectedIds.size} selected
+                <span className="hidden sm:inline text-muted-foreground font-normal">
+                  {" · net "}
+                  {selectedTotals.net < 0 ? "−" : ""}
+                  {format(Math.abs(selectedTotals.net))}
+                </span>
+              </span>
+              <div className="h-5 w-px bg-border" />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5"
+                onClick={handleBulkExport}
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Export</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                onClick={handleBulkDelete}
+                disabled={isBulkDeleting}
+              >
+                {isBulkDeleting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                <span className="hidden sm:inline">Delete</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={clearSelection}
+                aria-label="Clear selection"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

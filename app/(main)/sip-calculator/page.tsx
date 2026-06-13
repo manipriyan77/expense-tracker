@@ -13,6 +13,8 @@ import {
   ChevronUp,
   Info,
   ArrowUpRight,
+  PiggyBank,
+  Sparkles,
 } from "lucide-react";
 import {
   AreaChart,
@@ -746,10 +748,13 @@ function SWPCalculator() {
 interface GoalYearRow {
   year: number;
   monthlyThisYear: number;
-  yearlyInvested: number;
-  cumulativeInvested: number;
-  portfolioValue: number;
-  gains: number;
+  yearlyInvested: number;        // SIP contributed during this year
+  cumulativeInvested: number;    // current savings + all SIP contributed so far
+  savingsValue: number;          // future value of current savings at year end
+  sipValue: number;              // future value of SIP contributions at year end
+  portfolioValue: number;        // savingsValue + sipValue
+  yearlyGrowth: number;          // returns earned this year (the compounding effect)
+  gains: number;                 // total gains so far
   gainsPct: number;
   progressPct: number;
 }
@@ -765,40 +770,44 @@ function buildGoalYearBreakdown(
 ): GoalYearRow[] {
   const r = annualRate / 12 / 100;
   const rows: GoalYearRow[] = [];
-  let fv = currentSavings * Math.pow(1 + r, months); // pre-grow lumpsum
-  let cumulativeInvested = currentSavings;
-  let m = monthly;
   const totalYears = Math.ceil(months / 12);
 
-  // Re-simulate year by year
-  let runningFV = currentSavings;
+  let savingsValue = currentSavings; // FV of the starting lumpsum
+  let sipValue = 0;                  // FV of SIP contributions
   let runningInvested = currentSavings;
   let curMonthly = monthly;
+  let prevPortfolio = currentSavings;
 
   for (let y = 1; y <= totalYears; y++) {
     const moStart = (y - 1) * 12;
     let yearlyInvested = 0;
     for (let mo = 0; mo < 12 && moStart + mo < months; mo++) {
-      runningFV = (runningFV + curMonthly) * (1 + r);
+      savingsValue *= 1 + r;                       // lumpsum compounds
+      sipValue = (sipValue + curMonthly) * (1 + r); // monthly SIP compounds
       runningInvested += curMonthly;
       yearlyInvested += curMonthly;
     }
-    const gains = runningFV - runningInvested;
+    const portfolioValue = savingsValue + sipValue;
+    const gains = portfolioValue - runningInvested;
     const gainsPct = runningInvested > 0 ? (gains / runningInvested) * 100 : 0;
-    const progressPct = target > 0 ? Math.min(100, (runningFV / target) * 100) : 0;
+    const progressPct = target > 0 ? Math.min(100, (portfolioValue / target) * 100) : 0;
+    const yearlyGrowth = portfolioValue - prevPortfolio - yearlyInvested;
     rows.push({
       year: y,
       monthlyThisYear: Math.round(curMonthly),
       yearlyInvested: Math.round(yearlyInvested),
       cumulativeInvested: Math.round(runningInvested),
-      portfolioValue: Math.round(runningFV),
+      savingsValue: Math.round(savingsValue),
+      sipValue: Math.round(sipValue),
+      portfolioValue: Math.round(portfolioValue),
+      yearlyGrowth: Math.round(yearlyGrowth),
       gains: Math.round(gains),
       gainsPct,
       progressPct,
     });
+    prevPortfolio = portfolioValue;
     if (stepUp) curMonthly *= 1 + stepUpPct / 100;
   }
-  void fv; void m; void cumulativeInvested; // suppress unused
   return rows;
 }
 
@@ -814,9 +823,17 @@ function GoalPlannerCalculator() {
   // Required monthly SIP to reach target (with or without step-up)
   const result = useMemo(() => {
     const r = rate / 12 / 100;
-    const remaining = Math.max(0, targetAmount - currentSavings * Math.pow(1 + r, months));
-    if (remaining <= 0) return { monthly: 0, totalInvested: 0, totalGains: remaining, finalValue: targetAmount };
-    if (r === 0) return { monthly: months > 0 ? remaining / months : remaining, totalInvested: remaining, totalGains: 0, finalValue: targetAmount };
+    const savingsGrown = currentSavings * Math.pow(1 + r, months);
+    const remaining = Math.max(0, targetAmount - savingsGrown);
+    const base = {
+      currentSavings,
+      savingsGrown: Math.round(savingsGrown),
+      savingsGain: Math.round(savingsGrown - currentSavings),
+      sipInvested: 0,
+      sipFinalValue: 0,
+    };
+    if (remaining <= 0) return { ...base, monthly: 0, totalInvested: Math.round(currentSavings), totalGains: Math.round(savingsGrown - currentSavings), finalValue: Math.round(savingsGrown) };
+    if (r === 0) return { ...base, monthly: months > 0 ? remaining / months : remaining, sipInvested: Math.round(remaining), sipFinalValue: Math.round(remaining), totalInvested: Math.round(remaining + currentSavings), totalGains: 0, finalValue: Math.round(targetAmount) };
 
     let monthly: number;
     if (!stepUp || stepUpPct === 0) {
@@ -825,7 +842,7 @@ function GoalPlannerCalculator() {
       let lo = 0, hi = remaining;
       for (let i = 0; i < 60; i++) {
         const mid = (lo + hi) / 2;
-        let fv = currentSavings * Math.pow(1 + r, months);
+        let fv = savingsGrown;
         let m = mid;
         for (let y = 0; y < Math.ceil(months / 12); y++) {
           for (let mo = 0; mo < 12 && (y * 12 + mo) < months; mo++) {
@@ -839,19 +856,27 @@ function GoalPlannerCalculator() {
       monthly = (lo + hi) / 2;
     }
 
-    // Simulate to find actual values
-    let fv = currentSavings * Math.pow(1 + r, months);
+    // Simulate to find actual values, tracking savings and SIP separately
+    let savingsValue = currentSavings;
+    let sipValue = 0;
     let totalSIPInvested = 0;
     let m = monthly;
     for (let y = 0; y < Math.ceil(months / 12); y++) {
       for (let mo = 0; mo < 12 && (y * 12 + mo) < months; mo++) {
-        fv = (fv + m) * (1 + r);
+        savingsValue *= 1 + r;
+        sipValue = (sipValue + m) * (1 + r);
         totalSIPInvested += m;
       }
       if (stepUp) m *= 1 + stepUpPct / 100;
     }
+    const fv = savingsValue + sipValue;
 
     return {
+      currentSavings,
+      savingsGrown: Math.round(savingsValue),
+      savingsGain: Math.round(savingsValue - currentSavings),
+      sipInvested: Math.round(totalSIPInvested),
+      sipFinalValue: Math.round(sipValue),
       monthly: Math.ceil(monthly),
       totalInvested: Math.round(totalSIPInvested + currentSavings),
       totalGains: Math.round(fv - totalSIPInvested - currentSavings),
@@ -914,6 +939,7 @@ function GoalPlannerCalculator() {
             <p className="text-sm text-muted-foreground">Your current savings of {fmtShort(currentSavings)} already exceed the target.</p>
           </div>
         ) : (
+          <>
           <div className="rounded-2xl border-2 border-primary/30 bg-card overflow-hidden">
             <div className="h-1.5 bg-linear-to-r from-violet-500 via-blue-500 to-purple-600" />
             <div className="p-6 space-y-5">
@@ -936,23 +962,108 @@ function GoalPlannerCalculator() {
                 ))}
               </div>
 
-              {/* Invested vs Gains bar */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>Investment vs Returns breakdown</span>
-                  <span className="font-mono">{result.totalInvested > 0 ? ((result.totalGains / result.finalValue) * 100).toFixed(1) : 0}% gains</span>
+              {/* Segmented composition bar — current savings · SIP · gains */}
+              {(() => {
+                const fv = result.finalValue || 1;
+                const savingsPct = (result.currentSavings / fv) * 100;
+                const sipPct = (result.sipInvested / fv) * 100;
+                const gainsPct = (result.totalGains / fv) * 100;
+                const seg = [
+                  { key: "savings", label: "Current Savings", value: result.currentSavings, pct: savingsPct, bar: "bg-emerald-500", dot: "bg-emerald-500" },
+                  { key: "sip", label: "SIP Invested", value: result.sipInvested, pct: sipPct, bar: "bg-blue-500", dot: "bg-blue-500" },
+                  { key: "gains", label: "Gains", value: result.totalGains, pct: gainsPct, bar: "bg-violet-500", dot: "bg-violet-500" },
+                ].filter((s) => s.value > 0);
+                return (
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>How your goal is funded</span>
+                      <span className="font-mono">{gainsPct.toFixed(1)}% from growth</span>
+                    </div>
+                    <div className="h-3.5 rounded-full overflow-hidden flex gap-0.5 bg-muted">
+                      {seg.map((s, i) => (
+                        <div
+                          key={s.key}
+                          className={`h-full ${s.bar} ${i === 0 ? "rounded-l-full" : ""} ${i === seg.length - 1 ? "rounded-r-full" : ""} transition-all duration-700`}
+                          style={{ width: `${s.pct}%` }}
+                          title={`${s.label}: ${fmtShort(s.value)}`}
+                        />
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {seg.map((s) => (
+                        <div key={s.key} className="flex flex-col gap-0.5">
+                          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <span className={`w-2 h-2 rounded-full ${s.dot} inline-block`} />{s.label}
+                          </span>
+                          <span className="text-xs font-semibold pl-3">{fmtShort(s.value)}</span>
+                          <span className="text-[9px] text-muted-foreground pl-3">{s.pct.toFixed(0)}% of corpus</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Where the money comes from — savings vs SIP detail */}
+          <div className="rounded-2xl border bg-card p-4 space-y-3">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Money breakdown at goal</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Current savings */}
+              <div className="rounded-xl border border-emerald-100 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/20 p-3.5 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                    <PiggyBank className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <p className="text-xs font-semibold">Current Savings</p>
                 </div>
-                <div className="h-3 rounded-full overflow-hidden flex gap-0.5">
-                  <div className="bg-blue-500 rounded-l-full" style={{ width: `${result.finalValue > 0 ? (result.totalInvested / result.finalValue) * 100 : 50}%` }} />
-                  <div className="bg-green-500 rounded-r-full flex-1" />
+                <div className="flex items-baseline justify-between text-xs">
+                  <span className="text-muted-foreground">You start with</span>
+                  <span className="font-mono font-semibold">{fmtShort(result.currentSavings)}</span>
                 </div>
-                <div className="flex gap-4">
-                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />Invested</span>
-                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Gains</span>
+                <div className="flex items-baseline justify-between text-xs">
+                  <span className="text-muted-foreground">Compounds to</span>
+                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{fmtShort(result.savingsGrown)}</span>
+                </div>
+                {result.savingsGain > 0 && (
+                  <div className="flex items-baseline justify-between text-[11px] pt-1 border-t border-emerald-100 dark:border-emerald-900/60">
+                    <span className="text-muted-foreground">Growth earned</span>
+                    <span className="font-mono text-emerald-600 dark:text-emerald-400">+{fmtShort(result.savingsGain)}</span>
+                  </div>
+                )}
+              </div>
+              {/* SIP */}
+              <div className="rounded-xl border border-blue-100 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/20 p-3.5 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                    <TrendingUp className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <p className="text-xs font-semibold">Monthly SIP</p>
+                </div>
+                <div className="flex items-baseline justify-between text-xs">
+                  <span className="text-muted-foreground">You invest</span>
+                  <span className="font-mono font-semibold">{fmtShort(result.sipInvested)}</span>
+                </div>
+                <div className="flex items-baseline justify-between text-xs">
+                  <span className="text-muted-foreground">Compounds to</span>
+                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{fmtShort(result.sipFinalValue)}</span>
+                </div>
+                <div className="flex items-baseline justify-between text-[11px] pt-1 border-t border-blue-100 dark:border-blue-900/60">
+                  <span className="text-muted-foreground">Growth earned</span>
+                  <span className="font-mono text-blue-600 dark:text-blue-400">+{fmtShort(result.sipFinalValue - result.sipInvested)}</span>
                 </div>
               </div>
             </div>
+            <div className="flex items-center justify-between rounded-xl bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900 px-3.5 py-2.5">
+              <span className="flex items-center gap-2 text-xs font-semibold">
+                <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                Total compounding gains
+              </span>
+              <span className="font-mono text-sm font-bold text-violet-600 dark:text-violet-400">+{fmtShort(result.totalGains)}</span>
+            </div>
           </div>
+          </>
         )}
 
         {/* Quick scenarios */}
@@ -998,18 +1109,30 @@ function GoalPlannerCalculator() {
 
           {showBreakdown && (
             <div className="border-t">
-              {/* Mini area chart */}
+              {/* Stacked area chart — savings value + SIP value, with invested baseline */}
               <div className="px-5 pt-4 pb-2">
-                <ResponsiveContainer width="100%" height={140}>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2">
+                  {[
+                    { color: "#10b981", label: "Current Savings (grown)" },
+                    { color: "#3b82f6", label: "SIP (grown)" },
+                    { color: "#94a3b8", label: "Total Invested", dashed: true },
+                  ].map((l) => (
+                    <span key={l.label} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <span className="w-3 rounded-full" style={{ height: l.dashed ? 0 : 8, background: l.dashed ? "transparent" : l.color, borderTop: l.dashed ? `2px dashed ${l.color}` : undefined }} />
+                      {l.label}
+                    </span>
+                  ))}
+                </div>
+                <ResponsiveContainer width="100%" height={150}>
                   <AreaChart data={yearBreakdown} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="goalValueGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.02} />
+                      <linearGradient id="goalSavingsGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="#10b981" stopOpacity={0.04} />
                       </linearGradient>
-                      <linearGradient id="goalInvestedGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.2} />
-                        <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.02} />
+                      <linearGradient id="goalSipGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.04} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -1020,8 +1143,9 @@ function GoalPlannerCalculator() {
                       formatter={(v: unknown, name: string | undefined) => [fmtShort(v as number), name ?? ""]}
                       labelFormatter={(l) => `Year ${l}`}
                     />
-                    <Area type="monotone" dataKey="cumulativeInvested" name="Invested" stroke="#3b82f6" strokeWidth={1.5} fill="url(#goalInvestedGrad)" dot={false} />
-                    <Area type="monotone" dataKey="portfolioValue" name="Portfolio Value" stroke="#8b5cf6" strokeWidth={2} fill="url(#goalValueGrad)" dot={false} />
+                    <Area type="monotone" dataKey="savingsValue" name="Current Savings (grown)" stackId="v" stroke="#10b981" strokeWidth={1.5} fill="url(#goalSavingsGrad)" dot={false} />
+                    <Area type="monotone" dataKey="sipValue" name="SIP (grown)" stackId="v" stroke="#3b82f6" strokeWidth={1.5} fill="url(#goalSipGrad)" dot={false} />
+                    <Area type="monotone" dataKey="cumulativeInvested" name="Total Invested" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="5 3" fill="none" dot={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -1034,9 +1158,11 @@ function GoalPlannerCalculator() {
                       <th className="px-4 py-3 text-left font-medium">Year</th>
                       {stepUp && <th className="px-3 py-3 text-right font-medium">Monthly SIP</th>}
                       <th className="px-3 py-3 text-right font-medium">Invested (yr)</th>
-                      <th className="px-3 py-3 text-right font-medium">Total Invested</th>
+                      <th className="px-3 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">Savings Value</th>
+                      <th className="px-3 py-3 text-right font-medium text-blue-600 dark:text-blue-400">SIP Value</th>
+                      <th className="px-3 py-3 text-right font-medium text-amber-600 dark:text-amber-400">Growth (yr)</th>
                       <th className="px-3 py-3 text-right font-medium">Portfolio Value</th>
-                      <th className="px-3 py-3 text-right font-medium">Gains</th>
+                      <th className="px-3 py-3 text-right font-medium">Total Gains</th>
                       <th className="px-4 py-3 text-right font-medium">Progress</th>
                     </tr>
                   </thead>
@@ -1061,8 +1187,10 @@ function GoalPlannerCalculator() {
                               {fmtShort(row.monthlyThisYear)}/mo
                             </td>
                           )}
-                          <td className="px-3 py-3 text-right font-mono text-blue-600 dark:text-blue-400">{fmtShort(row.yearlyInvested)}</td>
-                          <td className="px-3 py-3 text-right font-mono text-muted-foreground">{fmtShort(row.cumulativeInvested)}</td>
+                          <td className="px-3 py-3 text-right font-mono text-muted-foreground">{fmtShort(row.yearlyInvested)}</td>
+                          <td className="px-3 py-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{row.savingsValue > 0 ? fmtShort(row.savingsValue) : "—"}</td>
+                          <td className="px-3 py-3 text-right font-mono text-blue-600 dark:text-blue-400">{fmtShort(row.sipValue)}</td>
+                          <td className="px-3 py-3 text-right font-mono text-amber-600 dark:text-amber-400">+{fmtShort(row.yearlyGrowth)}</td>
                           <td className="px-3 py-3 text-right font-mono font-semibold text-violet-600 dark:text-violet-400">{fmtShort(row.portfolioValue)}</td>
                           <td className="px-3 py-3 text-right font-mono text-green-600 dark:text-green-400">
                             +{fmtShort(row.gains)}
@@ -1087,8 +1215,10 @@ function GoalPlannerCalculator() {
                     <tr className="border-t-2 bg-muted/20 font-semibold">
                       <td className="px-4 py-3 text-sm">Final</td>
                       {stepUp && <td className="px-3 py-3" />}
+                      <td className="px-3 py-3 text-right font-mono text-sm text-muted-foreground">{fmtShort(result.totalInvested)}</td>
+                      <td className="px-3 py-3 text-right font-mono text-sm text-emerald-600 dark:text-emerald-400">{result.savingsGrown > 0 ? fmtShort(result.savingsGrown) : "—"}</td>
+                      <td className="px-3 py-3 text-right font-mono text-sm text-blue-600 dark:text-blue-400">{fmtShort(result.sipFinalValue)}</td>
                       <td className="px-3 py-3" />
-                      <td className="px-3 py-3 text-right font-mono text-sm">{fmtShort(result.totalInvested)}</td>
                       <td className="px-3 py-3 text-right font-mono text-sm text-violet-600 dark:text-violet-400">{fmtShort(result.finalValue)}</td>
                       <td className="px-3 py-3 text-right font-mono text-sm text-green-600 dark:text-green-400">+{fmtShort(result.totalGains)}</td>
                       <td className="px-4 py-3 text-right text-sm text-violet-600 dark:text-violet-400 font-bold">100%</td>

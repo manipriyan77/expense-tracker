@@ -39,6 +39,9 @@ import {
   Edit,
   Trash2,
   Loader2,
+  Sparkles,
+  Flame,
+  Lightbulb,
 } from "lucide-react";
 import { useBudgetsStore, Budget } from "@/store/budgets-store";
 import { useTransactionsStore } from "@/store/transactions-store";
@@ -345,6 +348,61 @@ export default function BudgetsPage() {
 
   const overallPercentage =
     totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+
+  // Smart insights: surface overspending, at-risk budgets, pace warnings & a suggestion
+  const budgetInsights = useMemo(() => {
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const dayOfMonth = now.getDate();
+    const expectedPct = (dayOfMonth / daysInMonth) * 100;
+
+    const overspent: Budget[] = [];
+    const nearLimit: Budget[] = [];
+    const burningFast: Budget[] = [];
+
+    budgets.forEach((b) => {
+      if (!b.limit_amount) return;
+      const pct = ((b.spent_amount || 0) / b.limit_amount) * 100;
+      if (pct >= 100) overspent.push(b);
+      else if (pct >= 80) nearLimit.push(b);
+      if (b.period === "monthly" && pct > expectedPct + 15 && pct < 100) {
+        burningFast.push(b);
+      }
+    });
+
+    const name = (b: Budget) => `${b.category}${b.subtype ? ` · ${b.subtype}` : ""}`;
+    const overAmount = overspent.reduce(
+      (s, b) => s + ((b.spent_amount || 0) - b.limit_amount),
+      0,
+    );
+
+    // Build a single actionable suggestion
+    let suggestion: string | null = null;
+    if (overspent.length > 0) {
+      suggestion = `${name(overspent[0])} is over by ${format(
+        (overspent[0].spent_amount || 0) - overspent[0].limit_amount,
+      )} — consider raising the limit or trimming spend.`;
+    } else if (burningFast.length > 0) {
+      suggestion = `${name(burningFast[0])} is spending faster than its monthly pace. Slow down to stay on track.`;
+    } else if (totalBudget > 0 && overallPercentage < 60 && dayOfMonth > 20) {
+      suggestion = `You've used only ${overallPercentage.toFixed(0)}% of budget late in the month — room to move ${format(
+        totalBudget - totalSpent,
+      )} toward goals or savings.`;
+    }
+
+    return {
+      overspent,
+      nearLimit,
+      burningFast,
+      overAmount,
+      suggestion,
+      hasAny:
+        overspent.length > 0 ||
+        nearLimit.length > 0 ||
+        burningFast.length > 0 ||
+        !!suggestion,
+    };
+  }, [budgets, totalBudget, totalSpent, overallPercentage, format]);
 
   const categories = [
     "Food",
@@ -846,6 +904,56 @@ export default function BudgetsPage() {
                 </form>
               </DialogContent>
             </Dialog>
+
+            {/* Smart Insights */}
+            {budgets.length > 0 && budgetInsights.hasAny && (
+              <Card className="mb-4 border-border/60">
+                <div className="px-4 py-2.5 flex items-center gap-2 border-b border-border/50">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
+                    Smart Insights
+                  </p>
+                </div>
+                <div className="px-4 py-3 space-y-2.5">
+                  {/* Stat chips */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {budgetInsights.overspent.length > 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-red-500/10 text-red-600 dark:text-red-400">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        {budgetInsights.overspent.length} overspent · {format(budgetInsights.overAmount)} over
+                      </span>
+                    )}
+                    {budgetInsights.nearLimit.length > 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                        <TrendingDown className="h-3.5 w-3.5" />
+                        {budgetInsights.nearLimit.length} approaching limit
+                      </span>
+                    )}
+                    {budgetInsights.burningFast.length > 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                        <Flame className="h-3.5 w-3.5" />
+                        {budgetInsights.burningFast.length} burning fast
+                      </span>
+                    )}
+                    {budgetInsights.overspent.length === 0 &&
+                      budgetInsights.nearLimit.length === 0 &&
+                      budgetInsights.burningFast.length === 0 && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-green-500/10 text-green-600 dark:text-green-400">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          All budgets on track
+                        </span>
+                      )}
+                  </div>
+                  {/* Suggestion */}
+                  {budgetInsights.suggestion && (
+                    <div className="flex items-start gap-2 text-xs text-foreground/90">
+                      <Lightbulb className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                      <p className="leading-relaxed">{budgetInsights.suggestion}</p>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
 
             {/* Budget Analysis Charts */}
             {budgets.length > 0 && (
