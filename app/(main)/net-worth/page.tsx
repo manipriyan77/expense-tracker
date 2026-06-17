@@ -14,6 +14,7 @@ import { useStocksStore } from "@/store/stocks-store";
 import { useForexStore } from "@/store/forex-store";
 import { useOtherInvestmentsStore } from "@/store/other-investments-store";
 import { useDebtTrackerStore } from "@/store/debt-tracker-store";
+import { useTransactionsStore } from "@/store/transactions-store";
 import {
   Card,
   CardContent,
@@ -72,6 +73,9 @@ import {
   CheckCircle2,
   CalendarClock,
   BadgePercent,
+  LineChart as LineChartIcon,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -125,6 +129,7 @@ export default function NetWorthPage() {
   const { entries: forexEntries, load: loadForex } = useForexStore();
   const { investments: otherInvestments, load: loadOtherInvestments } = useOtherInvestmentsStore();
   const { debts, fetchDebts } = useDebtTrackerStore();
+  const { transactions, fetchTransactions } = useTransactionsStore();
 
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
   const [isEditAssetOpen, setIsEditAssetOpen] = useState(false);
@@ -181,6 +186,7 @@ export default function NetWorthPage() {
     loadForex();
     loadOtherInvestments();
     fetchDebts();
+    fetchTransactions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -635,6 +641,122 @@ export default function NetWorthPage() {
     return { annualInterest, monthlyMinimum, payoffEstimates };
   }, [liabilities]);
 
+  // ── 1-year net worth forecast ─────────────────────────
+  // Drivers: current EMI (sum of liability minimum payments) pays down debt,
+  // and the average monthly savings (income − expenses) builds assets.
+  // With only a single month of transaction data, that month is used as-is
+  // (no averaging).
+  const forecast = useMemo(() => {
+    const FORECAST_MONTHS = 12;
+
+    // Bucket transactions into per-month income / expense / savings-contribution
+    // totals. Amounts categorised as "Savings" are money set aside (building
+    // assets), not consumption — so they count toward savings, not expenses.
+    const monthly: Record<string, { income: number; expense: number }> = {};
+    transactions.forEach((t) => {
+      const d = new Date(t.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (!monthly[key]) monthly[key] = { income: 0, expense: 0 };
+      if (t.type === "income") monthly[key].income += t.amount;
+      else if (t.category === "Savings") return; // money set aside, not consumption
+      else monthly[key].expense += t.amount;
+    });
+
+    const monthsWithData = Object.values(monthly);
+    const dataMonthCount = monthsWithData.length;
+
+    // Monthly savings = leftover cash (income − consumption expenses) plus the
+    // amount explicitly contributed to savings. Averaged across months with
+    // data; single month → used directly (no averaging).
+    const monthlySavings =
+      dataMonthCount === 0
+        ? 0
+        : monthsWithData.reduce((s, m) => s + (m.income - m.expense), 0) /
+          dataMonthCount;
+
+    const monthlyEMI = debtAnalytics.monthlyMinimum;
+
+    // Project assets and liabilities forward month by month.
+    // Savings accrue to assets; EMI pays down liabilities (floored at zero).
+    const now = new Date();
+    let projAssets = totalAssets;
+    let projLiabilities = totalLiabilities;
+
+    const series: {
+      month: string;
+      netWorth: number;
+      assets: number;
+      liabilities: number;
+      savingsAdded: number;
+      emiPaid: number;
+      projected: number | undefined;
+      actual: number | undefined;
+      sourceLabel: string;
+    }[] = [
+      {
+        month: now.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+        netWorth,
+        assets: projAssets,
+        liabilities: projLiabilities,
+        savingsAdded: 0,
+        emiPaid: 0,
+        actual: netWorth,
+        projected: netWorth,
+        sourceLabel: "Today (Assets − Liabilities)",
+      },
+    ];
+
+    for (let m = 1; m <= FORECAST_MONTHS; m++) {
+      projAssets += monthlySavings;
+      // EMI only pays down what's still owed
+      const emiPaid = Math.min(monthlyEMI, projLiabilities);
+      projLiabilities = Math.max(0, projLiabilities - monthlyEMI);
+      const d = new Date(now.getFullYear(), now.getMonth() + m, 1);
+      const nw = projAssets - projLiabilities;
+      series.push({
+        month: d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+        netWorth: nw,
+        assets: projAssets,
+        liabilities: projLiabilities,
+        savingsAdded: monthlySavings,
+        emiPaid,
+        actual: undefined,
+        projected: nw,
+        sourceLabel: `Projected: +${format(monthlySavings)} savings, −${format(monthlyEMI)} EMI / mo`,
+      });
+    }
+
+    const projectedNetWorth = series[series.length - 1].netWorth;
+    const totalGrowth = projectedNetWorth - netWorth;
+    const growthPct = netWorth !== 0 ? (totalGrowth / Math.abs(netWorth)) * 100 : 0;
+
+    // First month within the horizon where debt is fully cleared
+    const debtFreeIdx =
+      totalLiabilities > 0
+        ? series.findIndex((s, i) => i > 0 && s.liabilities === 0)
+        : -1;
+    const debtFreeMonth = debtFreeIdx > 0 ? series[debtFreeIdx].month : null;
+
+    const totalSaved = monthlySavings * FORECAST_MONTHS;
+    const totalDebtPaid = Math.min(monthlyEMI * FORECAST_MONTHS, totalLiabilities);
+
+    return {
+      series,
+      monthlySavings,
+      monthlyEMI,
+      dataMonthCount,
+      projectedNetWorth,
+      projectedAssets: series[series.length - 1].assets,
+      projectedLiabilities: series[series.length - 1].liabilities,
+      totalGrowth,
+      growthPct,
+      totalSaved,
+      totalDebtPaid,
+      debtFreeMonth,
+      hasData: dataMonthCount > 0 || monthlyEMI > 0,
+    };
+  }, [transactions, debtAnalytics.monthlyMinimum, totalAssets, totalLiabilities, netWorth, format]);
+
   const handleAddAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -919,121 +1041,325 @@ export default function NetWorthPage() {
 
       <main className="px-4 sm:px-6 lg:px-8 py-4 space-y-4">
 
-        {/* Net Worth Trend */}
-        <Card>
-          <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Net Worth Trend</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Up to 6 months of history</p>
-              </div>
-              {historicalData.length < 2 ? (
-                <span className="text-[10px] text-muted-foreground italic">Take a snapshot next month to see trends & projections</span>
-              ) : (() => {
-                const first = historicalData[0]?.netWorth ?? 0;
-                const last = historicalData[historicalData.length - 1]?.netWorth ?? 0;
-                const change = last - first;
-                const pct = first !== 0 ? (change / Math.abs(first)) * 100 : 0;
-                return (
-                  <div className={`flex items-center gap-1 text-sm font-semibold ${change >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                    {change >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                    {change >= 0 ? "+" : ""}{pct.toFixed(1)}%
+        {/* Net Worth Analytics — Trend & Forecast (tabbed) */}
+        <Card className="overflow-hidden">
+          <Tabs defaultValue="trend">
+            <CardHeader className="pb-3 border-b border-border px-4 pt-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500/20 to-violet-500/20 border border-border">
+                    <Activity className="h-4 w-4 text-violet-500" />
                   </div>
-                );
-              })()}
-            </div>
-          </CardHeader>
-          <CardContent className="pt-4 pb-2 px-2">
-            <ResponsiveContainer width="100%" height={220}>
-              <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
-                <defs>
-                  <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis
-                  tick={{ fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={52}
-                  tickFormatter={(v: number) => {
-                    const abs = Math.abs(v);
-                    const s = v < 0 ? "-" : "";
-                    if (abs >= 1e7) return `${s}₹${(abs/1e7).toFixed(1)}Cr`;
-                    if (abs >= 1e5) return `${s}₹${(abs/1e5).toFixed(0)}L`;
-                    if (abs >= 1000) return `${s}₹${(abs/1000).toFixed(0)}k`;
-                    return `${s}₹${Math.round(abs)}`;
-                  }}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    const p = payload[0].payload as { month: string; actual?: number; projected?: number; sourceLabel?: string };
-                    const val = p.actual ?? p.projected;
-                    const isProj = p.actual === undefined;
+                  <div>
+                    <p className="text-sm font-semibold leading-tight">Net Worth Analytics</p>
+                    <p className="text-xs text-muted-foreground">History &amp; 12-month projection</p>
+                  </div>
+                </div>
+                <TabsList className="grid grid-cols-2 w-full sm:w-auto">
+                  <TabsTrigger value="trend" className="text-xs gap-1.5">
+                    <LineChartIcon className="h-3.5 w-3.5" /> Trend
+                  </TabsTrigger>
+                  <TabsTrigger value="forecast" className="text-xs gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5" /> Forecast
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+            </CardHeader>
+
+            {/* ── TREND TAB ── */}
+            <TabsContent value="trend" className="mt-0 focus-visible:outline-none">
+              <CardContent className="pt-4 pb-2 px-2">
+                <div className="flex items-center justify-between px-2 mb-1">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Up to 6 months of history</p>
+                  {historicalData.length < 2 ? (
+                    <span className="text-[10px] text-muted-foreground italic">Snapshot next month to unlock trends</span>
+                  ) : (() => {
+                    const first = historicalData[0]?.netWorth ?? 0;
+                    const last = historicalData[historicalData.length - 1]?.netWorth ?? 0;
+                    const change = last - first;
+                    const pct = first !== 0 ? (change / Math.abs(first)) * 100 : 0;
                     return (
-                      <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-xs">
-                        <p className="font-semibold mb-1">{p.month}{isProj ? " · projected" : ""}</p>
-                        <p className={`font-mono font-bold ${(val ?? 0) >= 0 ? "text-blue-600" : "text-red-500"}`}>{format(val ?? 0)}</p>
-                        {p.sourceLabel && <p className="text-muted-foreground mt-1 max-w-50">{p.sourceLabel}</p>}
+                      <div className={`flex items-center gap-1 text-sm font-semibold ${change >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                        {change >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                        {change >= 0 ? "+" : ""}{pct.toFixed(1)}%
                       </div>
                     );
-                  }}
-                />
-                <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="2 2" />
-                <Area type="monotone" dataKey="actual" stroke="#3b82f6" strokeWidth={2} fill="url(#nwGrad)" dot={{ r: 3, fill: "#3b82f6" }} activeDot={{ r: 5 }} name="Net Worth" connectNulls={false} />
-                <Line type="monotone" dataKey="projected" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3, fill: "#3b82f6", strokeDasharray: "0" }} activeDot={{ r: 5 }} name="Projected" connectNulls={false} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </CardContent>
+                  })()}
+                </div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+                    <defs>
+                      <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={52}
+                      tickFormatter={(v: number) => {
+                        const abs = Math.abs(v);
+                        const s = v < 0 ? "-" : "";
+                        if (abs >= 1e7) return `${s}₹${(abs/1e7).toFixed(1)}Cr`;
+                        if (abs >= 1e5) return `${s}₹${(abs/1e5).toFixed(0)}L`;
+                        if (abs >= 1000) return `${s}₹${(abs/1000).toFixed(0)}k`;
+                        return `${s}₹${Math.round(abs)}`;
+                      }}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const p = payload[0].payload as { month: string; actual?: number; projected?: number; sourceLabel?: string };
+                        const val = p.actual ?? p.projected;
+                        const isProj = p.actual === undefined;
+                        return (
+                          <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-xs">
+                            <p className="font-semibold mb-1">{p.month}{isProj ? " · projected" : ""}</p>
+                            <p className={`font-mono font-bold ${(val ?? 0) >= 0 ? "text-blue-600" : "text-red-500"}`}>{format(val ?? 0)}</p>
+                            {p.sourceLabel && <p className="text-muted-foreground mt-1 max-w-50">{p.sourceLabel}</p>}
+                          </div>
+                        );
+                      }}
+                    />
+                    <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="2 2" />
+                    <Area type="monotone" dataKey="actual" stroke="#3b82f6" strokeWidth={2} fill="url(#nwGrad)" dot={{ r: 3, fill: "#3b82f6" }} activeDot={{ r: 5 }} name="Net Worth" connectNulls={false} />
+                    <Line type="monotone" dataKey="projected" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3, fill: "#3b82f6", strokeDasharray: "0" }} activeDot={{ r: 5 }} name="Projected" connectNulls={false} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </CardContent>
 
-          {/* Snapshot history — collapsible, shows all stored snapshots with delete */}
-          {snapshots.length > 0 && (
-            <div className="px-4 pb-4 border-t border-border/50 pt-3">
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
-                Snapshot history ({snapshots.length})
-              </p>
-              <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
-                {[...snapshots]
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .map((snap) => (
-                    <div
-                      key={snap.id}
-                      className="flex items-center justify-between text-xs py-1 px-2 rounded hover:bg-muted/50 gap-3"
-                    >
-                      <span className="text-muted-foreground shrink-0">
-                        {new Date(snap.date).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </span>
-                      <span className={`font-mono font-medium tabular-nums flex-1 text-right ${snap.net_worth >= 0 ? "text-blue-600" : "text-red-500"}`}>
-                        {format(snap.net_worth)}
-                      </span>
-                      <button
-                        onClick={async () => {
-                          if (!confirm("Remove this snapshot from the trend history?")) return;
-                          try {
-                            await deleteSnapshot(snap.id);
-                            toast.success("Snapshot removed");
-                          } catch {
-                            toast.error("Failed to remove snapshot");
-                          }
-                        }}
-                        className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
-                        title="Delete snapshot"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+              {/* Snapshot history — collapsible, shows all stored snapshots with delete */}
+              {snapshots.length > 0 && (
+                <div className="px-4 pb-4 border-t border-border/50 pt-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
+                    Snapshot history ({snapshots.length})
+                  </p>
+                  <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                    {[...snapshots]
+                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .map((snap) => (
+                        <div
+                          key={snap.id}
+                          className="flex items-center justify-between text-xs py-1 px-2 rounded hover:bg-muted/50 gap-3"
+                        >
+                          <span className="text-muted-foreground shrink-0">
+                            {new Date(snap.date).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </span>
+                          <span className={`font-mono font-medium tabular-nums flex-1 text-right ${snap.net_worth >= 0 ? "text-blue-600" : "text-red-500"}`}>
+                            {format(snap.net_worth)}
+                          </span>
+                          <button
+                            onClick={async () => {
+                              if (!confirm("Remove this snapshot from the trend history?")) return;
+                              try {
+                                await deleteSnapshot(snap.id);
+                                toast.success("Snapshot removed");
+                              } catch {
+                                toast.error("Failed to remove snapshot");
+                              }
+                            }}
+                            className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+                            title="Delete snapshot"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ── FORECAST TAB ── */}
+            <TabsContent value="forecast" className="mt-0 focus-visible:outline-none">
+              <CardContent className="pt-4 pb-4 px-3 sm:px-4">
+                {!forecast.hasData ? (
+                  <div className="flex flex-col items-center gap-2 py-10 text-center">
+                    <Sparkles className="h-6 w-6 text-muted-foreground/50" />
+                    <p className="text-xs text-muted-foreground max-w-xs">
+                      Add income/expense transactions or liabilities with monthly payments to see a 12-month projection.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Headline projection banner */}
+                    <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-violet-500/10 via-blue-500/5 to-transparent p-4 mb-4">
+                      <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Projected net worth · 12 months</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-2xl font-bold text-violet-500">{format(forecast.projectedNetWorth)}</span>
+                            <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ${forecast.totalGrowth >= 0 ? "bg-emerald-500/15 text-emerald-500" : "bg-red-500/15 text-red-500"}`}>
+                              {forecast.totalGrowth >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                              {forecast.totalGrowth >= 0 ? "+" : ""}{forecast.growthPct.toFixed(1)}%
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+                            <span className="font-mono font-medium text-foreground">{format(netWorth)}</span>
+                            <ArrowRight className="h-3 w-3" />
+                            <span className="font-mono font-medium text-violet-500">{format(forecast.projectedNetWorth)}</span>
+                            <span>· {forecast.totalGrowth >= 0 ? "+" : ""}{format(forecast.totalGrowth)}</span>
+                          </p>
+                        </div>
+                        {forecast.debtFreeMonth && (
+                          <div className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-xs font-medium text-emerald-500">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Debt-free by {forecast.debtFreeMonth}
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-3">
+                        {forecast.dataMonthCount === 0
+                          ? "Based on your current EMI"
+                          : forecast.dataMonthCount === 1
+                            ? "Based on your current EMI & 1 month of savings (no averaging)"
+                            : `Based on your current EMI & avg savings over ${forecast.dataMonthCount} months`}
+                      </p>
                     </div>
-                  ))}
-              </div>
-            </div>
-          )}
+
+                    {/* KPI tiles */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+                      <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-emerald-500/10 to-transparent p-3">
+                        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <PiggyBank className="h-3 w-3" /> Monthly Savings
+                        </div>
+                        <p className={`font-mono text-base font-bold mt-1 ${forecast.monthlySavings >= 0 ? "text-emerald-500" : "text-red-500"}`}>{format(forecast.monthlySavings)}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{format(forecast.totalSaved)} / yr</p>
+                      </div>
+                      <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-red-500/10 to-transparent p-3">
+                        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <CreditCard className="h-3 w-3" /> Monthly EMI
+                        </div>
+                        <p className="font-mono text-base font-bold mt-1 text-red-400">{format(forecast.monthlyEMI)}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">−{format(forecast.totalDebtPaid)} debt / yr</p>
+                      </div>
+                      <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-blue-500/10 to-transparent p-3">
+                        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <Wallet className="h-3 w-3" /> Projected Assets
+                        </div>
+                        <p className="font-mono text-base font-bold mt-1 text-blue-500">{format(forecast.projectedAssets)}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">from {format(totalAssets)}</p>
+                      </div>
+                      <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-orange-500/10 to-transparent p-3">
+                        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <Target className="h-3 w-3" /> Projected Debt
+                        </div>
+                        <p className="font-mono text-base font-bold mt-1 text-orange-400">{format(forecast.projectedLiabilities)}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">from {format(totalLiabilities)}</p>
+                      </div>
+                    </div>
+
+                    {/* Assets-vs-debt forecast chart */}
+                    <ResponsiveContainer width="100%" height={240}>
+                      <ComposedChart data={forecast.series} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+                        <defs>
+                          <linearGradient id="fcAssets" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.22} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="fcDebt" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.18} />
+                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                        <YAxis
+                          tick={{ fontSize: 11 }}
+                          tickLine={false}
+                          axisLine={false}
+                          width={52}
+                          tickFormatter={(v: number) => {
+                            const abs = Math.abs(v);
+                            const s = v < 0 ? "-" : "";
+                            if (abs >= 1e7) return `${s}₹${(abs/1e7).toFixed(1)}Cr`;
+                            if (abs >= 1e5) return `${s}₹${(abs/1e5).toFixed(0)}L`;
+                            if (abs >= 1000) return `${s}₹${(abs/1000).toFixed(0)}k`;
+                            return `${s}₹${Math.round(abs)}`;
+                          }}
+                        />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.length) return null;
+                            const p = payload[0].payload as { month: string; netWorth: number; assets: number; liabilities: number; actual?: number };
+                            const isProj = p.actual === undefined;
+                            return (
+                              <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-xs space-y-1">
+                                <p className="font-semibold">{p.month}{isProj ? " · projected" : " · now"}</p>
+                                <div className="flex items-center justify-between gap-4"><span className="text-emerald-500">Assets</span><span className="font-mono">{format(p.assets)}</span></div>
+                                <div className="flex items-center justify-between gap-4"><span className="text-red-400">Debt</span><span className="font-mono">{format(p.liabilities)}</span></div>
+                                <div className="flex items-center justify-between gap-4 border-t border-border pt-1"><span className="text-violet-500 font-medium">Net Worth</span><span className={`font-mono font-bold ${p.netWorth >= 0 ? "text-violet-500" : "text-red-500"}`}>{format(p.netWorth)}</span></div>
+                              </div>
+                            );
+                          }}
+                        />
+                        <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="2 2" />
+                        <Area type="monotone" dataKey="assets" stroke="#10b981" strokeWidth={1.5} fill="url(#fcAssets)" dot={false} name="Assets" />
+                        <Area type="monotone" dataKey="liabilities" stroke="#ef4444" strokeWidth={1.5} fill="url(#fcDebt)" dot={false} name="Debt" />
+                        <Line type="monotone" dataKey="netWorth" stroke="#8b5cf6" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} name="Net Worth" />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                    <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground mt-1">
+                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />Assets</span>
+                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400" />Debt</span>
+                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-violet-500" />Net Worth</span>
+                    </div>
+
+                    {/* Month-by-month breakdown table */}
+                    <div className="mt-5">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Month-by-month breakdown</p>
+                      <div className="overflow-x-auto rounded-xl border border-border">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-border bg-muted/40 text-muted-foreground">
+                              <th className="text-left font-medium px-3 py-2 sticky left-0 bg-muted/40">Month</th>
+                              <th className="text-right font-medium px-3 py-2">+ Savings</th>
+                              <th className="text-right font-medium px-3 py-2">Assets</th>
+                              <th className="text-right font-medium px-3 py-2">− EMI Paid</th>
+                              <th className="text-right font-medium px-3 py-2">Debt</th>
+                              <th className="text-right font-medium px-3 py-2">Net Worth</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {forecast.series.map((row, i) => {
+                              const isNow = i === 0;
+                              return (
+                                <tr
+                                  key={i}
+                                  className={`border-b border-border/50 last:border-0 transition-colors hover:bg-muted/30 ${isNow ? "bg-muted/30 font-medium" : ""}`}
+                                >
+                                  <td className="px-3 py-1.5 whitespace-nowrap sticky left-0 bg-card">
+                                    {row.month}{isNow && <span className="ml-1 text-[10px] text-muted-foreground">(now)</span>}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-emerald-500">
+                                    {isNow ? "—" : `+${format(row.savingsAdded)}`}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums">{format(row.assets)}</td>
+                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-red-400">
+                                    {isNow || row.emiPaid === 0 ? "—" : `−${format(row.emiPaid)}`}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-red-400">{format(row.liabilities)}</td>
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums font-semibold ${row.netWorth >= 0 ? "text-violet-500" : "text-red-500"}`}>{format(row.netWorth)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </TabsContent>
+          </Tabs>
         </Card>
 
         {/* Month-over-month waterfall */}
