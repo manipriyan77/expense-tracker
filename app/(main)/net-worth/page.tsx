@@ -315,6 +315,17 @@ export default function NetWorthPage() {
 
   const goalProgress = goalAmount > 0 ? Math.min((netWorth / goalAmount) * 100, 100) : 0;
 
+  // ── Forecast what-if scenario controls ──
+  const [extraSavings, setExtraSavings] = useState(0); // extra ₹/mo into assets
+  const [extraEMI, setExtraEMI] = useState(0); // extra ₹/mo debt prepayment
+  const [returnRate, setReturnRate] = useState(8); // expected annual % return on assets
+  const scenarioActive = extraSavings > 0 || extraEMI > 0 || returnRate !== 8;
+  const resetScenario = () => {
+    setExtraSavings(0);
+    setExtraEMI(0);
+    setReturnRate(8);
+  };
+
   // ── Net worth trend: from May 2026 only, up to 6 months (latest snapshot per month or live)
   const NET_WORTH_START_YEAR = 2026;
   const NET_WORTH_START_MONTH = 4; // May (0-indexed)
@@ -674,13 +685,68 @@ export default function NetWorthPage() {
         : monthsWithData.reduce((s, m) => s + (m.income - m.expense), 0) /
           dataMonthCount;
 
-    const monthlyEMI = debtAnalytics.monthlyMinimum;
+    const baseEMI = debtAnalytics.monthlyMinimum;
 
-    // Project assets and liabilities forward month by month.
-    // Savings accrue to assets; EMI pays down liabilities (floored at zero).
+    // Scenario adjustments (what-if controls)
+    const effSavings = monthlySavings + extraSavings;
+    const effEMI = baseEMI + extraEMI; // starting monthly EMI (while all loans open)
+    const monthlyReturn = returnRate / 100 / 12; // compounding on existing assets
+
     const now = new Date();
+    const shortLabel = (offset: number) =>
+      new Date(now.getFullYear(), now.getMonth() + offset, 1)
+        .toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+    const fullLabel = (offset: number) =>
+      new Date(now.getFullYear(), now.getMonth() + offset, 1)
+        .toLocaleDateString("en-US", { month: "short", year: "numeric" });
+
+    // ── Per-loan amortization ──
+    // Each liability is paid down by its OWN EMI (with its own interest), so as
+    // individual loans finish the total monthly EMI steps down. The freed-up EMI
+    // is then redirected into savings, keeping net-worth growth continuous.
+    type LoanState = { name: string; balance: number; rate: number; payment: number; closedMonth: number | null };
+    const makeLoans = (): LoanState[] =>
+      liabilities.map((l) => ({
+        name: l.name,
+        balance: l.balance,
+        rate: (l.interest_rate || 0) / 100 / 12,
+        payment: l.minimum_payment && l.minimum_payment > 0 ? l.minimum_payment : 0,
+        closedMonth: null,
+      }));
+    const sumBalances = (loans: LoanState[]) =>
+      loans.reduce((s, l) => s + Math.max(0, l.balance), 0);
+    // Advance every loan one month; returns the actual EMI cash paid. extraEMI is
+    // applied avalanche-style (highest interest first) to whatever is still open.
+    const stepLoans = (loans: LoanState[], monthIdx: number): number => {
+      let cash = 0;
+      for (const loan of loans) {
+        if (loan.balance <= 0 || loan.payment <= 0) continue;
+        const interest = loan.balance * loan.rate;
+        const pay = Math.min(loan.payment, loan.balance + interest);
+        loan.balance = Math.max(0, loan.balance + interest - loan.payment);
+        cash += pay;
+        if (loan.balance <= 0 && loan.closedMonth === null) loan.closedMonth = monthIdx;
+      }
+      let extra = extraEMI;
+      if (extra > 0) {
+        const open = loans.filter((l) => l.balance > 0).sort((a, b) => b.rate - a.rate);
+        for (const loan of open) {
+          if (extra <= 0) break;
+          const pay = Math.min(extra, loan.balance);
+          loan.balance -= pay;
+          extra -= pay;
+          cash += pay;
+          if (loan.balance <= 0 && loan.closedMonth === null) loan.closedMonth = monthIdx;
+        }
+      }
+      return cash;
+    };
+    const maxDebtOutflow = baseEMI + extraEMI; // cash to debt while every loan is open
+
+    // Build the 12-month chart series
     let projAssets = totalAssets;
-    let projLiabilities = totalLiabilities;
+    const chartLoans = makeLoans();
+    let totalSaved = 0;
 
     const series: {
       month: string;
@@ -688,18 +754,22 @@ export default function NetWorthPage() {
       assets: number;
       liabilities: number;
       savingsAdded: number;
+      growthAdded: number;
       emiPaid: number;
+      freed: number;
       projected: number | undefined;
       actual: number | undefined;
       sourceLabel: string;
     }[] = [
       {
-        month: now.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+        month: shortLabel(0),
         netWorth,
         assets: projAssets,
-        liabilities: projLiabilities,
+        liabilities: totalLiabilities,
         savingsAdded: 0,
+        growthAdded: 0,
         emiPaid: 0,
+        freed: 0,
         actual: netWorth,
         projected: netWorth,
         sourceLabel: "Today (Assets − Liabilities)",
@@ -707,43 +777,84 @@ export default function NetWorthPage() {
     ];
 
     for (let m = 1; m <= FORECAST_MONTHS; m++) {
-      projAssets += monthlySavings;
-      // EMI only pays down what's still owed
-      const emiPaid = Math.min(monthlyEMI, projLiabilities);
-      projLiabilities = Math.max(0, projLiabilities - monthlyEMI);
-      const d = new Date(now.getFullYear(), now.getMonth() + m, 1);
-      const nw = projAssets - projLiabilities;
+      const emiPaid = stepLoans(chartLoans, m);
+      const liab = sumBalances(chartLoans);
+      // Freed-up EMI (from loans that have closed) is redirected into savings
+      const freed = Math.max(0, maxDebtOutflow - emiPaid);
+      const growthAdded = projAssets * monthlyReturn;
+      const savingsAdded = effSavings + freed;
+      projAssets += growthAdded + savingsAdded;
+      totalSaved += savingsAdded;
+      const nw = projAssets - liab;
       series.push({
-        month: d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+        month: shortLabel(m),
         netWorth: nw,
         assets: projAssets,
-        liabilities: projLiabilities,
-        savingsAdded: monthlySavings,
+        liabilities: liab,
+        savingsAdded,
+        growthAdded,
         emiPaid,
+        freed,
         actual: undefined,
         projected: nw,
-        sourceLabel: `Projected: +${format(monthlySavings)} savings, −${format(monthlyEMI)} EMI / mo`,
+        sourceLabel:
+          `Projected: +${format(savingsAdded)} to savings` +
+          (emiPaid > 0 ? `, −${format(emiPaid)} EMI` : "") +
+          `, ${returnRate}% return`,
       });
     }
 
     const projectedNetWorth = series[series.length - 1].netWorth;
     const totalGrowth = projectedNetWorth - netWorth;
     const growthPct = netWorth !== 0 ? (totalGrowth / Math.abs(netWorth)) * 100 : 0;
+    const totalDebtPaid = totalLiabilities - series[series.length - 1].liabilities;
 
-    // First month within the horizon where debt is fully cleared
-    const debtFreeIdx =
-      totalLiabilities > 0
-        ? series.findIndex((s, i) => i > 0 && s.liabilities === 0)
-        : -1;
-    const debtFreeMonth = debtFreeIdx > 0 ? series[debtFreeIdx].month : null;
+    // ── Long debt simulation: find when each loan closes and when ALL debt
+    //    clears (loans may finish beyond the 12-month chart horizon).
+    const scheduleLoans = makeLoans();
+    let allClearedMonth: number | null = null;
+    const hadDebt = totalLiabilities > 0;
+    for (let m = 1; m <= 600; m++) {
+      if (sumBalances(scheduleLoans) <= 0) break;
+      stepLoans(scheduleLoans, m);
+      if (allClearedMonth === null && sumBalances(scheduleLoans) <= 0) {
+        allClearedMonth = m;
+        break;
+      }
+    }
+    const debtFreeMonth = hadDebt && allClearedMonth ? fullLabel(allClearedMonth) : null;
 
-    const totalSaved = monthlySavings * FORECAST_MONTHS;
-    const totalDebtPaid = Math.min(monthlyEMI * FORECAST_MONTHS, totalLiabilities);
+    // Upcoming EMI step-downs — each loan's payoff and the EMI it frees up
+    const emiStepDowns = scheduleLoans
+      .filter((l) => l.payment > 0 && l.closedMonth !== null)
+      .map((l) => ({ name: l.name, months: l.closedMonth as number, label: fullLabel(l.closedMonth as number), payment: l.payment }))
+      .sort((a, b) => a.months - b.months);
+
+    // ── Goal ETA: simulate assets + debt forward (up to 50 yrs) to find when
+    //    net worth first reaches the saved goal.
+    let goalEta: { months: number; label: string; withinHorizon: boolean } | null = null;
+    if (goalAmount > 0 && netWorth >= goalAmount) {
+      goalEta = { months: 0, label: "Reached", withinHorizon: true };
+    } else if (goalAmount > 0) {
+      let a = totalAssets;
+      const gLoans = makeLoans();
+      for (let m = 1; m <= 600; m++) {
+        const emiPaid = stepLoans(gLoans, m);
+        const freed = Math.max(0, maxDebtOutflow - emiPaid);
+        a += a * monthlyReturn + effSavings + freed;
+        if (a - sumBalances(gLoans) >= goalAmount) {
+          goalEta = { months: m, label: fullLabel(m), withinHorizon: m <= FORECAST_MONTHS };
+          break;
+        }
+      }
+    }
 
     return {
       series,
       monthlySavings,
-      monthlyEMI,
+      monthlyEMI: baseEMI,
+      effSavings,
+      effEMI,
       dataMonthCount,
       projectedNetWorth,
       projectedAssets: series[series.length - 1].assets,
@@ -753,9 +864,11 @@ export default function NetWorthPage() {
       totalSaved,
       totalDebtPaid,
       debtFreeMonth,
-      hasData: dataMonthCount > 0 || monthlyEMI > 0,
+      emiStepDowns,
+      goalEta,
+      hasData: dataMonthCount > 0 || baseEMI > 0,
     };
-  }, [transactions, debtAnalytics.monthlyMinimum, totalAssets, totalLiabilities, netWorth, format]);
+  }, [transactions, liabilities, debtAnalytics.monthlyMinimum, totalAssets, totalLiabilities, netWorth, format, extraSavings, extraEMI, returnRate, goalAmount]);
 
   const handleAddAsset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1209,12 +1322,28 @@ export default function NetWorthPage() {
                             <span>· {forecast.totalGrowth >= 0 ? "+" : ""}{format(forecast.totalGrowth)}</span>
                           </p>
                         </div>
-                        {forecast.debtFreeMonth && (
-                          <div className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-xs font-medium text-emerald-500">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Debt-free by {forecast.debtFreeMonth}
-                          </div>
-                        )}
+                        <div className="flex flex-col items-end gap-1.5">
+                          {forecast.debtFreeMonth && (
+                            <div className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-xs font-medium text-emerald-500">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Debt-free by {forecast.debtFreeMonth}
+                            </div>
+                          )}
+                          {goalAmount > 0 && forecast.goalEta && (
+                            <div className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium ${forecast.goalEta.withinHorizon ? "bg-violet-500/15 text-violet-500" : "bg-amber-500/15 text-amber-500"}`}>
+                              <Target className="h-3.5 w-3.5" />
+                              {forecast.goalEta.months === 0
+                                ? "Goal reached 🎉"
+                                : `${format(goalAmount)} goal by ${forecast.goalEta.label} · ${forecast.goalEta.months} mo`}
+                            </div>
+                          )}
+                          {goalAmount > 0 && !forecast.goalEta && (
+                            <div className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
+                              <Target className="h-3.5 w-3.5" />
+                              Goal &gt;50 yrs at this rate
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-3">
                         {forecast.dataMonthCount === 0
@@ -1222,7 +1351,52 @@ export default function NetWorthPage() {
                           : forecast.dataMonthCount === 1
                             ? "Based on your current EMI & 1 month of savings (no averaging)"
                             : `Based on your current EMI & avg savings over ${forecast.dataMonthCount} months`}
+                        {` · assets compounding at ${returnRate}%/yr`}
+                        {scenarioActive && <span className="text-violet-500 font-medium"> · what-if scenario applied</span>}
                       </p>
+                    </div>
+
+                    {/* What-if scenario controls */}
+                    <div className="rounded-xl border border-border bg-muted/20 p-3 mb-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                          <Zap className="h-3 w-3" /> What-if scenario
+                        </p>
+                        {scenarioActive && (
+                          <button
+                            onClick={resetScenario}
+                            className="text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground font-medium">Extra savings</span>
+                            <span className={`font-mono font-semibold ${extraSavings > 0 ? "text-emerald-500" : "text-muted-foreground"}`}>{extraSavings > 0 ? `+${format(extraSavings)}` : "None"}</span>
+                          </div>
+                          <input type="range" min={0} max={100000} step={1000} value={extraSavings} onChange={(e) => setExtraSavings(Number(e.target.value))} className="w-full accent-emerald-500" />
+                          <div className="flex justify-between text-[10px] text-muted-foreground"><span>₹0</span><span>₹1L/mo</span></div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground font-medium">Debt prepayment</span>
+                            <span className={`font-mono font-semibold ${extraEMI > 0 ? "text-red-400" : "text-muted-foreground"}`}>{extraEMI > 0 ? `+${format(extraEMI)}` : "None"}</span>
+                          </div>
+                          <input type="range" min={0} max={100000} step={1000} value={extraEMI} onChange={(e) => setExtraEMI(Number(e.target.value))} className="w-full accent-red-500" />
+                          <div className="flex justify-between text-[10px] text-muted-foreground"><span>₹0</span><span>₹1L/mo</span></div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground font-medium">Expected return</span>
+                            <span className={`font-mono font-semibold ${returnRate !== 8 ? "text-blue-500" : "text-muted-foreground"}`}>{returnRate}% / yr</span>
+                          </div>
+                          <input type="range" min={0} max={20} step={0.5} value={returnRate} onChange={(e) => setReturnRate(Number(e.target.value))} className="w-full accent-blue-500" />
+                          <div className="flex justify-between text-[10px] text-muted-foreground"><span>0%</span><span>20%</span></div>
+                        </div>
+                      </div>
                     </div>
 
                     {/* KPI tiles */}
@@ -1231,15 +1405,19 @@ export default function NetWorthPage() {
                         <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                           <PiggyBank className="h-3 w-3" /> Monthly Savings
                         </div>
-                        <p className={`font-mono text-base font-bold mt-1 ${forecast.monthlySavings >= 0 ? "text-emerald-500" : "text-red-500"}`}>{format(forecast.monthlySavings)}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{format(forecast.totalSaved)} / yr</p>
+                        <p className={`font-mono text-base font-bold mt-1 ${forecast.effSavings >= 0 ? "text-emerald-500" : "text-red-500"}`}>{format(forecast.effSavings)}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{extraSavings > 0 ? `incl. +${format(extraSavings)} extra` : `${format(forecast.totalSaved)} / yr`}</p>
                       </div>
                       <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-red-500/10 to-transparent p-3">
                         <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                           <CreditCard className="h-3 w-3" /> Monthly EMI
                         </div>
-                        <p className="font-mono text-base font-bold mt-1 text-red-400">{format(forecast.monthlyEMI)}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">−{format(forecast.totalDebtPaid)} debt / yr</p>
+                        <p className="font-mono text-base font-bold mt-1 text-red-400">{format(forecast.effEMI)}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {forecast.emiStepDowns.length > 0
+                            ? `steps down ${forecast.emiStepDowns.length}× as loans close`
+                            : `−${format(forecast.totalDebtPaid)} debt / yr`}
+                        </p>
                       </div>
                       <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-blue-500/10 to-transparent p-3">
                         <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -1257,17 +1435,44 @@ export default function NetWorthPage() {
                       </div>
                     </div>
 
-                    {/* Assets-vs-debt forecast chart */}
-                    <ResponsiveContainer width="100%" height={240}>
-                      <ComposedChart data={forecast.series} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+                    {/* Scheduled EMI reductions — loans closing over time */}
+                    {forecast.emiStepDowns.length > 0 && (
+                      <div className="rounded-xl border border-border bg-gradient-to-br from-red-500/5 to-transparent p-3 mb-4">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2.5 flex items-center gap-1.5">
+                          <CalendarClock className="h-3 w-3" /> Scheduled EMI reductions
+                        </p>
+                        <div className="space-y-2">
+                          {forecast.emiStepDowns.map((s, i) => {
+                            const yrs = Math.floor(s.months / 12);
+                            const mos = s.months % 12;
+                            const eta = yrs > 0 ? `${yrs}y ${mos}m` : `${mos}m`;
+                            return (
+                              <div key={i} className="flex items-center gap-3 text-xs">
+                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-500/15 text-[10px] font-semibold text-red-400">{i + 1}</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium truncate">{s.name}</p>
+                                  <p className="text-[10px] text-muted-foreground">closes {s.label} · in {eta}</p>
+                                </div>
+                                <span className="font-mono text-emerald-500 font-semibold shrink-0">−{format(s.payment)}/mo freed</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-2.5 pt-2.5 border-t border-border/50">
+                          As each loan closes its EMI stops, so monthly EMI drops and the freed-up cash flows into savings.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Net-worth projection — smooth gradient area */}
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 px-1">Projected net worth</p>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <AreaChart data={forecast.series} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
                         <defs>
-                          <linearGradient id="fcAssets" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.22} />
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="fcDebt" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.18} />
-                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                          <linearGradient id="fcNetWorth" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.45} />
+                            <stop offset="60%" stopColor="#8b5cf6" stopOpacity={0.12} />
+                            <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
@@ -1292,26 +1497,26 @@ export default function NetWorthPage() {
                             const p = payload[0].payload as { month: string; netWorth: number; assets: number; liabilities: number; actual?: number };
                             const isProj = p.actual === undefined;
                             return (
-                              <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-xs space-y-1">
+                              <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-xs space-y-1 min-w-40">
                                 <p className="font-semibold">{p.month}{isProj ? " · projected" : " · now"}</p>
-                                <div className="flex items-center justify-between gap-4"><span className="text-emerald-500">Assets</span><span className="font-mono">{format(p.assets)}</span></div>
-                                <div className="flex items-center justify-between gap-4"><span className="text-red-400">Debt</span><span className="font-mono">{format(p.liabilities)}</span></div>
-                                <div className="flex items-center justify-between gap-4 border-t border-border pt-1"><span className="text-violet-500 font-medium">Net Worth</span><span className={`font-mono font-bold ${p.netWorth >= 0 ? "text-violet-500" : "text-red-500"}`}>{format(p.netWorth)}</span></div>
+                                <div className="flex items-center justify-between gap-4"><span className="text-violet-500 font-medium">Net worth</span><span className={`font-mono font-bold ${p.netWorth >= 0 ? "text-violet-500" : "text-red-500"}`}>{format(p.netWorth)}</span></div>
+                                <div className="flex items-center justify-between gap-4 text-muted-foreground"><span>Assets</span><span className="font-mono">{format(p.assets)}</span></div>
+                                <div className="flex items-center justify-between gap-4 text-muted-foreground"><span>Debt</span><span className="font-mono">{format(p.liabilities)}</span></div>
                               </div>
                             );
                           }}
                         />
-                        <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="2 2" />
-                        <Area type="monotone" dataKey="assets" stroke="#10b981" strokeWidth={1.5} fill="url(#fcAssets)" dot={false} name="Assets" />
-                        <Area type="monotone" dataKey="liabilities" stroke="#ef4444" strokeWidth={1.5} fill="url(#fcDebt)" dot={false} name="Debt" />
-                        <Line type="monotone" dataKey="netWorth" stroke="#8b5cf6" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} name="Net Worth" />
-                      </ComposedChart>
+                        {goalAmount > 0 && (
+                          <ReferenceLine
+                            y={goalAmount}
+                            stroke="#f59e0b"
+                            strokeDasharray="6 4"
+                            label={{ value: `Goal ${format(goalAmount)}`, position: "insideTopRight", fontSize: 10, fill: "#f59e0b" }}
+                          />
+                        )}
+                        <Area type="monotone" dataKey="netWorth" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#fcNetWorth)" dot={false} activeDot={{ r: 5, strokeWidth: 0 }} name="Net Worth" />
+                      </AreaChart>
                     </ResponsiveContainer>
-                    <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground mt-1">
-                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />Assets</span>
-                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400" />Debt</span>
-                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-violet-500" />Net Worth</span>
-                    </div>
 
                     {/* Month-by-month breakdown table */}
                     <div className="mt-5">
@@ -1322,6 +1527,7 @@ export default function NetWorthPage() {
                             <tr className="border-b border-border bg-muted/40 text-muted-foreground">
                               <th className="text-left font-medium px-3 py-2 sticky left-0 bg-muted/40">Month</th>
                               <th className="text-right font-medium px-3 py-2">+ Savings</th>
+                              <th className="text-right font-medium px-3 py-2">+ Growth</th>
                               <th className="text-right font-medium px-3 py-2">Assets</th>
                               <th className="text-right font-medium px-3 py-2">− EMI Paid</th>
                               <th className="text-right font-medium px-3 py-2">Debt</th>
@@ -1341,6 +1547,9 @@ export default function NetWorthPage() {
                                   </td>
                                   <td className="px-3 py-1.5 text-right font-mono tabular-nums text-emerald-500">
                                     {isNow ? "—" : `+${format(row.savingsAdded)}`}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-blue-500">
+                                    {isNow || row.growthAdded === 0 ? "—" : `+${format(row.growthAdded)}`}
                                   </td>
                                   <td className="px-3 py-1.5 text-right font-mono tabular-nums">{format(row.assets)}</td>
                                   <td className="px-3 py-1.5 text-right font-mono tabular-nums text-red-400">
