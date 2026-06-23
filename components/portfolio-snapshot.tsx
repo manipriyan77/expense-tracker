@@ -998,7 +998,7 @@ export default function PortfolioSnapshot() {
                   </thead>
                   <tbody>
                     {Object.entries(mfGrouped).map(([groupName, funds]) => (
-                      <>
+                      <React.Fragment key={`grp-${groupName}`}>
                         {mfGroupBy !== "none" && (
                           <tr key={`hdr-${groupName}`} className="bg-muted/30 border-b border-border">
                             <td colSpan={8} className="px-4 py-1.5">
@@ -1016,8 +1016,8 @@ export default function PortfolioSnapshot() {
                           const sinceDate = new Date(f.since);
                           const monthsHeld = Math.round((new Date("2026-06-05").getTime() - sinceDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
                           return (
-                            <>
-                              <tr key={f.name} className={`border-b border-border/60 hover:bg-muted/30 transition-colors cursor-pointer ${rowBg}`} onClick={() => setExpandedFund(isExpanded ? null : f.name)}>
+                            <React.Fragment key={f.name}>
+                              <tr className={`border-b border-border/60 hover:bg-muted/30 transition-colors cursor-pointer ${rowBg}`} onClick={() => setExpandedFund(isExpanded ? null : f.name)}>
                                 {/* Expand toggle */}
                                 <td className="px-4 py-2.5 text-muted-foreground">
                                   {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -1101,10 +1101,10 @@ export default function PortfolioSnapshot() {
                                   </td>
                                 </tr>
                               )}
-                            </>
+                            </React.Fragment>
                           );
                         })}
-                      </>
+                      </React.Fragment>
                     ))}
                   </tbody>
                   <tfoot>

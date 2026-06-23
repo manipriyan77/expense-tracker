@@ -149,6 +149,7 @@ const WORKOUT_NAV: NavItem[] = [
 const FINANCE_NAV: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: BarChart3 },
   { title: "Calendar", href: "/calendar", icon: CalendarDays },
+  { title: "Smart Add", href: "/smart-add", icon: Sparkles },
   { title: "Transactions", href: "/transactions", icon: Receipt },
   {
     title: "Cash Flow",
@@ -169,6 +170,7 @@ const FINANCE_NAV: NavItem[] = [
     ],
   },
   { title: "Investments", href: "/investments", icon: TrendingUp },
+  { title: "Invest Advisor", href: "/investment-advisor", icon: Sparkles },
   { title: "SIP / SWP Calculator", href: "/sip-calculator", icon: Calculator },
   { title: "Net Worth", href: "/net-worth", icon: Scale },
   {

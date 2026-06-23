@@ -17,6 +17,9 @@ interface RulesState {
   addRule: (rule: Omit<CategorizationRule, "id" | "user_id" | "created_at">) => Promise<void>;
   deleteRule: (id: string) => Promise<void>;
   matchRule: (description: string) => { category: string; subtype: string | null } | null;
+  /** Teach the system: maps a keyword to a category/subtype, replacing any
+   *  existing rule for the same keyword so the latest correction always wins. */
+  learnRule: (keyword: string, category: string, subtype: string | null) => Promise<void>;
 }
 
 export const useCategorizationRulesStore = create<RulesState>((set, get) => ({
@@ -66,5 +69,28 @@ export const useCategorizationRulesStore = create<RulesState>((set, get) => ({
       }
     }
     return null;
+  },
+
+  learnRule: async (keyword, category, subtype) => {
+    const kw = keyword.trim();
+    if (!kw) return;
+    // Remove any prior rule for the same keyword so corrections override cleanly.
+    const existing = get().rules.filter(
+      (r) => r.keyword.toLowerCase() === kw.toLowerCase(),
+    );
+    for (const r of existing) {
+      try {
+        await get().deleteRule(r.id);
+      } catch {
+        // ignore — best effort
+      }
+    }
+    // Learned rules outrank built-in matches via a high priority.
+    await get().addRule({
+      keyword: kw,
+      category,
+      subtype: subtype || null,
+      priority: 100,
+    });
   },
 }));

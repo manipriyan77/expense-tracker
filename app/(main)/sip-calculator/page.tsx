@@ -15,6 +15,10 @@ import {
   ArrowUpRight,
   PiggyBank,
   Sparkles,
+  SlidersHorizontal,
+  Clock,
+  ShieldCheck,
+  Gauge,
 } from "lucide-react";
 import {
   AreaChart,
@@ -90,14 +94,12 @@ function calcCombined(
   const r = annualRate / 12 / 100;
   let lumpsumValue = lumpsum;
   let sipValue = 0;
-  let totalInvested = lumpsum;
   let currentMonthly = monthly;
 
   for (let y = 1; y <= years; y++) {
     for (let m = 0; m < 12; m++) {
       lumpsumValue *= 1 + r;
       sipValue = (sipValue + currentMonthly) * (1 + r);
-      if (y > 1 || m > 0) totalInvested += currentMonthly; // first month already counted
     }
     // Invested = lumpsum + all SIP contributions so far
     const sipInvested = currentMonthly > 0 ? monthly * (
@@ -146,6 +148,193 @@ function calcSWP(corpus: number, monthlyWithdrawal: number, annualRate: number, 
     currentWithdrawal *= 1 + stepUpPct / 100;
   }
   return rows;
+}
+
+// ─── Advanced engine (inflation, tax, scenarios) ───────────────────────────────
+
+export interface AdvancedSettings {
+  inflation: number;   // % p.a. — erodes purchasing power
+  taxEnabled: boolean; // apply LTCG on equity gains
+  ltcg: number;        // long-term capital gains rate %
+  spread: number;      // ± return spread for optimistic/pessimistic bands
+  showReal: boolean;   // display values in today's purchasing power
+}
+
+const DEFAULT_ADV: AdvancedSettings = {
+  inflation: 6,
+  taxEnabled: true,
+  ltcg: 12.5,
+  spread: 3,
+  showReal: false,
+};
+
+const LTCG_EXEMPTION = 125000; // ₹1.25L annual exemption (equity)
+
+/** Value in today's money after `years` of inflation. */
+const realValue = (nominal: number, inflationPct: number, years: number) =>
+  nominal / Math.pow(1 + inflationPct / 100, Math.max(0, years));
+
+/** LTCG tax payable on gains above the exemption. */
+const ltcgTax = (value: number, invested: number, ltcgPct: number) => {
+  const gains = Math.max(0, value - invested);
+  const taxable = Math.max(0, gains - LTCG_EXEMPTION);
+  return taxable * (ltcgPct / 100);
+};
+
+/** Compound annual growth rate from invested → value over `years`. */
+const cagr = (value: number, invested: number, years: number) =>
+  invested > 0 && years > 0 ? (Math.pow(value / invested, 1 / years) - 1) * 100 : 0;
+
+/** Monthly SIP required to reach `target` in `months`, given current savings. */
+function requiredMonthlySIP(
+  target: number,
+  currentSavings: number,
+  annualRate: number,
+  months: number,
+  stepUp: boolean,
+  stepUpPct: number,
+): number {
+  if (months <= 0) return target;
+  const r = annualRate / 12 / 100;
+  const savingsGrown = currentSavings * Math.pow(1 + r, months);
+  const remaining = Math.max(0, target - savingsGrown);
+  if (remaining <= 0) return 0;
+  if (r === 0) return remaining / months;
+  if (!stepUp || stepUpPct === 0) {
+    return Math.ceil((remaining * r) / ((Math.pow(1 + r, months) - 1) * (1 + r)));
+  }
+  // Step-up SIP — solve via bisection.
+  let lo = 0;
+  let hi = remaining;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    let fv = savingsGrown;
+    let m = mid;
+    for (let y = 0; y < Math.ceil(months / 12); y++) {
+      for (let mo = 0; mo < 12 && y * 12 + mo < months; mo++) fv = (fv + m) * (1 + r);
+      m *= 1 + stepUpPct / 100;
+    }
+    if (fv < target) lo = mid;
+    else hi = mid;
+  }
+  return Math.ceil((lo + hi) / 2);
+}
+
+// ─── Shared UI bits ─────────────────────────────────────────────────────────────
+
+function AdvancedPanel({
+  value,
+  onChange,
+  showTax = true,
+  showSpread = true,
+}: {
+  value: AdvancedSettings;
+  onChange: (v: AdvancedSettings) => void;
+  showTax?: boolean;
+  showSpread?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const set = (patch: Partial<AdvancedSettings>) => onChange({ ...value, ...patch });
+  return (
+    <div className="pt-4 border-t">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between group"
+      >
+        <span className="flex items-center gap-2 text-sm font-medium">
+          <SlidersHorizontal className="h-4 w-4 text-violet-500" />
+          Advanced — inflation{showTax ? ", tax" : ""}
+          {showSpread ? " & scenarios" : ""}
+        </span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
+      {open && (
+        <div className="mt-4 space-y-5">
+          <SliderInput
+            label="Inflation Rate"
+            value={value.inflation}
+            onChange={(v) => set({ inflation: v })}
+            min={0}
+            max={15}
+            step={0.5}
+            suffix="% p.a."
+            accentColor="#ef4444"
+            info="Used to show your corpus in today's purchasing power"
+          />
+          {showSpread && (
+            <SliderInput
+              label="Scenario Spread"
+              value={value.spread}
+              onChange={(v) => set({ spread: v })}
+              min={1}
+              max={8}
+              step={0.5}
+              suffix="% ±"
+              accentColor="#06b6d4"
+              info="Optimistic / pessimistic returns are the expected return ± this amount"
+            />
+          )}
+          {showTax && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Apply LTCG Tax</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Tax on gains above ₹1.25L
+                  </p>
+                </div>
+                <Switch
+                  checked={value.taxEnabled}
+                  onCheckedChange={(c) => set({ taxEnabled: c })}
+                />
+              </div>
+              {value.taxEnabled && (
+                <SliderInput
+                  label="LTCG Rate"
+                  value={value.ltcg}
+                  onChange={(v) => set({ ltcg: v })}
+                  min={0}
+                  max={30}
+                  step={0.5}
+                  suffix="%"
+                  accentColor="#f59e0b"
+                />
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatTile({
+  label,
+  value,
+  color,
+  bg,
+  sub,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  bg: string;
+  sub?: string;
+}) {
+  return (
+    <div className={`rounded-2xl border p-4 ${bg}`}>
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <p className="text-base font-bold" style={{ color }}>
+        {value}
+      </p>
+      {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
+    </div>
+  );
 }
 
 // ─── SliderInput ──────────────────────────────────────────────────────────────
@@ -222,12 +411,27 @@ function SIPCalculator() {
   const [stepUp, setStepUp] = useState(false);
   const [stepUpPct, setStepUpPct] = useState(10);
   const [showTable, setShowTable] = useState(false);
+  const [adv, setAdv] = useState<AdvancedSettings>(DEFAULT_ADV);
+
+  // Optimistic / pessimistic scenario projections.
+  const lowRate = Math.max(0.5, rate - adv.spread);
+  const highRate = rate + adv.spread;
 
   const rows = useMemo(() => {
     if (mode === "lumpsum") return calcLumpsum(lumpsum, rate, years);
     if (mode === "combined") return calcCombined(lumpsum, monthly, rate, years, stepUp ? stepUpPct : 0);
     return calcSIP(monthly, rate, years, stepUp ? stepUpPct : 0);
   }, [mode, monthly, lumpsum, rate, years, stepUp, stepUpPct]);
+  const lowRows = useMemo(() => {
+    if (mode === "lumpsum") return calcLumpsum(lumpsum, lowRate, years);
+    if (mode === "combined") return calcCombined(lumpsum, monthly, lowRate, years, stepUp ? stepUpPct : 0);
+    return calcSIP(monthly, lowRate, years, stepUp ? stepUpPct : 0);
+  }, [mode, monthly, lumpsum, lowRate, years, stepUp, stepUpPct]);
+  const highRows = useMemo(() => {
+    if (mode === "lumpsum") return calcLumpsum(lumpsum, highRate, years);
+    if (mode === "combined") return calcCombined(lumpsum, monthly, highRate, years, stepUp ? stepUpPct : 0);
+    return calcSIP(monthly, highRate, years, stepUp ? stepUpPct : 0);
+  }, [mode, monthly, lumpsum, highRate, years, stepUp, stepUpPct]);
 
   const last = rows[rows.length - 1];
   const totalInvested = last?.invested ?? 0;
@@ -237,6 +441,24 @@ function SIPCalculator() {
   const multiplier = totalInvested > 0 ? totalValue / totalInvested : 0;
   const investedPct = totalValue > 0 ? (totalInvested / totalValue) * 100 : 50;
   const gainsPct = 100 - investedPct;
+
+  // Inflation + tax adjusted figures.
+  const realFinal = realValue(totalValue, adv.inflation, years);
+  const taxPayable = adv.taxEnabled ? ltcgTax(totalValue, totalInvested, adv.ltcg) : 0;
+  const postTaxValue = totalValue - taxPayable;
+  const realPostTax = realValue(postTaxValue, adv.inflation, years);
+  const nominalCagr = cagr(totalValue, totalInvested, years);
+  const realCagr = nominalCagr - adv.inflation;
+  const heroValue = adv.showReal ? realPostTax : totalValue;
+  const lowFinal = lowRows[lowRows.length - 1]?.value ?? 0;
+  const highFinal = highRows[highRows.length - 1]?.value ?? 0;
+
+  // Chart data merges the expected path with the scenario band.
+  const chartData = rows.map((r, i) => ({
+    ...r,
+    low: lowRows[i]?.value ?? r.value,
+    high: highRows[i]?.value ?? r.value,
+  }));
 
   // Combined: lumpsum vs SIP contribution breakdown
   const combinedLast = mode === "combined" ? (rows[rows.length - 1] as CombinedYearRow) : null;
@@ -335,6 +557,8 @@ function SIPCalculator() {
                 )}
               </div>
             )}
+
+            <AdvancedPanel value={adv} onChange={setAdv} />
           </div>
         </div>
 
@@ -344,12 +568,27 @@ function SIPCalculator() {
           <div className="rounded-2xl border bg-linear-to-br from-blue-600 to-purple-700 text-white p-5 shadow-sm">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <p className="text-sm text-white/70 font-medium">Future Value in {years} yr{years > 1 ? "s" : ""}</p>
-                <p className="text-4xl font-bold tracking-tight mt-1">{fmtShort(totalValue)}</p>
+                <p className="text-sm text-white/70 font-medium">
+                  {adv.showReal ? "In today's money (post-tax)" : "Future Value"} in {years} yr{years > 1 ? "s" : ""}
+                </p>
+                <p className="text-4xl font-bold tracking-tight mt-1">{fmtShort(heroValue)}</p>
+                <p className="text-xs text-white/70 mt-1">
+                  {adv.showReal
+                    ? `Nominal ${fmtShort(totalValue)}`
+                    : `Worth ${fmtShort(realFinal)} in today's money`}
+                </p>
               </div>
-              <div className="flex items-center gap-1.5 bg-white/20 rounded-full px-3 py-1.5">
-                <ArrowUpRight className="h-4 w-4" />
-                <span className="text-sm font-bold">{multiplier.toFixed(2)}x</span>
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex items-center gap-1.5 bg-white/20 rounded-full px-3 py-1.5">
+                  <ArrowUpRight className="h-4 w-4" />
+                  <span className="text-sm font-bold">{multiplier.toFixed(2)}x</span>
+                </div>
+                <button
+                  onClick={() => setAdv({ ...adv, showReal: !adv.showReal })}
+                  className="text-[11px] font-semibold bg-white/15 hover:bg-white/25 transition-colors rounded-full px-2.5 py-1"
+                >
+                  {adv.showReal ? "Show nominal" : "Show real ₹"}
+                </button>
               </div>
             </div>
             {/* Composition bar */}
@@ -410,12 +649,50 @@ function SIPCalculator() {
             </div>
           )}
 
+          {/* Return scenarios */}
+          <div className="rounded-2xl border bg-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Gauge className="h-4 w-4 text-cyan-500" />
+              <p className="text-sm font-semibold">Return Scenarios</p>
+              <span className="text-[11px] text-muted-foreground">at {years} yr · ±{adv.spread}%</span>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: `Pessimistic`, rate: lowRate, value: lowFinal, color: "#ef4444", bg: "bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/40" },
+                { label: `Expected`, rate, value: totalValue, color: "#8b5cf6", bg: "bg-violet-50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/40" },
+                { label: `Optimistic`, rate: highRate, value: highFinal, color: "#22c55e", bg: "bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/40" },
+              ].map((s) => (
+                <div key={s.label} className={`rounded-xl border p-3 text-center ${s.bg}`}>
+                  <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                  <p className="text-[10px] text-muted-foreground mb-1">{s.rate}% p.a.</p>
+                  <p className="text-sm font-bold" style={{ color: s.color }}>{fmtShort(s.value)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Inflation & tax */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <StatTile label="Real value (today's ₹)" value={fmtShort(realFinal)} color="#0ea5e9"
+              bg="bg-sky-50 dark:bg-sky-950/30 border-sky-100 dark:border-sky-900" sub={`${adv.inflation}% inflation`} />
+            <StatTile label="LTCG tax" value={taxPayable > 0 ? `−${fmtShort(taxPayable)}` : "₹0"} color="#f59e0b"
+              bg="bg-amber-50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900" sub={adv.taxEnabled ? `@ ${adv.ltcg}%` : "tax off"} />
+            <StatTile label="Post-tax value" value={fmtShort(postTaxValue)} color="#22c55e"
+              bg="bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900" sub="after LTCG" />
+            <StatTile label="Real CAGR" value={`${realCagr.toFixed(1)}%`} color="#8b5cf6"
+              bg="bg-violet-50 dark:bg-violet-950/30 border-violet-100 dark:border-violet-900" sub={`${nominalCagr.toFixed(1)}% nominal`} />
+          </div>
+
           {/* Chart */}
           <div className="rounded-2xl border bg-card p-5">
             <p className="text-sm font-semibold mb-4">Wealth Growth Over Time</p>
             <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <defs>
+                  <linearGradient id="sipBand" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.18} />
+                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.01} />
+                  </linearGradient>
                   <linearGradient id="sipInvested" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
@@ -438,6 +715,8 @@ function SIPCalculator() {
                 <YAxis tickFormatter={(v) => fmtShort(v).replace("₹", "").trim()} tick={{ fontSize: 10 }} stroke="#94a3b8" width={52} />
                 <Tooltip contentStyle={TOOLTIP_STYLE} // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={(v: any, name: string | undefined) => [fmtShort(Number(v)), name ?? ""]} labelFormatter={(l) => `Year ${l}`} />
+                <Area type="monotone" dataKey="high" name={`Optimistic (${highRate}%)`} stroke="#22c55e" strokeWidth={1} strokeDasharray="4 3" fillOpacity={0} />
+                <Area type="monotone" dataKey="low" name={`Pessimistic (${lowRate}%)`} stroke="#ef4444" strokeWidth={1} strokeDasharray="4 3" fill="url(#sipBand)" />
                 <Area type="monotone" dataKey="invested" name="Total Invested" stroke="#3b82f6" strokeWidth={2} fill="url(#sipInvested)" />
                 {mode === "combined" && (
                   <Area type="monotone" dataKey="lumpsumValue" name="Lumpsum Growth" stroke="#06b6d4" strokeWidth={2} fill="url(#lumpsumVal)" strokeDasharray="5 3" />
@@ -453,6 +732,8 @@ function SIPCalculator() {
                 { color: "#3b82f6", label: "Invested" },
                 ...(mode === "combined" ? [{ color: "#06b6d4", label: "Lumpsum Growth" }, { color: "#a855f7", label: "SIP Growth" }] : []),
                 { color: "#8b5cf6", label: "Total Value" },
+                { color: "#22c55e", label: "Optimistic" },
+                { color: "#ef4444", label: "Pessimistic" },
               ].map((l) => (
                 <div key={l.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <div className="w-3 h-0.5 rounded-full" style={{ background: l.color }} />
@@ -570,6 +851,7 @@ function SWPCalculator() {
   const [stepUp, setStepUp] = useState(false);
   const [stepUpPct, setStepUpPct] = useState(5);
   const [showTable, setShowTable] = useState(false);
+  const [adv, setAdv] = useState<AdvancedSettings>(DEFAULT_ADV);
 
   const rows = useMemo(() => calcSWP(corpus, withdrawal, rate, years, stepUp ? stepUpPct : 0), [corpus, withdrawal, rate, years, stepUp, stepUpPct]);
 
@@ -579,6 +861,24 @@ function SWPCalculator() {
   const corpusExhausted = finalBalance === 0;
   const exhaustedYear = corpusExhausted ? rows.find((r) => r.balance === 0)?.year : null;
   const sustainPct = corpus > 0 ? Math.min(100, (finalBalance / corpus) * 100) : 0;
+
+  // How long the corpus lasts under different return assumptions.
+  const lowRate = Math.max(0, rate - adv.spread);
+  const highRate = rate + adv.spread;
+  const survivalYears = (rt: number) => {
+    const rws = calcSWP(corpus, withdrawal, rt, years, stepUp ? stepUpPct : 0);
+    const dead = rws.find((r) => r.balance === 0);
+    return dead ? dead.year : years;
+  };
+  const lowSurvival = survivalYears(lowRate);
+  const highSurvival = survivalYears(highRate);
+  const baseSurvival = corpusExhausted ? (exhaustedYear ?? years) : years;
+
+  // Inflation: the first-year monthly withdrawal in today's money at the end.
+  const realFinalBalance = realValue(finalBalance, adv.inflation, years);
+  const realWithdrawalAtEnd = realValue(withdrawal, adv.inflation, years);
+  // Inflation-safe withdrawal: a real return rule of thumb.
+  const realReturn = rate - adv.inflation;
 
   const TOOLTIP_STYLE = {
     backgroundColor: "var(--background, #fff)",
@@ -622,6 +922,8 @@ function SWPCalculator() {
                   info="Withdrawal amount increases by this % every year" />
               )}
             </div>
+
+            <AdvancedPanel value={adv} onChange={setAdv} showTax={false} />
           </div>
         </div>
 
@@ -665,6 +967,40 @@ function SWPCalculator() {
                 <p className="text-lg font-bold" style={{ color: s.color }}>{s.value}</p>
               </div>
             ))}
+          </div>
+
+          {/* Longevity scenarios */}
+          <div className="rounded-2xl border bg-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Gauge className="h-4 w-4 text-cyan-500" />
+              <p className="text-sm font-semibold">How long the corpus lasts</p>
+              <span className="text-[11px] text-muted-foreground">±{adv.spread}% returns</span>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "Pessimistic", rate: lowRate, yrs: lowSurvival, color: "#ef4444", bg: "bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/40" },
+                { label: "Expected", rate, yrs: baseSurvival, color: "#8b5cf6", bg: "bg-violet-50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/40" },
+                { label: "Optimistic", rate: highRate, yrs: highSurvival, color: "#22c55e", bg: "bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/40" },
+              ].map((s) => (
+                <div key={s.label} className={`rounded-xl border p-3 text-center ${s.bg}`}>
+                  <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                  <p className="text-[10px] text-muted-foreground mb-1">{s.rate}% p.a.</p>
+                  <p className="text-sm font-bold" style={{ color: s.color }}>
+                    {s.yrs >= years ? `${years}+ yrs` : `${s.yrs} yrs`}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Inflation reality */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <StatTile label="Final balance (today's ₹)" value={fmtShort(realFinalBalance)} color="#0ea5e9"
+              bg="bg-sky-50 dark:bg-sky-950/30 border-sky-100 dark:border-sky-900" sub={`${adv.inflation}% inflation`} />
+            <StatTile label={`₹${(withdrawal).toLocaleString("en-IN")} buys (Y${years})`} value={fmtShort(realWithdrawalAtEnd)} color="#f59e0b"
+              bg="bg-amber-50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900" sub="in today's money" />
+            <StatTile label="Real return" value={`${realReturn.toFixed(1)}%`} color={realReturn >= 0 ? "#22c55e" : "#ef4444"}
+              bg="bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900" sub="return − inflation" />
           </div>
 
           {/* Chart */}
@@ -819,6 +1155,7 @@ function GoalPlannerCalculator() {
   const [stepUp, setStepUp] = useState(false);
   const [stepUpPct, setStepUpPct] = useState(10);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [adv, setAdv] = useState<AdvancedSettings>(DEFAULT_ADV);
 
   // Required monthly SIP to reach target (with or without step-up)
   const result = useMemo(() => {
@@ -897,6 +1234,26 @@ function GoalPlannerCalculator() {
 
   const alreadyAchieved = result.monthly <= 0;
 
+  // ── Advanced: cost of delay, inflation, return scenarios ──────────────────
+  const baseSIP = result.monthly;
+  const costOfDelay = [6, 12, 24].map((delay) => {
+    const remMonths = Math.max(1, months - delay);
+    const sip = requiredMonthlySIP(targetAmount, currentSavings, rate, remMonths, stepUp, stepUpPct);
+    return { delay, sip, extra: Math.max(0, sip - baseSIP) };
+  });
+
+  const yearsToGoal = months / 12;
+  // Inflation: what the target is worth today, and the inflation-protected target.
+  const targetRealToday = realValue(targetAmount, adv.inflation, yearsToGoal);
+  const inflationProtectedTarget = Math.round(targetAmount * Math.pow(1 + adv.inflation / 100, yearsToGoal));
+  const sipForRealGoal = requiredMonthlySIP(inflationProtectedTarget, currentSavings, rate, months, stepUp, stepUpPct);
+
+  // Required SIP under pessimistic / optimistic returns.
+  const lowRate = Math.max(0.5, rate - adv.spread);
+  const highRate = rate + adv.spread;
+  const sipLow = requiredMonthlySIP(targetAmount, currentSavings, lowRate, months, stepUp, stepUpPct);
+  const sipHigh = requiredMonthlySIP(targetAmount, currentSavings, highRate, months, stepUp, stepUpPct);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Inputs */}
@@ -927,6 +1284,7 @@ function GoalPlannerCalculator() {
           {stepUp && (
             <SliderInput label="Step-Up Rate" value={stepUpPct} onChange={setStepUpPct} min={1} max={50} step={1} suffix="%" accentColor="#a855f7" />
           )}
+          <AdvancedPanel value={adv} onChange={setAdv} showTax={false} />
         </div>
       </div>
 
@@ -1003,6 +1361,65 @@ function GoalPlannerCalculator() {
                   </div>
                 );
               })()}
+            </div>
+          </div>
+
+          {/* Cost of delay */}
+          <div className="rounded-2xl border bg-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="h-4 w-4 text-rose-500" />
+              <p className="text-sm font-semibold">The cost of waiting</p>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {costOfDelay.map((c) => (
+                <div key={c.delay} className="rounded-xl border p-3 text-center bg-rose-50/60 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/40">
+                  <p className="text-[10px] text-muted-foreground">Start in {c.delay} mo</p>
+                  <p className="text-sm font-bold text-rose-600 dark:text-rose-400">{fmtShort(c.sip)}/mo</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">+{fmtShort(c.extra)}/mo more</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Delaying shortens your compounding window — so you must invest more each month to hit the same target.
+            </p>
+          </div>
+
+          {/* Required SIP under different returns */}
+          <div className="rounded-2xl border bg-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Gauge className="h-4 w-4 text-cyan-500" />
+              <p className="text-sm font-semibold">Required SIP by return</p>
+              <span className="text-[11px] text-muted-foreground">±{adv.spread}%</span>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "If returns are low", rate: lowRate, sip: sipLow, color: "#ef4444", bg: "bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/40" },
+                { label: "Expected", rate, sip: baseSIP, color: "#8b5cf6", bg: "bg-violet-50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/40" },
+                { label: "If returns are high", rate: highRate, sip: sipHigh, color: "#22c55e", bg: "bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/40" },
+              ].map((s) => (
+                <div key={s.label} className={`rounded-xl border p-3 text-center ${s.bg}`}>
+                  <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                  <p className="text-[10px] text-muted-foreground mb-1">{s.rate}% p.a.</p>
+                  <p className="text-sm font-bold" style={{ color: s.color }}>{fmtShort(s.sip)}/mo</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Inflation-protected target */}
+          <div className="rounded-2xl border border-sky-200 dark:border-sky-900/50 bg-sky-50/60 dark:bg-sky-950/20 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <ShieldCheck className="h-4 w-4 text-sky-500" />
+              <p className="text-sm font-semibold">Inflation check</p>
+              <span className="text-[11px] text-muted-foreground">{adv.inflation}% p.a.</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <StatTile label="Target in today's money" value={fmtShort(targetRealToday)} color="#0ea5e9"
+                bg="bg-card border-sky-100 dark:border-sky-900" sub={`${fmtShort(targetAmount)} then`} />
+              <StatTile label="To keep that buying power" value={fmtShort(inflationProtectedTarget)} color="#f59e0b"
+                bg="bg-card border-sky-100 dark:border-sky-900" sub="inflated target" />
+              <StatTile label="SIP for real goal" value={`${fmtShort(sipForRealGoal)}/mo`} color="#8b5cf6"
+                bg="bg-card border-sky-100 dark:border-sky-900" sub="vs current plan" />
             </div>
           </div>
 
