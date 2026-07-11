@@ -19,11 +19,14 @@ import {
   Repeat,
   Loader2,
   CheckCircle2,
+  Landmark,
+  CalendarClock,
 } from "lucide-react";
 import { toast } from "sonner";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { useTransactionsStore } from "@/store/transactions-store";
 import { useRecurringPatternsStore } from "@/store/recurring-patterns-store";
+import { useDebtTrackerStore } from "@/store/debt-tracker-store";
 import { getPendingOccurrencesForMonth } from "@/lib/utils/recurring-occurrences";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
@@ -34,6 +37,7 @@ interface DayTransaction {
   description: string;
   category: string;
   isPendingRecurring?: boolean;
+  isDebtDue?: boolean;
   patternId?: string;
   dueDate?: string;
 }
@@ -43,6 +47,7 @@ export default function CalendarPage() {
   const { transactions, fetchTransactions } = useTransactionsStore();
   const { patterns, fetchPatterns, completeOccurrence } =
     useRecurringPatternsStore();
+  const { debts, fetchDebts } = useDebtTrackerStore();
 
   const [calCurrentDate, setCalCurrentDate] = useState(new Date());
   const [calSelectedDate, setCalSelectedDate] = useState<Date | null>(null);
@@ -53,8 +58,16 @@ export default function CalendarPage() {
   useEffect(() => {
     fetchTransactions();
     fetchPatterns();
+    fetchDebts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const calToDateString = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
 
   const pendingByDate = useMemo(() => {
     const y = calCurrentDate.getFullYear();
@@ -99,23 +112,41 @@ export default function CalendarPage() {
     return map;
   }, [calCurrentDate, patterns, transactions]);
 
+  const debtDueByDate = useMemo(() => {
+    const y = calCurrentDate.getFullYear();
+    const m = calCurrentDate.getMonth();
+    const map: Record<string, DayTransaction[]> = {};
+    debts.forEach((debt) => {
+      if (!debt.due_date || debt.minimum_payment <= 0) return;
+      const due = new Date(debt.due_date);
+      if (due.getFullYear() !== y || due.getMonth() !== m) return;
+      const key = calToDateString(due);
+      const row: DayTransaction = {
+        id: `debt:${debt.id}:${key}`,
+        type: "expense",
+        amount: debt.minimum_payment,
+        description: `${debt.name} EMI`,
+        category: debt.type === "credit_card" ? "Credit Card" : "Debt",
+        isDebtDue: true,
+        dueDate: key,
+      };
+      if (!map[key]) map[key] = [];
+      map[key].push(row);
+    });
+    return map;
+  }, [calCurrentDate, debts]);
+
   const calGetDaysInMonth = (date: Date) =>
     new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
 
   const calGetFirstDayOfMonth = (date: Date) =>
     new Date(date.getFullYear(), date.getMonth(), 1).getDay();
 
-  const calToDateString = (date: Date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  };
-
   const calGetTransactionsForDate = useCallback(
     (date: Date): DayTransaction[] => {
       const key = calToDateString(date);
       const pending = pendingByDate[key] ?? [];
+      const debtDue = debtDueByDate[key] ?? [];
       const real = transactions
         .filter((t) => t.date === key)
         .map((t) => ({
@@ -125,9 +156,9 @@ export default function CalendarPage() {
           description: t.description,
           category: t.category,
         }));
-      return [...pending, ...real];
+      return [...pending, ...debtDue, ...real];
     },
-    [transactions, pendingByDate],
+    [transactions, pendingByDate, debtDueByDate],
   );
 
   const calHandleDayClick = (date: Date) => {
@@ -199,8 +230,10 @@ export default function CalendarPage() {
       const date = new Date(calCurrentDate.getFullYear(), calCurrentDate.getMonth(), day);
       const dayTxns = calGetTransactionsForDate(date);
       const { income, expenses } = calGetDayTotal(date);
+      const net = income - expenses;
       const hasTxns = dayTxns.length > 0;
       const hasPending = dayTxns.some((t) => t.isPendingRecurring);
+      const hasDebtDue = dayTxns.some((t) => t.isDebtDue);
 
       days.push(
         <div
@@ -209,7 +242,9 @@ export default function CalendarPage() {
             calIsToday(date) ? "bg-primary/10 dark:bg-primary/20 border-primary/30" : ""
           } ${calIsSelected(date) ? "ring-2 ring-primary ring-inset" : ""} ${
             hasTxns ? "hover:bg-muted/50" : ""
-          } ${hasPending ? "bg-amber-50/40 dark:bg-amber-950/15" : ""}`}
+          } ${hasPending ? "bg-amber-50/40 dark:bg-amber-950/15" : ""} ${
+            hasDebtDue ? "bg-red-50/40 dark:bg-red-950/15" : ""
+          }`}
           onClick={() => calHandleDayClick(date)}
         >
           <span
@@ -223,6 +258,12 @@ export default function CalendarPage() {
             <div className="mt-0.5 flex items-center gap-0.5 text-[9px] text-amber-800 dark:text-amber-200 font-medium">
               <Repeat className="h-2.5 w-2.5 shrink-0" />
               <span>Due</span>
+            </div>
+          )}
+          {hasDebtDue && (
+            <div className="mt-0.5 flex items-center gap-0.5 text-[9px] text-red-700 dark:text-red-300 font-medium">
+              <Landmark className="h-2.5 w-2.5 shrink-0" />
+              <span>EMI</span>
             </div>
           )}
           {hasTxns && (
@@ -239,6 +280,9 @@ export default function CalendarPage() {
                   <span className="text-[10px] text-red-600 truncate">{format(expenses)}</span>
                 </div>
               )}
+              <div className={`text-[10px] font-mono truncate ${net >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"}`}>
+                Net {net >= 0 ? "+" : ""}{format(net)}
+              </div>
             </div>
           )}
         </div>,
@@ -256,7 +300,31 @@ export default function CalendarPage() {
     });
     const income = monthTxns.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
     const expenses = monthTxns.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-    return { income, expenses, net: income - expenses };
+    const pending = Object.values(pendingByDate)
+      .flat()
+      .reduce(
+        (acc, item) => {
+          if (item.type === "income") acc.income += item.amount;
+          else acc.expenses += item.amount;
+          return acc;
+        },
+        { income: 0, expenses: 0 },
+      );
+    const debtDue = Object.values(debtDueByDate)
+      .flat()
+      .reduce((sum, item) => sum + item.amount, 0);
+    const projectedIncome = income + pending.income;
+    const projectedExpenses = expenses + pending.expenses + debtDue;
+    return {
+      income,
+      expenses,
+      pendingIncome: pending.income,
+      pendingExpenses: pending.expenses + debtDue,
+      projectedIncome,
+      projectedExpenses,
+      net: income - expenses,
+      projectedNet: projectedIncome - projectedExpenses,
+    };
   };
 
   const stats = calMonthlyStats();
@@ -266,7 +334,10 @@ export default function CalendarPage() {
       <main className="px-4 sm:px-6 lg:px-8 py-3 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Transaction Calendar</p>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+              <CalendarClock className="h-3 w-3" />
+              Cashflow Calendar
+            </p>
             <h1 className="text-xl font-semibold mt-0.5">
               {calCurrentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
             </h1>
@@ -277,14 +348,16 @@ export default function CalendarPage() {
           </Button>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-4">
           <Card>
             <CardHeader className="p-3 pb-0">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Total Income</p>
             </CardHeader>
             <CardContent className="p-3 pt-2">
               <div className="text-xl font-bold text-green-600">{format(stats.income)}</div>
-              <p className="text-[10px] text-muted-foreground mt-1">Recorded only (not due recurring)</p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {stats.pendingIncome > 0 ? `+${format(stats.pendingIncome)} due` : "Recorded income"}
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -293,7 +366,9 @@ export default function CalendarPage() {
             </CardHeader>
             <CardContent className="p-3 pt-2">
               <div className="text-xl font-bold text-red-600">{format(stats.expenses)}</div>
-              <p className="text-[10px] text-muted-foreground mt-1">Recorded only</p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {stats.pendingExpenses > 0 ? `+${format(stats.pendingExpenses)} due` : "Recorded expenses"}
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -304,6 +379,18 @@ export default function CalendarPage() {
               <div className={`text-xl font-bold ${stats.net >= 0 ? "text-blue-600" : "text-red-600"}`}>
                 {format(stats.net)}
               </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Recorded cashflow</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="p-3 pb-0">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Projected Net</p>
+            </CardHeader>
+            <CardContent className="p-3 pt-2">
+              <div className={`text-xl font-bold ${stats.projectedNet >= 0 ? "text-blue-600" : "text-red-600"}`}>
+                {format(stats.projectedNet)}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Includes unpaid recurring + EMI</p>
             </CardContent>
           </Card>
         </div>
@@ -339,6 +426,10 @@ export default function CalendarPage() {
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-amber-100 dark:bg-amber-950/40 border border-amber-300/50 rounded" />
                 <span>Has due recurring</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-100 dark:bg-red-950/40 border border-red-300/50 rounded" />
+                <span>Has EMI due</span>
               </div>
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-green-600" />
@@ -396,6 +487,8 @@ export default function CalendarPage() {
                         className={`flex flex-col gap-2 p-3 border rounded-lg ${
                           t.isPendingRecurring
                             ? "bg-amber-50/80 dark:bg-amber-950/25 border-amber-200/80 dark:border-amber-900/50"
+                            : t.isDebtDue
+                              ? "bg-red-50/80 dark:bg-red-950/25 border-red-200/80 dark:border-red-900/50"
                             : "bg-card"
                         }`}
                       >
@@ -421,6 +514,12 @@ export default function CalendarPage() {
                                   <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-amber-200/90 text-amber-950 dark:bg-amber-900/60 dark:text-amber-100 flex items-center gap-1">
                                     <Repeat className="h-3 w-3" />
                                     Due
+                                  </span>
+                                )}
+                                {t.isDebtDue && (
+                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-red-200/90 text-red-950 dark:bg-red-900/60 dark:text-red-100 flex items-center gap-1">
+                                    <Landmark className="h-3 w-3" />
+                                    EMI
                                   </span>
                                 )}
                               </div>

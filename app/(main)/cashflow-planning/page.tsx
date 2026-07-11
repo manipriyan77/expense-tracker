@@ -53,6 +53,11 @@ import { useRecurringPatternsStore } from "@/store/recurring-patterns-store";
 import { useBudgetsStore } from "@/store/budgets-store";
 import { useGoalsStore } from "@/store/goals-store";
 import { useDebtTrackerStore } from "@/store/debt-tracker-store";
+import { useMutualFundsStore } from "@/store/mutual-funds-store";
+import { useStocksStore } from "@/store/stocks-store";
+import { useGoldStore } from "@/store/gold-store";
+import { useForexStore } from "@/store/forex-store";
+import { useOtherInvestmentsStore } from "@/store/other-investments-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { ListPageSkeleton } from "@/components/ui/skeleton";
 
@@ -104,6 +109,12 @@ export default function CashflowPlanningPage() {
   const { budgets, fetchBudgets } = useBudgetsStore();
   const { goals, fetchGoals } = useGoalsStore();
   const { debts, fetchDebts } = useDebtTrackerStore();
+  const { mutualFunds, fetchMutualFunds } = useMutualFundsStore();
+  const { stocks, fetchStocks } = useStocksStore();
+  const { holdings: goldHoldings, load: loadGold } = useGoldStore();
+  const { entries: forexEntries, load: loadForex } = useForexStore();
+  const { investments: otherInvestments, load: loadOtherInvestments } =
+    useOtherInvestmentsStore();
 
   // Forecast scenario controls
   const [scenarioIncomeBoost, setScenarioIncomeBoost] = useState(0); // % boost
@@ -121,12 +132,62 @@ export default function CashflowPlanningPage() {
   const [returnRate, setReturnRate] = useState(12);
   const [extraDebtPayment, setExtraDebtPayment] = useState(0);
 
+  const scenarioPresets = [
+    {
+      name: "Baseline",
+      detail: "Current run-rate",
+      incomeBoost: 0,
+      extraExpense: 0,
+      tone: "slate",
+    },
+    {
+      name: "Salary Hike",
+      detail: "+15% income",
+      incomeBoost: 15,
+      extraExpense: 0,
+      tone: "green",
+    },
+    {
+      name: "New EMI",
+      detail: "+₹20K/mo",
+      incomeBoost: 0,
+      extraExpense: 20000,
+      tone: "amber",
+    },
+    {
+      name: "Big Purchase",
+      detail: "+₹50K/mo",
+      incomeBoost: 0,
+      extraExpense: 50000,
+      tone: "red",
+    },
+    {
+      name: "Hike + SIP",
+      detail: "+10%, +₹10K",
+      incomeBoost: 10,
+      extraExpense: 10000,
+      tone: "violet",
+    },
+    {
+      name: "Emergency",
+      detail: "-30% income",
+      incomeBoost: -30,
+      extraExpense: 0,
+      tone: "orange",
+    },
+  ] as const;
+
   useEffect(() => {
     fetchTransactions();
     fetchPatterns();
     fetchBudgets();
     fetchGoals();
     fetchDebts();
+    fetchMutualFunds();
+    fetchStocks();
+    loadGold();
+    loadForex();
+    loadOtherInvestments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -684,6 +745,395 @@ export default function CashflowPlanningPage() {
     return insights.slice(0, 4);
   }, [savingsRateNum, lastMonthSavingsRate, categoryBreakdown, budgets, activeGoals, forecast18, currentIncome, now]);
 
+  const monthPacePct = useMemo(() => {
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    return Math.min(100, (now.getDate() / daysInMonth) * 100);
+  }, [currentMonth, currentYear, now]);
+
+  const budgetBurnRates = useMemo(
+    () =>
+      sortedBudgets.slice(0, 6).map((b) => {
+        const spent = b.spent_amount || 0;
+        const usedPct =
+          b.limit_amount > 0 ? Math.min(999, (spent / b.limit_amount) * 100) : 0;
+        const projectedSpend =
+          monthPacePct > 0 ? (spent / monthPacePct) * 100 : spent;
+        const projectedOver = projectedSpend - b.limit_amount;
+        const safeDailySpend = Math.max(
+          0,
+          (b.limit_amount - spent) /
+            Math.max(1, new Date(currentYear, currentMonth + 1, 0).getDate() - now.getDate()),
+        );
+        return {
+          ...b,
+          spent,
+          usedPct,
+          projectedSpend,
+          projectedOver,
+          safeDailySpend,
+          status:
+            spent > b.limit_amount
+              ? "over"
+              : usedPct > monthPacePct + 15
+                ? "ahead"
+                : usedPct >= 80
+                  ? "watch"
+                  : "ok",
+        };
+      }),
+    [sortedBudgets, monthPacePct, currentMonth, currentYear, now],
+  );
+
+  const investmentAllocation = useMemo(() => {
+    const mfValue = mutualFunds.reduce((s, f) => s + f.currentValue, 0);
+    const stockValue = stocks.reduce((s, st) => s + st.currentValue, 0);
+    const goldValue = goldHoldings.reduce(
+      (s, h) =>
+        s + h.quantityGrams * h.currentPricePerGram * (h.purity / 100),
+      0,
+    );
+    const otherValue = otherInvestments.reduce((s, inv) => s + inv.currentValue, 0);
+    const forexValue = forexEntries.reduce((s, entry) => {
+      if (entry.type === "withdrawal") return s - entry.amount;
+      return s + entry.amount;
+    }, 0);
+    const total = mfValue + stockValue + goldValue + otherValue + Math.max(0, forexValue);
+    const items = [
+      { label: "Mutual Funds", value: mfValue, color: "#6366f1", href: "/mutual-funds" },
+      { label: "Stocks", value: stockValue, color: "#3b82f6", href: "/stocks" },
+      { label: "Gold", value: goldValue, color: "#f59e0b", href: "/gold" },
+      { label: "Other", value: otherValue, color: "#14b8a6", href: "/investments" },
+      { label: "Forex", value: Math.max(0, forexValue), color: "#a855f7", href: "/forex" },
+    ]
+      .filter((item) => item.value > 0)
+      .map((item) => ({
+        ...item,
+        pct: total > 0 ? (item.value / total) * 100 : 0,
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    const top = items[0];
+    const activeTypes = items.length;
+    const concentrationPenalty = top ? Math.max(0, top.pct - 45) : 45;
+    const diversificationScore = Math.max(
+      0,
+      Math.min(100, activeTypes * 22 - concentrationPenalty),
+    );
+    const notes: { text: string; type: "positive" | "warning" | "neutral" }[] = [];
+    if (activeTypes === 0) {
+      notes.push({ text: "Add investments to unlock allocation tracking", type: "neutral" });
+    } else if (activeTypes < 3) {
+      notes.push({ text: "Portfolio is concentrated in too few asset types", type: "warning" });
+    } else {
+      notes.push({ text: "You have exposure across multiple asset types", type: "positive" });
+    }
+    if (top && top.pct > 60) {
+      notes.push({ text: `${top.label} is ${top.pct.toFixed(0)}% of portfolio`, type: "warning" });
+    }
+
+    return {
+      total,
+      items,
+      top,
+      activeTypes,
+      diversificationScore: Math.round(diversificationScore),
+      notes,
+    };
+  }, [mutualFunds, stocks, goldHoldings, otherInvestments, forexEntries]);
+
+  const debtPayoffOptimizer = useMemo(() => {
+    const payoffMonths = (balance: number, annualRate: number, payment: number) => {
+      if (balance <= 0) return 0;
+      if (payment <= 0) return 999;
+      const r = annualRate / 1200;
+      if (r <= 0) return Math.ceil(balance / payment);
+      if (payment <= balance * r) return 999;
+      return Math.ceil(-Math.log(1 - (balance * r) / payment) / Math.log(1 + r));
+    };
+
+    const activeDebts = debts.filter((d) => d.balance > 0);
+    const suggestedExtra = Math.max(
+      0,
+      Math.round(Math.min(Math.max(surplus, 0) * 0.25, 25000) / 500) * 500,
+    );
+    const extra = extraDebtPayment > 0 ? extraDebtPayment : suggestedExtra;
+    const avalancheTarget = [...activeDebts].sort(
+      (a, b) => b.interest_rate - a.interest_rate,
+    )[0];
+    const snowballTarget = [...activeDebts].sort((a, b) => a.balance - b.balance)[0];
+
+    const baseMonths = Math.max(
+      0,
+      ...activeDebts.map((d) =>
+        payoffMonths(d.balance, d.interest_rate, d.minimum_payment),
+      ),
+    );
+    const avalancheMonths = avalancheTarget
+      ? Math.max(
+          0,
+          ...activeDebts.map((d) =>
+            payoffMonths(
+              d.balance,
+              d.interest_rate,
+              d.minimum_payment + (d.id === avalancheTarget.id ? extra : 0),
+            ),
+          ),
+        )
+      : 0;
+    const snowballMonths = snowballTarget
+      ? Math.max(
+          0,
+          ...activeDebts.map((d) =>
+            payoffMonths(
+              d.balance,
+              d.interest_rate,
+              d.minimum_payment + (d.id === snowballTarget.id ? extra : 0),
+            ),
+          ),
+        )
+      : 0;
+
+    return {
+      extra,
+      avalancheTarget,
+      snowballTarget,
+      baseMonths,
+      avalancheMonths,
+      snowballMonths,
+      avalancheSavedMonths:
+        baseMonths < 999 && avalancheMonths < 999
+          ? Math.max(0, baseMonths - avalancheMonths)
+          : 0,
+      snowballSavedMonths:
+        baseMonths < 999 && snowballMonths < 999
+          ? Math.max(0, baseMonths - snowballMonths)
+          : 0,
+    };
+  }, [debts, surplus, extraDebtPayment]);
+
+  const riskRadar = useMemo(() => {
+    const risks: {
+      key: string;
+      title: string;
+      detail: string;
+      level: "critical" | "warning" | "good";
+      href: string;
+      cta: string;
+    }[] = [];
+
+    const firstNegativeMonth = forecast18.months.find(
+      (m) => m.CumulativeSurplus < 0 || m.Surplus < 0,
+    );
+    if (firstNegativeMonth) {
+      risks.push({
+        key: "negative-cashflow",
+        title: "Cashflow pressure ahead",
+        detail: `${firstNegativeMonth.label} is projected at ${shortAmount(firstNegativeMonth.Surplus)} surplus.`,
+        level: "critical",
+        href: "/transactions",
+        cta: "Review spends",
+      });
+    }
+
+    const emiBurdenPct =
+      currentIncome > 0 ? (totalMinPayment / currentIncome) * 100 : 0;
+    if (emiBurdenPct >= 40) {
+      risks.push({
+        key: "emi-burden",
+        title: "High EMI burden",
+        detail: `Minimum payments use ${emiBurdenPct.toFixed(0)}% of current income.`,
+        level: "critical",
+        href: "/debt-tracker",
+        cta: "Optimize debt",
+      });
+    } else if (emiBurdenPct >= 25) {
+      risks.push({
+        key: "emi-watch",
+        title: "EMI load needs watching",
+        detail: `Debt payments are ${emiBurdenPct.toFixed(0)}% of income.`,
+        level: "warning",
+        href: "/debt-tracker",
+        cta: "Open debts",
+      });
+    }
+
+    const hotBudget = budgetBurnRates.find(
+      (b) => b.status === "over" || b.status === "ahead",
+    );
+    if (hotBudget) {
+      risks.push({
+        key: "budget-burn",
+        title: `${hotBudget.category} burn-rate is high`,
+        detail:
+          hotBudget.status === "over"
+            ? `Over budget by ${format(hotBudget.spent - hotBudget.limit_amount)}.`
+            : `${hotBudget.usedPct.toFixed(0)}% used vs ${monthPacePct.toFixed(0)}% of month elapsed.`,
+        level: hotBudget.status === "over" ? "critical" : "warning",
+        href: "/budgets",
+        cta: "Fix budget",
+      });
+    }
+
+    const underfundedGoal = activeGoals.find((g) => {
+      if (!g.targetDate) return false;
+      const target = new Date(g.targetDate);
+      const monthsLeft = Math.max(
+        1,
+        (target.getFullYear() - now.getFullYear()) * 12 +
+          (target.getMonth() - now.getMonth()),
+      );
+      const required = (g.targetAmount - g.currentAmount) / monthsLeft;
+      return required > Math.max(0, surplus) * 0.5 && g.currentAmount < g.targetAmount;
+    });
+    if (underfundedGoal) {
+      risks.push({
+        key: "goal-gap",
+        title: "Goal funding gap",
+        detail: `${underfundedGoal.title} may need more monthly contribution.`,
+        level: "warning",
+        href: "/goals",
+        cta: "Open goals",
+      });
+    }
+
+    if (investmentAllocation.top && investmentAllocation.top.pct > 65) {
+      risks.push({
+        key: "portfolio-concentration",
+        title: "Portfolio concentration",
+        detail: `${investmentAllocation.top.label} is ${investmentAllocation.top.pct.toFixed(0)}% of tracked investments.`,
+        level: "warning",
+        href: investmentAllocation.top.href,
+        cta: "Review allocation",
+      });
+    }
+
+    if (risks.length === 0) {
+      risks.push({
+        key: "stable",
+        title: "Cashflow looks stable",
+        detail: "No major budget, debt, or forecast pressure detected.",
+        level: "good",
+        href: "/insights",
+        cta: "View insights",
+      });
+    }
+
+    return risks.slice(0, 5);
+  }, [
+    forecast18.months,
+    currentIncome,
+    totalMinPayment,
+    budgetBurnRates,
+    monthPacePct,
+    activeGoals,
+    now,
+    surplus,
+    investmentAllocation,
+    format,
+  ]);
+
+  const monthlyActionPlan = useMemo(() => {
+    const actions: {
+      key: string;
+      title: string;
+      detail: string;
+      impact: string;
+      href: string;
+      tone: "green" | "amber" | "red" | "blue" | "violet";
+    }[] = [];
+
+    const topOverBudget = budgetBurnRates.find((b) => b.status === "over");
+    if (topOverBudget) {
+      actions.push({
+        key: "budget-recover",
+        title: `Recover ${topOverBudget.category}`,
+        detail: `Pause or trim this category by ${format(topOverBudget.spent - topOverBudget.limit_amount)}.`,
+        impact: "Stops budget leakage",
+        href: "/budgets",
+        tone: "red",
+      });
+    }
+
+    if (debtPayoffOptimizer.avalancheTarget && debtPayoffOptimizer.extra > 0) {
+      actions.push({
+        key: "debt-extra",
+        title: `Pay extra on ${debtPayoffOptimizer.avalancheTarget.name}`,
+        detail: `Add ${format(debtPayoffOptimizer.extra)} to the highest-interest debt this month.`,
+        impact:
+          debtPayoffOptimizer.avalancheSavedMonths > 0
+            ? `${debtPayoffOptimizer.avalancheSavedMonths} mo faster`
+            : "Reduces interest drag",
+        href: "/debt-tracker",
+        tone: "amber",
+      });
+    }
+
+    const urgentGoal = activeGoals.find((g) => {
+      if (!g.targetDate || g.currentAmount >= g.targetAmount) return false;
+      const target = new Date(g.targetDate);
+      const monthsLeft =
+        (target.getFullYear() - now.getFullYear()) * 12 +
+        (target.getMonth() - now.getMonth());
+      return monthsLeft <= 6;
+    });
+    if (urgentGoal) {
+      actions.push({
+        key: "goal-top-up",
+        title: `Top up ${urgentGoal.title}`,
+        detail: `${format(urgentGoal.targetAmount - urgentGoal.currentAmount)} still pending.`,
+        impact: "Keeps deadline alive",
+        href: "/goals",
+        tone: "violet",
+      });
+    }
+
+    if (savingsRateNum < 15 && currentIncome > 0) {
+      const targetSurplus = currentIncome * 0.15;
+      actions.push({
+        key: "savings-rate",
+        title: "Lift savings rate to 15%",
+        detail: `Free up ${format(Math.max(0, targetSurplus - surplus))}/mo to hit the next healthy band.`,
+        impact: "Improves health score",
+        href: "/analytics",
+        tone: "blue",
+      });
+    }
+
+    if (investmentAllocation.activeTypes > 0 && investmentAllocation.activeTypes < 3) {
+      actions.push({
+        key: "diversify",
+        title: "Diversify tracked investments",
+        detail: "Add another asset type or rebalance concentration.",
+        impact: "Lowers allocation risk",
+        href: "/investments",
+        tone: "green",
+      });
+    }
+
+    if (actions.length === 0) {
+      actions.push({
+        key: "maintain",
+        title: "Maintain this month’s rhythm",
+        detail: "Budgets, debts, goals, and cashflow are broadly on track.",
+        impact: "Keep compounding",
+        href: "/dashboard",
+        tone: "green",
+      });
+    }
+
+    return actions.slice(0, 5);
+  }, [
+    budgetBurnRates,
+    debtPayoffOptimizer,
+    activeGoals,
+    now,
+    savingsRateNum,
+    currentIncome,
+    surplus,
+    investmentAllocation,
+    format,
+  ]);
+
   if (loading && transactions.length === 0) {
     return <ListPageSkeleton />;
   }
@@ -894,6 +1344,186 @@ export default function CashflowPlanningPage() {
                 </div>
               </div>
             )}
+
+            {/* ── Command Center ── */}
+            <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+              <Card className="xl:col-span-2 rounded-lg overflow-hidden">
+                <CardHeader className="pb-0 border-b border-border px-4 pt-4">
+                  <div className="flex items-center justify-between pb-2">
+                    <div className="flex items-center gap-1.5">
+                      <Zap className="h-3.5 w-3.5 text-amber-500" />
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                        Cashflow Risk Radar
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      {riskRadar.filter((r) => r.level !== "good").length} risk
+                      {riskRadar.filter((r) => r.level !== "good").length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border">
+                    <div className="divide-y divide-border">
+                      {riskRadar.slice(0, 3).map((risk) => (
+                        <div key={risk.key} className="px-4 py-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`h-2 w-2 rounded-full shrink-0 ${
+                                    risk.level === "critical"
+                                      ? "bg-red-500"
+                                      : risk.level === "warning"
+                                        ? "bg-amber-500"
+                                        : "bg-green-500"
+                                  }`}
+                                />
+                                <p className="text-xs font-semibold truncate">
+                                  {risk.title}
+                                </p>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                {risk.detail}
+                              </p>
+                            </div>
+                            <Link href={risk.href} className="shrink-0">
+                              <Button variant="outline" size="sm" className="h-7 text-[10px] px-2">
+                                {risk.cta}
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="divide-y divide-border">
+                      {monthlyActionPlan.slice(0, 3).map((action, idx) => (
+                        <div key={action.key} className="px-4 py-3">
+                          <div className="flex items-start gap-3">
+                            <span
+                              className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-bold ${
+                                action.tone === "red"
+                                  ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                                  : action.tone === "amber"
+                                    ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                                    : action.tone === "violet"
+                                      ? "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
+                                      : action.tone === "blue"
+                                        ? "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+                                        : "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"
+                              }`}
+                            >
+                              {idx + 1}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-xs font-semibold">{action.title}</p>
+                                <Badge variant="outline" className="text-[9px] shrink-0">
+                                  {action.impact}
+                                </Badge>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                {action.detail}
+                              </p>
+                              <Link href={action.href} className="text-[10px] text-primary hover:underline mt-1 inline-flex items-center gap-1">
+                                Open <ArrowRight className="h-3 w-3" />
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-lg overflow-hidden">
+                <CardHeader className="pb-0 border-b border-border px-4 pt-4">
+                  <div className="flex items-center justify-between pb-2">
+                    <div className="flex items-center gap-1.5">
+                      <TrendingUpIcon className="h-3.5 w-3.5 text-indigo-500" />
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                        Allocation Health
+                      </p>
+                    </div>
+                    <span
+                      className={`text-xs font-mono font-bold ${
+                        investmentAllocation.diversificationScore >= 70
+                          ? "text-green-600 dark:text-green-400"
+                          : investmentAllocation.diversificationScore >= 45
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-red-500"
+                      }`}
+                    >
+                      {investmentAllocation.diversificationScore}/100
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-4 py-3">
+                  {investmentAllocation.total > 0 ? (
+                    <>
+                      <div className="flex h-2 rounded-full overflow-hidden bg-muted mb-3">
+                        {investmentAllocation.items.map((item) => (
+                          <div
+                            key={item.label}
+                            style={{ width: `${item.pct}%`, backgroundColor: item.color }}
+                            title={`${item.label}: ${item.pct.toFixed(1)}%`}
+                          />
+                        ))}
+                      </div>
+                      <div className="space-y-2">
+                        {investmentAllocation.items.slice(0, 5).map((item) => (
+                          <Link
+                            key={item.label}
+                            href={item.href}
+                            className="flex items-center justify-between gap-3 text-xs hover:bg-muted/40 rounded-md -mx-1 px-1 py-1"
+                          >
+                            <span className="flex items-center gap-2 min-w-0">
+                              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                              <span className="truncate">{item.label}</span>
+                            </span>
+                            <span className="font-mono text-muted-foreground shrink-0">
+                              {item.pct.toFixed(1)}%
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+                        {investmentAllocation.notes.map((note) => (
+                          <p
+                            key={note.text}
+                            className={`text-[10px] flex items-center gap-1.5 ${
+                              note.type === "positive"
+                                ? "text-green-600 dark:text-green-400"
+                                : note.type === "warning"
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-muted-foreground"
+                            }`}
+                          >
+                            {note.type === "positive" ? (
+                              <CheckCircle2 className="h-3 w-3" />
+                            ) : note.type === "warning" ? (
+                              <AlertCircle className="h-3 w-3" />
+                            ) : (
+                              <Lightbulb className="h-3 w-3" />
+                            )}
+                            {note.text}
+                          </p>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-36 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                      <TrendingUpIcon className="h-6 w-6 opacity-40" />
+                      <p className="text-xs">No tracked investments yet</p>
+                      <Link href="/investments">
+                        <Button size="sm" variant="outline">Add Investment</Button>
+                      </Link>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </section>
 
             {/* ── Cashflow section ── */}
             <section>
@@ -1112,6 +1742,94 @@ export default function CashflowPlanningPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* ── Budget Burn Rate ── */}
+            <Card className="rounded-lg">
+              <CardHeader className="pb-0 border-b border-border px-4 pt-4">
+                <div className="flex items-center justify-between pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Activity className="h-3.5 w-3.5 text-blue-500" />
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                      Budget Burn-Rate
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono text-muted-foreground">
+                    {monthPacePct.toFixed(0)}% of month elapsed
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 py-3">
+                {budgetBurnRates.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {budgetBurnRates.map((b) => {
+                      const statusClasses =
+                        b.status === "over"
+                          ? "border-red-200 bg-red-50/70 dark:border-red-900 dark:bg-red-950/20"
+                          : b.status === "ahead"
+                            ? "border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/20"
+                            : b.status === "watch"
+                              ? "border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/20"
+                              : "border-border bg-card";
+                      const barColor =
+                        b.status === "over"
+                          ? "#ef4444"
+                          : b.status === "ahead"
+                            ? "#f59e0b"
+                            : b.status === "watch"
+                              ? "#3b82f6"
+                              : "#22c55e";
+                      return (
+                        <div key={b.id} className={`rounded-lg border p-3 ${statusClasses}`}>
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold truncate">{b.category}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                Projected {format(Math.round(b.projectedSpend))}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="text-[9px] capitalize shrink-0">
+                              {b.status === "ok" ? "on pace" : b.status}
+                            </Badge>
+                          </div>
+                          <div className="relative h-2 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="absolute top-0 bottom-0 w-px bg-foreground/40"
+                              style={{ left: `${Math.min(100, monthPacePct)}%` }}
+                            />
+                            <div
+                              className="h-full rounded-full"
+                              style={{ width: `${Math.min(100, b.usedPct)}%`, backgroundColor: barColor }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between mt-2 text-[10px]">
+                            <span className="font-mono text-muted-foreground">
+                              {b.usedPct.toFixed(0)}% used
+                            </span>
+                            {b.projectedOver > 0 ? (
+                              <span className="font-medium text-red-600 dark:text-red-400">
+                                +{format(Math.round(b.projectedOver))} projected
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                {format(Math.round(b.safeDailySpend))}/day safe
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="h-28 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <CreditCard className="h-6 w-6 opacity-40" />
+                    <p className="text-xs">Set budgets to see daily safe-spend pacing</p>
+                    <Link href="/budgets">
+                      <Button size="sm" variant="outline">Create Budget</Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* ── Planning section ── */}
             <section>
@@ -1347,6 +2065,32 @@ export default function CashflowPlanningPage() {
                 </p>
               </CardHeader>
               <CardContent className="px-4 pb-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
+                  {scenarioPresets.map((preset) => {
+                    const active =
+                      scenarioIncomeBoost === preset.incomeBoost &&
+                      scenarioExtraExpense === preset.extraExpense;
+                    return (
+                      <button
+                        key={preset.name}
+                        onClick={() => {
+                          setScenarioIncomeBoost(preset.incomeBoost);
+                          setScenarioExtraExpense(preset.extraExpense);
+                        }}
+                        className={`rounded-lg border px-3 py-2 text-left transition-all ${
+                          active
+                            ? "border-blue-500 bg-blue-100 dark:bg-blue-950/40"
+                            : "border-border bg-background/70 hover:bg-background"
+                        }`}
+                      >
+                        <p className="text-xs font-semibold truncate">{preset.name}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {preset.detail}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs">
@@ -1354,16 +2098,16 @@ export default function CashflowPlanningPage() {
                         Income Boost
                       </span>
                       <span
-                        className={`font-mono font-semibold ${scenarioIncomeBoost > 0 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}
+                        className={`font-mono font-semibold ${scenarioIncomeBoost > 0 ? "text-green-600 dark:text-green-400" : scenarioIncomeBoost < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}
                       >
-                        {scenarioIncomeBoost > 0
-                          ? `+${scenarioIncomeBoost}%`
-                          : "None"}
+                        {scenarioIncomeBoost === 0
+                          ? "None"
+                          : `${scenarioIncomeBoost > 0 ? "+" : ""}${scenarioIncomeBoost}%`}
                       </span>
                     </div>
                     <input
                       type="range"
-                      min={0}
+                      min={-50}
                       max={50}
                       step={1}
                       value={scenarioIncomeBoost}
@@ -1373,7 +2117,7 @@ export default function CashflowPlanningPage() {
                       className="w-full accent-green-500"
                     />
                     <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>0%</span>
+                      <span>-50%</span>
                       <span>+50%</span>
                     </div>
                   </div>
@@ -1407,7 +2151,7 @@ export default function CashflowPlanningPage() {
                     </div>
                   </div>
                 </div>
-                {(scenarioIncomeBoost > 0 || scenarioExtraExpense > 0) && (
+                {(scenarioIncomeBoost !== 0 || scenarioExtraExpense > 0) && (
                   <button
                     onClick={() => {
                       setScenarioIncomeBoost(0);
@@ -1488,6 +2232,98 @@ export default function CashflowPlanningPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* ── Debt Payoff Optimizer ── */}
+            {debts.length > 0 && (
+              <Card className="rounded-lg">
+                <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <Landmark className="h-4 w-4 text-amber-500" />
+                        Debt Payoff Optimizer
+                      </CardTitle>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Compares highest-interest avalanche and lowest-balance snowball strategies.
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Extra Payment
+                      </p>
+                      <p className="font-mono text-sm font-bold text-amber-600 dark:text-amber-400">
+                        {format(debtPayoffOptimizer.extra)}/mo
+                      </p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-4 py-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="rounded-lg border border-border p-3">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
+                        Current Plan
+                      </p>
+                      <p className="font-mono text-lg font-bold">
+                        {debtPayoffOptimizer.baseMonths >= 999
+                          ? "Ongoing"
+                          : `${debtPayoffOptimizer.baseMonths} mo`}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Minimum payments only
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+                      <p className="text-[10px] uppercase tracking-widest text-amber-700 dark:text-amber-300 mb-1">
+                        Avalanche
+                      </p>
+                      <p className="font-mono text-lg font-bold text-amber-700 dark:text-amber-300">
+                        {debtPayoffOptimizer.avalancheMonths >= 999
+                          ? "Ongoing"
+                          : `${debtPayoffOptimizer.avalancheMonths} mo`}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Target{" "}
+                        {debtPayoffOptimizer.avalancheTarget?.name ?? "highest APR debt"}
+                      </p>
+                      {debtPayoffOptimizer.avalancheSavedMonths > 0 && (
+                        <Badge variant="outline" className="mt-2 text-[9px] border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300">
+                          {debtPayoffOptimizer.avalancheSavedMonths} mo faster
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-900 dark:bg-blue-950/20">
+                      <p className="text-[10px] uppercase tracking-widest text-blue-700 dark:text-blue-300 mb-1">
+                        Snowball
+                      </p>
+                      <p className="font-mono text-lg font-bold text-blue-700 dark:text-blue-300">
+                        {debtPayoffOptimizer.snowballMonths >= 999
+                          ? "Ongoing"
+                          : `${debtPayoffOptimizer.snowballMonths} mo`}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Target{" "}
+                        {debtPayoffOptimizer.snowballTarget?.name ?? "smallest debt"}
+                      </p>
+                      {debtPayoffOptimizer.snowballSavedMonths > 0 && (
+                        <Badge variant="outline" className="mt-2 text-[9px] border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-300">
+                          {debtPayoffOptimizer.snowballSavedMonths} mo faster
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
+                    <p className="text-[10px] text-muted-foreground">
+                      The extra amount uses your calculator override if set, otherwise it suggests up to 25% of current surplus.
+                    </p>
+                    <Link href="/debt-tracker" className="shrink-0">
+                      <Button size="sm" variant="outline" className="h-7 text-[10px]">
+                        Manage Debts
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* ── EMI Payoff Timeline ── */}
             {debts.length > 0 && (

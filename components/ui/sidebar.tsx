@@ -29,6 +29,8 @@ import {
   LayoutDashboard,
   Calculator,
   GraduationCap,
+  SearchCheck,
+  Shield,
 } from "lucide-react";
 import { Button } from "./button";
 import { usePrivacyStore } from "@/store/privacy-store";
@@ -107,6 +109,7 @@ const FINANCE_NAV: NavItem[] = [
       { title: "Budgets", href: "/budgets", icon: BarChart3 },
       { title: "Goals", href: "/goals", icon: Flag },
       { title: "Cashflow", href: "/cashflow-planning", icon: ArrowLeftRight },
+      { title: "Emergency Fund", href: "/emergency-fund", icon: Shield },
     ],
   },
   { title: "Investments", href: "/investments", icon: TrendingUp },
@@ -118,6 +121,7 @@ const FINANCE_NAV: NavItem[] = [
     icon: PieChart,
     subItems: [
       { title: "Reports", href: "/analytics", icon: BarChart3 },
+      { title: "Smart Review", href: "/transaction-review", icon: SearchCheck },
       { title: "Health Score", href: "/health-score", icon: Activity },
     ],
   },

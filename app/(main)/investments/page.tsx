@@ -1332,6 +1332,48 @@ export default function InvestmentsPage() {
     ].filter((d) => d.value > 0);
   }, [stocks, mutualFunds, holdings, forexSummary, otherInvestments]);
 
+  const rebalancePlan = useMemo(() => {
+    const targets: Record<string, number> = {
+      Stocks: 25,
+      "Mutual Funds": 45,
+      Gold: 15,
+      Forex: 5,
+      Other: 10,
+    };
+    const total = allocationData.reduce((sum, item) => sum + item.value, 0);
+    const items = Object.entries(targets).map(([name, targetPct]) => {
+      const current = allocationData.find((item) => item.name === name);
+      const currentValue = current?.value ?? 0;
+      const currentPct = total > 0 ? (currentValue / total) * 100 : 0;
+      const targetValue = (total * targetPct) / 100;
+      const driftPct = currentPct - targetPct;
+      return {
+        name,
+        targetPct,
+        currentPct,
+        currentValue,
+        targetValue,
+        driftPct,
+        actionAmount: Math.abs(currentValue - targetValue),
+        color: current?.color ?? "#64748b",
+      };
+    });
+    const suggestions = items
+      .filter((item) => Math.abs(item.driftPct) >= 5 && item.actionAmount >= 1000)
+      .sort((a, b) => Math.abs(b.driftPct) - Math.abs(a.driftPct));
+    const score =
+      total > 0
+        ? Math.max(
+            0,
+            Math.round(
+              100 -
+                items.reduce((sum, item) => sum + Math.abs(item.driftPct), 0),
+            ),
+          )
+        : 0;
+    return { total, items, suggestions, score };
+  }, [allocationData]);
+
   // Per-asset-type performance
   const assetPerf = useMemo(() => {
     const si = stocks.reduce((s, x) => s + x.investedAmount, 0);
@@ -1838,6 +1880,99 @@ export default function InvestmentsPage() {
               </Card>
             ) : (
               <>
+                {/* ── Rebalancing Suggestions ── */}
+                <Card className="overflow-hidden">
+                  <div className="px-4 pt-3 pb-2 border-b flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <SlidersHorizontal className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Rebalancing Suggestions
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] text-muted-foreground">Fit score</span>
+                      <span
+                        className={`font-mono text-xs font-bold ${
+                          rebalancePlan.score >= 80
+                            ? "text-green-600 dark:text-green-400"
+                            : rebalancePlan.score >= 60
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-red-500"
+                        }`}
+                      >
+                        {rebalancePlan.score}/100
+                      </span>
+                    </div>
+                  </div>
+                  <CardContent className="p-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+                      <div className="lg:col-span-3 space-y-2">
+                        <div className="flex h-2 rounded-full overflow-hidden bg-muted">
+                          {rebalancePlan.items.map((item) => (
+                            <div
+                              key={item.name}
+                              style={{
+                                width: `${Math.max(0, item.currentPct)}%`,
+                                backgroundColor: item.color,
+                              }}
+                              title={`${item.name}: ${item.currentPct.toFixed(1)}%`}
+                            />
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {rebalancePlan.items.map((item) => (
+                            <div key={item.name} className="rounded-lg border border-border p-3">
+                              <div className="flex items-center justify-between gap-2 mb-2">
+                                <span className="flex items-center gap-2 min-w-0">
+                                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                                  <span className="text-xs font-semibold truncate">{item.name}</span>
+                                </span>
+                                <span className={`text-[10px] font-mono ${Math.abs(item.driftPct) >= 5 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                                  {item.driftPct >= 0 ? "+" : ""}{item.driftPct.toFixed(1)}pp
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                <span>Now {item.currentPct.toFixed(1)}%</span>
+                                <span>Target {item.targetPct}%</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="lg:col-span-2 rounded-lg border border-border bg-muted/30 p-3">
+                        <p className="text-xs font-semibold mb-2">Next Moves</p>
+                        {rebalancePlan.suggestions.length > 0 ? (
+                          <div className="space-y-2">
+                            {rebalancePlan.suggestions.slice(0, 4).map((item) => (
+                              <div key={item.name} className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium truncate">
+                                    {item.driftPct > 0 ? "Trim" : "Add"} {item.name}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    Move toward {item.targetPct}% target
+                                  </p>
+                                </div>
+                                <span className={`font-mono text-xs font-bold shrink-0 ${item.driftPct > 0 ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400"}`}>
+                                  {format(item.actionAmount)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="h-full min-h-24 flex flex-col justify-center">
+                            <CheckCircle2 className="h-5 w-5 text-green-500 mb-2" />
+                            <p className="text-xs font-semibold">Allocation is close to target</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              No major asset class is drifting by 5pp or more.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* ── Asset Class Table ── */}
                 <Card className="overflow-hidden">
                   <div className="px-4 pt-3 pb-2 border-b flex items-center justify-between">

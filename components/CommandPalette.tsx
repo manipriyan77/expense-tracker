@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -21,6 +21,8 @@ import {
   Coins,
   HandCoins,
   CandlestickChart,
+  SearchCheck,
+  Shield,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useTransactionsStore } from "@/store/transactions-store";
@@ -43,6 +45,8 @@ const NAV_COMMANDS = (router: ReturnType<typeof useRouter>): Command[] => [
   { id: "budgets", label: "Budgets", icon: Wallet, type: "page", action: () => router.push("/budgets") },
   { id: "goals", label: "Goals", icon: Target, type: "page", action: () => router.push("/goals") },
   { id: "health-score", label: "Health Score", icon: HeartPulse, type: "page", action: () => router.push("/health-score") },
+  { id: "transaction-review", label: "Smart Transaction Review", icon: SearchCheck, type: "page", action: () => router.push("/transaction-review") },
+  { id: "emergency-fund", label: "Emergency Fund", icon: Shield, type: "page", action: () => router.push("/emergency-fund") },
   { id: "insights", label: "Insights", icon: Lightbulb, type: "page", action: () => router.push("/analytics") },
   { id: "recurring", label: "Recurring", icon: RefreshCw, type: "page", action: () => router.push("/recurring") },
   { id: "investments", label: "Investments", icon: TrendingUp, type: "page", action: () => router.push("/investments") },
@@ -66,39 +70,37 @@ export default function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const navCommands = NAV_COMMANDS(router);
+  const navCommands = useMemo(() => NAV_COMMANDS(router), [router]);
 
-  const filteredCommands: Command[] = query.trim() === ""
-    ? navCommands.slice(0, 8)
-    : [
-        ...navCommands.filter((c) =>
-          c.label.toLowerCase().includes(query.toLowerCase())
-        ),
-        ...transactions
-          .filter(
-            (t) =>
-              t.description.toLowerCase().includes(query.toLowerCase()) ||
-              t.category.toLowerCase().includes(query.toLowerCase())
-          )
-          .slice(0, 5)
-          .map((t): Command => ({
-            id: `tx-${t.id}`,
-            label: t.description,
-            description: `${t.category} · ${t.date} · ${format(t.amount)}`,
-            icon: Receipt,
-            type: "transaction",
-            action: () => router.push("/transactions"),
-          })),
-      ];
-
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
+  const filteredCommands: Command[] = useMemo(
+    () =>
+      query.trim() === ""
+        ? navCommands.slice(0, 8)
+        : [
+            ...navCommands.filter((c) =>
+              c.label.toLowerCase().includes(query.toLowerCase()),
+            ),
+            ...transactions
+              .filter(
+                (t) =>
+                  t.description.toLowerCase().includes(query.toLowerCase()) ||
+                  t.category.toLowerCase().includes(query.toLowerCase()),
+              )
+              .slice(0, 5)
+              .map((t): Command => ({
+                id: `tx-${t.id}`,
+                label: t.description,
+                description: `${t.category} · ${t.date} · ${format(t.amount)}`,
+                icon: Receipt,
+                type: "transaction",
+                action: () => router.push("/transactions"),
+              })),
+          ],
+    [format, navCommands, query, router, transactions],
+  );
 
   useEffect(() => {
     if (isOpen) {
-      setQuery("");
-      setSelectedIndex(0);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
@@ -141,7 +143,16 @@ export default function CommandPalette() {
   );
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          setQuery("");
+          setSelectedIndex(0);
+          close();
+        }
+      }}
+    >
       <DialogContent
         className="p-0 gap-0 max-w-lg overflow-hidden"
         showCloseButton={false}
@@ -153,7 +164,10 @@ export default function CommandPalette() {
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedIndex(0);
+            }}
             placeholder="Search pages, transactions..."
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />

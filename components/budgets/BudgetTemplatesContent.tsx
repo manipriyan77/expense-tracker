@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,9 @@ import {
   Edit,
   MoreVertical,
   Loader2,
+  Wand2,
+  Shield,
+  Target,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -49,6 +52,7 @@ import {
   type BudgetTemplate,
   calculateTotalBudget,
 } from "@/store/budget-templates-store";
+import { useTransactionsStore } from "@/store/transactions-store";
 
 const SYSTEM_TEMPLATES = [
   {
@@ -278,6 +282,7 @@ export function BudgetTemplatesContent() {
     updateTemplate,
     deleteTemplate,
   } = useBudgetTemplatesStore();
+  const { transactions, fetchTransactions } = useTransactionsStore();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -304,8 +309,108 @@ export function BudgetTemplatesContent() {
 
   useEffect(() => {
     fetchTemplates();
+    fetchTransactions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const autoBudgetPlans = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 5);
+    cutoff.setDate(1);
+
+    const categoryTotals = new Map<string, { amount: number; months: Set<string> }>();
+    transactions
+      .filter((t) => t.type === "expense" && new Date(t.date) >= cutoff)
+      .forEach((t) => {
+        const d = new Date(t.date);
+        const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
+        const key = t.category || "Other";
+        const current = categoryTotals.get(key) ?? { amount: 0, months: new Set<string>() };
+        current.amount += t.amount;
+        current.months.add(monthKey);
+        categoryTotals.set(key, current);
+      });
+
+    const baseCategories = [...categoryTotals.entries()]
+      .map(([category, value]) => ({
+        category,
+        subtype: "",
+        amount: Math.max(500, Math.round((value.amount / Math.max(1, value.months.size)) / 500) * 500),
+        period: "monthly",
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 10);
+
+    const scale = (factor: number) =>
+      baseCategories.map((cat) => ({
+        ...cat,
+        amount: Math.max(500, Math.round((cat.amount * factor) / 500) * 500),
+      }));
+
+    const totalBase = baseCategories.reduce((sum, cat) => sum + cat.amount, 0);
+    const withSavings = (cats: typeof baseCategories, amount: number, subtype: string) => [
+      ...cats,
+      {
+        category: "Savings",
+        subtype,
+        amount: Math.max(500, Math.round(amount / 500) * 500),
+        period: "monthly",
+      },
+    ];
+
+    return [
+      {
+        name: "Balanced Auto Budget",
+        description: "Based on recent average spending with a practical savings line.",
+        icon: Wand2,
+        tone: "blue",
+        categories: withSavings(scale(1), totalBase * 0.1, "Monthly Buffer"),
+      },
+      {
+        name: "Conservative Budget",
+        description: "Keeps more room for regular lifestyle spending.",
+        icon: Shield,
+        tone: "green",
+        categories: withSavings(scale(1.1), totalBase * 0.05, "Emergency Fund"),
+      },
+      {
+        name: "Aggressive Saving",
+        description: "Cuts flexible categories and pushes more to savings.",
+        icon: Target,
+        tone: "violet",
+        categories: withSavings(scale(0.8), totalBase * 0.25, "Aggressive Savings"),
+      },
+      {
+        name: "Debt Payoff Mode",
+        description: "Creates room for extra loan or card payments.",
+        icon: Shield,
+        tone: "amber",
+        categories: withSavings(scale(0.85), totalBase * 0.2, "Extra Debt Payment"),
+      },
+      {
+        name: "Goal-First Budget",
+        description: "Prioritizes goals before discretionary spending.",
+        icon: Target,
+        tone: "red",
+        categories: withSavings(scale(0.9), totalBase * 0.18, "Goal Contribution"),
+      },
+    ];
+  }, [transactions]);
+
+  const startFromAutoPlan = (plan: (typeof autoBudgetPlans)[number]) => {
+    if (plan.categories.length <= 1) {
+      toast.error("Add more transactions to generate a useful auto budget");
+      return;
+    }
+    setTemplateForm({
+      name: plan.name,
+      description: plan.description,
+      categories: plan.categories,
+      is_public: false,
+    });
+    setCreateMode("manual");
+    setIsCreateOpen(true);
+  };
 
   const loadCurrentBudgets = async () => {
     try {
@@ -478,6 +583,64 @@ export function BudgetTemplatesContent() {
 
   return (
     <div className="space-y-4">
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-2 border-b border-border">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Wand2 className="h-4 w-4 text-blue-500" />
+                Auto Budgeting
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Generate a template from your recent spending pattern, then edit before saving.
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="text-[10px] shrink-0">
+              {transactions.length} transactions
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="p-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2">
+            {autoBudgetPlans.map((plan) => {
+              const Icon = plan.icon;
+              const total = calculateTotalBudget(plan.categories);
+              return (
+                <button
+                  key={plan.name}
+                  type="button"
+                  onClick={() => startFromAutoPlan(plan)}
+                  className="rounded-lg border border-border p-3 text-left hover:bg-muted/40 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <Icon
+                      className={`h-4 w-4 ${
+                        plan.tone === "green"
+                          ? "text-green-500"
+                          : plan.tone === "violet"
+                            ? "text-violet-500"
+                            : plan.tone === "amber"
+                              ? "text-amber-500"
+                              : plan.tone === "red"
+                                ? "text-red-500"
+                                : "text-blue-500"
+                      }`}
+                    />
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {format(total)}
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold">{plan.name}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">
+                    {plan.description}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex justify-end gap-2">
         <Button variant="outline">
           <Upload className="h-4 w-4 mr-2" />

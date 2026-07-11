@@ -52,6 +52,12 @@ import {
   Landmark,
   BarChart3,
   Lightbulb,
+  ClipboardCheck,
+  CalendarClock,
+  SearchCheck,
+  AlertCircle,
+  Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { useTransactionsStore } from "@/store/transactions-store";
@@ -79,6 +85,7 @@ import {
   scoreInvestments,
   gradeFromTotal,
 } from "@/lib/health-score-utils";
+import { buildTransactionReview } from "@/lib/utils/transaction-insights";
 function gradeLabelFromTotal(total: number): string {
   if (total >= 85) return "Excellent";
   if (total >= 70) return "Good";
@@ -435,6 +442,83 @@ export default function Dashboard() {
 
     return { projected, vsPrev, daysInMonth, dayOfMonth, anomalies };
   }, [transactions, currentMonthTransactions, currentMonthExpenses, prevMonthExpenses, currentMonth, currentYear]);
+
+  const transactionReview = useMemo(
+    () => buildTransactionReview(transactions),
+    [transactions],
+  );
+
+  const activeGoals = useMemo(
+    () => goals.filter((g) => g.status === "active"),
+    [goals],
+  );
+
+  const dashboardCommandCenter = useMemo(() => {
+    const today = new Date();
+    const todaySpend = currentMonthTransactions
+      .filter((t) => {
+        const d = new Date(t.date);
+        return (
+          t.type === "expense" &&
+          d.getDate() === today.getDate() &&
+          d.getMonth() === today.getMonth() &&
+          d.getFullYear() === today.getFullYear()
+        );
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const monthPacePct = (today.getDate() / daysInMonth) * 100;
+    const budgetRisks = budgets.filter((b) => {
+      if (b.limit_amount <= 0) return false;
+      const usedPct = ((b.spent_amount || 0) / b.limit_amount) * 100;
+      return usedPct >= 80 || usedPct > monthPacePct + 15;
+    });
+
+    const upcomingDebt = debts
+      .filter((d) => d.due_date)
+      .map((d) => ({
+        ...d,
+        due: new Date(d.due_date as string),
+      }))
+      .filter((d) => {
+        const days = (d.due.getTime() - today.getTime()) / 86_400_000;
+        return days >= -1 && days <= 10;
+      })
+      .sort((a, b) => a.due.getTime() - b.due.getTime())[0];
+
+    const urgentGoal = activeGoals
+      .filter((g) => g.targetDate && g.currentAmount < g.targetAmount)
+      .map((g) => {
+        const target = new Date(g.targetDate as string);
+        const monthsLeft = Math.max(
+          1,
+          (target.getFullYear() - today.getFullYear()) * 12 +
+            (target.getMonth() - today.getMonth()),
+        );
+        return {
+          goal: g,
+          requiredMonthly: (g.targetAmount - g.currentAmount) / monthsLeft,
+          monthsLeft,
+        };
+      })
+      .sort((a, b) => a.monthsLeft - b.monthsLeft)[0];
+
+    return {
+      todaySpend,
+      monthPacePct,
+      budgetRisks,
+      upcomingDebt,
+      urgentGoal,
+    };
+  }, [
+    currentMonthTransactions,
+    currentMonth,
+    currentYear,
+    budgets,
+    debts,
+    activeGoals,
+  ]);
 
   // Net Worth calculations
   // include investments tracked in other modules (stocks, mutual funds, gold, forex)
@@ -799,7 +883,6 @@ export default function Dashboard() {
       .slice(0, 3);
   }, [goals, currentMonthIncome, currentMonthExpenses]);
 
-  const activeGoals = goals.filter((g) => g.status === "active");
   const hasNoGoals = activeGoals.length === 0;
 
   const handleTakeSnapshot = async () => {
@@ -966,6 +1049,130 @@ export default function Dashboard() {
               <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setGoalBannerDismissed(true)}><X className="h-3 w-3" /></Button>
             </div>
           )}
+
+          {/* ── Financial Command Center ── */}
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-2.5">
+            <Card className="xl:col-span-2 overflow-hidden">
+              <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3 text-violet-500" />
+                  Command Center
+                </p>
+                <Link href="/cashflow-planning" className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                  Plan cashflow <ArrowRight className="h-2.5 w-2.5" />
+                </Link>
+              </div>
+              <CardContent className="p-0">
+                <div className="grid grid-cols-2 divide-x divide-y divide-border">
+                  <Link href="/transactions" className="p-3 hover:bg-muted/40 transition-colors">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Today Spend</span>
+                      <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                    <p className="font-mono text-base font-bold">{format(dashboardCommandCenter.todaySpend)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Logged today</p>
+                  </Link>
+                  <Link href="/cashflow-planning" className="p-3 hover:bg-muted/40 transition-colors">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Month End</span>
+                      <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                    <p className="font-mono text-base font-bold">{format(Math.round(forecastInsights.projected))}</p>
+                    <p className={`text-[10px] mt-0.5 ${forecastInsights.vsPrev !== null && forecastInsights.vsPrev > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                      {forecastInsights.vsPrev === null ? "Projected spend" : `${forecastInsights.vsPrev > 0 ? "+" : ""}${forecastInsights.vsPrev.toFixed(0)}% vs last month`}
+                    </p>
+                  </Link>
+                  <Link href="/transaction-review" className="p-3 hover:bg-muted/40 transition-colors">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Review Score</span>
+                      <SearchCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                    <p className={`font-mono text-base font-bold ${transactionReview.score >= 85 ? "text-green-600 dark:text-green-400" : transactionReview.score >= 65 ? "text-amber-600 dark:text-amber-400" : "text-red-500"}`}>
+                      {transactionReview.score}/100
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {transactionReview.counts.needsReview} item{transactionReview.counts.needsReview === 1 ? "" : "s"} to review
+                    </p>
+                  </Link>
+                  <Link href="/budgets" className="p-3 hover:bg-muted/40 transition-colors">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Budget Risks</span>
+                      <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                    <p className={`font-mono text-base font-bold ${dashboardCommandCenter.budgetRisks.length > 0 ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400"}`}>
+                      {dashboardCommandCenter.budgetRisks.length}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {dashboardCommandCenter.monthPacePct.toFixed(0)}% of month elapsed
+                    </p>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden">
+              <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                  <CalendarClock className="h-3 w-3 text-blue-500" />
+                  Next Due
+                </p>
+                <Link href="/debt-tracker" className="text-[10px] text-primary hover:underline">
+                  Debts
+                </Link>
+              </div>
+              <CardContent className="px-4 py-3">
+                {dashboardCommandCenter.upcomingDebt ? (
+                  <>
+                    <p className="text-sm font-semibold truncate">{dashboardCommandCenter.upcomingDebt.name}</p>
+                    <p className="font-mono text-lg font-bold text-red-600 dark:text-red-400 mt-1">
+                      {format(dashboardCommandCenter.upcomingDebt.minimum_payment)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Due {dashboardCommandCenter.upcomingDebt.due.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                    </p>
+                  </>
+                ) : (
+                  <div className="h-20 flex flex-col justify-center">
+                    <CheckCircle2 className="h-5 w-5 text-green-500 mb-2" />
+                    <p className="text-sm font-semibold">No debt due soon</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Next 10 days look clear</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden">
+              <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                  <TargetIcon className="h-3 w-3 text-violet-500" />
+                  Goal Gap
+                </p>
+                <Link href="/goals" className="text-[10px] text-primary hover:underline">
+                  Goals
+                </Link>
+              </div>
+              <CardContent className="px-4 py-3">
+                {dashboardCommandCenter.urgentGoal ? (
+                  <>
+                    <p className="text-sm font-semibold truncate">{dashboardCommandCenter.urgentGoal.goal.title}</p>
+                    <p className="font-mono text-lg font-bold text-violet-600 dark:text-violet-400 mt-1">
+                      {format(Math.round(dashboardCommandCenter.urgentGoal.requiredMonthly))}
+                      <span className="text-xs font-normal text-muted-foreground">/mo</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {dashboardCommandCenter.urgentGoal.monthsLeft} mo left
+                    </p>
+                  </>
+                ) : (
+                  <div className="h-20 flex flex-col justify-center">
+                    <ClipboardCheck className="h-5 w-5 text-green-500 mb-2" />
+                    <p className="text-sm font-semibold">No urgent gap</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Active goals look steady</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
           {/* ── ROW 1: Health Score + Cashflow (side by side) ── */}
           {isVisible("financial-health") && (
