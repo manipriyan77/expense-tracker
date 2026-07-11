@@ -25,19 +25,9 @@ import {
   Scale,
   Activity,
   CalendarDays,
-  BookOpen,
   Sparkles,
-  CheckSquare,
   LayoutDashboard,
-  Star,
   Calculator,
-  Dumbbell,
-  ClipboardList,
-  History,
-  Play,
-  Library,
-  LineChart,
-  Ruler,
   GraduationCap,
 } from "lucide-react";
 import { Button } from "./button";
@@ -70,24 +60,6 @@ interface NavItem {
 
 const HUB_ITEMS = [
   {
-    title: "Daily Tracker",
-    href: "/daily-tracker",
-    icon: BookOpen,
-    description: "Log your day",
-    color: "text-orange-500",
-    bg: "bg-orange-500/10 hover:bg-orange-500/20",
-    border: "border-orange-500/20",
-  },
-  {
-    title: "Tasks",
-    href: "/tasks",
-    icon: CheckSquare,
-    description: "Manage your tasks",
-    color: "text-violet-500",
-    bg: "bg-violet-500/10 hover:bg-violet-500/20",
-    border: "border-violet-500/20",
-  },
-  {
     title: "Finance",
     href: "/dashboard",
     icon: BarChart3,
@@ -95,15 +67,6 @@ const HUB_ITEMS = [
     color: "text-primary",
     bg: "bg-primary/10 hover:bg-primary/20",
     border: "border-primary/20",
-  },
-  {
-    title: "Workout",
-    href: "/workout",
-    icon: Dumbbell,
-    description: "Track your training",
-    color: "text-green-500",
-    bg: "bg-green-500/10 hover:bg-green-500/20",
-    border: "border-green-500/20",
   },
   {
     title: "Learning",
@@ -118,32 +81,9 @@ const HUB_ITEMS = [
 
 // ─── Section nav items ──────────────────────────────────────────────────────
 
-const DAILY_TRACKER_NAV: NavItem[] = [
-  { title: "Overview", href: "/daily-tracker", icon: LayoutDashboard },
-  { title: "Habits", href: "/daily-tracker/habits", icon: CheckSquare },
-  { title: "Life Goals", href: "/daily-tracker/goals", icon: Star },
-  { title: "Journal", href: "/daily-tracker/journal", icon: BookOpen },
-  { title: "Analytics", href: "/daily-tracker/analytics", icon: BarChart3 },
-];
-
-const TASKS_NAV: NavItem[] = [
-  { title: "My Tasks", href: "/tasks", icon: CheckSquare },
-];
-
 const LEARNING_NAV: NavItem[] = [
   { title: "Overview", href: "/learning", icon: LayoutDashboard },
   { title: "Topics", href: "/learning/topics", icon: GraduationCap },
-];
-
-const WORKOUT_NAV: NavItem[] = [
-  { title: "Overview", href: "/workout", icon: LayoutDashboard },
-  { title: "Log Workout", href: "/workout/log", icon: Play },
-  { title: "Routines", href: "/workout/routines", icon: ClipboardList },
-  { title: "History", href: "/workout/history", icon: History },
-  { title: "Exercises", href: "/workout/exercises", icon: Library },
-  { title: "Programs", href: "/workout/programs", icon: BookOpen },
-  { title: "Analytics", href: "/workout/analytics", icon: LineChart },
-  { title: "Body Measurements", href: "/workout/body", icon: Ruler },
 ];
 
 const FINANCE_NAV: NavItem[] = [
@@ -185,13 +125,10 @@ const FINANCE_NAV: NavItem[] = [
 
 // ─── Section detection ──────────────────────────────────────────────────────
 
-type Section = "home" | "daily-tracker" | "tasks" | "finance" | "workout" | "learning";
+type Section = "home" | "finance" | "learning";
 
 function getSection(pathname: string): Section {
   if (pathname === "/home") return "home";
-  if (pathname.startsWith("/daily-tracker")) return "daily-tracker";
-  if (pathname.startsWith("/tasks")) return "tasks";
-  if (pathname.startsWith("/workout")) return "workout";
   if (pathname.startsWith("/learning")) return "learning";
   return "finance";
 }
@@ -200,10 +137,7 @@ const SECTION_META: Record<
   Exclude<Section, "home">,
   { label: string; nav: NavItem[]; accent: string }
 > = {
-  "daily-tracker": { label: "Daily Tracker", nav: DAILY_TRACKER_NAV, accent: "text-orange-500" },
-  tasks: { label: "Tasks", nav: TASKS_NAV, accent: "text-violet-500" },
   finance: { label: "Finance", nav: FINANCE_NAV, accent: "text-primary" },
-  workout: { label: "Workout", nav: WORKOUT_NAV, accent: "text-green-500" },
   learning: { label: "Learning", nav: LEARNING_NAV, accent: "text-indigo-500" },
 };
 

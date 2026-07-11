@@ -17,18 +17,62 @@ export interface MutualFund {
   updated_at: string;
 }
 
+// A monthly snapshot of a fund's totals, captured from a CSV upload.
+export interface MutualFundSnapshot {
+  id: string;
+  fundId: string;
+  month: string; // YYYY-MM-DD (1st of month)
+  units: number;
+  investedAmount: number;
+  currentValue: number;
+  nav: number;
+}
+
+function transformSnapshot(s: any): MutualFundSnapshot {
+  return {
+    id: s.id,
+    fundId: s.fund_id,
+    month: s.snapshot_month,
+    units: parseFloat(s.units || 0),
+    investedAmount: parseFloat(s.invested_amount || 0),
+    currentValue: parseFloat(s.current_value || 0),
+    nav: parseFloat(s.nav || 0),
+  };
+}
+
+// Payload sent to the bulk snapshot import endpoint.
+export interface SnapshotImportFund {
+  name: string;
+  symbol?: string;
+  category?: string;
+  subCategory?: string;
+  units?: number;
+  nav?: number;
+  purchaseNav?: number;
+  investedAmount?: number;
+  currentValue?: number;
+  purchaseDate?: string;
+}
+
 interface MutualFundsState {
   mutualFunds: MutualFund[];
+  snapshots: MutualFundSnapshot[];
   loading: boolean;
   error: string | null;
   fetchMutualFunds: () => Promise<void>;
   addMutualFund: (fund: Omit<MutualFund, "id" | "user_id" | "created_at" | "updated_at">) => Promise<void>;
   updateMutualFund: (id: string, updates: Partial<MutualFund>) => Promise<void>;
   deleteMutualFund: (id: string) => Promise<void>;
+  fetchSnapshots: () => Promise<void>;
+  importSnapshot: (
+    month: string,
+    funds: SnapshotImportFund[]
+  ) => Promise<{ imported: number; failed: number }>;
 }
 
-export const useMutualFundsStore = create<MutualFundsState>((set) => ({
+export const useMutualFundsStore = create<MutualFundsState>((set, get) => ({
   mutualFunds: [],
+  snapshots: [],
   loading: false,
   error: null,
 
@@ -181,6 +225,43 @@ export const useMutualFundsStore = create<MutualFundsState>((set) => ({
     } catch (error) {
       console.error("Error deleting mutual fund:", error);
       set({ error: error instanceof Error ? error.message : "Failed to delete mutual fund", loading: false });
+    }
+  },
+
+  fetchSnapshots: async () => {
+    try {
+      const response = await fetch("/api/mutual-funds/snapshots");
+      if (!response.ok) {
+        throw new Error("Failed to fetch snapshots");
+      }
+      const data = await response.json();
+      set({ snapshots: (data || []).map(transformSnapshot) });
+    } catch (error) {
+      console.error("Error fetching snapshots:", error);
+      set({ error: error instanceof Error ? error.message : "Failed to fetch snapshots" });
+    }
+  },
+
+  importSnapshot: async (month, funds) => {
+    try {
+      const response = await fetch("/api/mutual-funds/import-snapshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month, funds }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to import snapshot");
+      }
+      const result = await response.json();
+      // Refresh funds and snapshots so aggregates + charts reflect the upload.
+      await get().fetchMutualFunds();
+      await get().fetchSnapshots();
+      return { imported: result.imported || 0, failed: result.failed || 0 };
+    } catch (error) {
+      console.error("Error importing snapshot:", error);
+      set({ error: error instanceof Error ? error.message : "Failed to import snapshot" });
+      throw error;
     }
   },
 }));

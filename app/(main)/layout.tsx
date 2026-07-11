@@ -14,7 +14,7 @@ import {
   Receipt,
   BarChart3,
   Home,
-  BookOpen,
+  TrendingUp,
   LayoutGrid,
   Plus,
   ChevronRight,
@@ -65,20 +65,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/health-score": "Health Score",
   "/insights": "Insights",
   "/analytics?tab=insights": "Insights",
-  "/daily-tracker": "Overview",
-  "/daily-tracker/habits": "Habits",
-  "/daily-tracker/goals": "Life Goals",
-  "/daily-tracker/journal": "Journal",
-  "/daily-tracker/analytics": "Analytics",
-  "/tasks": "Tasks",
-  "/workout": "Workout",
-  "/workout/log": "Log Workout",
-  "/workout/routines": "Routines",
-  "/workout/history": "History",
-  "/workout/exercises": "Exercise Library",
-  "/workout/analytics": "Analytics",
-  "/workout/body": "Body Measurements",
-  "/workout/programs": "Programs",
   "/learning": "Learning",
   "/learning/topics": "Topics",
   "/settings": "Settings",
@@ -91,20 +77,6 @@ const PAGE_TITLES: Record<string, string> = {
 const SIDEBAR_ROOTS = new Set([
   "/home",
   "/dashboard",
-  "/daily-tracker",
-  "/daily-tracker/habits",
-  "/daily-tracker/goals",
-  "/daily-tracker/journal",
-  "/daily-tracker/analytics",
-  "/tasks",
-  "/workout",
-  "/workout/log",
-  "/workout/routines",
-  "/workout/history",
-  "/workout/exercises",
-  "/workout/analytics",
-  "/workout/body",
-  "/workout/programs",
   "/learning",
   "/learning/topics",
   "/transactions",
@@ -123,9 +95,9 @@ const SIDEBAR_ROOTS = new Set([
 // Bottom nav tabs
 const BOTTOM_NAV = [
   { href: "/home", label: "Home", icon: Home },
-  { href: "/daily-tracker", label: "Tracker", icon: BookOpen },
   { href: "/dashboard", label: "Finance", icon: BarChart3 },
   { href: "/transactions", label: "Spend", icon: Receipt },
+  { href: "/investments", label: "Invest", icon: TrendingUp },
 ];
 
 export default function MainLayout({
@@ -149,24 +121,7 @@ export default function MainLayout({
   const breadcrumbs: BreadcrumbItem[] = (() => {
     if (pathname === "/home") return [{ label: "Trackwise" }];
     const crumbs: BreadcrumbItem[] = [{ label: "Trackwise", href: "/home" }];
-    if (pathname.startsWith("/daily-tracker")) {
-      if (pathname === "/daily-tracker") {
-        crumbs.push({ label: "Daily Tracker" });
-      } else {
-        crumbs.push({ label: "Daily Tracker", href: "/daily-tracker" });
-        crumbs.push({ label: pageTitle });
-      }
-    } else if (pathname.startsWith("/tasks")) {
-      crumbs.push({ label: "Tasks", href: "/tasks" });
-      if (pathname !== "/tasks") crumbs.push({ label: pageTitle });
-    } else if (pathname.startsWith("/workout")) {
-      if (pathname === "/workout") {
-        crumbs.push({ label: "Workout" });
-      } else {
-        crumbs.push({ label: "Workout", href: "/workout" });
-        crumbs.push({ label: pageTitle });
-      }
-    } else if (pathname.startsWith("/learning")) {
+    if (pathname.startsWith("/learning")) {
       if (pathname === "/learning") {
         crumbs.push({ label: "Learning" });
       } else {

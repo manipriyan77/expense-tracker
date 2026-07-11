@@ -69,6 +69,7 @@ import { useStocksStore, type Stock } from "@/store/stocks-store";
 import {
   useMutualFundsStore,
   type MutualFund,
+  type SnapshotImportFund,
 } from "@/store/mutual-funds-store";
 import { useGoldStore, type GoldHolding } from "@/store/gold-store";
 import { useSilverStore, type SilverHolding } from "@/store/silver-store";
@@ -271,6 +272,9 @@ export default function InvestmentsPage() {
     addMutualFund,
     updateMutualFund,
     deleteMutualFund,
+    snapshots,
+    fetchSnapshots,
+    importSnapshot,
   } = useMutualFundsStore();
   const {
     holdings,
@@ -359,8 +363,18 @@ export default function InvestmentsPage() {
     data: Stock | MutualFund | GoldHolding | SilverHolding;
   } | null>(null);
 
+  // Monthly tracker view state ("" = portfolio total, else a fund id)
+  const [trackerFundId, setTrackerFundId] = useState<string>("__total__");
+  const [trackerMetric, setTrackerMetric] = useState<
+    "investedAmount" | "units" | "currentValue"
+  >("investedAmount");
+
   // CSV Import state
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  // Month the uploaded holdings CSV represents (snapshot builds over uploads)
+  const [importMonth, setImportMonth] = useState<string>(
+    new Date().toISOString().slice(0, 7),
+  );
   const [importType, setImportType] = useState<"stocks" | "mutual-funds">(
     "stocks",
   );
@@ -376,6 +390,7 @@ export default function InvestmentsPage() {
   useEffect(() => {
     fetchStocks();
     fetchMutualFunds();
+    fetchSnapshots();
     loadGold();
     loadSilver();
     loadForex();
@@ -1017,13 +1032,14 @@ export default function InvestmentsPage() {
     setImportSaving(true);
     let success = 0,
       failed = 0;
+    // Mutual-fund rows are collected and sent as one monthly snapshot import so
+    // funds are matched by name and history accumulates across uploads.
+    const fundSnapshotRows: SnapshotImportFund[] = [];
     try {
-      if (replaceOnImport) {
-        if (importType === "stocks") {
-          for (const s of stocks) await deleteStock(s.id);
-        } else {
-          for (const f of mutualFunds) await deleteMutualFund(f.id);
-        }
+      // Replace only applies to stocks. Mutual funds are matched by name on import,
+      // so deleting them would wipe accumulated monthly history.
+      if (replaceOnImport && importType === "stocks") {
+        for (const s of stocks) await deleteStock(s.id);
       }
       for (const row of importRows) {
         try {
@@ -1146,7 +1162,14 @@ export default function InvestmentsPage() {
               ),
             );
 
-            await addMutualFund({
+            // Skip section-header / empty rows (no name or no units).
+            if (!nameVal || units <= 0) {
+              failed++;
+              continue;
+            }
+
+            // Collected and imported together as one monthly snapshot below.
+            fundSnapshotRows.push({
               name: nameVal,
               symbol: symbolVal,
               category: categoryVal,
@@ -1158,12 +1181,21 @@ export default function InvestmentsPage() {
               currentValue: currentVal,
               purchaseDate: purchaseDateVal,
             });
+            // success for funds is tallied from the import result below.
+            continue;
           }
           success++;
         } catch {
           failed++;
         }
       }
+
+      if (importType === "mutual-funds" && fundSnapshotRows.length > 0) {
+        const result = await importSnapshot(importMonth, fundSnapshotRows);
+        success = result.imported;
+        failed += result.failed;
+      }
+
       setImportStep("done");
       if (success > 0)
         toast.success(
@@ -2684,6 +2716,210 @@ export default function InvestmentsPage() {
                           {ret.toFixed(2)}%
                         </p>
                       </div>
+                    </div>
+                  </Card>
+                );
+              })()}
+
+            {/* Monthly tracker — built from CSV snapshot uploads */}
+            {mutualFunds.length > 0 &&
+              (() => {
+                const isTotal = trackerFundId === "__total__";
+                const scoped = isTotal
+                  ? snapshots
+                  : snapshots.filter((s) => s.fundId === trackerFundId);
+
+                // Group scoped snapshots by month (sum across funds for the total).
+                const byMonth = new Map<
+                  string,
+                  { invested: number; units: number; value: number }
+                >();
+                for (const s of scoped) {
+                  const key = s.month.slice(0, 7);
+                  const acc = byMonth.get(key) || {
+                    invested: 0,
+                    units: 0,
+                    value: 0,
+                  };
+                  acc.invested += s.investedAmount;
+                  acc.units += s.units;
+                  acc.value += s.currentValue;
+                  byMonth.set(key, acc);
+                }
+                const rows = [...byMonth.entries()]
+                  .sort((a, b) => a[0].localeCompare(b[0]))
+                  .map(([month, v]) => ({
+                    month,
+                    label: new Date(`${month}-01`).toLocaleDateString("en-US", {
+                      month: "short",
+                      year: "2-digit",
+                    }),
+                    investedAmount: v.invested,
+                    units: v.units,
+                    currentValue: v.value,
+                  }));
+
+                const metricMeta = {
+                  investedAmount: { label: "Invested", isMoney: true },
+                  units: { label: "Units", isMoney: false },
+                  currentValue: { label: "Current Value", isMoney: true },
+                } as const;
+                const active = metricMeta[trackerMetric];
+
+                return (
+                  <Card className="overflow-hidden p-0">
+                    <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                      <CardTitle className="text-sm font-semibold">
+                        Monthly Tracker
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        Trend of how your holdings grow each month. Built from your
+                        CSV uploads — upload the latest holdings monthly to extend
+                        the graph.
+                      </p>
+                    </CardHeader>
+                    <div className="p-4 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <Select
+                          value={trackerFundId}
+                          onValueChange={setTrackerFundId}
+                        >
+                          <SelectTrigger className="w-full sm:max-w-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__total__">
+                              Portfolio Total
+                            </SelectItem>
+                            {[...mutualFunds]
+                              .sort((a, b) => a.name.localeCompare(b.name))
+                              .map((f) => (
+                                <SelectItem key={f.id} value={f.id}>
+                                  {f.name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="flex gap-1 rounded-lg border p-0.5">
+                          {(
+                            [
+                              "investedAmount",
+                              "units",
+                              "currentValue",
+                            ] as const
+                          ).map((m) => (
+                            <Button
+                              key={m}
+                              size="sm"
+                              variant={
+                                trackerMetric === m ? "default" : "ghost"
+                              }
+                              className="h-7 text-xs"
+                              onClick={() => setTrackerMetric(m)}
+                            >
+                              {metricMeta[m].label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {rows.length === 0 ? (
+                        <div className="text-sm text-muted-foreground py-8 text-center border border-dashed rounded-md">
+                          <p>No monthly data yet.</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-3"
+                            onClick={() => openImport("mutual-funds")}
+                          >
+                            <Upload className="h-3.5 w-3.5 mr-1" /> Upload holdings
+                            CSV
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <ResponsiveContainer width="100%" height={260}>
+                            <LineChart
+                              data={rows}
+                              margin={{ top: 8, right: 12, left: 4, bottom: 0 }}
+                            >
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="hsl(var(--border))"
+                                vertical={false}
+                              />
+                              <XAxis
+                                dataKey="label"
+                                tick={{ fontSize: 11 }}
+                                stroke="hsl(var(--muted-foreground))"
+                              />
+                              <YAxis
+                                tick={{ fontSize: 11 }}
+                                stroke="hsl(var(--muted-foreground))"
+                                width={active.isMoney ? 64 : 48}
+                                tickFormatter={(v: number) =>
+                                  active.isMoney
+                                    ? format(v)
+                                    : v.toLocaleString()
+                                }
+                              />
+                              <Tooltip
+                                formatter={(v: unknown) => [
+                                  active.isMoney
+                                    ? format(v as number)
+                                    : (v as number).toLocaleString(),
+                                  active.label,
+                                ]}
+                                contentStyle={{
+                                  backgroundColor: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: 8,
+                                  fontSize: 12,
+                                }}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey={trackerMetric}
+                                stroke="#8b5cf6"
+                                strokeWidth={2}
+                                dot={{ r: 3 }}
+                                activeDot={{ r: 5 }}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+
+                          {/* Monthly table */}
+                          <div className="overflow-x-auto">
+                            <div className="min-w-[480px]">
+                              <div className="grid grid-cols-4 gap-2 px-2 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                                <div>Month</div>
+                                <div className="text-right">Invested</div>
+                                <div className="text-right">Units</div>
+                                <div className="text-right">Value</div>
+                              </div>
+                              {[...rows].reverse().map((r) => (
+                                <div
+                                  key={r.month}
+                                  className="grid grid-cols-4 gap-2 px-2 py-2 text-sm items-center border-b border-border/50"
+                                >
+                                  <div className="font-medium">{r.label}</div>
+                                  <div className="text-right font-mono">
+                                    {format(r.investedAmount)}
+                                  </div>
+                                  <div className="text-right font-mono">
+                                    {r.units.toLocaleString(undefined, {
+                                      maximumFractionDigits: 3,
+                                    })}
+                                  </div>
+                                  <div className="text-right font-mono">
+                                    {format(r.currentValue)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </Card>
                 );
@@ -5661,28 +5897,42 @@ export default function InvestmentsPage() {
                   </p>
                 )}
               </div>
-              <div className="flex items-center justify-between pt-2">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 accent-destructive cursor-pointer"
-                    checked={replaceOnImport}
-                    onChange={(e) => setReplaceOnImport(e.target.checked)}
+              {importType === "mutual-funds" && (
+                <div className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-3">
+                  <Label className="text-sm">Snapshot month</Label>
+                  <Input
+                    type="month"
+                    className="max-w-[200px]"
+                    value={importMonth}
+                    onChange={(e) => setImportMonth(e.target.value)}
                   />
-                  <span className="text-sm text-muted-foreground">
-                    Replace existing{" "}
-                    {importType === "stocks" ? "stocks" : "funds"}
-                    {replaceOnImport && (
-                      <span className="ml-1 text-destructive font-medium">
-                        (
-                        {importType === "stocks"
-                          ? stocks.length
-                          : mutualFunds.length}{" "}
-                        will be deleted)
-                      </span>
-                    )}
-                  </span>
-                </label>
+                  <p className="text-[11px] text-muted-foreground">
+                    This upload is saved as your holdings for this month. Funds are
+                    matched by name, so uploading each month builds the trend graph.
+                  </p>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-2">
+                {importType === "stocks" ? (
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-destructive cursor-pointer"
+                      checked={replaceOnImport}
+                      onChange={(e) => setReplaceOnImport(e.target.checked)}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      Replace existing stocks
+                      {replaceOnImport && (
+                        <span className="ml-1 text-destructive font-medium">
+                          ({stocks.length} will be deleted)
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                ) : (
+                  <span />
+                )}
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
