@@ -11,6 +11,7 @@ export const goalFormSchema = z.object({
   category: z.string().min(1, "Category is required"),
   priority: z.enum(["high", "medium", "low"]),
   monthlyContribution: z.number().min(0, "Cannot be negative").optional(),
+  unit: z.enum(["amount", "grams"]).optional(),
 });
 
 export type GoalFormData = z.infer<typeof goalFormSchema>;

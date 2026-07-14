@@ -27,10 +27,9 @@ import {
   CalendarDays,
   Sparkles,
   LayoutDashboard,
-  Calculator,
   GraduationCap,
   SearchCheck,
-  Shield,
+  Rocket,
 } from "lucide-react";
 import { Button } from "./button";
 import { usePrivacyStore } from "@/store/privacy-store";
@@ -109,12 +108,11 @@ const FINANCE_NAV: NavItem[] = [
       { title: "Budgets", href: "/budgets", icon: BarChart3 },
       { title: "Goals", href: "/goals", icon: Flag },
       { title: "Cashflow", href: "/cashflow-planning", icon: ArrowLeftRight },
-      { title: "Emergency Fund", href: "/emergency-fund", icon: Shield },
+      { title: "Planners", href: "/planners", icon: Rocket },
     ],
   },
   { title: "Investments", href: "/investments", icon: TrendingUp },
   { title: "Invest Advisor", href: "/investment-advisor", icon: Sparkles },
-  { title: "SIP / SWP Calculator", href: "/sip-calculator", icon: Calculator },
   { title: "Net Worth", href: "/net-worth", icon: Scale },
   {
     title: "Analytics",

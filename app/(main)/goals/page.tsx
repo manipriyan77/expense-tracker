@@ -28,6 +28,7 @@ import {
   Loader2,
   Edit,
   Trash2,
+  Link2,
   Check,
   Flag,
   Clock,
@@ -64,6 +65,7 @@ import { useTransactionsStore } from "@/store/transactions-store";
 import { useBudgetsStore } from "@/store/budgets-store";
 import { goalFormSchema, GoalFormData } from "@/lib/schemas/goal-form-schema";
 import GoalDetailsModal from "@/components/goals/GoalDetailsModal";
+import { LinkInvestmentsDialog } from "@/components/goals/LinkInvestmentsDialog";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { toast, Toaster } from "sonner";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
@@ -253,8 +255,15 @@ function QueueCard({ gs, rank, open, onToggle }: { gs: GoalScore; rank: number; 
 }
 export default function GoalsPage() {
   const searchParams = useSearchParams();
-  const { format } = useFormatCurrency();
+  const { format, amountsHidden } = useFormatCurrency();
   const { fire: fireConfetti } = useConfetti();
+
+  // Format a goal's value in its tracking unit — rupees or metal weight (grams).
+  const fmtGoalValue = (goal: Goal, n: number) => {
+    if (goal.unit !== "grams") return format(n);
+    if (amountsHidden) return "••••";
+    return `${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })} g`;
+  };
   const { goals, loading, error, fetchGoals, addGoal, updateGoal, deleteGoal } =
     useGoalsStore();
   const { transactions, fetchTransactions } = useTransactionsStore();
@@ -281,9 +290,15 @@ export default function GoalsPage() {
     "medium",
   );
 
+  // Tracking unit state for forms (money vs metal weight in grams)
+  const [addUnit, setAddUnit] = useState<"amount" | "grams">("amount");
+  const [editUnit, setEditUnit] = useState<"amount" | "grams">("amount");
+
   // Transaction dialog
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
   const [transactionGoal, setTransactionGoal] = useState<Goal | null>(null);
+  const [linkGoal, setLinkGoal] = useState<Goal | null>(null);
+  const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
 
   // Filter + sort
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "completed" | "overdue">("all");
@@ -489,11 +504,13 @@ export default function GoalsPage() {
       priority: addPriority,
       monthlyContribution: data.monthlyContribution ?? 0,
       status: "active" as const,
+      unit: addUnit,
     };
 
     await addGoal(newGoal);
     resetAdd();
     setAddPriority("medium");
+    setAddUnit("amount");
     setIsAddDialogOpen(false);
   };
 
@@ -508,6 +525,7 @@ export default function GoalsPage() {
       category: data.category || "General",
       priority: editPriority,
       monthlyContribution: data.monthlyContribution ?? 0,
+      unit: editUnit,
     });
     resetEdit();
     setIsEditDialogOpen(false);
@@ -523,8 +541,27 @@ export default function GoalsPage() {
       try {
         await deleteGoal(id);
       } catch (error) {
-        // Error is already set in the store and logged
-        // Show alert to user
+        const hasTransactions =
+          error instanceof Error &&
+          (error as Error & { hasTransactions?: boolean }).hasTransactions;
+
+        // Goal has linked transactions — offer to unlink them and delete.
+        if (hasTransactions) {
+          if (
+            confirm(
+              "This goal has linked transactions. Delete the goal anyway? The transactions will be kept but no longer linked to any goal.",
+            )
+          ) {
+            try {
+              await deleteGoal(id, { unlink: true });
+            } catch (retryError) {
+              if (retryError instanceof Error) alert(retryError.message);
+            }
+          }
+          return;
+        }
+
+        // Other errors — already set in the store and logged.
         if (error instanceof Error) {
           alert(error.message);
         }
@@ -535,14 +572,17 @@ export default function GoalsPage() {
   const openEditDialog = (goal: Goal) => {
     setEditingGoalId(goal.id);
     setEditPriority(goal.priority ?? "medium");
+    setEditUnit(goal.unit ?? "amount");
     resetEdit({
       title: goal.title,
       targetAmount: goal.targetAmount,
-      currentAmount: goal.currentAmount,
+      // Show the manually entered amount, not the auto-tracked linked value.
+      currentAmount: goal.manualAmount ?? goal.currentAmount,
       targetDate: goal.targetDate,
       category: goal.category,
       priority: goal.priority ?? "medium",
       monthlyContribution: goal.monthlyContribution ?? 0,
+      unit: goal.unit ?? "amount",
     });
     setIsEditDialogOpen(true);
   };
@@ -759,12 +799,38 @@ export default function GoalsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="add-targetAmount">Target Amount</Label>
+                    <Label>Track this goal by</Label>
+                    <div className="flex gap-1 rounded-lg border p-0.5">
+                      {([
+                        { v: "amount" as const, label: "Amount (₹)" },
+                        { v: "grams" as const, label: "Weight (g)" },
+                      ]).map((o) => (
+                        <button
+                          key={o.v}
+                          type="button"
+                          onClick={() => setAddUnit(o.v)}
+                          className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${addUnit === o.v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {addUnit === "grams"
+                        ? "For gold/silver goals — target and progress are in grams."
+                        : "Standard money goal tracked in rupees."}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="add-targetAmount">
+                      {addUnit === "grams" ? "Target Weight (grams)" : "Target Amount (₹)"}
+                    </Label>
                     <Input
                       id="add-targetAmount"
                       type="number"
                       step="0.01"
-                      placeholder="0.00"
+                      placeholder={addUnit === "grams" ? "0 g" : "0.00"}
                       {...addRegister("targetAmount", { valueAsNumber: true })}
                     />
                     {addErrors.targetAmount && (
@@ -776,13 +842,13 @@ export default function GoalsPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="add-currentAmount">
-                      Current Amount (Optional)
+                      {addUnit === "grams" ? "Current Weight in grams (Optional)" : "Current Amount (Optional)"}
                     </Label>
                     <Input
                       id="add-currentAmount"
                       type="number"
                       step="0.01"
-                      placeholder="0.00"
+                      placeholder={addUnit === "grams" ? "0 g" : "0.00"}
                       {...addRegister("currentAmount", { valueAsNumber: true })}
                     />
                     {addErrors.currentAmount && (
@@ -988,12 +1054,33 @@ export default function GoalsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-targetAmount">Target Amount</Label>
+              <Label>Track this goal by</Label>
+              <div className="flex gap-1 rounded-lg border p-0.5">
+                {([
+                  { v: "amount" as const, label: "Amount (₹)" },
+                  { v: "grams" as const, label: "Weight (g)" },
+                ]).map((o) => (
+                  <button
+                    key={o.v}
+                    type="button"
+                    onClick={() => setEditUnit(o.v)}
+                    className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${editUnit === o.v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-targetAmount">
+                {editUnit === "grams" ? "Target Weight (grams)" : "Target Amount (₹)"}
+              </Label>
               <Input
                 id="edit-targetAmount"
                 type="number"
                 step="0.01"
-                placeholder="0.00"
+                placeholder={editUnit === "grams" ? "0 g" : "0.00"}
                 {...editRegister("targetAmount", { valueAsNumber: true })}
               />
               {editErrors.targetAmount && (
@@ -1004,12 +1091,14 @@ export default function GoalsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-currentAmount">Current Amount</Label>
+              <Label htmlFor="edit-currentAmount">
+                {editUnit === "grams" ? "Current Weight in grams" : "Current Amount"}
+              </Label>
               <Input
                 id="edit-currentAmount"
                 type="number"
                 step="0.01"
-                placeholder="0.00"
+                placeholder={editUnit === "grams" ? "0 g" : "0.00"}
                 {...editRegister("currentAmount", { valueAsNumber: true })}
               />
               {editErrors.currentAmount && (
@@ -1378,8 +1467,7 @@ export default function GoalsPage() {
             {displayGoals.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-8">No goals match the current filters.</p>
             ) : (
-              <Card className="overflow-hidden">
-                <div className="divide-y divide-border">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {displayGoals.map((goal) => {
                     const { progress, isCompleted, isOverdue, daysLeft, requiredMonthly, priority, projectedDate, projectedLate, latestMilestone } = goalAnalytics(goal);
                     const probability = calculateGoalProbability(goal);
@@ -1390,112 +1478,133 @@ export default function GoalsPage() {
                     const daysLabel = isCompleted ? "Done" : isOverdue ? `${Math.abs(daysLeft)}d late` : daysLeft < 60 ? `${daysLeft}d` : `${Math.ceil(daysLeft / 30)}mo`;
 
                     return (
-                      <div
+                      <Card
                         key={goal.id}
-                        className="relative px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer"
+                        className="relative overflow-hidden flex flex-col hover:shadow-md transition-shadow cursor-pointer gap-0 py-0"
                         onClick={() => openDetailsModal(goal)}
                       >
-                        {/* Left accent */}
-                        <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full" style={{ backgroundColor: accentColor }} />
+                        {/* Top accent */}
+                        <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: accentColor }} />
 
-                        {/* Row 1: icon + title + badges + right stats */}
-                        <div className="flex items-center gap-2 ml-1">
-                          {/* Status icon */}
-                          <div className="shrink-0">
-                            {isCompleted
-                              ? <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
-                              : isOverdue
-                                ? <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
-                                : <Circle className="h-3.5 w-3.5 text-muted-foreground/25" />}
-                          </div>
-
-                          {/* Title + priority */}
-                          <p className="text-sm font-medium truncate flex-1 min-w-0">{goal.title}</p>
-                          <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold ${isCompleted ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : isOverdue ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" : PRIORITY_COLOR[priority]}`}>
-                            {isCompleted ? "Done" : isOverdue ? "Overdue" : PRIORITY_LABEL[priority]}
-                          </span>
-
-                          {/* Right: saved/target + days */}
-                          <div className="shrink-0 text-right hidden sm:block ml-2">
-                            <span className="font-mono text-xs font-semibold tabular-nums">{format(goal.currentAmount)}</span>
-                            <span className="text-[10px] text-muted-foreground tabular-nums"> / {format(goal.targetAmount)}</span>
-                          </div>
-                          <div className={`shrink-0 text-right hidden md:flex flex-col items-end ml-3 min-w-14`}>
-                            <span className={`text-xs font-semibold tabular-nums ${daysCls}`}>{daysLabel}</span>
-                            <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
-                              <Calendar className="h-2.5 w-2.5" />
-                              {new Date(goal.targetDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" })}
+                        <div className="flex flex-col gap-3 p-4 pt-5 flex-1">
+                          {/* Header: icon + title + priority */}
+                          <div className="flex items-start gap-2">
+                            <div className="shrink-0 mt-0.5">
+                              {isCompleted
+                                ? <CheckCircle className="h-4 w-4 text-emerald-500" />
+                                : isOverdue
+                                  ? <AlertTriangle className="h-4 w-4 text-red-500" />
+                                  : <Circle className="h-4 w-4 text-muted-foreground/25" />}
+                            </div>
+                            <p className="text-sm font-semibold leading-snug flex-1 min-w-0 line-clamp-2">{goal.title}</p>
+                            <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold ${isCompleted ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : isOverdue ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" : PRIORITY_COLOR[priority]}`}>
+                              {isCompleted ? "Done" : isOverdue ? "Overdue" : PRIORITY_LABEL[priority]}
                             </span>
                           </div>
-                          {!isCompleted && (
-                            <div className="shrink-0 text-right hidden lg:block ml-3 min-w-20">
-                              <p className="font-mono text-xs font-semibold text-amber-600 dark:text-amber-400 tabular-nums">{format(requiredMonthly)}<span className="text-[9px] font-normal text-muted-foreground">/mo</span></p>
-                              <p className="text-[9px] text-muted-foreground">needed</p>
+
+                          {goal.autoTracked && (
+                            <div className="flex items-center gap-1 text-[10px] font-medium text-primary -mt-1">
+                              <Link2 className="h-3 w-3" />
+                              Auto-tracked · {goal.linkedCount} investment{goal.linkedCount === 1 ? "" : "s"}
                             </div>
                           )}
-                        </div>
 
-                        {/* Row 2: progress bar + on-track + actions */}
-                        <div className="flex items-center gap-2 mt-2 ml-1" onClick={(e) => e.stopPropagation()}>
-                          {/* Progress bar */}
-                          <div className="flex-1 relative h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${progress}%` }} />
-                            {[25, 50, 75].map(m => (
-                              <div key={m} className="absolute inset-y-0 w-px bg-background/50" style={{ left: `${m}%` }} />
-                            ))}
+                          {/* Amounts */}
+                          <div className="flex items-baseline gap-1.5 flex-wrap">
+                            <span className="font-mono text-lg font-bold tabular-nums">{fmtGoalValue(goal, goal.currentAmount)}</span>
+                            <span className="text-xs text-muted-foreground tabular-nums">/ {fmtGoalValue(goal, goal.targetAmount)}</span>
                           </div>
-                          <span className={`text-[10px] font-mono font-bold tabular-nums shrink-0 ${chanceCls}`}>{progress.toFixed(0)}%</span>
-                          <span className={`text-[10px] shrink-0 hidden sm:inline ${chanceCls}`}>
-                            {isCompleted ? "Achieved!" : `${probability.probability.toFixed(0)}% on-track`}
-                          </span>
-                          {/* Milestone badge */}
-                          {latestMilestone !== null && !isCompleted && (
-                            <span className="shrink-0 hidden sm:inline px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">
-                              {latestMilestone}%+
-                            </span>
-                          )}
-                          {/* Projected date */}
-                          {projectedDate && !isCompleted && (
-                            <span className={`shrink-0 hidden lg:inline text-[9px] font-mono ${projectedLate ? "text-amber-500" : "text-emerald-500"}`}>
-                              {projectedLate ? "⚠ " : "✓ "}proj {projectedDate.toLocaleDateString("en-IN", { month: "short", year: "2-digit" })}
-                            </span>
-                          )}
 
-                          {/* Actions */}
-                          <div className="shrink-0 flex items-center gap-1 ml-auto" onClick={(e) => e.stopPropagation()}>
+                          {/* Progress */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className={`font-mono font-bold tabular-nums ${chanceCls}`}>{progress.toFixed(0)}%</span>
+                              <div className="flex items-center gap-2">
+                                {latestMilestone !== null && !isCompleted && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">{latestMilestone}%+</span>
+                                )}
+                                <span className={chanceCls}>
+                                  {isCompleted ? "Achieved!" : `${probability.probability.toFixed(0)}% on-track`}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="relative h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${progress}%` }} />
+                              {[25, 50, 75].map(m => (
+                                <div key={m} className="absolute inset-y-0 w-px bg-background/50" style={{ left: `${m}%` }} />
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Meta: deadline + needed/mo */}
+                          <div className="flex items-end justify-between gap-2 mt-auto pt-1">
+                            <div className="flex flex-col min-w-0">
+                              <span className={`text-xs font-semibold tabular-nums ${daysCls}`}>{daysLabel}</span>
+                              <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+                                <Calendar className="h-2.5 w-2.5" />
+                                {new Date(goal.targetDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" })}
+                                {projectedDate && !isCompleted && (
+                                  <span className={`ml-1 ${projectedLate ? "text-amber-500" : "text-emerald-500"}`}>
+                                    {projectedLate ? "⚠" : "✓"} proj {projectedDate.toLocaleDateString("en-IN", { month: "short", year: "2-digit" })}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
                             {!isCompleted && (
-                              <Button size="sm" className="h-6 px-2 text-[11px] gap-1"
-                                onClick={(e) => { e.stopPropagation(); openAddTransactionDialog(goal); }}>
-                                <Plus className="h-2.5 w-2.5" />Contribute
-                              </Button>
+                              <div className="shrink-0 text-right">
+                                <p className="font-mono text-xs font-semibold text-amber-600 dark:text-amber-400 tabular-nums">{fmtGoalValue(goal, requiredMonthly)}<span className="text-[9px] font-normal text-muted-foreground">/mo</span></p>
+                                <p className="text-[9px] text-muted-foreground">needed</p>
+                              </div>
                             )}
-                            {!isCompleted && progress >= 100 && (
-                              <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-emerald-600 border-emerald-500"
-                                onClick={(e) => { e.stopPropagation(); handleMarkGoalComplete(e, goal.id); }}>
-                                <Check className="h-3 w-3" />
-                              </Button>
-                            )}
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                              onClick={(e) => { e.stopPropagation(); openEditDialog(goal); }}>
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-red-500"
-                              onClick={(e) => { e.stopPropagation(); handleDeleteGoal(goal.id); }}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
                           </div>
                         </div>
-                      </div>
+
+                        {/* Actions footer */}
+                        <div className="flex items-center gap-1 px-3 py-2 border-t border-border/60" onClick={(e) => e.stopPropagation()}>
+                          {!isCompleted && (
+                            <Button size="sm" className="h-7 flex-1 text-[11px] gap-1"
+                              onClick={(e) => { e.stopPropagation(); openAddTransactionDialog(goal); }}>
+                              <Plus className="h-3 w-3" />Contribute
+                            </Button>
+                          )}
+                          {!isCompleted && progress >= 100 && (
+                            <Button variant="outline" size="sm" className="h-7 w-7 p-0 text-emerald-600 border-emerald-500"
+                              onClick={(e) => { e.stopPropagation(); handleMarkGoalComplete(e, goal.id); }}>
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" className={`h-7 w-7 p-0 ${goal.autoTracked ? "text-primary" : "text-muted-foreground hover:text-foreground"} ${isCompleted ? "ml-auto" : ""}`}
+                            title="Link investments"
+                            onClick={(e) => { e.stopPropagation(); setLinkGoal(goal); setIsLinkDialogOpen(true); }}>
+                            <Link2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                            onClick={(e) => { e.stopPropagation(); openEditDialog(goal); }}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteGoal(goal.id); }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </Card>
                     );
                   })}
-                </div>
-              </Card>
+              </div>
             )}
           </>
         )}
       </main>}
 
       {/* Goal Details Modal */}
+      <LinkInvestmentsDialog
+        goalId={linkGoal?.id ?? null}
+        goalTitle={linkGoal?.title ?? ""}
+        unit={linkGoal?.unit ?? "amount"}
+        open={isLinkDialogOpen}
+        onOpenChange={setIsLinkDialogOpen}
+      />
+
       <GoalDetailsModal
         goal={selectedGoal}
         isOpen={isDetailsModalOpen}

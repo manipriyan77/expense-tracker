@@ -2971,9 +2971,53 @@ export default function InvestmentsPage() {
                             CSV
                           </Button>
                         </div>
+                      ) : rows.length === 1 ? (
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-lg border border-dashed p-4">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">
+                              First snapshot recorded · {rows[0].label}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Upload next month&apos;s CSV to plot the trend line.
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-3"
+                              onClick={() => openImport("mutual-funds")}
+                            >
+                              <Upload className="h-3.5 w-3.5 mr-1" /> Upload holdings CSV
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 sm:w-auto sm:min-w-[320px]">
+                            {(
+                              [
+                                "investedAmount",
+                                "units",
+                                "currentValue",
+                              ] as const
+                            ).map((m) => (
+                              <div
+                                key={m}
+                                className="rounded-lg bg-muted/50 border border-border/50 px-3 py-2.5 text-center"
+                              >
+                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">
+                                  {metricMeta[m].label}
+                                </p>
+                                <p className="font-mono text-sm font-semibold tabular-nums truncate">
+                                  {metricMeta[m].isMoney
+                                    ? format(rows[0][m])
+                                    : rows[0][m].toLocaleString(undefined, {
+                                        maximumFractionDigits: 3,
+                                      })}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       ) : (
                         <>
-                          <ResponsiveContainer width="100%" height={260}>
+                          <ResponsiveContainer width="100%" height={220}>
                             <LineChart
                               data={rows}
                               margin={{ top: 8, right: 12, left: 4, bottom: 0 }}

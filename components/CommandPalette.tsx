@@ -23,6 +23,8 @@ import {
   CandlestickChart,
   SearchCheck,
   Shield,
+  Rocket,
+  Calculator,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useTransactionsStore } from "@/store/transactions-store";
@@ -46,7 +48,10 @@ const NAV_COMMANDS = (router: ReturnType<typeof useRouter>): Command[] => [
   { id: "goals", label: "Goals", icon: Target, type: "page", action: () => router.push("/goals") },
   { id: "health-score", label: "Health Score", icon: HeartPulse, type: "page", action: () => router.push("/health-score") },
   { id: "transaction-review", label: "Smart Transaction Review", icon: SearchCheck, type: "page", action: () => router.push("/transaction-review") },
-  { id: "emergency-fund", label: "Emergency Fund", icon: Shield, type: "page", action: () => router.push("/emergency-fund") },
+  { id: "planners", label: "Planners", icon: Rocket, type: "page", action: () => router.push("/planners") },
+  { id: "financial-freedom", label: "Financial Freedom", icon: Rocket, type: "page", action: () => router.push("/planners?tab=fi") },
+  { id: "sip-calculator", label: "SIP / SWP Calculator", icon: Calculator, type: "page", action: () => router.push("/planners?tab=sip") },
+  { id: "emergency-fund", label: "Emergency Fund", icon: Shield, type: "page", action: () => router.push("/planners?tab=emergency") },
   { id: "insights", label: "Insights", icon: Lightbulb, type: "page", action: () => router.push("/analytics") },
   { id: "recurring", label: "Recurring", icon: RefreshCw, type: "page", action: () => router.push("/recurring") },
   { id: "investments", label: "Investments", icon: TrendingUp, type: "page", action: () => router.push("/investments") },
