@@ -159,7 +159,7 @@ export function FinancialFreedomPlanner() {
   };
 
   // ── "Starting SIP required" matrix: expense × timeframe → SIP needed ──
-  const MATRIX_YEARS = [15, 20, 25, 30, 35];
+  const MATRIX_YEARS = [5, 7, 10, 15, 20, 25, 30, 35];
   const EXPENSE_LADDER = [20000, 30000, 40000, 50000, 75000, 100000];
 
   const matrix = useMemo(() => {
@@ -549,7 +549,7 @@ export function FinancialFreedomPlanner() {
               inflation · {config.fiMultiplier}× FI.
             </p>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse min-w-[520px]">
+              <table className="w-full text-sm border-collapse min-w-[760px]">
                 <thead>
                   <tr className="text-[11px] uppercase tracking-wide text-muted-foreground">
                     <th className="text-left font-semibold px-3 py-2.5">

@@ -20,6 +20,7 @@ import { ListPageSkeleton } from "@/components/ui/skeleton";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { useNetWorthStore } from "@/store/net-worth-store";
 import { useTransactionsStore } from "@/store/transactions-store";
+import { useGoalsStore } from "@/store/goals-store";
 
 const ESSENTIAL_KEYWORDS = [
   "rent",
@@ -56,16 +57,31 @@ function isEssential(category: string, description: string): boolean {
   return ESSENTIAL_KEYWORDS.some((word) => text.includes(word));
 }
 
+/** A goal counts as reserve when its title or category mentions "emergency". */
+function isEmergencyName(text: string): boolean {
+  return text.toLowerCase().includes("emergency");
+}
+
+interface ReserveSource {
+  key: string;
+  name: string;
+  sub: string;
+  value: number;
+  kind: "asset" | "goal";
+}
+
 export function EmergencyFundPlanner() {
   const { format } = useFormatCurrency();
   const { assets, loading: assetsLoading, fetchAssets } = useNetWorthStore();
   const { transactions, loading: txLoading, fetchTransactions } =
     useTransactionsStore();
+  const { goals, fetchGoals } = useGoalsStore();
   const [targetMonths, setTargetMonths] = useState(6);
 
   useEffect(() => {
     fetchAssets();
     fetchTransactions();
+    fetchGoals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -100,7 +116,36 @@ export function EmergencyFundPlanner() {
       asset.name.toLowerCase().includes("emergency") ||
       asset.name.toLowerCase().includes("liquid"),
     );
-    const currentReserve = liquidAssets.reduce((s, asset) => s + asset.value, 0);
+
+    // Goals you've set aside as an emergency fund also count as reserve.
+    // Grams-tracked goals are excluded — their value isn't rupees.
+    const emergencyGoals = goals.filter(
+      (g) =>
+        g.unit !== "grams" &&
+        (isEmergencyName(g.title) || isEmergencyName(g.category ?? "")),
+    );
+
+    // One list so every rupee of reserve shows where it came from.
+    const reserveSources: ReserveSource[] = [
+      ...liquidAssets.map((a) => ({
+        key: `asset:${a.id}`,
+        name: a.name,
+        sub: a.type,
+        value: a.value,
+        kind: "asset" as const,
+      })),
+      ...emergencyGoals.map((g) => ({
+        key: `goal:${g.id}`,
+        name: g.title,
+        sub: g.autoTracked
+          ? `Goal · auto-tracked from ${g.linkedCount} investment${g.linkedCount === 1 ? "" : "s"}`
+          : "Goal",
+        value: g.currentAmount,
+        kind: "goal" as const,
+      })),
+    ];
+
+    const currentReserve = reserveSources.reduce((s, r) => s + r.value, 0);
     const targetReserve = monthlyEssential * targetMonths;
     const gap = Math.max(0, targetReserve - currentReserve);
     const coverageMonths =
@@ -122,6 +167,7 @@ export function EmergencyFundPlanner() {
     return {
       monthlyEssential,
       liquidAssets,
+      reserveSources,
       currentReserve,
       targetReserve,
       gap,
@@ -132,7 +178,7 @@ export function EmergencyFundPlanner() {
         ? Math.max(0, suggestedContribution)
         : 0,
     };
-  }, [transactions, assets, targetMonths]);
+  }, [transactions, assets, goals, targetMonths]);
 
   if ((assetsLoading || txLoading) && transactions.length === 0 && assets.length === 0) {
     return <ListPageSkeleton />;
@@ -268,18 +314,18 @@ export function EmergencyFundPlanner() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {emergencyData.liquidAssets.length > 0 ? (
+              {emergencyData.reserveSources.length > 0 ? (
                 <div className="divide-y divide-border">
-                  {emergencyData.liquidAssets.map((asset) => (
-                    <div key={asset.id} className="flex items-center justify-between gap-3 p-4">
+                  {emergencyData.reserveSources.map((source) => (
+                    <div key={source.key} className="flex items-center justify-between gap-3 p-4">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold truncate">{asset.name}</p>
+                        <p className="text-sm font-semibold truncate">{source.name}</p>
                         <p className="text-xs text-muted-foreground capitalize">
-                          {asset.type}
+                          {source.sub}
                         </p>
                       </div>
                       <p className="font-mono text-sm font-bold shrink-0">
-                        {format(asset.value)}
+                        {format(source.value)}
                       </p>
                     </div>
                   ))}
@@ -287,15 +333,23 @@ export function EmergencyFundPlanner() {
               ) : (
                 <div className="p-6 text-center">
                   <Landmark className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm font-semibold">No liquid assets tagged</p>
+                  <p className="text-sm font-semibold">No reserves found</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Add cash or bank assets in Net Worth to track reserves.
+                    Counts cash/bank assets in Net Worth, plus any goal named
+                    “Emergency…” (including its linked investments).
                   </p>
-                  <Link href="/net-worth">
-                    <Button size="sm" variant="outline" className="mt-3">
-                      Add Asset
-                    </Button>
-                  </Link>
+                  <div className="flex items-center justify-center gap-2 mt-3">
+                    <Link href="/net-worth">
+                      <Button size="sm" variant="outline">
+                        Add Asset
+                      </Button>
+                    </Link>
+                    <Link href="/goals">
+                      <Button size="sm" variant="outline">
+                        View Goals
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               )}
             </CardContent>
