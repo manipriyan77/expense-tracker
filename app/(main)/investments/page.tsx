@@ -83,6 +83,7 @@ import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
 import PortfolioSnapshot from "@/components/portfolio-snapshot";
+import { OtherInvestmentTracker } from "@/components/investments/OtherInvestmentTracker";
 
 type AssetClass =
   | "stocks"
@@ -315,6 +316,9 @@ export default function InvestmentsPage() {
     () => searchParams.get("tab") ?? "all",
   );
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [trackerInvestment, setTrackerInvestment] =
+    useState<OtherInvestment | null>(null);
+  const [trackerOpen, setTrackerOpen] = useState(false);
   const [dialogStep, setDialogStep] = useState<1 | 2>(1);
   const [selectedClass, setSelectedClass] = useState<AssetClass | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -5328,6 +5332,19 @@ export default function InvestmentsPage() {
                               {o.notes}
                             </p>
                           )}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full mt-3 h-8 gap-1.5 text-xs"
+                            onClick={() => {
+                              setTrackerInvestment(o);
+                              setTrackerOpen(true);
+                            }}
+                          >
+                            <LineChart className="h-3.5 w-3.5" />
+                            Update value &amp; history
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -5343,6 +5360,13 @@ export default function InvestmentsPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Other-investment value tracker */}
+      <OtherInvestmentTracker
+        investment={trackerInvestment}
+        open={trackerOpen}
+        onOpenChange={setTrackerOpen}
+      />
 
       {/* Add / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
