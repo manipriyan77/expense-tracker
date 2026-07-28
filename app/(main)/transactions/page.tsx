@@ -1315,25 +1315,22 @@ function TransactionsPageInner() {
           {/* Spending Overview Chart */}
           {filteredTransactions.length > 0 && (
             <Card className="mb-2.5 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setChartCollapsed((v) => !v)}
-                className="w-full px-3 py-2 border-b flex items-center justify-between text-left hover:bg-muted/40 transition-colors"
-              >
-                <div className="flex items-center gap-2">
+              <div className="w-full px-3 py-2 border-b flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setChartCollapsed((v) => !v)}
+                  className="flex items-center gap-2 text-left rounded-md -mx-1 px-1 py-0.5 hover:bg-muted/40 transition-colors min-w-0"
+                >
                   <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${chartCollapsed ? "-rotate-90" : ""}`} />
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Spending Overview</p>
                     <p className="text-[11px] text-muted-foreground">
                       {selectedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                     </p>
                   </div>
-                </div>
+                </button>
                 {!chartCollapsed && (
-                  <div
-                    className="flex items-center gap-1 bg-muted rounded-lg p-0.5"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5 shrink-0">
                     <button
                       onClick={() => setChartView("category")}
                       className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${chartView === "category" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
@@ -1348,7 +1345,7 @@ function TransactionsPageInner() {
                     </button>
                   </div>
                 )}
-              </button>
+              </div>
 
               {!chartCollapsed && chartView === "category" && (
                 <div className="px-3 py-2.5">
