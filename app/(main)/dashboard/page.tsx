@@ -30,7 +30,6 @@ import {
   Tooltip as RechartTooltip,
   ResponsiveContainer,
   ReferenceLine,
-  AreaChart,
   Area,
   LineChart,
   Line,
@@ -58,12 +57,23 @@ import {
   AlertCircle,
   Sparkles,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { useTransactionsStore } from "@/store/transactions-store";
 import { useGoalsStore } from "@/store/goals-store";
 import { useNetWorthStore } from "@/store/net-worth-store";
 import { useDebtTrackerStore } from "@/store/debt-tracker-store";
+import { useRecurringPatternsStore } from "@/store/recurring-patterns-store";
+import { usePreferencesStore } from "@/store/preferences-store";
+import { PERIOD_OPTIONS, isDateInPeriod, type SelectedPeriod } from "@/lib/utils/date-periods";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useStocksStore } from "@/store/stocks-store";
 import { useMutualFundsStore } from "@/store/mutual-funds-store";
 import { useGoldStore } from "@/store/gold-store";
@@ -273,6 +283,8 @@ export default function Dashboard() {
   } = useNetWorthStore();
   const { debts, fetchDebts } = useDebtTrackerStore();
   const { budgets, fetchBudgets } = useBudgetsStore();
+  const { patterns: recurringPatterns, fetchPatterns: fetchRecurringPatterns } = useRecurringPatternsStore();
+  const { selectedPeriod, fetchPreferences, setSelectedPeriod } = usePreferencesStore();
   const { stocks, fetchStocks } = useStocksStore();
   const { mutualFunds, fetchMutualFunds } = useMutualFundsStore();
   const { holdings: goldHoldings, load: loadGold } = useGoldStore();
@@ -300,6 +312,8 @@ export default function Dashboard() {
     loadForex();
     loadOtherInvestments();
     fetchBudgets();
+    fetchRecurringPatterns();
+    fetchPreferences();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -333,6 +347,24 @@ export default function Dashboard() {
     [currentMonthTransactions],
   );
   const currentMonthSaved = currentMonthIncome - currentMonthRealExpenses;
+
+  // Period-scoped totals for the hero Income/Expenses/Savings-rate cards —
+  // driven by the persisted period selector, independent of the "current
+  // calendar month" figures the health score / forecast widgets rely on.
+  const periodTransactions = useMemo(
+    () => transactions.filter((t) => isDateInPeriod(t.date, selectedPeriod)),
+    [transactions, selectedPeriod],
+  );
+  const periodIncome = useMemo(
+    () => periodTransactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0),
+    [periodTransactions],
+  );
+  const periodExpenses = useMemo(
+    () => periodTransactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0),
+    [periodTransactions],
+  );
+  const periodSavingsRate = periodIncome > 0 ? ((periodIncome - periodExpenses) / periodIncome) * 100 : 0;
+  const showMonthOverMonthTrend = selectedPeriod === "this-month";
 
   // Previous month for period comparison
   const prevMonthIdx = currentMonth === 0 ? 11 : currentMonth - 1;
@@ -775,6 +807,62 @@ export default function Dashboard() {
         .filter((b) => b.spent > 0),
     [budgets],
   );
+  // Cash flow: income vs. expense for up to the last 7 calendar months (fixed window,
+  // independent of the period selector — matches the "up to seven monthly points" spec).
+  const cashFlowData = useMemo(() => {
+    const now = new Date();
+    const months: { key: string; label: string; Income: number; Expenses: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        key: `${d.getFullYear()}-${d.getMonth()}`,
+        label: d.toLocaleDateString("en-IN", { month: "short" }),
+        Income: 0,
+        Expenses: 0,
+      });
+    }
+    const byKey = new Map(months.map((m) => [m.key, m]));
+    transactions.forEach((t) => {
+      const d = new Date(t.date);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const bucket = byKey.get(key);
+      if (!bucket) return;
+      if (t.type === "income") bucket.Income += t.amount;
+      else bucket.Expenses += t.amount;
+    });
+    return months;
+  }, [transactions]);
+
+  // Spending by category — respects the selected period.
+  const categorySpendData = useMemo(() => {
+    const byCategory: Record<string, number> = {};
+    periodTransactions
+      .filter((t) => t.type === "expense")
+      .forEach((t) => {
+        const cat = t.category || "Uncategorized";
+        byCategory[cat] = (byCategory[cat] ?? 0) + t.amount;
+      });
+    return Object.entries(byCategory)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [periodTransactions]);
+
+  // Coming up: confirmed recurring/subscription items due within the next 14 days.
+  const comingUpItems = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const horizon = new Date(today);
+    horizon.setDate(horizon.getDate() + 14);
+    return recurringPatterns
+      .filter((p) => p.is_active)
+      .filter((p) => {
+        const d = new Date(p.next_date);
+        return d >= today && d <= horizon;
+      })
+      .sort((a, b) => a.next_date.localeCompare(b.next_date))
+      .slice(0, 3);
+  }, [recurringPatterns]);
+
   // Net Worth timeline: historical snapshots, with today's point aligned to live hero totals
   // (Snapshots are created server-side; live totals include all modules — see createSnapshot API.)
   const nwChartData = useMemo(() => {
@@ -933,19 +1021,42 @@ export default function Dashboard() {
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
                   Total Net Worth
                 </p>
-                <p className="text-4xl sm:text-5xl font-mono font-bold tracking-tight">
-                  {format(netWorth)}
-                </p>
-                <p className="text-xs text-slate-500 mt-1.5">
-                  as of{" "}
-                  {new Date().toLocaleDateString("en-IN", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </p>
+                {assets.length === 0 && liabilities.length === 0 ? (
+                  <>
+                    <p className="text-3xl sm:text-4xl font-mono font-bold tracking-tight text-slate-500">
+                      Not set
+                    </p>
+                    <Link href="/net-worth" className="text-xs text-primary hover:underline mt-1.5 inline-block">
+                      Add assets & liabilities in Net Worth →
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-4xl sm:text-5xl font-mono font-bold tracking-tight">
+                      {format(netWorth)}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1.5">
+                      as of{" "}
+                      {new Date().toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-2 mt-1">
+                <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as SelectedPeriod).catch(() => {})}>
+                  <SelectTrigger className="h-8 text-xs border-slate-600 bg-transparent text-slate-300 w-33">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PERIOD_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -955,7 +1066,7 @@ export default function Dashboard() {
                       onClick={handleTakeSnapshot}
                       disabled={takingSnapshot}
                     >
-                      <Camera className="h-4 w-4" />
+                      {takingSnapshot ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                       {takingSnapshot ? "Saving..." : "Snapshot"}
                     </Button>
                   </TooltipTrigger>
@@ -984,14 +1095,16 @@ export default function Dashboard() {
               <Link href="/transactions" className="px-3 py-2.5 hover:bg-slate-800/60 transition-colors group">
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Income</p>
                 <div className="flex items-end justify-between gap-1">
-                  <p className="font-mono text-base font-semibold text-green-400">{format(currentMonthIncome)}</p>
-                  <div className="w-14 h-7 shrink-0">
-                    <LineChart width={56} height={28} data={incomeSparkline}>
-                      <Line type="monotone" dataKey="v" stroke="#4ade80" strokeWidth={1.5} dot={false} />
-                    </LineChart>
-                  </div>
+                  <p className="font-mono text-base font-semibold text-green-400">{format(periodIncome)}</p>
+                  {showMonthOverMonthTrend && (
+                    <div className="w-14 h-7 shrink-0">
+                      <LineChart width={56} height={28} data={incomeSparkline}>
+                        <Line type="monotone" dataKey="v" stroke="#4ade80" strokeWidth={1.5} dot={false} />
+                      </LineChart>
+                    </div>
+                  )}
                 </div>
-                {incomeDelta !== null && (
+                {showMonthOverMonthTrend && incomeDelta !== null && (
                   <p className={`text-[10px] mt-0.5 font-mono ${incomeDelta >= 0 ? "text-green-500" : "text-red-400"}`}>
                     {incomeDelta >= 0 ? "▲" : "▼"} {Math.abs(incomeDelta).toFixed(1)}% vs last mo
                   </p>
@@ -1000,16 +1113,18 @@ export default function Dashboard() {
 
               {/* Expenses */}
               <Link href="/transactions" className="px-3 py-2.5 hover:bg-slate-800/60 transition-colors group">
-                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Expenses</p>
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Spending</p>
                 <div className="flex items-end justify-between gap-1">
-                  <p className="font-mono text-base font-semibold text-red-400">{format(currentMonthExpenses)}</p>
-                  <div className="w-14 h-7 shrink-0">
-                    <LineChart width={56} height={28} data={expenseSparkline}>
-                      <Line type="monotone" dataKey="v" stroke="#f87171" strokeWidth={1.5} dot={false} />
-                    </LineChart>
-                  </div>
+                  <p className="font-mono text-base font-semibold text-red-400">{format(periodExpenses)}</p>
+                  {showMonthOverMonthTrend && (
+                    <div className="w-14 h-7 shrink-0">
+                      <LineChart width={56} height={28} data={expenseSparkline}>
+                        <Line type="monotone" dataKey="v" stroke="#f87171" strokeWidth={1.5} dot={false} />
+                      </LineChart>
+                    </div>
+                  )}
                 </div>
-                {expenseDelta !== null && (
+                {showMonthOverMonthTrend && expenseDelta !== null && (
                   <p className={`text-[10px] mt-0.5 font-mono ${expenseDelta <= 0 ? "text-green-500" : "text-red-400"}`}>
                     {expenseDelta >= 0 ? "▲" : "▼"} {Math.abs(expenseDelta).toFixed(1)}% vs last mo
                   </p>
@@ -1019,8 +1134,8 @@ export default function Dashboard() {
               {/* Savings rate */}
               <div className="px-3 py-2.5">
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Savings Rate</p>
-                <p className={`font-mono text-base font-semibold ${savingsRate >= 15 ? "text-green-400" : savingsRate >= 5 ? "text-amber-400" : "text-red-400"}`}>
-                  {currentMonthIncome > 0 ? `${savingsRate.toFixed(1)}%` : "—"}
+                <p className={`font-mono text-base font-semibold ${periodSavingsRate >= 15 ? "text-green-400" : periodSavingsRate >= 5 ? "text-amber-400" : "text-red-400"}`}>
+                  {periodIncome > 0 ? `${periodSavingsRate.toFixed(1)}%` : "0%"}
                 </p>
                 <p className={`text-[10px] uppercase tracking-wide font-medium mt-0.5 ${debtRatio < 25 ? "text-green-400" : debtRatio < 40 ? "text-amber-400" : "text-red-400"}`}>
                   ● Debt {debtRatio.toFixed(1)}%
@@ -1391,6 +1506,121 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* ── ROW 1.5: Cash Flow + Spending by Category ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
+            <Card className="lg:col-span-2">
+              <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Cash Flow</p>
+                  {[{ color: "#4ade80", label: "Income" }, { color: "#94a3b8", label: "Expenses" }].map(({ color, label }) => (
+                    <div key={label} className="hidden sm:flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: color }} />
+                      <span className="text-[10px] text-muted-foreground">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <CardContent className="pt-3 px-3 pb-3">
+                {cashFlowData.some((m) => m.Income > 0 || m.Expenses > 0) ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <ComposedChart data={cashFlowData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={formatShort} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={44} />
+                      <RechartTooltip contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
+                        formatter={(v: unknown, name?: string) => [format(v as number), name ?? ""]} />
+                      <Area type="monotone" dataKey="Income" stroke="#4ade80" fill="#4ade80" fillOpacity={0.15} strokeWidth={2} />
+                      <Area type="monotone" dataKey="Expenses" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.15} strokeWidth={2} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-50 flex flex-col items-center justify-center text-muted-foreground gap-2">
+                    <Receipt className="h-6 w-6 opacity-40" />
+                    <p className="text-xs">Import or add transactions to see cash flow</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Spending by category donut */}
+            <Card>
+              <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Spending by Category</p>
+                <Link href="/transactions" className="text-[10px] text-primary hover:underline flex items-center gap-0.5">All <ArrowRight className="h-2.5 w-2.5" /></Link>
+              </div>
+              <CardContent className="px-4 pb-3 pt-2">
+                {categorySpendData.length > 0 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height={130}>
+                      <PieChart>
+                        <Pie data={categorySpendData} dataKey="value" cx="50%" cy="50%" innerRadius={38} outerRadius={60} paddingAngle={2}>
+                          {categorySpendData.map((_, i) => <Cell key={i} fill={ALLOCATION_COLORS[i % ALLOCATION_COLORS.length]} />)}
+                        </Pie>
+                        <RechartTooltip formatter={(v: unknown) => [format(v as number)]} contentStyle={{ fontSize: 11, borderRadius: 6 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-1 mt-1" role="list" aria-label="Spending by category">
+                      {categorySpendData.slice(0, 5).map((item, i) => {
+                        const tot = categorySpendData.reduce((s, d) => s + d.value, 0);
+                        const pct = tot > 0 ? (item.value / tot) * 100 : 0;
+                        return (
+                          <div key={i} role="listitem" className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: ALLOCATION_COLORS[i % ALLOCATION_COLORS.length] }} />
+                              <span className="text-[10px] text-muted-foreground truncate max-w-22.5">{item.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[10px] text-muted-foreground font-mono">{formatShort(item.value)}</span>
+                              <span className="text-[10px] font-mono font-semibold w-8 text-right">{pct.toFixed(0)}%</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <div className="h-45 flex flex-col items-center justify-center text-muted-foreground gap-2">
+                    <Wallet className="h-6 w-6 opacity-40" />
+                    <p className="text-xs text-center">No expenses in this period</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Coming up */}
+          <Card>
+            <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                <CalendarClock className="h-3.5 w-3.5" /> Coming Up
+              </p>
+              <Link href="/recurring" className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                Recurring <ArrowRight className="h-2.5 w-2.5" />
+              </Link>
+            </div>
+            <CardContent className="px-4 py-3">
+              {comingUpItems.length > 0 ? (
+                <div className="space-y-2">
+                  {comingUpItems.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{p.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Due {new Date(p.next_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                        </p>
+                      </div>
+                      <span className="font-mono text-sm font-semibold shrink-0">{format(p.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No recurring payments due in the next 2 weeks. <Link href="/recurring" className="text-primary hover:underline">Manage recurring</Link>
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
           {/* ── ROW 2: Net Worth Chart + Allocation ── */}
           {isVisible("net-worth-chart") && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
@@ -1428,10 +1658,13 @@ export default function Dashboard() {
                       </ComposedChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="h-[200px] flex flex-col items-center justify-center text-muted-foreground gap-2">
+                    <div className="h-50 flex flex-col items-center justify-center text-muted-foreground gap-2">
                       <Camera className="h-6 w-6 opacity-40" />
                       <p className="text-xs">Take snapshots to track net worth over time</p>
-                      <Button size="sm" variant="outline" onClick={handleTakeSnapshot} disabled={takingSnapshot}>{takingSnapshot ? "Saving..." : "Take First Snapshot"}</Button>
+                      <Button size="sm" variant="outline" onClick={handleTakeSnapshot} disabled={takingSnapshot} className="gap-1.5">
+                        {takingSnapshot && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                        {takingSnapshot ? "Saving..." : "Take First Snapshot"}
+                      </Button>
                     </div>
                   )}
                 </CardContent>
@@ -1462,7 +1695,7 @@ export default function Dashboard() {
                             <div key={i} className="flex items-center justify-between">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <span className="w-2 h-2 rounded-full shrink-0" style={{ background: ALLOCATION_COLORS[i % ALLOCATION_COLORS.length] }} />
-                                <span className="text-[10px] text-muted-foreground truncate max-w-[90px]">{item.name}</span>
+                                <span className="text-[10px] text-muted-foreground truncate max-w-22.5">{item.name}</span>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <span className="text-[10px] text-muted-foreground font-mono">{formatShort(item.value)}</span>
@@ -1474,7 +1707,7 @@ export default function Dashboard() {
                       </div>
                     </>
                   ) : (
-                    <div className="h-[180px] flex flex-col items-center justify-center text-muted-foreground gap-2">
+                    <div className="h-45 flex flex-col items-center justify-center text-muted-foreground gap-2">
                       <Wallet className="h-6 w-6 opacity-40" />
                       <p className="text-xs text-center">Add assets or investments</p>
                     </div>

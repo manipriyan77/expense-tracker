@@ -66,8 +66,9 @@ interface MutualFundsState {
   fetchSnapshots: () => Promise<void>;
   importSnapshot: (
     month: string,
-    funds: SnapshotImportFund[]
-  ) => Promise<{ imported: number; failed: number }>;
+    funds: SnapshotImportFund[],
+    replace?: boolean
+  ) => Promise<{ imported: number; failed: number; removed: number }>;
 }
 
 export const useMutualFundsStore = create<MutualFundsState>((set, get) => ({
@@ -242,12 +243,12 @@ export const useMutualFundsStore = create<MutualFundsState>((set, get) => ({
     }
   },
 
-  importSnapshot: async (month, funds) => {
+  importSnapshot: async (month, funds, replace = false) => {
     try {
       const response = await fetch("/api/mutual-funds/import-snapshot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ month, funds }),
+        body: JSON.stringify({ month, funds, replace }),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -257,7 +258,7 @@ export const useMutualFundsStore = create<MutualFundsState>((set, get) => ({
       // Refresh funds and snapshots so aggregates + charts reflect the upload.
       await get().fetchMutualFunds();
       await get().fetchSnapshots();
-      return { imported: result.imported || 0, failed: result.failed || 0 };
+      return { imported: result.imported || 0, failed: result.failed || 0, removed: result.removed || 0 };
     } catch (error) {
       console.error("Error importing snapshot:", error);
       set({ error: error instanceof Error ? error.message : "Failed to import snapshot" });

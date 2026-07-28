@@ -33,6 +33,7 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   X,
   ArrowUpDown,
   Trash2,
@@ -60,6 +61,7 @@ import {
 import { getPendingOccurrencesForMonth } from "@/lib/utils/recurring-occurrences";
 import { useRecurringPatternsStore } from "@/store/recurring-patterns-store";
 import { useGoalsStore } from "@/store/goals-store";
+import { useLookupsStore } from "@/store/lookups-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { Skeleton, TransactionSkeleton } from "@/components/ui/skeleton";
 
@@ -77,6 +79,9 @@ interface Transaction {
   budgetId?: string | null;
   goalId?: string | null;
   recurringPatternId?: string | null;
+  account?: string | null;
+  tags?: string[];
+  receipt?: boolean;
 }
 
 interface TransactionFromDB {
@@ -91,6 +96,9 @@ interface TransactionFromDB {
   frequency?: "daily" | "weekly" | "monthly" | "yearly";
   next_date?: string;
   recurring_pattern_id?: string | null;
+  account?: string | null;
+  tags?: string[];
+  receipt?: boolean;
 }
 
 function TransactionsPageInner() {
@@ -118,6 +126,7 @@ function TransactionsPageInner() {
   const { patterns, fetchPatterns, completeOccurrence } =
     useRecurringPatternsStore();
   const { fetchGoals } = useGoalsStore();
+  const { categories: managedCategories, accounts: managedAccounts, fetchLookups } = useLookupsStore();
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -125,6 +134,7 @@ function TransactionsPageInner() {
 
   // Advanced filters
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterAccount, setFilterAccount] = useState<string>("all");
   const [filterType, setFilterType] = useState<"all" | "income" | "expense">(
     "all",
   );
@@ -144,6 +154,7 @@ function TransactionsPageInner() {
   useEffect(() => {
     loadTransactions();
     fetchPatterns();
+    fetchLookups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -174,6 +185,9 @@ function TransactionsPageInner() {
           budgetId: t.budget_id ?? undefined,
           goalId: t.goal_id ?? undefined,
           recurringPatternId: t.recurring_pattern_id ?? null,
+          account: t.account ?? null,
+          tags: t.tags ?? [],
+          receipt: !!t.receipt,
         }),
       );
 
@@ -213,7 +227,42 @@ function TransactionsPageInner() {
       budgetId: undefined,
       goalId: undefined,
       recurringPatternId: t.recurringPatternId ?? null,
+      account: t.account ?? null,
+      tags: t.tags ?? [],
+      receipt: t.receipt ?? false,
     });
+  };
+
+  const handleUpdateCategory = async (id: string, category: string) => {
+    const previous = transactions;
+    setTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, category } : t)));
+    try {
+      const res = await fetch(`/api/transactions/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category }),
+      });
+      if (!res.ok) throw new Error("Failed to update category");
+    } catch {
+      setTransactions(previous);
+      toast.error("Could not save category");
+    }
+  };
+
+  const handleUpdateTags = async (id: string, tags: string[]) => {
+    const previous = transactions;
+    setTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, tags } : t)));
+    try {
+      const res = await fetch(`/api/transactions/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags }),
+      });
+      if (!res.ok) throw new Error("Failed to update tags");
+    } catch {
+      setTransactions(previous);
+      toast.error("Could not save tags");
+    }
   };
 
   const handleCompleteRecurring = async (patternId: string, dueDate: string) => {
@@ -381,6 +430,8 @@ function TransactionsPageInner() {
 
       const matchesCategory =
         filterCategory === "all" || t.category === filterCategory;
+      const matchesAccount =
+        filterAccount === "all" || (t.account ?? "") === filterAccount;
       const matchesType = filterType === "all" || t.type === filterType;
 
       const amount = Math.abs(t.amount);
@@ -391,6 +442,7 @@ function TransactionsPageInner() {
         matchesMonth &&
         matchesSearch &&
         matchesCategory &&
+        matchesAccount &&
         matchesType &&
         matchesMinAmount &&
         matchesMaxAmount
@@ -401,6 +453,7 @@ function TransactionsPageInner() {
     selectedMonth,
     searchQuery,
     filterCategory,
+    filterAccount,
     filterType,
     minAmount,
     maxAmount,
@@ -789,6 +842,7 @@ function TransactionsPageInner() {
 
   // Chart: spending by category for the selected month
   const [chartView, setChartView] = useState<"category" | "daily">("category");
+  const [chartCollapsed, setChartCollapsed] = useState(false);
 
   const categorySpendData = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -857,27 +911,27 @@ function TransactionsPageInner() {
       <Toaster position="top-right" richColors />
       <div className="min-h-screen bg-background">
         <div className="bg-slate-900 dark:bg-black text-white">
-          <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
-            <div className="mb-4">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Transactions</p>
+          <div className="px-3 sm:px-6 lg:px-8 pt-2.5 pb-0">
+            <div className="mb-2.5">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Transactions</p>
               <p className="text-xs text-slate-500">{selectedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
             </div>
             <div className="grid grid-cols-3 divide-x divide-slate-700/60 border-t border-slate-700/60">
-              <div className="px-4 py-3">
+              <div className="px-4 py-2">
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Income</p>
                 <p className="font-mono text-base font-semibold text-green-400">{format(totalIncome)}</p>
                 {renderDelta(momDeltas.income, false) ?? (
                   <p className="text-[10px] text-slate-500 mt-0.5">{filteredTransactions.filter(t => t.type === "income").length} entries</p>
                 )}
               </div>
-              <div className="px-4 py-3">
+              <div className="px-4 py-2">
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Expenses</p>
                 <p className="font-mono text-base font-semibold text-red-400">{format(totalExpenses)}</p>
                 {renderDelta(momDeltas.expense, true) ?? (
                   <p className="text-[10px] text-slate-500 mt-0.5">{filteredTransactions.filter(t => t.type === "expense").length} entries</p>
                 )}
               </div>
-              <div className="px-4 py-3">
+              <div className="px-4 py-2">
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Balance</p>
                 <p className={`font-mono text-base font-semibold ${balance >= 0 ? "text-green-400" : "text-red-400"}`}>{balance < 0 ? "-" : ""}{format(Math.abs(balance))}</p>
                 <p className="text-[10px] text-slate-500 mt-0.5">Income − Expenses</p>
@@ -886,9 +940,9 @@ function TransactionsPageInner() {
           </div>
         </div>
 
-        <main className="px-4 sm:px-6 lg:px-8 py-3">
+        <main className="px-4 sm:px-6 lg:px-8 py-2.5">
           {/* Month Selector */}
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
             <MonthSelector
               selectedMonth={selectedMonth}
               onMonthChange={setSelectedMonth}
@@ -901,7 +955,7 @@ function TransactionsPageInner() {
           </div>
 
           {/* Actions Bar */}
-          <div className="space-y-3 mb-4 min-w-0">
+          <div className="space-y-2 mb-2.5 min-w-0">
             <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 min-w-0">
               {/* Search */}
               <div className="relative w-full md:w-96 min-w-0">
@@ -975,6 +1029,7 @@ function TransactionsPageInner() {
                   <Filter className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">Filters</span>
                   {(filterCategory !== "all" ||
+                    filterAccount !== "all" ||
                     filterType !== "all" ||
                     minAmount ||
                     maxAmount) && (
@@ -982,6 +1037,7 @@ function TransactionsPageInner() {
                       {
                         [
                           filterCategory !== "all",
+                          filterAccount !== "all",
                           filterType !== "all",
                           minAmount,
                           maxAmount,
@@ -1078,7 +1134,7 @@ function TransactionsPageInner() {
             </div>
 
             {/* Smart Filter Chips */}
-            {(filterCategory !== "all" || filterType !== "all" || minAmount || maxAmount) && (
+            {(filterCategory !== "all" || filterAccount !== "all" || filterType !== "all" || minAmount || maxAmount) && (
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[10px] uppercase tracking-widest text-muted-foreground shrink-0">Active:</span>
                 {filterType !== "all" && (
@@ -1096,6 +1152,15 @@ function TransactionsPageInner() {
                     className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700 transition-colors"
                   >
                     {filterCategory}
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+                {filterAccount !== "all" && (
+                  <button
+                    onClick={() => setFilterAccount("all")}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-900/30 dark:text-violet-400 dark:border-violet-700 transition-colors"
+                  >
+                    {filterAccount}
                     <X className="h-3 w-3" />
                   </button>
                 )}
@@ -1118,7 +1183,7 @@ function TransactionsPageInner() {
                   </button>
                 )}
                 <button
-                  onClick={() => { setFilterCategory("all"); setFilterType("all"); setMinAmount(""); setMaxAmount(""); }}
+                  onClick={() => { setFilterCategory("all"); setFilterAccount("all"); setFilterType("all"); setMinAmount(""); setMaxAmount(""); }}
                   className="text-[10px] text-muted-foreground hover:text-destructive underline underline-offset-2 ml-1"
                 >
                   Clear all
@@ -1129,7 +1194,7 @@ function TransactionsPageInner() {
             {/* Advanced Filters */}
             {showFilters && (
               <Card className="p-3 border-border/50">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                   <div>
                     <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5 block">
                       Category
@@ -1146,6 +1211,28 @@ function TransactionsPageInner() {
                         {categories.map((cat) => (
                           <SelectItem key={cat} value={cat}>
                             {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5 block">
+                      Account
+                    </label>
+                    <Select
+                      value={filterAccount}
+                      onValueChange={setFilterAccount}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="All accounts" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Accounts</SelectItem>
+                        {managedAccounts.map((acc) => (
+                          <SelectItem key={acc.id} value={acc.name}>
+                            {acc.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1199,6 +1286,7 @@ function TransactionsPageInner() {
                         className="h-8 text-xs font-mono"
                       />
                       {(filterCategory !== "all" ||
+                        filterAccount !== "all" ||
                         filterType !== "all" ||
                         minAmount ||
                         maxAmount) && (
@@ -1207,6 +1295,7 @@ function TransactionsPageInner() {
                           size="icon"
                           onClick={() => {
                             setFilterCategory("all");
+                            setFilterAccount("all");
                             setFilterType("all");
                             setMinAmount("");
                             setMaxAmount("");
@@ -1225,34 +1314,46 @@ function TransactionsPageInner() {
 
           {/* Spending Overview Chart */}
           {filteredTransactions.length > 0 && (
-            <Card className="mb-4 overflow-hidden">
-              <div className="px-4 pt-3 pb-2 border-b flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Spending Overview</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    {selectedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                  </p>
+            <Card className="mb-2.5 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setChartCollapsed((v) => !v)}
+                className="w-full px-3 py-2 border-b flex items-center justify-between text-left hover:bg-muted/40 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${chartCollapsed ? "-rotate-90" : ""}`} />
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Spending Overview</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {selectedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
-                  <button
-                    onClick={() => setChartView("category")}
-                    className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${chartView === "category" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                {!chartCollapsed && (
+                  <div
+                    className="flex items-center gap-1 bg-muted rounded-lg p-0.5"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    By Category
-                  </button>
-                  <button
-                    onClick={() => setChartView("daily")}
-                    className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${chartView === "daily" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Daily
-                  </button>
-                </div>
-              </div>
+                    <button
+                      onClick={() => setChartView("category")}
+                      className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${chartView === "category" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      By Category
+                    </button>
+                    <button
+                      onClick={() => setChartView("daily")}
+                      className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${chartView === "daily" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      Daily
+                    </button>
+                  </div>
+                )}
+              </button>
 
-              {chartView === "category" && (
-                <div className="px-4 py-3">
+              {!chartCollapsed && chartView === "category" && (
+                <div className="px-3 py-2.5">
                   {categorySpendData.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-6">No expense data for this month</p>
+                    <p className="text-xs text-muted-foreground text-center py-4">No expense data for this month</p>
                   ) : (
                     <div className="flex gap-4 items-center">
                       {/* Donut */}
@@ -1309,10 +1410,10 @@ function TransactionsPageInner() {
                 </div>
               )}
 
-              {chartView === "daily" && (
-                <div className="px-2 pt-3 pb-1">
+              {!chartCollapsed && chartView === "daily" && (
+                <div className="px-2 pt-2.5 pb-1">
                   {dailySpendData.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-6">No transactions for this month</p>
+                    <p className="text-xs text-muted-foreground text-center py-4">No transactions for this month</p>
                   ) : (
                     <>
                       <ResponsiveContainer width="100%" height={160}>
@@ -1387,7 +1488,7 @@ function TransactionsPageInner() {
           )}
 
           {/* Transactions Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 min-w-0">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-2.5 min-w-0">
             <div className="overflow-x-auto -mx-1 px-1">
               <TabsList className="w-max min-w-0">
                 <TabsTrigger value="all">
@@ -1408,7 +1509,7 @@ function TransactionsPageInner() {
             {/* All Transactions */}
             <TabsContent value="all" className="mt-0">
               {sortedMergedItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="flex flex-col items-center justify-center py-10 text-center">
                   <IndianRupee className="h-8 w-8 text-muted-foreground/40 mb-3" />
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">No transactions yet</p>
                   <p className="text-xs text-muted-foreground">Add transactions or set up recurring items on the Recurring page</p>
@@ -1428,6 +1529,9 @@ function TransactionsPageInner() {
                           format={format}
                           onEdit={handleEditTransaction}
                           onDelete={handleDeleteTransaction}
+                          categories={managedCategories.map((c) => c.name)}
+                          onUpdateCategory={handleUpdateCategory}
+                          onUpdateTags={handleUpdateTags}
                           onMarkRecurringComplete={handleCompleteRecurring}
                           completingKey={completingRecurringKey}
                           deleting={deleting}
@@ -1449,7 +1553,7 @@ function TransactionsPageInner() {
             {/* Income Only */}
             <TabsContent value="income" className="mt-0">
               {incomeTransactions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="flex flex-col items-center justify-center py-10 text-center">
                   <TrendingUp className="h-8 w-8 text-muted-foreground/40 mb-3" />
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">No income transactions found</p>
                 </div>
@@ -1468,6 +1572,9 @@ function TransactionsPageInner() {
                           format={format}
                           onEdit={handleEditTransaction}
                           onDelete={handleDeleteTransaction}
+                          categories={managedCategories.map((c) => c.name)}
+                          onUpdateCategory={handleUpdateCategory}
+                          onUpdateTags={handleUpdateTags}
                           onMarkRecurringComplete={handleCompleteRecurring}
                           completingKey={completingRecurringKey}
                           deleting={deleting}
@@ -1489,7 +1596,7 @@ function TransactionsPageInner() {
             {/* Expenses Only */}
             <TabsContent value="expense" className="mt-0">
               {expenseTransactions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="flex flex-col items-center justify-center py-10 text-center">
                   <TrendingDown className="h-8 w-8 text-muted-foreground/40 mb-3" />
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">No expense transactions found</p>
                 </div>
@@ -1508,6 +1615,9 @@ function TransactionsPageInner() {
                           format={format}
                           onEdit={handleEditTransaction}
                           onDelete={handleDeleteTransaction}
+                          categories={managedCategories.map((c) => c.name)}
+                          onUpdateCategory={handleUpdateCategory}
+                          onUpdateTags={handleUpdateTags}
                           onMarkRecurringComplete={handleCompleteRecurring}
                           completingKey={completingRecurringKey}
                           deleting={deleting}
@@ -1529,7 +1639,7 @@ function TransactionsPageInner() {
             {/* Recurring Only */}
             <TabsContent value="recurring" className="mt-0">
               {recurringTransactions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="flex flex-col items-center justify-center py-10 text-center">
                   <Repeat className="h-8 w-8 text-muted-foreground/40 mb-3" />
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">No recurring items for this month</p>
                   <p className="text-xs text-muted-foreground mt-1">Due recurring or completed payments from patterns appear here</p>
@@ -1549,6 +1659,9 @@ function TransactionsPageInner() {
                           format={format}
                           onEdit={handleEditTransaction}
                           onDelete={handleDeleteTransaction}
+                          categories={managedCategories.map((c) => c.name)}
+                          onUpdateCategory={handleUpdateCategory}
+                          onUpdateTags={handleUpdateTags}
                           onMarkRecurringComplete={handleCompleteRecurring}
                           completingKey={completingRecurringKey}
                           deleting={deleting}

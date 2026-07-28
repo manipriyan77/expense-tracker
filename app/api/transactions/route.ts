@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveBudgetIdForTransactionDate } from "@/lib/server/budget-for-transaction-date";
+import { normalizeTags } from "@/lib/server/normalize-tags";
+import { buildFingerprint } from "@/lib/server/transaction-fingerprint";
 
 export async function GET() {
   try {
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { amount, description, category, subtype, date, type, goalId } = body;
+    const { amount, description, category, subtype, date, type, goalId, account, tags, receipt } = body;
 
     if (
       amount === undefined ||
@@ -65,8 +67,26 @@ export async function POST(request: NextRequest) {
     };
     const templateBudgetId = uuidOrNull(body.budgetId);
     const goalIdClean = uuidOrNull(goalId);
+    const accountClean: string | null = account ? String(account).trim() : null;
+    const cleanedTags = Array.isArray(tags) ? normalizeTags(tags) : [];
 
     const txDate = (date || new Date().toISOString().split("T")[0]).split("T")[0];
+    const fingerprint = buildFingerprint(txDate, description, amountNum, accountClean);
+
+    const { data: existing } = await supabase
+      .from("transactions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("fingerprint", fingerprint)
+      .maybeSingle();
+
+    if (existing) {
+      return NextResponse.json(
+        { error: "duplicate", message: "A transaction with the same date, merchant, amount, and account already exists.", duplicate: true },
+        { status: 409 },
+      );
+    }
+
     const budgetId = await resolveBudgetIdForTransactionDate(supabase, user.id, {
       type,
       category,
@@ -88,11 +108,23 @@ export async function POST(request: NextRequest) {
         date: txDate,
         type,
         user_id: user.id,
+        account: accountClean,
+        tags: cleanedTags,
+        receipt: !!receipt,
+        fingerprint,
+        source: "manual",
       })
       .select()
       .single();
 
     if (error) {
+      // Unique index race: two concurrent requests with the same fingerprint.
+      if (error.code === "23505") {
+        return NextResponse.json(
+          { error: "duplicate", message: "A transaction with the same date, merchant, amount, and account already exists.", duplicate: true },
+          { status: 409 },
+        );
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

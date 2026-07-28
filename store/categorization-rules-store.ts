@@ -6,6 +6,7 @@ export interface CategorizationRule {
   category: string;
   subtype: string | null;
   priority: number;
+  enabled: boolean;
   user_id: string;
   created_at: string;
 }
@@ -14,7 +15,8 @@ interface RulesState {
   rules: CategorizationRule[];
   loading: boolean;
   fetchRules: () => Promise<void>;
-  addRule: (rule: Omit<CategorizationRule, "id" | "user_id" | "created_at">) => Promise<void>;
+  addRule: (rule: Omit<CategorizationRule, "id" | "user_id" | "created_at" | "enabled">) => Promise<void>;
+  updateRule: (id: string, updates: Partial<Pick<CategorizationRule, "keyword" | "category" | "subtype" | "enabled">>) => Promise<void>;
   deleteRule: (id: string) => Promise<void>;
   matchRule: (description: string) => { category: string; subtype: string | null } | null;
   /** Teach the system: maps a keyword to a category/subtype, replacing any
@@ -51,6 +53,17 @@ export const useCategorizationRulesStore = create<RulesState>((set, get) => ({
     set((s) => ({ rules: [data, ...s.rules] }));
   },
 
+  updateRule: async (id, updates) => {
+    const res = await fetch(`/api/categorization-rules/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error("Failed to update rule");
+    const data: CategorizationRule = await res.json();
+    set((s) => ({ rules: s.rules.map((r) => (r.id === id ? data : r)) }));
+  },
+
   deleteRule: async (id) => {
     const res = await fetch(`/api/categorization-rules/${id}`, {
       method: "DELETE",
@@ -62,7 +75,7 @@ export const useCategorizationRulesStore = create<RulesState>((set, get) => ({
   matchRule: (description) => {
     const { rules } = get();
     const lower = description.toLowerCase();
-    const sorted = [...rules].sort((a, b) => b.priority - a.priority);
+    const sorted = [...rules].filter((r) => r.enabled !== false).sort((a, b) => b.priority - a.priority);
     for (const rule of sorted) {
       if (lower.includes(rule.keyword.toLowerCase())) {
         return { category: rule.category, subtype: rule.subtype };

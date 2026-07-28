@@ -9,7 +9,6 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
-  Home,
   X,
   PieChart,
   Settings,
@@ -26,10 +25,10 @@ import {
   Activity,
   CalendarDays,
   Sparkles,
-  LayoutDashboard,
-  GraduationCap,
   SearchCheck,
   Rocket,
+  FileText,
+  ListChecks,
 } from "lucide-react";
 import { Button } from "./button";
 import { usePrivacyStore } from "@/store/privacy-store";
@@ -57,35 +56,7 @@ interface NavItem {
   subItems?: SubItem[];
 }
 
-// ─── Hub items shown on /home ───────────────────────────────────────────────
-
-const HUB_ITEMS = [
-  {
-    title: "Finance",
-    href: "/dashboard",
-    icon: BarChart3,
-    description: "Track your money",
-    color: "text-primary",
-    bg: "bg-primary/10 hover:bg-primary/20",
-    border: "border-primary/20",
-  },
-  {
-    title: "Learning",
-    href: "/learning",
-    icon: GraduationCap,
-    description: "Track your learning",
-    color: "text-indigo-500",
-    bg: "bg-indigo-500/10 hover:bg-indigo-500/20",
-    border: "border-indigo-500/20",
-  },
-];
-
 // ─── Section nav items ──────────────────────────────────────────────────────
-
-const LEARNING_NAV: NavItem[] = [
-  { title: "Overview", href: "/learning", icon: LayoutDashboard },
-  { title: "Topics", href: "/learning/topics", icon: GraduationCap },
-];
 
 const FINANCE_NAV: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: BarChart3 },
@@ -123,24 +94,20 @@ const FINANCE_NAV: NavItem[] = [
       { title: "Health Score", href: "/health-score", icon: Activity },
     ],
   },
+  { title: "Documents", href: "/documents", icon: FileText },
+  { title: "Rules & Tags", href: "/rules", icon: ListChecks },
 ];
 
 // ─── Section detection ──────────────────────────────────────────────────────
 
-type Section = "home" | "finance" | "learning";
+type Section = "finance";
 
-function getSection(pathname: string): Section {
-  if (pathname === "/home") return "home";
-  if (pathname.startsWith("/learning")) return "learning";
+function getSection(): Section {
   return "finance";
 }
 
-const SECTION_META: Record<
-  Exclude<Section, "home">,
-  { label: string; nav: NavItem[]; accent: string }
-> = {
+const SECTION_META: Record<Section, { label: string; nav: NavItem[]; accent: string }> = {
   finance: { label: "Finance", nav: FINANCE_NAV, accent: "text-primary" },
-  learning: { label: "Learning", nav: LEARNING_NAV, accent: "text-indigo-500" },
 };
 
 // ─── Props ──────────────────────────────────────────────────────────────────
@@ -173,9 +140,9 @@ export function Sidebar({ className, mobileOpen = false, onMobileClose }: Sideba
   };
 
   const currentHref = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
-  const section = getSection(pathname);
-  const sectionMeta = section !== "home" ? SECTION_META[section] : null;
-  const navItems = sectionMeta?.nav ?? [];
+  const section = getSection();
+  const sectionMeta = SECTION_META[section];
+  const navItems = sectionMeta.nav;
 
   const isSubItemActive = (href: string) =>
     href.includes("?") ? currentHref === href : pathname === href;
@@ -343,9 +310,9 @@ export function Sidebar({ className, mobileOpen = false, onMobileClose }: Sideba
       )}
 
       {/* Brand header */}
-      <Link href="/home" onClick={handleLinkClick}
+      <Link href="/dashboard" onClick={handleLinkClick}
         className="flex items-center justify-center p-4 border-b border-sidebar-border hover:bg-sidebar-accent transition-colors group"
-        title="Go to Home"
+        title="Go to Dashboard"
       >
         <div className={cn("flex items-center gap-3 transition-all duration-300", isCollapsed ? "justify-center" : "justify-start w-full")}>
           <div className="relative shrink-0 h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
@@ -371,81 +338,16 @@ export function Sidebar({ className, mobileOpen = false, onMobileClose }: Sideba
       </div>
 
       <nav className="flex-1 p-3 overflow-y-auto">
-        <>
-          {/* ── Home hub: 3 section cards ── */}
-          {section === "home" && (
-            <div className="space-y-2">
-              {!isCollapsed && (
-                <p className="text-[10px] font-bold uppercase tracking-widest px-3 mb-3 text-muted-foreground">
-                  Sections
-                </p>
-              )}
-              {HUB_ITEMS.map((hub) => {
-                const Icon = hub.icon;
-                if (isCollapsed) {
-                  return (
-                    <Tooltip key={hub.href}>
-                      <TooltipTrigger asChild>
-                        <Link href={hub.href} onClick={handleLinkClick}
-                          className={cn("flex items-center justify-center px-2 py-2 rounded-lg transition-colors border", hub.bg, hub.border, hub.color)}
-                        >
-                          <Icon className="h-4 w-4 shrink-0" />
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent side="right">{hub.title}</TooltipContent>
-                    </Tooltip>
-                  );
-                }
-                return (
-                  <Link key={hub.href} href={hub.href} onClick={handleLinkClick}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-3 rounded-xl border transition-colors",
-                      hub.bg, hub.border,
-                    )}
-                  >
-                    <div className={cn("shrink-0", hub.color)}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className={cn("text-sm font-semibold", hub.color)}>{hub.title}</p>
-                      <p className="text-[11px] text-muted-foreground">{hub.description}</p>
-                    </div>
-                    <ChevronRight className="h-3.5 w-3.5 ml-auto text-muted-foreground shrink-0" />
-                  </Link>
-                );
-              })}
-            </div>
+        <div>
+          {!isCollapsed && (
+            <p className={cn("text-[10px] font-bold uppercase tracking-widest px-3 mb-1.5", sectionMeta.accent)}>
+              {sectionMeta.label}
+            </p>
           )}
-
-          {/* ── Section nav ── */}
-          {section !== "home" && sectionMeta && (
-            <div>
-              {!isCollapsed && (
-                <p className={cn("text-[10px] font-bold uppercase tracking-widest px-3 mb-1.5", sectionMeta.accent)}>
-                  {sectionMeta.label}
-                </p>
-              )}
-              <div className="space-y-0.5">
-                {navItems.map((item) => renderNavItem(item))}
-              </div>
-
-              {/* Settings at bottom of section nav */}
-              {!isCollapsed && (
-                <div className="mt-4 pt-4 border-t border-sidebar-border space-y-0.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest px-3 mb-1.5 text-muted-foreground">
-                    General
-                  </p>
-                  <Link href="/home" onClick={handleLinkClick}
-                    className="flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                  >
-                    <Home className="h-4 w-4 shrink-0" />
-                    <span className="text-sm font-medium">Home</span>
-                  </Link>
-                </div>
-              )}
-            </div>
-          )}
-        </>
+          <div className="space-y-0.5">
+            {navItems.map((item) => renderNavItem(item))}
+          </div>
+        </div>
       </nav>
 
       {/* Settings + Profile */}

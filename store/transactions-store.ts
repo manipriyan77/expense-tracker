@@ -14,6 +14,9 @@ export interface Transaction {
   user_id: string;
   created_at: string;
   updated_at: string;
+  account?: string | null;
+  tags?: string[];
+  receipt?: boolean;
 }
 
 interface TransactionsState {
@@ -57,8 +60,11 @@ export const useTransactionsStore = create<TransactionsState>((set) => ({
         user_id: transaction.user_id,
         created_at: transaction.created_at,
         updated_at: transaction.updated_at,
+        account: transaction.account ?? null,
+        tags: transaction.tags ?? [],
+        receipt: !!transaction.receipt,
       }));
-      
+
       set({ transactions: transformedTransactions, loading: false });
     } catch (error) {
       console.error("Error fetching transactions:", error);
@@ -79,7 +85,7 @@ export const useTransactionsStore = create<TransactionsState>((set) => ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to add transaction");
+        throw new Error(errorData.message || errorData.error || "Failed to add transaction");
       }
 
       const data = await response.json();
@@ -98,6 +104,9 @@ export const useTransactionsStore = create<TransactionsState>((set) => ({
         user_id: data.user_id,
         created_at: data.created_at,
         updated_at: data.updated_at,
+        account: data.account ?? null,
+        tags: data.tags ?? [],
+        receipt: !!data.receipt,
       };
       
       set((state) => ({
@@ -142,6 +151,9 @@ export const useTransactionsStore = create<TransactionsState>((set) => ({
         user_id: data.user_id,
         created_at: data.created_at,
         updated_at: data.updated_at,
+        account: data.account ?? null,
+        tags: data.tags ?? [],
+        receipt: !!data.receipt,
       };
       
       set((state) => ({

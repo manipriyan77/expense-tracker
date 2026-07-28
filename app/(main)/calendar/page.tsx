@@ -29,6 +29,7 @@ import { useRecurringPatternsStore } from "@/store/recurring-patterns-store";
 import { useDebtTrackerStore } from "@/store/debt-tracker-store";
 import { getPendingOccurrencesForMonth } from "@/lib/utils/recurring-occurrences";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
+import { CalendarSkeleton } from "@/components/ui/skeleton";
 
 interface DayTransaction {
   id: string;
@@ -44,7 +45,7 @@ interface DayTransaction {
 
 export default function CalendarPage() {
   const { format } = useFormatCurrency();
-  const { transactions, fetchTransactions } = useTransactionsStore();
+  const { transactions, loading, fetchTransactions } = useTransactionsStore();
   const { patterns, fetchPatterns, completeOccurrence } =
     useRecurringPatternsStore();
   const { debts, fetchDebts } = useDebtTrackerStore();
@@ -328,6 +329,10 @@ export default function CalendarPage() {
   };
 
   const stats = calMonthlyStats();
+
+  if (loading && transactions.length === 0) {
+    return <CalendarSkeleton />;
+  }
 
   return (
     <div className="min-h-screen bg-background">

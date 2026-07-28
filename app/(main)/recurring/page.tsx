@@ -61,6 +61,20 @@ import { useBudgetsStore } from "@/store/budgets-store";
 import { useDebtTrackerStore } from "@/store/debt-tracker-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { ListPageSkeleton } from "@/components/ui/skeleton";
+import { useIgnoredRecurringPatternsStore } from "@/store/ignored-recurring-patterns-store";
+import {
+  normalizeMerchant,
+  classifyCadence,
+  classifySuggestionKind,
+  amountVariation,
+  computeConfidence,
+  monthlyEquivalent,
+  nextExpectedDate,
+  patternKey,
+  type DetectedCadence,
+  type DetectionConfidence,
+  type SuggestionKind,
+} from "@/lib/utils/recurring-detection";
 
 export default function RecurringPage() {
   const { format } = useFormatCurrency();
@@ -79,6 +93,7 @@ export default function RecurringPage() {
   const { goals, fetchGoals } = useGoalsStore();
   const { budgets, fetchBudgets } = useBudgetsStore();
   const { debts, fetchDebts } = useDebtTrackerStore();
+  const { ignoredKeys, fetchIgnored, ignorePattern } = useIgnoredRecurringPatternsStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
@@ -142,67 +157,91 @@ export default function RecurringPage() {
     fetchGoals();
     fetchBudgets();
     fetchDebts();
-  }, [fetchPatterns, fetchTransactions, fetchGoals, fetchBudgets, fetchDebts]);
+    fetchIgnored();
+  }, [fetchPatterns, fetchTransactions, fetchGoals, fetchBudgets, fetchDebts, fetchIgnored]);
 
-  // Smart detection: Find potential recurring transactions
+  // Smart detection: Find potential recurring/subscription transactions.
+  // See lib/utils/recurring-detection.ts for the normalization/cadence/confidence rules.
   const potentialRecurring = useMemo(() => {
-    const potential: Array<{
+    const results: Array<{
+      key: string;
       description: string;
+      normalizedMerchant: string;
       category: string;
       amount: number;
       count: number;
-      frequency: string;
+      frequency: DetectedCadence;
+      confidence: DetectionConfidence;
+      kind: SuggestionKind;
+      monthlyEquivalent: number;
+      nextDate: string;
     }> = [];
-    const grouped = new Map<
-      string,
-      { transactions: Transaction[]; amounts: number[] }
-    >();
 
-    // Group transactions by description and category
-    allTransactions.forEach((t: Transaction) => {
-      const key = `${t.description.toLowerCase()}_${t.category}`;
-      if (!grouped.has(key)) {
-        grouped.set(key, { transactions: [], amounts: [] });
+    const existingNormalizedNames = new Set(
+      patterns.map((p) => normalizeMerchant(p.description || p.name)),
+    );
+
+    const grouped = new Map<string, Transaction[]>();
+    for (const t of allTransactions) {
+      if (t.type !== "expense") continue;
+      const normalized = normalizeMerchant(t.description);
+      if (!normalized) continue;
+      if (!grouped.has(normalized)) grouped.set(normalized, []);
+      grouped.get(normalized)!.push(t);
+    }
+
+    grouped.forEach((txs, normalizedMerchant) => {
+      if (existingNormalizedNames.has(normalizedMerchant)) return;
+
+      const uniqueDates = new Set(txs.map((t) => t.date));
+      if (uniqueDates.size < 2) return;
+
+      const sorted = [...txs].sort((a, b) => a.date.localeCompare(b.date));
+      const timestamps = sorted.map((t) => new Date(t.date).getTime());
+      const amounts = sorted.map((t) => t.amount);
+
+      const cadence = classifyCadence(timestamps);
+      if (!cadence) return;
+
+      const variation = amountVariation(amounts);
+      const kind = classifySuggestionKind(normalizedMerchant, sorted[0].category, sorted[0].tags ?? []);
+
+      const limit = kind === "subscription" ? 0.2 : kind === "recurring" ? 0.35 : 0.03;
+      if (variation > limit) return;
+
+      // No strong hint: only suggest for stable monthly/quarterly/annual patterns
+      // with very low variation and 3+ occurrences (avoids flagging routine grocery runs).
+      if (kind === "other") {
+        const stableCadence = cadence === "monthly" || cadence === "quarterly" || cadence === "yearly";
+        if (!stableCadence || txs.length < 3) return;
       }
-      const group = grouped.get(key)!;
-      group.transactions.push(t);
-      group.amounts.push(t.amount);
+
+      const ignoreKey = patternKey(normalizedMerchant, cadence);
+      if (ignoredKeys.includes(ignoreKey)) return;
+
+      const avgAmount = amounts.reduce((a, b) => a + b, 0) / amounts.length;
+      const confidence = computeConfidence(txs.length, amounts, timestamps);
+      const lastDate = new Date(sorted[sorted.length - 1].date);
+
+      results.push({
+        key: ignoreKey,
+        description: sorted[sorted.length - 1].description,
+        normalizedMerchant,
+        category: sorted[0].category,
+        amount: avgAmount,
+        count: txs.length,
+        frequency: cadence,
+        confidence,
+        kind,
+        monthlyEquivalent: monthlyEquivalent(avgAmount, cadence),
+        nextDate: nextExpectedDate(lastDate, cadence).toISOString().split("T")[0],
+      });
     });
 
-    // Find groups with 3+ occurrences (likely recurring)
-    grouped.forEach((group) => {
-      if (group.transactions.length >= 3) {
-        const avgAmount =
-          group.amounts.reduce((a, b) => a + b, 0) / group.amounts.length;
-        const dates = group.transactions
-          .map((t: Transaction) => new Date(t.date).getTime())
-          .sort((a, b) => a - b);
-
-        // Detect frequency
-        let frequency = "monthly";
-        if (dates.length >= 2) {
-          const avgDaysBetween =
-            (dates[dates.length - 1] - dates[0]) / (dates.length - 1);
-          if (avgDaysBetween <= 2) frequency = "daily";
-          else if (avgDaysBetween <= 9) frequency = "weekly";
-          else if (avgDaysBetween <= 18) frequency = "biweekly";
-          else if (avgDaysBetween <= 35) frequency = "monthly";
-          else if (avgDaysBetween <= 100) frequency = "quarterly";
-          else frequency = "yearly";
-        }
-
-        potential.push({
-          description: group.transactions[0].description,
-          category: group.transactions[0].category,
-          amount: avgAmount,
-          count: group.transactions.length,
-          frequency,
-        });
-      }
-    });
-
-    return potential.slice(0, 5); // Top 5 potential recurring
-  }, [allTransactions]);
+    return results
+      .sort((a, b) => (a.confidence === b.confidence ? b.count - a.count : a.confidence === "high" ? -1 : 1))
+      .slice(0, 8);
+  }, [allTransactions, patterns, ignoredKeys]);
 
   // Upcoming recurring transactions (due in next 7 days)
   const upcomingRecurring = useMemo(() => {
@@ -442,21 +481,6 @@ export default function RecurringPage() {
     potential: (typeof potentialRecurring)[0],
   ) => {
     try {
-      const nextDate = new Date();
-      const validFrequencies: RecurringPattern["frequency"][] = [
-        "daily",
-        "weekly",
-        "biweekly",
-        "monthly",
-        "quarterly",
-        "yearly",
-      ];
-      const frequency = validFrequencies.includes(
-        potential.frequency as RecurringPattern["frequency"],
-      )
-        ? (potential.frequency as RecurringPattern["frequency"])
-        : "monthly";
-
       await addPattern({
         name: potential.description,
         type: "expense",
@@ -464,18 +488,27 @@ export default function RecurringPage() {
         description: potential.description,
         category: potential.category,
         subtype: "Other",
-        frequency,
+        frequency: potential.frequency,
         start_date: new Date().toISOString().split("T")[0],
         end_date: null,
-        next_date: nextDate.toISOString().split("T")[0],
+        next_date: potential.nextDate,
         is_active: true,
         auto_create: false,
-        tags: [],
-        notes: `Auto-detected from ${potential.count} transactions`,
+        tags: potential.kind === "subscription" ? ["subscription"] : [],
+        notes: `Auto-detected from ${potential.count} transactions (${potential.confidence} confidence)`,
       });
       toast.success("Recurring pattern created from detection!");
     } catch {
       toast.error("Failed to create pattern");
+    }
+  };
+
+  const handleIgnoreSuggestion = async (potential: (typeof potentialRecurring)[0]) => {
+    try {
+      await ignorePattern(potential.key);
+      toast.success("Suggestion dismissed");
+    } catch {
+      toast.error("Could not dismiss suggestion");
     }
   };
 
@@ -665,6 +698,56 @@ export default function RecurringPage() {
           </div>
 
           <TabsContent value="recurring" className="space-y-4 mt-0">
+            {/* Active detection status banner */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground px-1">
+              <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
+              Active detection — scanning your expense history for recurring patterns
+            </div>
+
+            {/* Smart suggestions */}
+            {potentialRecurring.length > 0 && (
+              <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 dark:border-amber-900">
+                <CardHeader className="p-3 pb-1">
+                  <CardTitle className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <Lightbulb className="h-4 w-4 text-amber-500" />
+                    Suggested recurring payments & subscriptions
+                  </CardTitle>
+                  <CardDescription>Review and keep or ignore each suggestion</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2 p-3 pt-1">
+                  {potentialRecurring.map((p) => (
+                    <div
+                      key={p.key}
+                      className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-card border border-border flex-wrap"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium text-sm truncate">{p.description}</p>
+                          <Badge variant={p.confidence === "high" ? "default" : "secondary"} className="text-[10px]">
+                            {p.confidence === "high" ? "High confidence" : "Likely"}
+                          </Badge>
+                          {p.kind === "subscription" && (
+                            <Badge variant="outline" className="text-[10px]">Subscription</Badge>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {p.category} · {p.frequency} · {p.count} occurrences · avg {format(p.amount)} · ~{format(p.monthlyEquivalent)}/mo · next {new Date(p.nextDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button size="sm" variant="outline" onClick={() => handleIgnoreSuggestion(p)}>
+                          Ignore
+                        </Button>
+                        <Button size="sm" onClick={() => handleSmartDetect(p)} className="gap-1.5">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Keep
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Upcoming Recurring Transactions */}
             {upcomingRecurring.length > 0 && (
               <Card className="mb-4 border-blue-200 bg-blue-50">

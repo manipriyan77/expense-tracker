@@ -34,6 +34,7 @@ import { useGoalsStore } from "@/store/goals-store";
 import { useDebtTrackerStore } from "@/store/debt-tracker-store";
 import { useNetWorthStore } from "@/store/net-worth-store";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
+import { ListPageSkeleton } from "@/components/ui/skeleton";
 import {
   buildInvestmentPlan,
   type AdvisorGoal,
@@ -72,7 +73,7 @@ function monthsBetween(from: string, to = new Date()): number {
 }
 
 export default function InvestmentAdvisorPage() {
-  const { transactions, fetchTransactions } = useTransactionsStore();
+  const { transactions, loading, fetchTransactions } = useTransactionsStore();
   const { goals, fetchGoals } = useGoalsStore();
   const { debts, fetchDebts } = useDebtTrackerStore();
   const { assets, fetchAssets } = useNetWorthStore();
@@ -168,6 +169,14 @@ export default function InvestmentAdvisorPage() {
   );
 
   const surplus = income - expenses;
+
+  if (loading && transactions.length === 0) {
+    return (
+      <div className="min-h-full p-4">
+        <ListPageSkeleton rows={4} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full">

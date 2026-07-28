@@ -37,9 +37,11 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { useCategorizationRulesStore } from "@/store/categorization-rules-store";
 import { useTransactionsStore } from "@/store/transactions-store";
+import { useLookupsStore } from "@/store/lookups-store";
 
 const recurringFrequencyOptions = [
   "daily",
@@ -160,11 +162,33 @@ export default function AddTransactionForm({
   } | null>(null);
   const { matchRule, fetchRules } = useCategorizationRulesStore();
   const { transactions } = useTransactionsStore();
+  const { accounts: managedAccounts, tags: managedTags, fetchLookups, addLookup } = useLookupsStore();
+
+  const [selectedAccount, setSelectedAccount] = useState<string>("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [newTagDraft, setNewTagDraft] = useState("");
+  const [hasReceipt, setHasReceipt] = useState(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
   useEffect(() => {
     fetchRules();
+    fetchLookups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const toggleTag = (name: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name],
+    );
+  };
+
+  const handleAddNewTag = async () => {
+    const name = newTagDraft.trim();
+    if (!name) return;
+    await addLookup("tag", name);
+    setSelectedTags((prev) => (prev.includes(name) ? prev : [...prev, name]));
+    setNewTagDraft("");
+  };
 
   const {
     control,
@@ -362,6 +386,21 @@ export default function AddTransactionForm({
           : null,
       goalId: data.goalId && data.goalId !== "none" ? data.goalId : null,
       date: txDate,
+      account: selectedAccount || undefined,
+      tags: selectedTags,
+      receipt: hasReceipt && !!receiptFile,
+    };
+
+    const uploadReceiptIfNeeded = async (transactionRecordId: string) => {
+      if (!hasReceipt || !receiptFile) return;
+      try {
+        const form = new FormData();
+        form.append("file", receiptFile);
+        form.append("linkedTransactionId", transactionRecordId);
+        await fetch("/api/documents", { method: "POST", body: form });
+      } catch {
+        // Non-fatal — the transaction itself already saved successfully.
+      }
     };
 
     try {
@@ -375,6 +414,7 @@ export default function AddTransactionForm({
           const err = await response.json();
           throw new Error(err.error || "Failed to update transaction");
         }
+        await uploadReceiptIfNeeded(transactionId);
         reset();
         onSuccess();
         return;
@@ -457,8 +497,14 @@ export default function AddTransactionForm({
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
+        if (err.duplicate) {
+          throw new Error(err.message || "This transaction looks like a duplicate.");
+        }
         throw new Error(err.error || "Failed to add transaction");
       }
+
+      const created = await response.clone().json().catch(() => null);
+      if (created?.id) await uploadReceiptIfNeeded(created.id);
 
       const hasDebt = data.debtId && data.debtId !== "none";
 
@@ -1073,6 +1119,93 @@ export default function AddTransactionForm({
               </div>
             )}
           </div>
+
+        {/* Account */}
+        <div className="space-y-2 pt-3 border-t border-border">
+          <Label className="text-xs font-medium">Account (optional)</Label>
+          <Select value={selectedAccount || "none"} onValueChange={(v) => setSelectedAccount(v === "none" ? "" : v)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="No account" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No account</SelectItem>
+              {managedAccounts.map((acc) => (
+                <SelectItem key={acc.id} value={acc.name}>
+                  {acc.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {managedAccounts.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No accounts yet.{" "}
+              <a href="/settings" target="_blank" rel="noreferrer" className="underline font-medium">
+                Add an account in Settings
+              </a>
+            </p>
+          )}
+        </div>
+
+        {/* Tags */}
+        <div className="space-y-2 pt-3 border-t border-border">
+          <Label className="text-xs font-medium">Tags (optional)</Label>
+          <div className="flex flex-wrap gap-2">
+            {managedTags.map((tag) => {
+              const isSelected = selectedTags.includes(tag.name);
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => toggleTag(tag.name)}
+                  className={`px-2.5 py-1 rounded-full text-xs transition-colors ${
+                    isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"
+                  }`}
+                >
+                  {tag.name}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex gap-2">
+            <Input
+              placeholder="New tag name"
+              value={newTagDraft}
+              onChange={(e) => setNewTagDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddNewTag();
+                }
+              }}
+              className="h-9 text-sm"
+            />
+            <Button type="button" variant="outline" size="sm" className="h-9" onClick={handleAddNewTag}>
+              Add
+            </Button>
+          </div>
+        </div>
+
+        {/* Receipt */}
+        <div className="space-y-2 pt-3 border-t border-border">
+          <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+            <Checkbox
+              checked={hasReceipt}
+              onCheckedChange={(checked) => {
+                setHasReceipt(checked === true);
+                if (!checked) setReceiptFile(null);
+              }}
+            />
+            I have a receipt to attach
+          </label>
+          {hasReceipt && (
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm"
+            />
+          )}
+        </div>
 
         {transactionType === "expense" && (
           <div className="space-y-2 pt-3 border-t border-border">

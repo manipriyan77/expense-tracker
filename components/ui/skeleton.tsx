@@ -143,6 +143,60 @@ function ListPageSkeleton({ rows = 6 }: { rows?: number }) {
   )
 }
 
+// Portfolio Skeleton — dark hero + stat strip + card grid
+// Used by: Investments (tabs of stocks/mutual funds/gold/silver/forex/other)
+function PortfolioSkeleton() {
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="bg-slate-900 dark:bg-black px-4 sm:px-6 lg:px-8 pt-5 pb-6">
+        <Skeleton className="h-3 w-32 bg-slate-700 mb-2" />
+        <Skeleton className="h-9 w-48 bg-slate-600 mb-4" />
+        <div className="grid grid-cols-3 gap-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="bg-slate-800 rounded-lg p-3 space-y-2">
+              <Skeleton className="h-3 w-16 bg-slate-700" />
+              <Skeleton className="h-5 w-20 bg-slate-600" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="px-4 sm:px-6 lg:px-8 pt-4">
+        <div className="flex gap-2 mb-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-8 w-24 rounded-md" />
+          ))}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <CardSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Calendar Skeleton — month grid + summary strip
+function CalendarSkeleton() {
+  return (
+    <div className="min-h-screen bg-background p-4 space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="rounded-lg border bg-card p-3 space-y-2">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-5 w-20" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1.5">
+        {[...Array(35)].map((_, i) => (
+          <Skeleton key={i} className="aspect-square rounded-md" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export {
   Skeleton,
   CardSkeleton,
@@ -151,4 +205,6 @@ export {
   TableSkeleton,
   StatsSkeleton,
   ListPageSkeleton,
+  PortfolioSkeleton,
+  CalendarSkeleton,
 }

@@ -29,7 +29,7 @@ interface Props {
 type Step = "upload" | "map" | "preview" | "done";
 
 const REQUIRED_FIELDS = ["date", "amount", "description", "type"] as const;
-const OPTIONAL_FIELDS = ["category", "subtype"] as const;
+const OPTIONAL_FIELDS = ["category", "subtype", "account"] as const;
 const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS] as const;
 type Field = (typeof ALL_FIELDS)[number];
 
@@ -51,6 +51,7 @@ function autoDetect(headers: string[]): Record<Field, string> {
     type: "",
     category: "",
     subtype: "",
+    account: "",
   };
   const lower = headers.map((h) => h.toLowerCase());
   lower.forEach((h, i) => {
@@ -63,6 +64,7 @@ function autoDetect(headers: string[]): Record<Field, string> {
       mapping.type = mapping.type || orig;
     if (/categor/i.test(h)) mapping.category = mapping.category || orig;
     if (/sub|subtype|tag/i.test(h)) mapping.subtype = mapping.subtype || orig;
+    if (/account|wallet|card|bank/i.test(h)) mapping.account = mapping.account || orig;
   });
   return mapping;
 }
@@ -78,16 +80,17 @@ export function CsvImportModal({ open, onOpenChange, onImported }: Props) {
     type: "",
     category: "",
     subtype: "",
+    account: "",
   });
   const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [result, setResult] = useState<{ imported: number; duplicates: number; skipped: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
     setStep("upload");
     setHeaders([]);
     setRows([]);
-    setMapping({ date: "", amount: "", description: "", type: "", category: "", subtype: "" });
+    setMapping({ date: "", amount: "", description: "", type: "", category: "", subtype: "", account: "" });
     setImporting(false);
     setResult(null);
   };
@@ -123,6 +126,7 @@ export function CsvImportModal({ open, onOpenChange, onImported }: Props) {
       type: get("type"),
       category: get("category"),
       subtype: get("subtype"),
+      account: get("account"),
     };
   });
 
@@ -148,8 +152,9 @@ export function CsvImportModal({ open, onOpenChange, onImported }: Props) {
           amount: isNaN(amount) ? null : Math.abs(amount),
           description: get("description"),
           type,
-          category: get("category") || "Other",
-          subtype: get("subtype") || "Other",
+          category: get("category") || "Needs review",
+          subtype: get("subtype") || "",
+          account: get("account") || undefined,
         };
       })
       .filter((t) => t.amount !== null && t.date && t.description);
@@ -162,7 +167,7 @@ export function CsvImportModal({ open, onOpenChange, onImported }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Import failed");
-      setResult({ imported: data.imported, skipped: data.skipped ?? 0 });
+      setResult({ imported: data.imported, duplicates: data.duplicates ?? 0, skipped: data.skipped ?? 0 });
       setStep("done");
       onImported();
     } catch (err: unknown) {
@@ -322,6 +327,12 @@ export function CsvImportModal({ open, onOpenChange, onImported }: Props) {
             <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
             <div>
               <p className="text-lg font-semibold">{result.imported} transactions imported</p>
+              {result.duplicates > 0 && (
+                <p className="text-sm text-muted-foreground flex items-center justify-center gap-1 mt-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {result.duplicates} duplicate{result.duplicates === 1 ? "" : "s"} skipped
+                </p>
+              )}
               {result.skipped > 0 && (
                 <p className="text-sm text-muted-foreground flex items-center justify-center gap-1 mt-1">
                   <AlertCircle className="h-3 w-3" />

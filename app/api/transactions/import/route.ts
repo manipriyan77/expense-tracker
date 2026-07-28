@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { buildFingerprint } from "@/lib/server/transaction-fingerprint";
 
 interface ImportRow {
   date: string;
@@ -8,6 +9,7 @@ interface ImportRow {
   type: "income" | "expense";
   category?: string;
   subtype?: string;
+  account?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -42,23 +44,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const records = valid.map((r) => ({
+    // Fingerprint every row up front, then drop dupes within this same file
+    // and dupes already present in the DB — same rule as manual/API entry.
+    const withFingerprint = valid.map((r) => ({
+      row: r,
+      fingerprint: buildFingerprint(r.date, r.description, r.amount, r.account ?? null),
+    }));
+
+    const seenInFile = new Set<string>();
+    const deduped = withFingerprint.filter(({ fingerprint }) => {
+      if (seenInFile.has(fingerprint)) return false;
+      seenInFile.add(fingerprint);
+      return true;
+    });
+    const duplicatesInFile = withFingerprint.length - deduped.length;
+
+    const { data: existingRows } = await supabase
+      .from("transactions")
+      .select("fingerprint")
+      .eq("user_id", user.id)
+      .in("fingerprint", deduped.map((d) => d.fingerprint));
+    const existingFingerprints = new Set((existingRows ?? []).map((r) => r.fingerprint));
+
+    const toInsert = deduped.filter((d) => !existingFingerprints.has(d.fingerprint));
+    const duplicatesAlreadySaved = deduped.length - toInsert.length;
+
+    const records = toInsert.map(({ row: r, fingerprint }) => ({
       user_id: user.id,
       amount: r.amount,
       description: r.description,
-      category: r.category || "Other",
-      subtype: r.subtype || "Other",
+      category: r.category || "Needs review",
+      subtype: r.subtype || "",
       type: r.type,
       date: r.date,
+      account: r.account?.trim() || null,
+      fingerprint,
+      source: "csv",
     }));
 
-    const { error } = await supabase.from("transactions").insert(records);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (records.length > 0) {
+      const { error } = await supabase.from("transactions").insert(records);
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
     }
 
-    return NextResponse.json({ imported: valid.length, skipped });
+    return NextResponse.json({
+      imported: records.length,
+      duplicates: duplicatesInFile + duplicatesAlreadySaved,
+      skipped,
+    });
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

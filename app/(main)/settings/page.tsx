@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
@@ -20,21 +21,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Moon,
   DollarSign,
-  Tag,
   Bell,
   Shield,
   Download,
   Upload,
   Trash2,
   Zap,
-  Plus,
+  ArrowRight,
+  Loader2,
 } from "lucide-react";
 import { CsvImportModal } from "@/components/csv-import-modal";
 import { useCategorizationRulesStore } from "@/store/categorization-rules-store";
+import { useLookupsStore } from "@/store/lookups-store";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
@@ -42,31 +53,38 @@ export default function SettingsPage() {
   const [notifications, setNotifications] = useState(true);
   const [baseCurrency, setBaseCurrency] = useState("INR");
   const [isImportOpen, setIsImportOpen] = useState(false);
-  const [newRuleKeyword, setNewRuleKeyword] = useState("");
-  const [newRuleCategory, setNewRuleCategory] = useState("");
-  const [newRuleSubtype, setNewRuleSubtype] = useState("");
-  const { rules, fetchRules, addRule, deleteRule } = useCategorizationRulesStore();
+  const [wipeDialogOpen, setWipeDialogOpen] = useState(false);
+  const [wipeConfirmText, setWipeConfirmText] = useState("");
+  const [wiping, setWiping] = useState(false);
+  const { rules, loading: rulesLoading, fetchRules } = useCategorizationRulesStore();
+  const { categories, tags, loading: lookupsLoading, fetchLookups } = useLookupsStore();
+  const settingsDataLoading = rulesLoading || lookupsLoading;
+
+  const handleWipeAllData = async () => {
+    setWiping(true);
+    try {
+      const res = await fetch("/api/account/wipe", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "DELETE ALL TRACKWISE DATA" }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to erase data");
+      }
+      toast.success("All data erased");
+      window.location.href = "/dashboard";
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to erase data");
+      setWiping(false);
+    }
+  };
 
   useEffect(() => {
     fetchRules();
+    fetchLookups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleAddRule = async () => {
-    if (!newRuleKeyword || !newRuleCategory) {
-      toast.error("Keyword and category are required");
-      return;
-    }
-    try {
-      await addRule({ keyword: newRuleKeyword, category: newRuleCategory, subtype: newRuleSubtype || null, priority: 0 });
-      setNewRuleKeyword("");
-      setNewRuleCategory("");
-      setNewRuleSubtype("");
-      toast.success("Rule added");
-    } catch {
-      toast.error("Failed to add rule");
-    }
-  };
 
   const displayName =
     (user?.user_metadata?.full_name as string) ||
@@ -96,7 +114,11 @@ export default function SettingsPage() {
             </div>
             <div className="px-4 py-3">
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Auto-Rules</p>
-              <p className="font-mono text-base font-semibold text-slate-200">{rules.length}</p>
+              {settingsDataLoading ? (
+                <Skeleton className="h-5 w-8 bg-slate-700" />
+              ) : (
+                <p className="font-mono text-base font-semibold text-slate-200">{rules.length}</p>
+              )}
               <p className="text-[10px] text-slate-500 mt-0.5">Categorization rules</p>
             </div>
           </div>
@@ -179,18 +201,27 @@ export default function SettingsPage() {
                     Import CSV
                   </Button>
                 </div>
-                <div className="flex items-center justify-between pt-4 border-t">
+              </CardContent>
+            </Card>
+
+            <Card className="border-red-200 dark:border-red-900">
+              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <p className="text-[10px] uppercase tracking-widest text-red-600">Danger Zone</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Irreversible actions</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <Trash2 className="h-5 w-5 text-red-600" />
                     <div>
-                      <p className="font-medium">Delete Account</p>
+                      <p className="font-medium">Erase all Trackwise data</p>
                       <p className="text-sm text-muted-foreground">
-                        Permanently delete your account
+                        Permanently deletes your transactions, budgets, goals, and every other record. Your sign-in stays active.
                       </p>
                     </div>
                   </div>
-                  <Button variant="outline" className="text-red-600">
-                    Delete
+                  <Button variant="outline" className="text-red-600 shrink-0" onClick={() => setWipeDialogOpen(true)}>
+                    Erase data
                   </Button>
                 </div>
               </CardContent>
@@ -277,71 +308,27 @@ export default function SettingsPage() {
           <TabsContent value="categories" className="space-y-4">
             <Card>
               <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Custom Categories</p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Categories, Accounts & Tags</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Add and manage your expense categories
+                  Managed on the dedicated Rules & Tags page
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex space-x-2">
-                  <Input placeholder="New category name" />
-                  <Button>Add</Button>
-                </div>
-                <Card className="overflow-hidden p-0">
-                  <div className="divide-y divide-border">
-                    {[
-                      "Food",
-                      "Transportation",
-                      "Entertainment",
-                      "Bills",
-                      "Shopping",
-                    ].map((category) => (
-                      <div
-                        key={category}
-                        className="flex items-center justify-between px-4 py-2.5"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0" />
-                          <span className="font-medium text-sm">{category}</span>
-                        </div>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                        </Button>
-                      </div>
-                    ))}
+                <div className="flex items-center gap-6 text-sm">
+                  <div>
+                    {lookupsLoading ? <Skeleton className="h-6 w-8" /> : <p className="text-lg font-semibold">{categories.length}</p>}
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Categories</p>
                   </div>
-                </Card>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Tags</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Create tags to organize your transactions
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex space-x-2">
-                  <Input placeholder="New tag name" />
-                  <Button>Add</Button>
+                  <div>
+                    {lookupsLoading ? <Skeleton className="h-6 w-8" /> : <p className="text-lg font-semibold">{tags.length}</p>}
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Tags</p>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {["Personal", "Work", "Family", "Vacation", "Emergency"].map(
-                    (tag) => (
-                      <div
-                        key={tag}
-                        className="flex items-center space-x-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full"
-                      >
-                        <Tag className="h-3 w-3" />
-                        <span className="text-sm">{tag}</span>
-                        <button className="text-blue-900 hover:text-blue-950">
-                          ×
-                        </button>
-                      </div>
-                    )
-                  )}
-                </div>
+                <Button asChild className="gap-2">
+                  <Link href="/rules">
+                    Manage categories, accounts & tags <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -355,74 +342,20 @@ export default function SettingsPage() {
                   Auto-Categorization Rules
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Keywords that auto-fill category when adding a transaction
+                  Managed on the dedicated Rules & Tags page
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div className="space-y-1">
-                    <Label>Keyword</Label>
-                    <Input
-                      placeholder="e.g. Swiggy"
-                      value={newRuleKeyword}
-                      onChange={(e) => setNewRuleKeyword(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Category</Label>
-                    <Input
-                      placeholder="e.g. Food"
-                      value={newRuleCategory}
-                      onChange={(e) => setNewRuleCategory(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Subtype (optional)</Label>
-                    <Input
-                      placeholder="e.g. Dining"
-                      value={newRuleSubtype}
-                      onChange={(e) => setNewRuleSubtype(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <Button onClick={handleAddRule} className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" /> Add Rule
-                </Button>
-
-                {rules.length === 0 ? (
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center py-6">
-                    No rules yet
-                  </p>
+                {rulesLoading ? (
+                  <Skeleton className="h-6 w-24" />
                 ) : (
-                  <Card className="overflow-hidden p-0">
-                    <div className="divide-y divide-border">
-                      {rules.map((rule) => (
-                        <div
-                          key={rule.id}
-                          className="flex items-center justify-between px-4 py-2.5"
-                        >
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Zap className="h-3 w-3 text-yellow-500 shrink-0" />
-                            <span className="font-medium text-sm">{rule.keyword}</span>
-                            <span className="text-[10px] text-muted-foreground">→</span>
-                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{rule.category}</span>
-                            {rule.subtype && (
-                              <span className="text-[10px] text-muted-foreground">· {rule.subtype}</span>
-                            )}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0"
-                            onClick={() => deleteRule(rule.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
+                  <p className="text-lg font-semibold">{rules.length} rule{rules.length === 1 ? "" : "s"}</p>
                 )}
+                <Button asChild className="gap-2">
+                  <Link href="/rules">
+                    Manage rules <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -521,6 +454,53 @@ export default function SettingsPage() {
         onOpenChange={setIsImportOpen}
         onImported={() => toast.success("Transactions imported!")}
       />
+
+      <Dialog
+        open={wipeDialogOpen}
+        onOpenChange={(open) => {
+          setWipeDialogOpen(open);
+          if (!open) setWipeConfirmText("");
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Erase all Trackwise data</DialogTitle>
+            <DialogDescription className="space-y-2 pt-2 text-left">
+              <span className="block">
+                This permanently deletes every transaction, budget, goal, recurring pattern, investment record, and
+                uploaded document/receipt from the database and storage.
+              </span>
+              <span className="block font-medium text-foreground">This cannot be undone.</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="wipe-confirm">
+              Type <span className="font-mono font-semibold">DELETE</span> to confirm
+            </Label>
+            <Input
+              id="wipe-confirm"
+              value={wipeConfirmText}
+              onChange={(e) => setWipeConfirmText(e.target.value)}
+              placeholder="DELETE"
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWipeDialogOpen(false)} disabled={wiping}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={wipeConfirmText !== "DELETE" || wiping}
+              onClick={handleWipeAllData}
+              className="gap-1.5"
+            >
+              {wiping && <Loader2 className="h-4 w-4 animate-spin" />}
+              {wiping ? "Erasing…" : "Erase all data"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

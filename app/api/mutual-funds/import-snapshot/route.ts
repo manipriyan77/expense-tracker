@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const month = normalizeMonth(body?.month);
     const funds: IncomingFund[] = Array.isArray(body?.funds) ? body.funds : [];
+    const replace = !!body?.replace;
 
     if (!month) {
       return NextResponse.json({ error: "Invalid month" }, { status: 400 });
@@ -61,6 +62,32 @@ export async function POST(request: NextRequest) {
     const byName = new Map<string, string>();
     for (const f of existingFunds || []) {
       byName.set(String(f.name).trim().toLowerCase(), f.id);
+    }
+
+    let removed = 0;
+
+    // "Sync to CSV": remove funds that are no longer present in this upload
+    // (e.g. sold/redeemed). Funds that ARE still present are matched by name
+    // below and simply updated in place, so their monthly snapshot history
+    // (mutual_fund_snapshots) is preserved rather than deleted/recreated.
+    if (replace) {
+      const incomingNames = new Set(
+        funds.map((f) => (f.name || "").trim().toLowerCase()).filter(Boolean),
+      );
+      const toRemove = (existingFunds || []).filter(
+        (f) => !incomingNames.has(String(f.name).trim().toLowerCase()),
+      );
+      if (toRemove.length > 0) {
+        const { error: removeError } = await supabase
+          .from("mutual_funds")
+          .delete()
+          .eq("user_id", user.id)
+          .in("id", toRemove.map((f) => f.id));
+        if (!removeError) {
+          removed = toRemove.length;
+          for (const f of toRemove) byName.delete(String(f.name).trim().toLowerCase());
+        }
+      }
     }
 
     let imported = 0;
@@ -156,7 +183,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ imported, failed, month });
+    return NextResponse.json({ imported, failed, removed, month });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

@@ -416,3 +416,106 @@ CREATE OR REPLACE TRIGGER update_savings_challenges_updated_at BEFORE UPDATE ON 
 CREATE OR REPLACE TRIGGER update_budget_templates_updated_at BEFORE UPDATE ON budget_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE OR REPLACE TRIGGER update_assets_updated_at BEFORE UPDATE ON assets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE OR REPLACE TRIGGER update_liabilities_updated_at BEFORE UPDATE ON liabilities FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================
+-- FINANCE DASHBOARD FEATURE BUILD (lookups, fingerprint dedup,
+-- documents/receipts, ignored recurring suggestions, preferences)
+-- ============================================================
+
+-- Managed lookup lists (Settings: categories / accounts / tags).
+-- Deleting a lookup only affects future pickers — historical transaction
+-- text (category/account/tags) is left untouched, by design.
+CREATE TABLE IF NOT EXISTS lookups (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('category', 'account', 'tag')),
+  name TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_lookups_user_kind_name ON lookups (user_id, kind, lower(name));
+CREATE INDEX IF NOT EXISTS idx_lookups_user_id ON lookups(user_id);
+
+-- Transactions: account/receipt/fingerprint for account tracking,
+-- receipt-attached indicator, and cross-source duplicate detection.
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS account TEXT;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS receipt BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS fingerprint TEXT;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_user_fingerprint
+  ON transactions (user_id, fingerprint) WHERE fingerprint IS NOT NULL;
+
+-- Categorization rules: enabled toggle (rules page needs to disable
+-- without deleting).
+ALTER TABLE categorization_rules ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT true;
+
+-- Dismissed recurring/subscription suggestions — persists "Ignore" across
+-- devices/sessions so a dismissed pattern doesn't keep resurfacing.
+CREATE TABLE IF NOT EXISTS ignored_recurring_patterns (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  pattern_key TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, pattern_key)
+);
+CREATE INDEX IF NOT EXISTS idx_ignored_recurring_patterns_user_id ON ignored_recurring_patterns(user_id);
+
+-- Document/receipt vault metadata. Original bytes live in the "documents"
+-- Storage bucket created below; this table never stores file contents.
+CREATE TABLE IF NOT EXISTS documents (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  filename TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  storage_path TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'stored' CHECK (status IN ('queued', 'stored', 'review')),
+  source TEXT NOT NULL DEFAULT 'upload' CHECK (source IN ('upload', 'import')),
+  linked_transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_documents_user_id ON documents(user_id);
+CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at);
+
+-- Server-persisted user preferences (dashboard/transactions date period, etc.)
+CREATE TABLE IF NOT EXISTS user_preferences (
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  selected_period TEXT NOT NULL DEFAULT 'all-time'
+    CHECK (selected_period IN ('all-time', 'this-month', 'last-month', 'last-3-months', 'last-6-months', 'this-year')),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS for new tables
+ALTER TABLE lookups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ignored_recurring_patterns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'lookups' AND policyname = 'Users can manage their lookups') THEN
+    CREATE POLICY "Users can manage their lookups" ON lookups FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'ignored_recurring_patterns' AND policyname = 'Users can manage their ignored_recurring_patterns') THEN
+    CREATE POLICY "Users can manage their ignored_recurring_patterns" ON ignored_recurring_patterns FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'documents' AND policyname = 'Users can manage their documents') THEN
+    CREATE POLICY "Users can manage their documents" ON documents FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_preferences' AND policyname = 'Users can manage their user_preferences') THEN
+    CREATE POLICY "Users can manage their user_preferences" ON user_preferences FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- Private Storage bucket for original receipt/document bytes (R2-equivalent).
+-- Files are stored under "<user_id>/<uuid>-<filename>" so folder-scoped RLS
+-- policies below restrict each user to their own objects.
+INSERT INTO storage.buckets (id, name, public, file_size_limit)
+VALUES ('documents', 'documents', false, 20971520)
+ON CONFLICT (id) DO NOTHING;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND schemaname = 'storage' AND policyname = 'Users can manage their own document objects') THEN
+    CREATE POLICY "Users can manage their own document objects" ON storage.objects
+      FOR ALL USING (bucket_id = 'documents' AND auth.uid()::text = (storage.foldername(name))[1])
+      WITH CHECK (bucket_id = 'documents' AND auth.uid()::text = (storage.foldername(name))[1]);
+  END IF;
+END $$;

@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The Claude Agent SDK spawns the Claude Code binary at runtime — keep it out
+  // of the server bundle so the subprocess resolves correctly.
+  serverExternalPackages: ["@anthropic-ai/claude-agent-sdk"],
   experimental: {
     turbopackUseSystemTlsCerts: true,
   },

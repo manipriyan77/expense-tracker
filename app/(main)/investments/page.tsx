@@ -27,6 +27,7 @@ import {
   SlidersHorizontal,
   LayoutGrid,
   List,
+  Loader2,
 } from "lucide-react";
 import {
   PieChart,
@@ -84,6 +85,7 @@ import { toast } from "sonner";
 import { Toaster } from "sonner";
 import PortfolioSnapshot from "@/components/portfolio-snapshot";
 import { OtherInvestmentTracker } from "@/components/investments/OtherInvestmentTracker";
+import { PortfolioSkeleton } from "@/components/ui/skeleton";
 
 type AssetClass =
   | "stocks"
@@ -1040,8 +1042,10 @@ export default function InvestmentsPage() {
     // funds are matched by name and history accumulates across uploads.
     const fundSnapshotRows: SnapshotImportFund[] = [];
     try {
-      // Replace only applies to stocks. Mutual funds are matched by name on import,
-      // so deleting them would wipe accumulated monthly history.
+      // Stocks have no history to preserve, so "replace" is a simple wipe + reinsert.
+      // Mutual funds handle "replace" server-side in importSnapshot as a sync-to-CSV
+      // (only funds absent from this upload are removed; funds still held are matched
+      // by name and updated in place so their monthly snapshot history is preserved).
       if (replaceOnImport && importType === "stocks") {
         for (const s of stocks) await deleteStock(s.id);
       }
@@ -1194,16 +1198,18 @@ export default function InvestmentsPage() {
         }
       }
 
+      let removed = 0;
       if (importType === "mutual-funds" && fundSnapshotRows.length > 0) {
-        const result = await importSnapshot(importMonth, fundSnapshotRows);
+        const result = await importSnapshot(importMonth, fundSnapshotRows, replaceOnImport);
         success = result.imported;
         failed += result.failed;
+        removed = result.removed;
       }
 
       setImportStep("done");
       if (success > 0)
         toast.success(
-          `Imported ${success} ${importType === "stocks" ? "stocks" : "funds"}${failed > 0 ? `, ${failed} failed` : ""}`,
+          `Imported ${success} ${importType === "stocks" ? "stocks" : "funds"}${removed > 0 ? `, removed ${removed} no longer held` : ""}${failed > 0 ? `, ${failed} failed` : ""}`,
         );
       if (failed > 0 && success === 0)
         toast.error(`All ${failed} rows failed to import`);
@@ -1601,6 +1607,10 @@ export default function InvestmentsPage() {
     holdings.length > 0 ||
     entries.length > 0 ||
     otherInvestments.length > 0;
+
+  if (isLoading && !hasAnyData) {
+    return <PortfolioSkeleton />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -5449,7 +5459,8 @@ export default function InvestmentsPage() {
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSubmit} disabled={saving}>
+                <Button onClick={handleSubmit} disabled={saving} className="gap-1.5">
+                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                   {saving
                     ? "Saving..."
                     : editMode
@@ -6116,14 +6127,14 @@ export default function InvestmentsPage() {
                 </div>
               )}
               <div className="flex items-center justify-between pt-2">
-                {importType === "stocks" ? (
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-destructive cursor-pointer"
-                      checked={replaceOnImport}
-                      onChange={(e) => setReplaceOnImport(e.target.checked)}
-                    />
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-destructive cursor-pointer"
+                    checked={replaceOnImport}
+                    onChange={(e) => setReplaceOnImport(e.target.checked)}
+                  />
+                  {importType === "stocks" ? (
                     <span className="text-sm text-muted-foreground">
                       Replace existing stocks
                       {replaceOnImport && (
@@ -6132,10 +6143,27 @@ export default function InvestmentsPage() {
                         </span>
                       )}
                     </span>
-                  </label>
-                ) : (
-                  <span />
-                )}
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      Remove funds not in this CSV
+                      {replaceOnImport && (() => {
+                        const csvNames = new Set(
+                          importRows
+                            .map((r) => findCol(r, "fund name", "name", "scheme name").trim().toLowerCase())
+                            .filter(Boolean),
+                        );
+                        const toRemove = mutualFunds.filter(
+                          (f) => !csvNames.has(f.name.trim().toLowerCase()),
+                        ).length;
+                        return toRemove > 0 ? (
+                          <span className="ml-1 text-destructive font-medium">
+                            ({toRemove} will be removed)
+                          </span>
+                        ) : null;
+                      })()}
+                    </span>
+                  )}
+                </label>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"

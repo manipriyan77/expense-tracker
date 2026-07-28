@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveBudgetIdForTransactionDate } from "@/lib/server/budget-for-transaction-date";
+import { normalizeTags } from "@/lib/server/normalize-tags";
 
 export async function PUT(
   request: NextRequest,
@@ -29,7 +30,9 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { amount, description, category, subtype, date, type, goalId, budgetId } = body;
+    const { amount, description, category, subtype, date, type, goalId, budgetId, account, tags, receipt } = body;
+
+    const cleanedTags = Array.isArray(tags) ? normalizeTags(tags) : undefined;
 
     const uuidOrNull = (v: unknown): string | null => {
       if (v == null || v === "") return null;
@@ -90,6 +93,9 @@ export async function PUT(
         goal_id: goalId !== undefined ? goalId : undefined,
         date,
         type,
+        account: account !== undefined ? (account || null) : undefined,
+        tags: cleanedTags,
+        receipt,
       })
       .eq("id", params.id)
       .eq("user_id", user.id)

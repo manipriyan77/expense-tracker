@@ -13,11 +13,11 @@ import {
   EyeOff,
   Receipt,
   BarChart3,
-  Home,
   TrendingUp,
   LayoutGrid,
   Plus,
   ChevronRight,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAutoExecuteRecurring } from "@/lib/hooks/useAutoExecuteRecurring";
@@ -35,9 +35,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
+import { CsvImportModal } from "@/components/csv-import-modal";
+import { toast } from "sonner";
 
 const PAGE_TITLES: Record<string, string> = {
-  "/home": "Trackwise",
   "/dashboard": "Finance Dashboard",
   "/transactions": "Transactions",
   "/transaction-review": "Smart Review",
@@ -72,8 +73,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/health-score": "Health Score",
   "/insights": "Insights",
   "/analytics?tab=insights": "Insights",
-  "/learning": "Learning",
-  "/learning/topics": "Topics",
+  "/documents": "Documents",
+  "/rules": "Rules & Tags",
   "/settings": "Settings",
   "/sip-calculator": "SIP / SWP Calculator",
   "/goals-analysis": "Goals Intelligence",
@@ -82,10 +83,7 @@ const PAGE_TITLES: Record<string, string> = {
 
 // Top-level pages reachable directly — no back button needed
 const SIDEBAR_ROOTS = new Set([
-  "/home",
   "/dashboard",
-  "/learning",
-  "/learning/topics",
   "/transactions",
   "/transaction-review",
   "/smart-add",
@@ -98,13 +96,14 @@ const SIDEBAR_ROOTS = new Set([
   "/investment-advisor",
   "/cashflow-planning",
   "/analytics",
+  "/documents",
+  "/rules",
   "/settings",
 ]);
 
 // Bottom nav tabs
 const BOTTOM_NAV = [
-  { href: "/home", label: "Home", icon: Home },
-  { href: "/dashboard", label: "Finance", icon: BarChart3 },
+  { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
   { href: "/transactions", label: "Spend", icon: Receipt },
   { href: "/investments", label: "Invest", icon: TrendingUp },
 ];
@@ -119,6 +118,7 @@ export default function MainLayout({
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const { amountsHidden, toggleAmountsHidden } = usePrivacyStore();
   const { fetchGoals } = useGoalsStore();
 
@@ -128,19 +128,9 @@ export default function MainLayout({
   // Breadcrumb segments: always start with Trackwise home
   type BreadcrumbItem = { label: string; href?: string };
   const breadcrumbs: BreadcrumbItem[] = (() => {
-    if (pathname === "/home") return [{ label: "Trackwise" }];
-    const crumbs: BreadcrumbItem[] = [{ label: "Trackwise", href: "/home" }];
-    if (pathname.startsWith("/learning")) {
-      if (pathname === "/learning") {
-        crumbs.push({ label: "Learning" });
-      } else {
-        crumbs.push({ label: "Learning", href: "/learning" });
-        crumbs.push({ label: pageTitle });
-      }
-    } else {
-      crumbs.push({ label: "Finance", href: "/dashboard" });
-      if (pathname !== "/dashboard") crumbs.push({ label: pageTitle });
-    }
+    if (pathname === "/dashboard") return [{ label: "Trackwise" }];
+    const crumbs: BreadcrumbItem[] = [{ label: "Trackwise", href: "/dashboard" }];
+    crumbs.push({ label: pageTitle });
     return crumbs;
   })();
 
@@ -290,6 +280,23 @@ export default function MainLayout({
                 <span className="text-xs">⌘</span>K
               </kbd>
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setImportOpen(true)}
+              className="gap-1.5 h-8 text-xs"
+            >
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setQuickAddOpen(true)}
+              className="gap-1.5 h-8 text-xs"
+            >
+              <Plus className="h-4 w-4" />
+              Add entry
+            </Button>
           </div>
         </header>
 
@@ -368,6 +375,12 @@ export default function MainLayout({
       <div className="hidden md:block">
         <QuickAddButton />
       </div>
+
+      <CsvImportModal
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => toast.success("Transactions imported")}
+      />
 
       <CommandPalette />
     </div>

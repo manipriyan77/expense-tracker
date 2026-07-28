@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+const VALID_PERIODS = new Set([
+  "all-time",
+  "this-month",
+  "last-month",
+  "last-3-months",
+  "last-6-months",
+  "this-year",
+]);
+
+export async function GET() {
   try {
-    const { id } = await params;
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
@@ -16,40 +21,24 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { keyword, category, subtype, priority, enabled } = body;
-
-    const updates: Record<string, unknown> = {};
-    if (keyword !== undefined) updates.keyword = String(keyword).trim();
-    if (category !== undefined) updates.category = String(category).trim();
-    if (subtype !== undefined) updates.subtype = subtype ? String(subtype).trim() : null;
-    if (priority !== undefined) updates.priority = priority;
-    if (enabled !== undefined) updates.enabled = !!enabled;
-
     const { data, error } = await supabase
-      .from("categorization_rules")
-      .update(updates)
-      .eq("id", id)
+      .from("user_preferences")
+      .select("selected_period")
       .eq("user_id", user.id)
-      .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json({ selectedPeriod: data?.selected_period ?? "all-time" });
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function PUT(request: NextRequest) {
   try {
-    const { id } = await params;
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
@@ -59,17 +48,23 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { selectedPeriod } = await request.json();
+    if (!VALID_PERIODS.has(selectedPeriod)) {
+      return NextResponse.json({ error: "Invalid period" }, { status: 400 });
+    }
+
     const { error } = await supabase
-      .from("categorization_rules")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", user.id);
+      .from("user_preferences")
+      .upsert(
+        { user_id: user.id, selected_period: selectedPeriod, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" },
+      );
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ selectedPeriod });
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
