@@ -398,7 +398,9 @@ export default function NetWorthPage() {
     return { abs, pct };
   }, [historicalData]);
 
-  // Projected trend: use the most recent MoM change as the current savings rate
+  // Projected trend: average the available month-over-month changes rather than just
+  // the latest one — a single month can be dominated by a one-off event (a lumpsum
+  // investment, a new loan) that isn't representative of the ongoing trend.
   const chartData = useMemo(() => {
     const historical = historicalData.map((d, i) => ({
       month: d.month,
@@ -407,31 +409,49 @@ export default function NetWorthPage() {
       sourceLabel: d.sourceLabel,
     }));
 
-    if (historicalData.length < 1) return historical;
-
-    // Current savings rate = most recent month-over-month change
-    // Need at least 2 data points to calculate a meaningful savings rate
+    // Need at least 2 data points (1 delta) to project anything
     if (historicalData.length < 2) return historical;
 
-    const currentSavingsRate =
-      historicalData[historicalData.length - 1].netWorth -
-      historicalData[historicalData.length - 2].netWorth;
+    const deltas = historicalData
+      .slice(1)
+      .map((d, i) => d.netWorth - historicalData[i].netWorth);
+    const avgSavingsRate = deltas.reduce((s, d) => s + d, 0) / deltas.length;
 
     const lastNW = historicalData[historicalData.length - 1].netWorth;
     const lastDate = new Date();
+    const monthsLabel = `${deltas.length} month${deltas.length === 1 ? "" : "s"}`;
 
     const projected = [1, 2, 3].map((offset) => {
       const d = new Date(lastDate.getFullYear(), lastDate.getMonth() + offset, 1);
       return {
         month: d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
         actual: undefined,
-        projected: lastNW + currentSavingsRate * offset,
-        sourceLabel: `Projected at ${currentSavingsRate >= 0 ? "+" : ""}${format(currentSavingsRate)}/mo savings rate`,
+        projected: lastNW + avgSavingsRate * offset,
+        sourceLabel: `Projected at ${avgSavingsRate >= 0 ? "+" : ""}${format(avgSavingsRate)}/mo avg over ${monthsLabel}`,
       };
     });
 
     return [...historical, ...projected];
   }, [historicalData, format]);
+
+  // Y-axis domain sized to the data actually shown — without this, Recharts' auto-scaling
+  // (plus the y=0 reference line pulling the domain down) leaves huge unused headroom above
+  // the real values, squashing the interesting part of the chart into a thin middle band.
+  const chartYDomain = useMemo((): [number, number] => {
+    const vals = chartData
+      .flatMap((d) => [d.actual, d.projected])
+      .filter((v): v is number => v !== undefined);
+    if (vals.length === 0) return [0, 1];
+    const min = Math.min(0, ...vals);
+    const max = Math.max(0, ...vals);
+    const span = Math.max(max - min, 1);
+    const pad = span * 0.12;
+    const step = span > 1e7 ? 1e6 : span > 1e6 ? 5e5 : span > 1e5 ? 1e4 : 1e3;
+    return [
+      Math.floor((min - pad) / step) * step,
+      Math.ceil((max + pad) / step) * step,
+    ];
+  }, [chartData]);
 
   // Waterfall: month-over-month net worth change breakdown
   const waterfallData = useMemo(() => {
@@ -870,6 +890,23 @@ export default function NetWorthPage() {
     };
   }, [transactions, liabilities, debtAnalytics.monthlyMinimum, totalAssets, totalLiabilities, netWorth, format, extraSavings, extraEMI, returnRate, goalAmount]);
 
+  // Same fitted-domain treatment as the Trend chart — without it, a far-off goal line
+  // (or the y=0 baseline) can stretch the axis and squash the actual projection.
+  const forecastYDomain = useMemo((): [number, number] => {
+    const vals = forecast.series.map((s) => s.netWorth);
+    if (goalAmount > 0) vals.push(goalAmount);
+    if (vals.length === 0) return [0, 1];
+    const min = Math.min(0, ...vals);
+    const max = Math.max(0, ...vals);
+    const span = Math.max(max - min, 1);
+    const pad = span * 0.12;
+    const step = span > 1e7 ? 1e6 : span > 1e6 ? 5e5 : span > 1e5 ? 1e4 : 1e3;
+    return [
+      Math.floor((min - pad) / step) * step,
+      Math.ceil((max + pad) / step) * step,
+    ];
+  }, [forecast.series, goalAmount]);
+
   const handleAddAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -1214,6 +1251,7 @@ export default function NetWorthPage() {
                       tickLine={false}
                       axisLine={false}
                       width={52}
+                      domain={chartYDomain}
                       tickFormatter={(v: number) => {
                         const abs = Math.abs(v);
                         const s = v < 0 ? "-" : "";
@@ -1482,6 +1520,7 @@ export default function NetWorthPage() {
                           tickLine={false}
                           axisLine={false}
                           width={52}
+                          domain={forecastYDomain}
                           tickFormatter={(v: number) => {
                             const abs = Math.abs(v);
                             const s = v < 0 ? "-" : "";

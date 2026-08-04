@@ -85,8 +85,8 @@ export function TransactionListItemRow({
     const ck = `${p.patternId}:${p.dueDate}`;
     const loading = completingKey === ck;
     return (
-      <div className="flex items-center justify-between gap-3 px-3 py-1.5 bg-amber-50/50 dark:bg-amber-950/20">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center justify-between gap-2 px-3 py-1 bg-amber-50/50 dark:bg-amber-950/20">
+        <div className="flex items-center gap-2 min-w-0">
           <div
             className={`shrink-0 p-1 rounded-full ${
               p.type === "income"
@@ -108,7 +108,7 @@ export function TransactionListItemRow({
                 Due · {p.frequency}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
                 {p.name}
               </span>
@@ -155,11 +155,11 @@ export function TransactionListItemRow({
   const transaction = item.t;
   return (
     <div
-      className={`flex items-center justify-between gap-3 px-3 py-1.5 transition-colors ${
+      className={`group flex items-center justify-between gap-2 px-3 py-1 transition-colors ${
         selected ? "bg-primary/5" : ""
       }`}
     >
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
         {selectionMode && (
           <Checkbox
             checked={selected}
@@ -169,7 +169,7 @@ export function TransactionListItemRow({
           />
         )}
         <div
-          className={`shrink-0 p-1.5 rounded-full ${
+          className={`shrink-0 p-1 rounded-full ${
             transaction.type === "income"
               ? "bg-green-100 text-green-600"
               : "bg-red-100 text-red-600"
@@ -194,7 +194,7 @@ export function TransactionListItemRow({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {categories && onUpdateCategory ? (
               <Select
                 value={transaction.category}
@@ -240,15 +240,13 @@ export function TransactionListItemRow({
                 Next: {new Date(transaction.nextDate).toLocaleDateString()}
               </span>
             )}
-          </div>
-          {onUpdateTags && (
-            <div className="flex items-center gap-1 mt-1 flex-wrap">
-              {(transaction.tags ?? []).map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground"
-                >
-                  {tag}
+            {(transaction.tags ?? []).map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground"
+              >
+                {tag}
+                {onUpdateTags && (
                   <button
                     type="button"
                     aria-label={`Remove tag ${tag}`}
@@ -262,23 +260,27 @@ export function TransactionListItemRow({
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
-                </span>
-              ))}
+                )}
+              </span>
+            ))}
+            {onUpdateTags && (
               <button
                 type="button"
                 aria-label="Add tag"
                 onClick={() => setTagModalOpen(true)}
-                className="inline-flex items-center justify-center h-4 w-4 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground hover:border-foreground hover:text-foreground"
+                className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground opacity-0 group-hover:opacity-100 hover:border-foreground hover:text-foreground transition-opacity shrink-0"
               >
                 <Plus className="h-2.5 w-2.5" />
               </button>
-              <TagPickerModal
-                open={tagModalOpen}
-                onOpenChange={setTagModalOpen}
-                selectedTags={transaction.tags ?? []}
-                onSave={(tags) => onUpdateTags(transaction.id, tags)}
-              />
-            </div>
+            )}
+          </div>
+          {onUpdateTags && (
+            <TagPickerModal
+              open={tagModalOpen}
+              onOpenChange={setTagModalOpen}
+              selectedTags={transaction.tags ?? []}
+              onSave={(tags) => onUpdateTags(transaction.id, tags)}
+            />
           )}
         </div>
       </div>

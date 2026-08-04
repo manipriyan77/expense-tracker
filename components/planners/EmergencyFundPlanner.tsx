@@ -6,15 +6,27 @@ import {
   AlertCircle,
   ArrowRight,
   Banknote,
+  CalendarClock,
   CheckCircle2,
   Landmark,
   PiggyBank,
   Shield,
   Wallet,
 } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ListPageSkeleton } from "@/components/ui/skeleton";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
@@ -77,6 +89,7 @@ export function EmergencyFundPlanner() {
     useTransactionsStore();
   const { goals, fetchGoals } = useGoalsStore();
   const [targetMonths, setTargetMonths] = useState(6);
+  const [contributionOverride, setContributionOverride] = useState<number | null>(null);
 
   useEffect(() => {
     fetchAssets();
@@ -180,6 +193,33 @@ export function EmergencyFundPlanner() {
     };
   }, [transactions, assets, goals, targetMonths]);
 
+  // Monthly contribution used for the "close the gap" projection — defaults to the
+  // suggested amount but the user can override it with the slider below.
+  const contribution = contributionOverride ?? emergencyData.suggestedContribution;
+
+  const gapProjection = useMemo(() => {
+    const { currentReserve, targetReserve, gap } = emergencyData;
+    if (gap <= 0) {
+      return { monthsToClose: 0, reachDate: null, points: [] as { month: number; label: string; reserve: number }[] };
+    }
+    if (contribution <= 0) {
+      return { monthsToClose: null, reachDate: null, points: [] as { month: number; label: string; reserve: number }[] };
+    }
+    const monthsToClose = Math.ceil(gap / contribution);
+    const horizon = Math.min(60, monthsToClose + 3);
+    const today = new Date();
+    const points = Array.from({ length: horizon + 1 }, (_, m) => {
+      const d = new Date(today.getFullYear(), today.getMonth() + m, 1);
+      return {
+        month: m,
+        label: d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+        reserve: Math.min(targetReserve * 1.05, currentReserve + contribution * m),
+      };
+    });
+    const reachDate = new Date(today.getFullYear(), today.getMonth() + monthsToClose, 1);
+    return { monthsToClose, reachDate, points };
+  }, [emergencyData, contribution]);
+
   if ((assetsLoading || txLoading) && transactions.length === 0 && assets.length === 0) {
     return <ListPageSkeleton />;
   }
@@ -193,117 +233,188 @@ export function EmergencyFundPlanner() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-5 space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground max-w-2xl">
-          Estimate essential monthly expenses, measure liquid reserve coverage, and keep a practical safety buffer.
-        </p>
-        <div className="flex items-center gap-2">
-          {[3, 6, 12].map((months) => (
-            <Button
-              key={months}
-              size="sm"
-              variant={targetMonths === months ? "default" : "outline"}
-              onClick={() => setTargetMonths(months)}
-            >
-              {months} mo
-            </Button>
-          ))}
-        </div>
-      </div>
-
       <div className="space-y-5">
-        <section className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <Card className="lg:col-span-2 overflow-hidden">
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    Coverage
-                  </p>
-                  <p
-                    className={`font-mono text-4xl font-bold mt-1 ${
-                      status === "ready"
-                        ? "text-green-600 dark:text-green-400"
-                        : status === "building"
-                          ? "text-amber-600 dark:text-amber-400"
-                          : "text-red-500"
-                    }`}
-                  >
-                    {emergencyData.coverageMonths.toFixed(1)}
-                    <span className="text-lg font-normal text-muted-foreground">
-                      mo
-                    </span>
-                  </p>
-                </div>
-                <div
-                  className={`rounded-xl p-3 ${
-                    status === "ready"
-                      ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"
-                      : status === "building"
-                        ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                        : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+        {/* ── Hero: coverage + snapshot ─────────────────────────────────── */}
+        <div className="rounded-xl bg-slate-900 dark:bg-black text-white overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-slate-800 flex-wrap">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="h-7 w-7 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                <Shield className="h-3.5 w-3.5 text-amber-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400">
+                  Emergency Fund
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5 truncate">
+                  Essential spend, liquid reserve coverage, and a practical
+                  safety buffer.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 bg-slate-800/80 rounded-lg p-1 shrink-0">
+              {[3, 6, 12].map((months) => (
+                <button
+                  key={months}
+                  onClick={() => setTargetMonths(months)}
+                  className={`text-[11px] px-3 py-1 rounded-md font-medium transition-colors ${
+                    targetMonths === months
+                      ? "bg-white text-slate-900"
+                      : "text-slate-400 hover:text-white"
                   }`}
                 >
-                  <Shield className="h-6 w-6" />
+                  {months} mo
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="px-5 py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
+              <div>
+                <p className="text-xs text-slate-400">Current coverage</p>
+                <p
+                  className={`font-mono text-3xl font-bold leading-tight mt-0.5 ${
+                    status === "ready"
+                      ? "text-green-400"
+                      : status === "building"
+                        ? "text-amber-400"
+                        : "text-red-400"
+                  }`}
+                >
+                  {emergencyData.coverageMonths.toFixed(1)}
+                  <span className="text-base font-normal text-slate-400 ml-1">
+                    of {targetMonths} mo target
+                  </span>
+                </p>
+              </div>
+              <div className="flex-1 sm:ml-4 min-w-40">
+                <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${
+                      status === "ready"
+                        ? "bg-green-500"
+                        : status === "building"
+                          ? "bg-amber-500"
+                          : "bg-red-500"
+                    }`}
+                    style={{ width: `${emergencyData.progress}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-400">
+                  <span>{format(emergencyData.currentReserve)} saved</span>
+                  <span>{format(emergencyData.targetReserve)} target</span>
                 </div>
               </div>
-              <Progress value={emergencyData.progress} className="h-2 mt-4" />
-              <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-                <span>{format(emergencyData.currentReserve)} saved</span>
-                <span>{format(emergencyData.targetReserve)} target</span>
+            </div>
+            <div className="mt-4 flex items-start gap-2 rounded-lg bg-slate-800/60 px-3 py-2.5">
+              {status === "ready" ? (
+                <CheckCircle2 className="h-4 w-4 text-green-400 mt-0.5 shrink-0" />
+              ) : (
+                <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+              )}
+              <p className="text-xs text-slate-300">
+                {status === "ready"
+                  ? `You have reached the ${targetMonths}-month buffer target.`
+                  : `Add around ${format(emergencyData.suggestedContribution)}/mo to close the gap in about 12 months.`}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 divide-x divide-slate-800 border-t border-slate-800">
+            <div className="px-5 py-3.5">
+              <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                <Wallet className="h-3 w-3" />
+                <span className="text-[10px] uppercase tracking-widest">Essential Spend</span>
               </div>
-              <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
-                <div className="flex items-start gap-2">
-                  {status === "ready" ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5" />
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {status === "ready"
-                      ? `You have reached the ${targetMonths}-month buffer target.`
-                      : `Add around ${format(emergencyData.suggestedContribution)}/mo to close the gap in about 12 months.`}
+              <p className="font-mono text-base font-bold text-white">
+                {format(emergencyData.monthlyEssential)}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Monthly average</p>
+            </div>
+            <div className="px-5 py-3.5">
+              <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                <PiggyBank className="h-3 w-3" />
+                <span className="text-[10px] uppercase tracking-widest">Reserve Gap</span>
+              </div>
+              <p className="font-mono text-base font-bold text-white">
+                {format(emergencyData.gap)}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{targetMonths}-month target</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Close the gap: interactive contribution projection ──────────── */}
+        {emergencyData.gap > 0 && (
+          <Card>
+            <CardHeader className="pb-2 border-b border-border">
+              <CardTitle className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold flex items-center gap-1.5">
+                <CalendarClock className="h-3.5 w-3.5 text-indigo-500" />
+                Close the Gap
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Label className="text-xs text-muted-foreground">
+                      Monthly contribution
+                    </Label>
+                    <span className="font-mono text-sm font-bold">
+                      {format(contribution)}/mo
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={500}
+                    max={Math.max(5000, Math.ceil((emergencyData.gap / 3) / 500) * 500)}
+                    step={500}
+                    value={contribution}
+                    onChange={(e) => setContributionOverride(Number(e.target.value))}
+                    className="w-full accent-indigo-500"
+                  />
+                </div>
+                <div className="rounded-lg bg-muted/40 px-4 py-2.5 text-center shrink-0">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Target reached
+                  </p>
+                  <p className="font-mono text-sm font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">
+                    {gapProjection.monthsToClose !== null
+                      ? `~${gapProjection.monthsToClose} mo · ${gapProjection.reachDate?.toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+                      : "Set a contribution"}
                   </p>
                 </div>
               </div>
+              {gapProjection.points.length > 1 && (
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={gapProjection.points} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="reserveGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                    <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => shortAmount(v as number)} width={44} />
+                    <ReferenceLine
+                      y={emergencyData.targetReserve}
+                      stroke="#22c55e"
+                      strokeDasharray="4 3"
+                      label={{ value: "Target", position: "right", fontSize: 10, fill: "#22c55e" }}
+                    />
+                    <Tooltip
+                      formatter={(v: unknown) => (typeof v === "number" ? format(v) : "—")}
+                      labelFormatter={(l) => `${l}`}
+                      contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "11px" }}
+                    />
+                    <Area type="monotone" dataKey="reserve" stroke="#6366f1" strokeWidth={2} fill="url(#reserveGrad)" name="Reserve" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
-
-          {[
-            {
-              label: "Essential Spend",
-              value: format(emergencyData.monthlyEssential),
-              sub: "Monthly average",
-              icon: Wallet,
-              color: "text-blue-500",
-            },
-            {
-              label: "Reserve Gap",
-              value: format(emergencyData.gap),
-              sub: `${targetMonths}-month target`,
-              icon: PiggyBank,
-              color: emergencyData.gap > 0 ? "text-amber-500" : "text-green-500",
-            },
-          ].map((item) => {
-            const Icon = item.icon;
-            return (
-              <Card key={item.label}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      {item.label}
-                    </p>
-                    <Icon className={`h-4 w-4 ${item.color}`} />
-                  </div>
-                  <p className="font-mono text-xl font-bold">{item.value}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    {item.sub}
-                  </p>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </section>
+        )}
 
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>

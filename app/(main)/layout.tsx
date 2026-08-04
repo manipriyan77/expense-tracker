@@ -41,7 +41,6 @@ import { toast } from "sonner";
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Finance Dashboard",
   "/transactions": "Transactions",
-  "/transaction-review": "Smart Review",
   "/smart-add": "Smart Add",
   "/expenses": "Money Flow",
   "/expenses?tab=income": "Money Flow",
@@ -85,7 +84,6 @@ const PAGE_TITLES: Record<string, string> = {
 const SIDEBAR_ROOTS = new Set([
   "/dashboard",
   "/transactions",
-  "/transaction-review",
   "/smart-add",
   "/expenses",
   "/budgets",

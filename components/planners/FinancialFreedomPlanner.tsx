@@ -214,125 +214,123 @@ export function FinancialFreedomPlanner() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-10 space-y-6 max-w-6xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <p className="text-sm text-muted-foreground">
-          Your FI target rises with inflation. When does your corpus catch it?
-        </p>
-        <div className="flex items-center gap-2 sm:ml-auto">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={syncFromData}
-            disabled={syncing}
-            className="gap-1.5"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Sync from my finances</span>
-            <span className="sm:hidden">Sync</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={resetConfig}
-            className="gap-1.5 text-muted-foreground"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Reset</span>
-          </Button>
-        </div>
-      </div>
-
       <div className="space-y-6">
-        {/* ── Headline verdict ─────────────────────────────────────────── */}
-        <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-          <CardContent className="py-6">
+        {/* ── Hero: verdict + today snapshot ───────────────────────────── */}
+        <div className="rounded-xl bg-slate-900 dark:bg-black text-white overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-slate-800 flex-wrap">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="h-7 w-7 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                <Rocket className="h-3.5 w-3.5 text-emerald-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400">
+                  Financial Freedom
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5 truncate">
+                  Your FI target rises with inflation — when does your corpus
+                  catch it?
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={syncFromData}
+                disabled={syncing}
+                className="gap-1.5 h-7 text-xs border-slate-600 bg-transparent text-slate-300 hover:bg-slate-800 hover:text-white"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">Sync from my finances</span>
+                <span className="sm:hidden">Sync</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetConfig}
+                className="gap-1.5 h-7 text-xs text-slate-400 hover:bg-slate-800 hover:text-white"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Reset</span>
+              </Button>
+            </div>
+          </div>
+
+          <div className="px-5 py-4">
             {fiAge !== null && fiRow ? (
-              <div className="flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-8">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-                    <Rocket className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      You reach financial freedom at
-                    </p>
-                    <p className="text-3xl font-bold text-foreground leading-tight">
-                      Age {fiAge}
-                      <span className="text-base font-medium text-muted-foreground ml-2">
-                        in {yearsToFI} {yearsToFI === 1 ? "year" : "years"}
-                      </span>
-                    </p>
-                  </div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
+                <div>
+                  <p className="text-xs text-slate-400">
+                    You reach financial freedom at
+                  </p>
+                  <p className="font-mono text-3xl font-bold text-white leading-tight mt-0.5">
+                    Age {fiAge}
+                    <span className="text-base font-normal text-slate-400 ml-2">
+                      in {yearsToFI} {yearsToFI === 1 ? "year" : "years"}
+                    </span>
+                  </p>
                 </div>
-                <div className="grid grid-cols-2 sm:flex sm:items-center gap-4 sm:gap-8 sm:ml-auto">
-                  <Metric
-                    label="Corpus at FI"
-                    value={formatCompact(fiRow.corpus)}
-                  />
-                  <Metric
-                    label="FI number then"
-                    value={formatCompact(fiRow.fiTarget)}
-                  />
+                <div className="grid grid-cols-3 gap-4 sm:gap-8 sm:ml-auto">
+                  <Metric label="Corpus at FI" value={formatCompact(fiRow.corpus)} dark />
+                  <Metric label="FI number then" value={formatCompact(fiRow.fiTarget)} dark />
                   <Metric
                     label="Safe monthly draw"
-                    value={format(fiRow.corpus * (swrPct / 100) / 12, {
-                      decimalPlaces: 0,
-                    })}
+                    value={format((fiRow.corpus * (swrPct / 100)) / 12, { decimalPlaces: 0 })}
+                    dark
                   />
                 </div>
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
-                  <Info className="h-6 w-6 text-amber-500" />
+                <div className="h-10 w-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                  <Info className="h-5 w-5 text-amber-400" />
                 </div>
                 <div>
-                  <p className="text-lg font-semibold text-foreground">
+                  <p className="text-base font-semibold text-white">
                     The corpus doesn&apos;t catch the FI target by age{" "}
                     {config.endAge}.
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs text-slate-400 mt-0.5">
                     Try a higher SIP or step-up, a longer horizon, or a lower FI
                     multiplier.
                   </p>
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* ── Today snapshot cards ─────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard
-            icon={Target}
-            label="FI number today"
-            value={formatCompact(currentRow.fiTarget)}
-            sub={`${config.fiMultiplier}× annual expenses`}
-          />
-          <StatCard
-            icon={Wallet}
-            label="Current corpus"
-            value={formatCompact(config.startingCorpus)}
-            sub={`${currentRow.pctOfFI.toFixed(1)}% of FI`}
-          />
-          <StatCard
-            icon={PiggyBank}
-            label="Monthly SIP"
-            value={formatCompact(config.startingSIP)}
-            sub={`+${config.stepUpPct}% a year`}
-          />
-          <StatCard
-            icon={CalendarClock}
-            label="Safe withdrawal"
-            value={`${swrPct.toFixed(1)}%`}
-            sub={`${config.fiMultiplier}× rule`}
-          />
+          <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-slate-800 border-t border-slate-800">
+            <HeroStat
+              icon={Target}
+              label="FI number today"
+              value={formatCompact(currentRow.fiTarget)}
+              sub={`${config.fiMultiplier}× annual expenses`}
+            />
+            <HeroStat
+              icon={Wallet}
+              label="Current corpus"
+              value={formatCompact(config.startingCorpus)}
+              sub={`${currentRow.pctOfFI.toFixed(1)}% of FI`}
+            />
+            <HeroStat
+              icon={PiggyBank}
+              label="Monthly SIP"
+              value={formatCompact(config.startingSIP)}
+              sub={`+${config.stepUpPct}% a year`}
+            />
+            <HeroStat
+              icon={CalendarClock}
+              label="Safe withdrawal"
+              value={`${swrPct.toFixed(1)}%`}
+              sub={`${config.fiMultiplier}× rule`}
+            />
+          </div>
         </div>
 
-        {/* ── Inputs ───────────────────────────────────────────────────── */}
+        {/* ── Inputs, grouped ──────────────────────────────────────────── */}
         <Card>
-          <CardContent className="py-5">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <CardContent className="py-5 space-y-5">
+            <InputSection title="Timeline">
               <NumField
                 label="Current age"
                 value={config.currentAge}
@@ -344,17 +342,20 @@ export function FinancialFreedomPlanner() {
                 onChange={(v) => set({ endAge: v })}
               />
               <NumField
+                label="FI multiplier"
+                value={config.fiMultiplier}
+                onChange={(v) => set({ fiMultiplier: v })}
+                suffix="×"
+              />
+            </InputSection>
+            <div className="border-t border-border" />
+            <InputSection title="Today's Numbers">
+              <NumField
                 label="Monthly expense today"
                 value={config.monthlyExpense}
                 onChange={(v) => set({ monthlyExpense: v })}
                 step={1000}
                 suffix="₹"
-              />
-              <NumField
-                label="FI multiplier"
-                value={config.fiMultiplier}
-                onChange={(v) => set({ fiMultiplier: v })}
-                suffix="×"
               />
               <NumField
                 label="Current corpus"
@@ -376,6 +377,9 @@ export function FinancialFreedomPlanner() {
                 onChange={(v) => set({ stepUpPct: v })}
                 suffix="%"
               />
+            </InputSection>
+            <div className="border-t border-border" />
+            <InputSection title="Growth Assumptions">
               <NumField
                 label="Expected return"
                 value={config.returnPct}
@@ -388,7 +392,7 @@ export function FinancialFreedomPlanner() {
                 onChange={(v) => set({ inflationPct: v })}
                 suffix="%"
               />
-            </div>
+            </InputSection>
           </CardContent>
         </Card>
 
@@ -624,18 +628,32 @@ export function FinancialFreedomPlanner() {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  dark = false,
+}: {
+  label: string;
+  value: string;
+  dark?: boolean;
+}) {
   return (
     <div>
-      <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+      <p
+        className={`text-[10px] uppercase tracking-widest ${dark ? "text-slate-400" : "text-muted-foreground"}`}
+      >
         {label}
       </p>
-      <p className="text-lg font-bold text-foreground tabular-nums">{value}</p>
+      <p
+        className={`font-mono text-lg font-bold tabular-nums ${dark ? "text-white" : "text-foreground"}`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
 
-function StatCard({
+function HeroStat({
   icon: Icon,
   label,
   value,
@@ -647,15 +665,32 @@ function StatCard({
   sub: string;
 }) {
   return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="flex items-center gap-2 text-muted-foreground mb-1.5">
-          <Icon className="h-4 w-4" />
-          <span className="text-xs">{label}</span>
-        </div>
-        <p className="text-xl font-bold text-foreground tabular-nums">{value}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>
-      </CardContent>
-    </Card>
+    <div className="px-5 py-3.5">
+      <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+        <Icon className="h-3 w-3" />
+        <span className="text-[10px] uppercase tracking-widest">{label}</span>
+      </div>
+      <p className="font-mono text-base font-bold text-white tabular-nums">{value}</p>
+      <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>
+    </div>
+  );
+}
+
+function InputSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">
+        {title}
+      </p>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {children}
+      </div>
+    </div>
   );
 }

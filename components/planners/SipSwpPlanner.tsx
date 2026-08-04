@@ -53,26 +53,47 @@ interface SIPYearRow {
   gains: number;
 }
 
-function calcSIP(monthly: number, annualRate: number, years: number, stepUpPct: number): SIPYearRow[] {
+function calcSIP(
+  monthly: number,
+  annualRate: number,
+  years: number,
+  stepUpPct: number,
+): SIPYearRow[] {
   const rows: SIPYearRow[] = [];
-  let totalValue = 0, totalInvested = 0, currentMonthly = monthly;
+  let totalValue = 0,
+    totalInvested = 0,
+    currentMonthly = monthly;
   const r = annualRate / 12 / 100;
   for (let y = 1; y <= years; y++) {
     for (let m = 0; m < 12; m++) {
       totalValue = (totalValue + currentMonthly) * (1 + r);
       totalInvested += currentMonthly;
     }
-    rows.push({ year: y, invested: Math.round(totalInvested), value: Math.round(totalValue), gains: Math.round(totalValue - totalInvested) });
+    rows.push({
+      year: y,
+      invested: Math.round(totalInvested),
+      value: Math.round(totalValue),
+      gains: Math.round(totalValue - totalInvested),
+    });
     currentMonthly *= 1 + stepUpPct / 100;
   }
   return rows;
 }
 
-function calcLumpsum(principal: number, annualRate: number, years: number): SIPYearRow[] {
+function calcLumpsum(
+  principal: number,
+  annualRate: number,
+  years: number,
+): SIPYearRow[] {
   return Array.from({ length: years }, (_, i) => {
     const y = i + 1;
     const value = principal * Math.pow(1 + annualRate / 100, y);
-    return { year: y, invested: principal, value: Math.round(value), gains: Math.round(value - principal) };
+    return {
+      year: y,
+      invested: principal,
+      value: Math.round(value),
+      gains: Math.round(value - principal),
+    };
   });
 }
 
@@ -101,11 +122,16 @@ function calcCombined(
       sipValue = (sipValue + currentMonthly) * (1 + r);
     }
     // Invested = lumpsum + all SIP contributions so far
-    const sipInvested = currentMonthly > 0 ? monthly * (
-      stepUpPct > 0
-        ? Array.from({ length: y }, (_, yi) => 12 * Math.pow(1 + stepUpPct / 100, yi)).reduce((a, b) => a + b, 0)
-        : y * 12
-    ) : 0;
+    const sipInvested =
+      currentMonthly > 0
+        ? monthly *
+          (stepUpPct > 0
+            ? Array.from(
+                { length: y },
+                (_, yi) => 12 * Math.pow(1 + stepUpPct / 100, yi),
+              ).reduce((a, b) => a + b, 0)
+            : y * 12)
+        : 0;
     const invested = lumpsum + sipInvested;
     const value = Math.round(lumpsumValue + sipValue);
     rows.push({
@@ -128,9 +154,17 @@ interface SWPYearRow {
   totalWithdrawn: number;
 }
 
-function calcSWP(corpus: number, monthlyWithdrawal: number, annualRate: number, years: number, stepUpPct: number): SWPYearRow[] {
+function calcSWP(
+  corpus: number,
+  monthlyWithdrawal: number,
+  annualRate: number,
+  years: number,
+  stepUpPct: number,
+): SWPYearRow[] {
   const rows: SWPYearRow[] = [];
-  let balance = corpus, totalWithdrawn = 0, currentWithdrawal = monthlyWithdrawal;
+  let balance = corpus,
+    totalWithdrawn = 0,
+    currentWithdrawal = monthlyWithdrawal;
   const r = annualRate / 12 / 100;
   for (let y = 1; y <= years; y++) {
     let yearlyWithdrawn = 0;
@@ -142,7 +176,12 @@ function calcSWP(corpus: number, monthlyWithdrawal: number, annualRate: number, 
       totalWithdrawn += w;
       if (balance <= 0) break;
     }
-    rows.push({ year: y, withdrawn: Math.round(yearlyWithdrawn), balance: Math.round(Math.max(0, balance)), totalWithdrawn: Math.round(totalWithdrawn) });
+    rows.push({
+      year: y,
+      withdrawn: Math.round(yearlyWithdrawn),
+      balance: Math.round(Math.max(0, balance)),
+      totalWithdrawn: Math.round(totalWithdrawn),
+    });
     if (balance <= 0) break;
     currentWithdrawal *= 1 + stepUpPct / 100;
   }
@@ -152,11 +191,11 @@ function calcSWP(corpus: number, monthlyWithdrawal: number, annualRate: number, 
 // ─── Advanced engine (inflation, tax, scenarios) ───────────────────────────────
 
 export interface AdvancedSettings {
-  inflation: number;   // % p.a. — erodes purchasing power
+  inflation: number; // % p.a. — erodes purchasing power
   taxEnabled: boolean; // apply LTCG on equity gains
-  ltcg: number;        // long-term capital gains rate %
-  spread: number;      // ± return spread for optimistic/pessimistic bands
-  showReal: boolean;   // display values in today's purchasing power
+  ltcg: number; // long-term capital gains rate %
+  spread: number; // ± return spread for optimistic/pessimistic bands
+  showReal: boolean; // display values in today's purchasing power
 }
 
 const DEFAULT_ADV: AdvancedSettings = {
@@ -182,7 +221,9 @@ const ltcgTax = (value: number, invested: number, ltcgPct: number) => {
 
 /** Compound annual growth rate from invested → value over `years`. */
 const cagr = (value: number, invested: number, years: number) =>
-  invested > 0 && years > 0 ? (Math.pow(value / invested, 1 / years) - 1) * 100 : 0;
+  invested > 0 && years > 0
+    ? (Math.pow(value / invested, 1 / years) - 1) * 100
+    : 0;
 
 /** Monthly SIP required to reach `target` in `months`, given current savings. */
 function requiredMonthlySIP(
@@ -200,7 +241,9 @@ function requiredMonthlySIP(
   if (remaining <= 0) return 0;
   if (r === 0) return remaining / months;
   if (!stepUp || stepUpPct === 0) {
-    return Math.ceil((remaining * r) / ((Math.pow(1 + r, months) - 1) * (1 + r)));
+    return Math.ceil(
+      (remaining * r) / ((Math.pow(1 + r, months) - 1) * (1 + r)),
+    );
   }
   // Step-up SIP — solve via bisection.
   let lo = 0;
@@ -210,7 +253,8 @@ function requiredMonthlySIP(
     let fv = savingsGrown;
     let m = mid;
     for (let y = 0; y < Math.ceil(months / 12); y++) {
-      for (let mo = 0; mo < 12 && y * 12 + mo < months; mo++) fv = (fv + m) * (1 + r);
+      for (let mo = 0; mo < 12 && y * 12 + mo < months; mo++)
+        fv = (fv + m) * (1 + r);
       m *= 1 + stepUpPct / 100;
     }
     if (fv < target) lo = mid;
@@ -233,7 +277,8 @@ function AdvancedPanel({
   showSpread?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const set = (patch: Partial<AdvancedSettings>) => onChange({ ...value, ...patch });
+  const set = (patch: Partial<AdvancedSettings>) =>
+    onChange({ ...value, ...patch });
   return (
     <div className="pt-4 border-t">
       <button
@@ -339,12 +384,29 @@ function StatTile({
 // ─── SliderInput ──────────────────────────────────────────────────────────────
 
 function SliderInput({
-  label, value, onChange, min, max, step = 1, prefix, suffix, format, info, accentColor = "#3b82f6",
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step = 1,
+  prefix,
+  suffix,
+  format,
+  info,
+  accentColor = "#3b82f6",
 }: {
-  label: string; value: number; onChange: (v: number) => void;
-  min: number; max: number; step?: number;
-  prefix?: string; suffix?: string; format?: (v: number) => string;
-  info?: string; accentColor?: string;
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  step?: number;
+  prefix?: string;
+  suffix?: string;
+  format?: (v: number) => string;
+  info?: string;
+  accentColor?: string;
 }) {
   const [raw, setRaw] = useState<string | null>(null);
   const commit = (str: string) => {
@@ -358,21 +420,40 @@ function SliderInput({
     <div className="space-y-2">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-1.5">
-          <Label className="text-sm font-medium text-foreground/80">{label}</Label>
-          {info && <span title={info}><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></span>}
+          <Label className="text-sm font-medium text-foreground/80">
+            {label}
+          </Label>
+          {info && (
+            <span title={info}>
+              <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
-          {prefix && <span className="text-sm font-bold text-muted-foreground">{prefix}</span>}
+          {prefix && (
+            <span className="text-sm font-bold text-muted-foreground">
+              {prefix}
+            </span>
+          )}
           <Input
             type="number"
             value={raw ?? value}
-            min={min} max={max} step={step}
+            min={min}
+            max={max}
+            step={step}
             onChange={(e) => setRaw(e.target.value)}
             onBlur={(e) => commit(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") commit((e.target as HTMLInputElement).value); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter")
+                commit((e.target as HTMLInputElement).value);
+            }}
             className="w-28 h-8 text-sm text-right font-bold border-0 bg-muted/60 rounded-lg focus-visible:ring-1"
           />
-          {suffix && <span className="text-sm font-semibold text-muted-foreground">{suffix}</span>}
+          {suffix && (
+            <span className="text-sm font-semibold text-muted-foreground">
+              {suffix}
+            </span>
+          )}
         </div>
       </div>
       <div className="relative h-1.5 rounded-full bg-muted overflow-visible">
@@ -381,7 +462,11 @@ function SliderInput({
           style={{ width: `${pct}%`, background: accentColor }}
         />
         <input
-          type="range" min={min} max={max} step={step} value={value}
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
           onChange={(e) => onChange(parseFloat(e.target.value))}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           style={{ margin: 0 }}
@@ -392,8 +477,16 @@ function SliderInput({
         />
       </div>
       <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-        <span>{prefix}{format ? format(min) : min}{suffix}</span>
-        <span>{prefix}{format ? format(max) : max}{suffix}</span>
+        <span>
+          {prefix}
+          {format ? format(min) : min}
+          {suffix}
+        </span>
+        <span>
+          {prefix}
+          {format ? format(max) : max}
+          {suffix}
+        </span>
       </div>
     </div>
   );
@@ -402,7 +495,9 @@ function SliderInput({
 // ─── SIP Calculator ───────────────────────────────────────────────────────────
 
 function SIPCalculator() {
-  const [mode, setMode] = useState<"monthly" | "lumpsum" | "combined">("monthly");
+  const [mode, setMode] = useState<"monthly" | "lumpsum" | "combined">(
+    "monthly",
+  );
   const [monthly, setMonthly] = useState(10000);
   const [lumpsum, setLumpsum] = useState(500000);
   const [rate, setRate] = useState(12);
@@ -418,17 +513,38 @@ function SIPCalculator() {
 
   const rows = useMemo(() => {
     if (mode === "lumpsum") return calcLumpsum(lumpsum, rate, years);
-    if (mode === "combined") return calcCombined(lumpsum, monthly, rate, years, stepUp ? stepUpPct : 0);
+    if (mode === "combined")
+      return calcCombined(
+        lumpsum,
+        monthly,
+        rate,
+        years,
+        stepUp ? stepUpPct : 0,
+      );
     return calcSIP(monthly, rate, years, stepUp ? stepUpPct : 0);
   }, [mode, monthly, lumpsum, rate, years, stepUp, stepUpPct]);
   const lowRows = useMemo(() => {
     if (mode === "lumpsum") return calcLumpsum(lumpsum, lowRate, years);
-    if (mode === "combined") return calcCombined(lumpsum, monthly, lowRate, years, stepUp ? stepUpPct : 0);
+    if (mode === "combined")
+      return calcCombined(
+        lumpsum,
+        monthly,
+        lowRate,
+        years,
+        stepUp ? stepUpPct : 0,
+      );
     return calcSIP(monthly, lowRate, years, stepUp ? stepUpPct : 0);
   }, [mode, monthly, lumpsum, lowRate, years, stepUp, stepUpPct]);
   const highRows = useMemo(() => {
     if (mode === "lumpsum") return calcLumpsum(lumpsum, highRate, years);
-    if (mode === "combined") return calcCombined(lumpsum, monthly, highRate, years, stepUp ? stepUpPct : 0);
+    if (mode === "combined")
+      return calcCombined(
+        lumpsum,
+        monthly,
+        highRate,
+        years,
+        stepUp ? stepUpPct : 0,
+      );
     return calcSIP(monthly, highRate, years, stepUp ? stepUpPct : 0);
   }, [mode, monthly, lumpsum, highRate, years, stepUp, stepUpPct]);
 
@@ -443,7 +559,9 @@ function SIPCalculator() {
 
   // Inflation + tax adjusted figures.
   const realFinal = realValue(totalValue, adv.inflation, years);
-  const taxPayable = adv.taxEnabled ? ltcgTax(totalValue, totalInvested, adv.ltcg) : 0;
+  const taxPayable = adv.taxEnabled
+    ? ltcgTax(totalValue, totalInvested, adv.ltcg)
+    : 0;
   const postTaxValue = totalValue - taxPayable;
   const realPostTax = realValue(postTaxValue, adv.inflation, years);
   const nominalCagr = cagr(totalValue, totalInvested, years);
@@ -460,7 +578,8 @@ function SIPCalculator() {
   }));
 
   // Combined: lumpsum vs SIP contribution breakdown
-  const combinedLast = mode === "combined" ? (rows[rows.length - 1] as CombinedYearRow) : null;
+  const combinedLast =
+    mode === "combined" ? (rows[rows.length - 1] as CombinedYearRow) : null;
   const lumpsumFinalValue = combinedLast?.lumpsumValue ?? 0;
   const sipFinalValue = combinedLast?.sipValue ?? 0;
 
@@ -476,11 +595,13 @@ function SIPCalculator() {
     <div className="space-y-5">
       {/* Mode toggle */}
       <div className="inline-flex rounded-xl bg-muted p-1 gap-1">
-        {([
-          { key: "monthly", label: "Monthly SIP" },
-          { key: "lumpsum", label: "Lumpsum" },
-          { key: "combined", label: "Lumpsum + SIP" },
-        ] as const).map((m) => (
+        {(
+          [
+            { key: "monthly", label: "Monthly SIP" },
+            { key: "lumpsum", label: "Lumpsum" },
+            { key: "combined", label: "Lumpsum + SIP" },
+          ] as const
+        ).map((m) => (
           <button
             key={m.key}
             onClick={() => setMode(m.key)}
@@ -500,28 +621,56 @@ function SIPCalculator() {
         <div className="rounded-2xl border bg-card overflow-hidden">
           <div className="px-5 py-4 border-b bg-muted/30">
             <p className="font-semibold text-sm">Investment Parameters</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Adjust sliders or type values directly</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Adjust sliders or type values directly
+            </p>
           </div>
           <div className="p-5 space-y-6">
             {/* Lumpsum — shown for lumpsum and combined */}
             {(mode === "lumpsum" || mode === "combined") && (
               <SliderInput
-                label={mode === "combined" ? "Existing Corpus (Lumpsum)" : "Lumpsum Amount"}
-                value={lumpsum} onChange={setLumpsum}
-                min={1000} max={100000000} step={10000} prefix="₹"
-                format={(v) => fmtShort(v).replace("₹", "")} accentColor="#3b82f6"
-                info={mode === "combined" ? "Money you already have invested or available today" : undefined}
+                label={
+                  mode === "combined"
+                    ? "Existing Corpus (Lumpsum)"
+                    : "Lumpsum Amount"
+                }
+                value={lumpsum}
+                onChange={setLumpsum}
+                min={1000}
+                max={100000000}
+                step={10000}
+                prefix="₹"
+                format={(v) => fmtShort(v).replace("₹", "")}
+                accentColor="#3b82f6"
+                info={
+                  mode === "combined"
+                    ? "Money you already have invested or available today"
+                    : undefined
+                }
               />
             )}
 
             {/* SIP — shown for monthly and combined */}
             {(mode === "monthly" || mode === "combined") && (
               <SliderInput
-                label={mode === "combined" ? "Monthly SIP (additional)" : "Monthly Investment"}
-                value={monthly} onChange={setMonthly}
-                min={500} max={500000} step={500} prefix="₹"
-                format={(v) => fmtShort(v).replace("₹", "")} accentColor={mode === "combined" ? "#8b5cf6" : "#3b82f6"}
-                info={mode === "combined" ? "Amount you'll invest additionally every month" : undefined}
+                label={
+                  mode === "combined"
+                    ? "Monthly SIP (additional)"
+                    : "Monthly Investment"
+                }
+                value={monthly}
+                onChange={setMonthly}
+                min={500}
+                max={500000}
+                step={500}
+                prefix="₹"
+                format={(v) => fmtShort(v).replace("₹", "")}
+                accentColor={mode === "combined" ? "#8b5cf6" : "#3b82f6"}
+                info={
+                  mode === "combined"
+                    ? "Amount you'll invest additionally every month"
+                    : undefined
+                }
               />
             )}
 
@@ -529,30 +678,63 @@ function SIPCalculator() {
             {mode === "combined" && (
               <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 px-4 py-3 text-xs text-blue-700 dark:text-blue-400 space-y-1">
                 <p className="font-semibold">How this works</p>
-                <p>Your lumpsum of <strong>{fmtShort(lumpsum)}</strong> compounds from day 1.</p>
-                <p>Your SIP of <strong>{fmt(monthly)}/mo</strong> is invested on top every month.</p>
-                <p>Both grow at <strong>{rate}% p.a.</strong> — total shown is their combined future value.</p>
+                <p>
+                  Your lumpsum of <strong>{fmtShort(lumpsum)}</strong> compounds
+                  from day 1.
+                </p>
+                <p>
+                  Your SIP of <strong>{fmt(monthly)}/mo</strong> is invested on
+                  top every month.
+                </p>
+                <p>
+                  Both grow at <strong>{rate}% p.a.</strong> — total shown is
+                  their combined future value.
+                </p>
               </div>
             )}
 
-            <SliderInput label="Expected Return" value={rate} onChange={setRate}
-              min={1} max={30} step={0.5} suffix="% p.a." accentColor="#8b5cf6" />
-            <SliderInput label="Time Period" value={years} onChange={setYears}
-              min={1} max={40} suffix=" yr" accentColor="#06b6d4" />
+            <SliderInput
+              label="Expected Return"
+              value={rate}
+              onChange={setRate}
+              min={1}
+              max={30}
+              step={0.5}
+              suffix="% p.a."
+              accentColor="#8b5cf6"
+            />
+            <SliderInput
+              label="Time Period"
+              value={years}
+              onChange={setYears}
+              min={1}
+              max={40}
+              suffix=" yr"
+              accentColor="#06b6d4"
+            />
 
             {(mode === "monthly" || mode === "combined") && (
               <div className="pt-4 border-t space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">Annual Step-Up</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Increase SIP amount each year</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Increase SIP amount each year
+                    </p>
                   </div>
                   <Switch checked={stepUp} onCheckedChange={setStepUp} />
                 </div>
                 {stepUp && (
-                  <SliderInput label="Step-Up Rate" value={stepUpPct} onChange={setStepUpPct}
-                    min={1} max={50} suffix="% /yr" accentColor="#f59e0b"
-                    info="SIP amount increases by this % every year" />
+                  <SliderInput
+                    label="Step-Up Rate"
+                    value={stepUpPct}
+                    onChange={setStepUpPct}
+                    min={1}
+                    max={50}
+                    suffix="% /yr"
+                    accentColor="#f59e0b"
+                    info="SIP amount increases by this % every year"
+                  />
                 )}
               </div>
             )}
@@ -568,9 +750,14 @@ function SIPCalculator() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-sm text-white/70 font-medium">
-                  {adv.showReal ? "In today's money (post-tax)" : "Future Value"} in {years} yr{years > 1 ? "s" : ""}
+                  {adv.showReal
+                    ? "In today's money (post-tax)"
+                    : "Future Value"}{" "}
+                  in {years} yr{years > 1 ? "s" : ""}
                 </p>
-                <p className="text-4xl font-bold tracking-tight mt-1">{fmtShort(heroValue)}</p>
+                <p className="text-4xl font-bold tracking-tight mt-1">
+                  {fmtShort(heroValue)}
+                </p>
                 <p className="text-xs text-white/70 mt-1">
                   {adv.showReal
                     ? `Nominal ${fmtShort(totalValue)}`
@@ -580,7 +767,9 @@ function SIPCalculator() {
               <div className="flex flex-col items-end gap-2">
                 <div className="flex items-center gap-1.5 bg-white/20 rounded-full px-3 py-1.5">
                   <ArrowUpRight className="h-4 w-4" />
-                  <span className="text-sm font-bold">{multiplier.toFixed(2)}x</span>
+                  <span className="text-sm font-bold">
+                    {multiplier.toFixed(2)}x
+                  </span>
                 </div>
                 <button
                   onClick={() => setAdv({ ...adv, showReal: !adv.showReal })}
@@ -593,8 +782,14 @@ function SIPCalculator() {
             {/* Composition bar */}
             <div className="space-y-2">
               <div className="h-2.5 rounded-full bg-white/20 overflow-hidden flex">
-                <div className="h-full bg-white/60 rounded-l-full transition-all duration-700" style={{ width: `${investedPct}%` }} />
-                <div className="h-full bg-emerald-300 rounded-r-full transition-all duration-700" style={{ width: `${gainsPct}%` }} />
+                <div
+                  className="h-full bg-white/60 rounded-l-full transition-all duration-700"
+                  style={{ width: `${investedPct}%` }}
+                />
+                <div
+                  className="h-full bg-emerald-300 rounded-r-full transition-all duration-700"
+                  style={{ width: `${gainsPct}%` }}
+                />
               </div>
               <div className="flex justify-between text-xs text-white/70">
                 <span className="flex items-center gap-1.5">
@@ -610,40 +805,114 @@ function SIPCalculator() {
           </div>
 
           {/* Stat row */}
-          <div className={`grid gap-3 ${mode === "combined" ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
-            {mode === "combined" ? [
-              { label: "Total Invested", value: fmtShort(totalInvested), color: "#3b82f6", bg: "bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900" },
-              { label: "Lumpsum grows to", value: fmtShort(lumpsumFinalValue), color: "#06b6d4", bg: "bg-cyan-50 dark:bg-cyan-950/30 border-cyan-100 dark:border-cyan-900" },
-              { label: "SIP grows to", value: fmtShort(sipFinalValue), color: "#8b5cf6", bg: "bg-purple-50 dark:bg-purple-950/30 border-purple-100 dark:border-purple-900" },
-              { label: "Total Gains", value: fmtShort(totalGains), color: "#22c55e", bg: "bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900" },
-            ].map((s) => (
-              <div key={s.label} className={`rounded-2xl border p-4 ${s.bg}`}>
-                <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
-                <p className="text-base font-bold" style={{ color: s.color }}>{s.value}</p>
-              </div>
-            )) : [
-              { label: "Total Invested", value: fmtShort(totalInvested), color: "#3b82f6", bg: "bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900" },
-              { label: "Est. Gains", value: fmtShort(totalGains), color: "#22c55e", bg: "bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900" },
-              { label: "Absolute Return", value: `${returnPct.toFixed(1)}%`, color: "#8b5cf6", bg: "bg-purple-50 dark:bg-purple-950/30 border-purple-100 dark:border-purple-900" },
-            ].map((s) => (
-              <div key={s.label} className={`rounded-2xl border p-4 ${s.bg}`}>
-                <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
-                <p className="text-lg font-bold" style={{ color: s.color }}>{s.value}</p>
-              </div>
-            ))}
+          <div
+            className={`grid gap-3 ${mode === "combined" ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}
+          >
+            {mode === "combined"
+              ? [
+                  {
+                    label: "Total Invested",
+                    value: fmtShort(totalInvested),
+                    color: "#3b82f6",
+                    bg: "bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900",
+                  },
+                  {
+                    label: "Lumpsum grows to",
+                    value: fmtShort(lumpsumFinalValue),
+                    color: "#06b6d4",
+                    bg: "bg-cyan-50 dark:bg-cyan-950/30 border-cyan-100 dark:border-cyan-900",
+                  },
+                  {
+                    label: "SIP grows to",
+                    value: fmtShort(sipFinalValue),
+                    color: "#8b5cf6",
+                    bg: "bg-purple-50 dark:bg-purple-950/30 border-purple-100 dark:border-purple-900",
+                  },
+                  {
+                    label: "Total Gains",
+                    value: fmtShort(totalGains),
+                    color: "#22c55e",
+                    bg: "bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900",
+                  },
+                ].map((s) => (
+                  <div
+                    key={s.label}
+                    className={`rounded-2xl border p-4 ${s.bg}`}
+                  >
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {s.label}
+                    </p>
+                    <p
+                      className="text-base font-bold"
+                      style={{ color: s.color }}
+                    >
+                      {s.value}
+                    </p>
+                  </div>
+                ))
+              : [
+                  {
+                    label: "Total Invested",
+                    value: fmtShort(totalInvested),
+                    color: "#3b82f6",
+                    bg: "bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900",
+                  },
+                  {
+                    label: "Est. Gains",
+                    value: fmtShort(totalGains),
+                    color: "#22c55e",
+                    bg: "bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900",
+                  },
+                  {
+                    label: "Absolute Return",
+                    value: `${returnPct.toFixed(1)}%`,
+                    color: "#8b5cf6",
+                    bg: "bg-purple-50 dark:bg-purple-950/30 border-purple-100 dark:border-purple-900",
+                  },
+                ].map((s) => (
+                  <div
+                    key={s.label}
+                    className={`rounded-2xl border p-4 ${s.bg}`}
+                  >
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {s.label}
+                    </p>
+                    <p className="text-lg font-bold" style={{ color: s.color }}>
+                      {s.value}
+                    </p>
+                  </div>
+                ))}
           </div>
 
           {/* Combined: stacked composition bar showing lumpsum vs SIP share */}
           {mode === "combined" && totalValue > 0 && (
             <div className="rounded-2xl border bg-card p-4">
-              <p className="text-sm font-semibold mb-3">Value Composition at Year {years}</p>
+              <p className="text-sm font-semibold mb-3">
+                Value Composition at Year {years}
+              </p>
               <div className="h-3 rounded-full overflow-hidden flex gap-px">
-                <div className="h-full bg-cyan-500 rounded-l-full transition-all duration-700" style={{ width: `${(lumpsumFinalValue / totalValue) * 100}%` }} />
-                <div className="h-full bg-purple-500 rounded-r-full transition-all duration-700" style={{ width: `${(sipFinalValue / totalValue) * 100}%` }} />
+                <div
+                  className="h-full bg-cyan-500 rounded-l-full transition-all duration-700"
+                  style={{
+                    width: `${(lumpsumFinalValue / totalValue) * 100}%`,
+                  }}
+                />
+                <div
+                  className="h-full bg-purple-500 rounded-r-full transition-all duration-700"
+                  style={{ width: `${(sipFinalValue / totalValue) * 100}%` }}
+                />
               </div>
               <div className="flex items-center gap-5 mt-2 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-cyan-500 inline-block" />Lumpsum {((lumpsumFinalValue / totalValue) * 100).toFixed(0)}% → {fmtShort(lumpsumFinalValue)}</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-purple-500 inline-block" />SIP {((sipFinalValue / totalValue) * 100).toFixed(0)}% → {fmtShort(sipFinalValue)}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-cyan-500 inline-block" />
+                  Lumpsum {((lumpsumFinalValue / totalValue) * 100).toFixed(0)}%
+                  → {fmtShort(lumpsumFinalValue)}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-purple-500 inline-block" />
+                  SIP {((sipFinalValue / totalValue) * 100).toFixed(0)}% →{" "}
+                  {fmtShort(sipFinalValue)}
+                </span>
               </div>
             </div>
           )}
@@ -653,18 +922,45 @@ function SIPCalculator() {
             <div className="flex items-center gap-2 mb-3">
               <Gauge className="h-4 w-4 text-cyan-500" />
               <p className="text-sm font-semibold">Return Scenarios</p>
-              <span className="text-[11px] text-muted-foreground">at {years} yr · ±{adv.spread}%</span>
+              <span className="text-[11px] text-muted-foreground">
+                at {years} yr · ±{adv.spread}%
+              </span>
             </div>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: `Pessimistic`, rate: lowRate, value: lowFinal, color: "#ef4444", bg: "bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/40" },
-                { label: `Expected`, rate, value: totalValue, color: "#8b5cf6", bg: "bg-violet-50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/40" },
-                { label: `Optimistic`, rate: highRate, value: highFinal, color: "#22c55e", bg: "bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/40" },
+                {
+                  label: `Pessimistic`,
+                  rate: lowRate,
+                  value: lowFinal,
+                  color: "#ef4444",
+                  bg: "bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/40",
+                },
+                {
+                  label: `Expected`,
+                  rate,
+                  value: totalValue,
+                  color: "#8b5cf6",
+                  bg: "bg-violet-50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/40",
+                },
+                {
+                  label: `Optimistic`,
+                  rate: highRate,
+                  value: highFinal,
+                  color: "#22c55e",
+                  bg: "bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/40",
+                },
               ].map((s) => (
-                <div key={s.label} className={`rounded-xl border p-3 text-center ${s.bg}`}>
+                <div
+                  key={s.label}
+                  className={`rounded-xl border p-3 text-center ${s.bg}`}
+                >
                   <p className="text-[10px] text-muted-foreground">{s.label}</p>
-                  <p className="text-[10px] text-muted-foreground mb-1">{s.rate}% p.a.</p>
-                  <p className="text-sm font-bold" style={{ color: s.color }}>{fmtShort(s.value)}</p>
+                  <p className="text-[10px] text-muted-foreground mb-1">
+                    {s.rate}% p.a.
+                  </p>
+                  <p className="text-sm font-bold" style={{ color: s.color }}>
+                    {fmtShort(s.value)}
+                  </p>
                 </div>
               ))}
             </div>
@@ -672,21 +968,46 @@ function SIPCalculator() {
 
           {/* Inflation & tax */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatTile label="Real value (today's ₹)" value={fmtShort(realFinal)} color="#0ea5e9"
-              bg="bg-sky-50 dark:bg-sky-950/30 border-sky-100 dark:border-sky-900" sub={`${adv.inflation}% inflation`} />
-            <StatTile label="LTCG tax" value={taxPayable > 0 ? `−${fmtShort(taxPayable)}` : "₹0"} color="#f59e0b"
-              bg="bg-amber-50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900" sub={adv.taxEnabled ? `@ ${adv.ltcg}%` : "tax off"} />
-            <StatTile label="Post-tax value" value={fmtShort(postTaxValue)} color="#22c55e"
-              bg="bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900" sub="after LTCG" />
-            <StatTile label="Real CAGR" value={`${realCagr.toFixed(1)}%`} color="#8b5cf6"
-              bg="bg-violet-50 dark:bg-violet-950/30 border-violet-100 dark:border-violet-900" sub={`${nominalCagr.toFixed(1)}% nominal`} />
+            <StatTile
+              label="Real value (today's ₹)"
+              value={fmtShort(realFinal)}
+              color="#0ea5e9"
+              bg="bg-sky-50 dark:bg-sky-950/30 border-sky-100 dark:border-sky-900"
+              sub={`${adv.inflation}% inflation`}
+            />
+            <StatTile
+              label="LTCG tax"
+              value={taxPayable > 0 ? `−${fmtShort(taxPayable)}` : "₹0"}
+              color="#f59e0b"
+              bg="bg-amber-50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900"
+              sub={adv.taxEnabled ? `@ ${adv.ltcg}%` : "tax off"}
+            />
+            <StatTile
+              label="Post-tax value"
+              value={fmtShort(postTaxValue)}
+              color="#22c55e"
+              bg="bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900"
+              sub="after LTCG"
+            />
+            <StatTile
+              label="Real CAGR"
+              value={`${realCagr.toFixed(1)}%`}
+              color="#8b5cf6"
+              bg="bg-violet-50 dark:bg-violet-950/30 border-violet-100 dark:border-violet-900"
+              sub={`${nominalCagr.toFixed(1)}% nominal`}
+            />
           </div>
 
           {/* Chart */}
           <div className="rounded-2xl border bg-card p-5">
-            <p className="text-sm font-semibold mb-4">Wealth Growth Over Time</p>
+            <p className="text-sm font-semibold mb-4">
+              Wealth Growth Over Time
+            </p>
             <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart
+                data={chartData}
+                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+              >
                 <defs>
                   <linearGradient id="sipBand" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.18} />
@@ -709,33 +1030,110 @@ function SIPCalculator() {
                     <stop offset="95%" stopColor="#a855f7" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.6} />
-                <XAxis dataKey="year" tickFormatter={(v) => `Y${v}`} tick={{ fontSize: 10 }} stroke="#94a3b8" />
-                <YAxis tickFormatter={(v) => fmtShort(v).replace("₹", "").trim()} tick={{ fontSize: 10 }} stroke="#94a3b8" width={52} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(v: any, name: string | undefined) => [fmtShort(Number(v)), name ?? ""]} labelFormatter={(l) => `Year ${l}`} />
-                <Area type="monotone" dataKey="high" name={`Optimistic (${highRate}%)`} stroke="#22c55e" strokeWidth={1} strokeDasharray="4 3" fillOpacity={0} />
-                <Area type="monotone" dataKey="low" name={`Pessimistic (${lowRate}%)`} stroke="#ef4444" strokeWidth={1} strokeDasharray="4 3" fill="url(#sipBand)" />
-                <Area type="monotone" dataKey="invested" name="Total Invested" stroke="#3b82f6" strokeWidth={2} fill="url(#sipInvested)" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#e2e8f0"
+                  opacity={0.6}
+                />
+                <XAxis
+                  dataKey="year"
+                  tickFormatter={(v) => `Y${v}`}
+                  tick={{ fontSize: 10 }}
+                  stroke="#94a3b8"
+                />
+                <YAxis
+                  tickFormatter={(v) => fmtShort(v).replace("₹", "").trim()}
+                  tick={{ fontSize: 10 }}
+                  stroke="#94a3b8"
+                  width={52}
+                />
+                <Tooltip
+                  contentStyle={TOOLTIP_STYLE} // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(v: any, name: string | undefined) => [
+                    fmtShort(Number(v)),
+                    name ?? "",
+                  ]}
+                  labelFormatter={(l) => `Year ${l}`}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="high"
+                  name={`Optimistic (${highRate}%)`}
+                  stroke="#22c55e"
+                  strokeWidth={1}
+                  strokeDasharray="4 3"
+                  fillOpacity={0}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="low"
+                  name={`Pessimistic (${lowRate}%)`}
+                  stroke="#ef4444"
+                  strokeWidth={1}
+                  strokeDasharray="4 3"
+                  fill="url(#sipBand)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="invested"
+                  name="Total Invested"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  fill="url(#sipInvested)"
+                />
                 {mode === "combined" && (
-                  <Area type="monotone" dataKey="lumpsumValue" name="Lumpsum Growth" stroke="#06b6d4" strokeWidth={2} fill="url(#lumpsumVal)" strokeDasharray="5 3" />
+                  <Area
+                    type="monotone"
+                    dataKey="lumpsumValue"
+                    name="Lumpsum Growth"
+                    stroke="#06b6d4"
+                    strokeWidth={2}
+                    fill="url(#lumpsumVal)"
+                    strokeDasharray="5 3"
+                  />
                 )}
                 {mode === "combined" && (
-                  <Area type="monotone" dataKey="sipValue" name="SIP Growth" stroke="#a855f7" strokeWidth={2} fill="url(#sipOnlyVal)" strokeDasharray="5 3" />
+                  <Area
+                    type="monotone"
+                    dataKey="sipValue"
+                    name="SIP Growth"
+                    stroke="#a855f7"
+                    strokeWidth={2}
+                    fill="url(#sipOnlyVal)"
+                    strokeDasharray="5 3"
+                  />
                 )}
-                <Area type="monotone" dataKey="value" name="Total Future Value" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#sipValue)" />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  name="Total Future Value"
+                  stroke="#8b5cf6"
+                  strokeWidth={2.5}
+                  fill="url(#sipValue)"
+                />
               </AreaChart>
             </ResponsiveContainer>
             <div className="flex flex-wrap justify-center gap-5 mt-3">
               {[
                 { color: "#3b82f6", label: "Invested" },
-                ...(mode === "combined" ? [{ color: "#06b6d4", label: "Lumpsum Growth" }, { color: "#a855f7", label: "SIP Growth" }] : []),
+                ...(mode === "combined"
+                  ? [
+                      { color: "#06b6d4", label: "Lumpsum Growth" },
+                      { color: "#a855f7", label: "SIP Growth" },
+                    ]
+                  : []),
                 { color: "#8b5cf6", label: "Total Value" },
                 { color: "#22c55e", label: "Optimistic" },
                 { color: "#ef4444", label: "Pessimistic" },
               ].map((l) => (
-                <div key={l.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <div className="w-3 h-0.5 rounded-full" style={{ background: l.color }} />
+                <div
+                  key={l.label}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                >
+                  <div
+                    className="w-3 h-0.5 rounded-full"
+                    style={{ background: l.color }}
+                  />
                   {l.label}
                 </div>
               ))}
@@ -748,35 +1146,58 @@ function SIPCalculator() {
               {mode === "combined" ? (
                 <>
                   <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-0.5">Lumpsum</p>
-                    <p className="font-bold text-cyan-600 dark:text-cyan-400">{fmtShort(lumpsum)}</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      Lumpsum
+                    </p>
+                    <p className="font-bold text-cyan-600 dark:text-cyan-400">
+                      {fmtShort(lumpsum)}
+                    </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-0.5">Monthly SIP</p>
-                    <p className="font-bold text-purple-600 dark:text-purple-400">{fmt(monthly)}/mo</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      Monthly SIP
+                    </p>
+                    <p className="font-bold text-purple-600 dark:text-purple-400">
+                      {fmt(monthly)}/mo
+                    </p>
                   </div>
                 </>
               ) : mode === "monthly" ? (
                 <>
                   <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-0.5">Starting SIP</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      Starting SIP
+                    </p>
                     <p className="font-bold">{fmt(monthly)}/mo</p>
                   </div>
                   {stepUp && (
                     <div className="text-center">
-                      <p className="text-xs text-muted-foreground mb-0.5">Final SIP (Y{years})</p>
-                      <p className="font-bold">{fmt(Math.round(monthly * Math.pow(1 + stepUpPct / 100, years - 1)))}/mo</p>
+                      <p className="text-xs text-muted-foreground mb-0.5">
+                        Final SIP (Y{years})
+                      </p>
+                      <p className="font-bold">
+                        {fmt(
+                          Math.round(
+                            monthly * Math.pow(1 + stepUpPct / 100, years - 1),
+                          ),
+                        )}
+                        /mo
+                      </p>
                     </div>
                   )}
                 </>
               ) : (
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground mb-0.5">Principal</p>
+                  <p className="text-xs text-muted-foreground mb-0.5">
+                    Principal
+                  </p>
                   <p className="font-bold">{fmt(lumpsum)}</p>
                 </div>
               )}
               <div className="text-center">
-                <p className="text-xs text-muted-foreground mb-0.5">Return Rate</p>
+                <p className="text-xs text-muted-foreground mb-0.5">
+                  Return Rate
+                </p>
                 <p className="font-bold">{rate}% p.a.</p>
               </div>
               <div className="text-center">
@@ -784,8 +1205,12 @@ function SIPCalculator() {
                 <p className="font-bold">{years} years</p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-muted-foreground mb-0.5">Multiplier</p>
-                <p className="font-bold text-purple-600 dark:text-purple-400">{multiplier.toFixed(2)}x</p>
+                <p className="text-xs text-muted-foreground mb-0.5">
+                  Multiplier
+                </p>
+                <p className="font-bold text-purple-600 dark:text-purple-400">
+                  {multiplier.toFixed(2)}x
+                </p>
               </div>
             </div>
           </div>
@@ -799,7 +1224,11 @@ function SIPCalculator() {
           onClick={() => setShowTable((s) => !s)}
         >
           <p className="text-sm font-semibold">Year-by-Year Breakdown</p>
-          {showTable ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          {showTable ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
         </button>
         {showTable && (
           <div className="overflow-x-auto">
@@ -808,8 +1237,16 @@ function SIPCalculator() {
                 <tr className="border-b bg-muted/40 text-[11px] text-muted-foreground uppercase tracking-wider">
                   <th className="px-4 py-3 text-left">Year</th>
                   <th className="px-4 py-3 text-right">Invested</th>
-                  {mode === "combined" && <th className="px-4 py-3 text-right text-cyan-600">Lumpsum Value</th>}
-                  {mode === "combined" && <th className="px-4 py-3 text-right text-purple-600">SIP Value</th>}
+                  {mode === "combined" && (
+                    <th className="px-4 py-3 text-right text-cyan-600">
+                      Lumpsum Value
+                    </th>
+                  )}
+                  {mode === "combined" && (
+                    <th className="px-4 py-3 text-right text-purple-600">
+                      SIP Value
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-right">Gains</th>
                   <th className="px-4 py-3 text-right">Total Value</th>
                   <th className="px-4 py-3 text-right">Return %</th>
@@ -820,14 +1257,33 @@ function SIPCalculator() {
                   const ret = r.invested > 0 ? (r.gains / r.invested) * 100 : 0;
                   const cr = r as CombinedYearRow;
                   return (
-                    <tr key={r.year} className="hover:bg-muted/30 transition-colors">
+                    <tr
+                      key={r.year}
+                      className="hover:bg-muted/30 transition-colors"
+                    >
                       <td className="px-4 py-2.5 font-semibold">Y{r.year}</td>
-                      <td className="px-4 py-2.5 text-right text-muted-foreground">{fmtShort(r.invested)}</td>
-                      {mode === "combined" && <td className="px-4 py-2.5 text-right text-cyan-600 dark:text-cyan-400 font-medium">{fmtShort(cr.lumpsumValue ?? 0)}</td>}
-                      {mode === "combined" && <td className="px-4 py-2.5 text-right text-purple-600 dark:text-purple-400 font-medium">{fmtShort(cr.sipValue ?? 0)}</td>}
-                      <td className="px-4 py-2.5 text-right text-emerald-600 dark:text-emerald-400 font-medium">+{fmtShort(r.gains)}</td>
-                      <td className="px-4 py-2.5 text-right font-bold">{fmtShort(r.value)}</td>
-                      <td className="px-4 py-2.5 text-right text-purple-600 dark:text-purple-400 font-semibold">{ret.toFixed(1)}%</td>
+                      <td className="px-4 py-2.5 text-right text-muted-foreground">
+                        {fmtShort(r.invested)}
+                      </td>
+                      {mode === "combined" && (
+                        <td className="px-4 py-2.5 text-right text-cyan-600 dark:text-cyan-400 font-medium">
+                          {fmtShort(cr.lumpsumValue ?? 0)}
+                        </td>
+                      )}
+                      {mode === "combined" && (
+                        <td className="px-4 py-2.5 text-right text-purple-600 dark:text-purple-400 font-medium">
+                          {fmtShort(cr.sipValue ?? 0)}
+                        </td>
+                      )}
+                      <td className="px-4 py-2.5 text-right text-emerald-600 dark:text-emerald-400 font-medium">
+                        +{fmtShort(r.gains)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-bold">
+                        {fmtShort(r.value)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-purple-600 dark:text-purple-400 font-semibold">
+                        {ret.toFixed(1)}%
+                      </td>
                     </tr>
                   );
                 })}
@@ -852,14 +1308,20 @@ function SWPCalculator() {
   const [showTable, setShowTable] = useState(false);
   const [adv, setAdv] = useState<AdvancedSettings>(DEFAULT_ADV);
 
-  const rows = useMemo(() => calcSWP(corpus, withdrawal, rate, years, stepUp ? stepUpPct : 0), [corpus, withdrawal, rate, years, stepUp, stepUpPct]);
+  const rows = useMemo(
+    () => calcSWP(corpus, withdrawal, rate, years, stepUp ? stepUpPct : 0),
+    [corpus, withdrawal, rate, years, stepUp, stepUpPct],
+  );
 
   const lastRow = rows[rows.length - 1];
   const totalWithdrawn = lastRow?.totalWithdrawn ?? 0;
   const finalBalance = lastRow?.balance ?? 0;
   const corpusExhausted = finalBalance === 0;
-  const exhaustedYear = corpusExhausted ? rows.find((r) => r.balance === 0)?.year : null;
-  const sustainPct = corpus > 0 ? Math.min(100, (finalBalance / corpus) * 100) : 0;
+  const exhaustedYear = corpusExhausted
+    ? rows.find((r) => r.balance === 0)?.year
+    : null;
+  const sustainPct =
+    corpus > 0 ? Math.min(100, (finalBalance / corpus) * 100) : 0;
 
   // How long the corpus lasts under different return assumptions.
   const lowRate = Math.max(0, rate - adv.spread);
@@ -894,31 +1356,73 @@ function SWPCalculator() {
         <div className="rounded-2xl border bg-card overflow-hidden">
           <div className="px-5 py-4 border-b bg-muted/30">
             <p className="font-semibold text-sm">Withdrawal Parameters</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Configure your withdrawal plan</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Configure your withdrawal plan
+            </p>
           </div>
           <div className="p-5 space-y-6">
-            <SliderInput label="Initial Corpus" value={corpus} onChange={setCorpus}
-              min={100000} max={500000000} step={100000} prefix="₹"
-              format={(v) => fmtShort(v).replace("₹", "")} accentColor="#8b5cf6" />
-            <SliderInput label="Monthly Withdrawal" value={withdrawal} onChange={setWithdrawal}
-              min={1000} max={500000} step={1000} prefix="₹"
-              format={(v) => fmtShort(v).replace("₹", "")} accentColor="#3b82f6" />
-            <SliderInput label="Expected Return" value={rate} onChange={setRate}
-              min={1} max={20} step={0.5} suffix="% p.a." accentColor="#06b6d4" />
-            <SliderInput label="Withdrawal Period" value={years} onChange={setYears}
-              min={1} max={40} suffix=" yr" accentColor="#f59e0b" />
+            <SliderInput
+              label="Initial Corpus"
+              value={corpus}
+              onChange={setCorpus}
+              min={100000}
+              max={500000000}
+              step={100000}
+              prefix="₹"
+              format={(v) => fmtShort(v).replace("₹", "")}
+              accentColor="#8b5cf6"
+            />
+            <SliderInput
+              label="Monthly Withdrawal"
+              value={withdrawal}
+              onChange={setWithdrawal}
+              min={1000}
+              max={500000}
+              step={1000}
+              prefix="₹"
+              format={(v) => fmtShort(v).replace("₹", "")}
+              accentColor="#3b82f6"
+            />
+            <SliderInput
+              label="Expected Return"
+              value={rate}
+              onChange={setRate}
+              min={1}
+              max={20}
+              step={0.5}
+              suffix="% p.a."
+              accentColor="#06b6d4"
+            />
+            <SliderInput
+              label="Withdrawal Period"
+              value={years}
+              onChange={setYears}
+              min={1}
+              max={40}
+              suffix=" yr"
+              accentColor="#f59e0b"
+            />
             <div className="pt-4 border-t space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">Annual Step-Up</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Increase withdrawal each year</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Increase withdrawal each year
+                  </p>
                 </div>
                 <Switch checked={stepUp} onCheckedChange={setStepUp} />
               </div>
               {stepUp && (
-                <SliderInput label="Step-Up Rate" value={stepUpPct} onChange={setStepUpPct}
-                  min={1} max={30} suffix="% /yr" accentColor="#f59e0b"
-                  info="Withdrawal amount increases by this % every year" />
+                <SliderInput
+                  label="Step-Up Rate"
+                  value={stepUpPct}
+                  onChange={setStepUpPct}
+                  min={1}
+                  max={30}
+                  suffix="% /yr"
+                  accentColor="#f59e0b"
+                  info="Withdrawal amount increases by this % every year"
+                />
               )}
             </div>
 
@@ -929,27 +1433,47 @@ function SWPCalculator() {
         {/* Results */}
         <div className="space-y-4">
           {/* Hero result */}
-          <div className={`rounded-2xl border p-5 shadow-sm text-white ${corpusExhausted ? "bg-linear-to-br from-red-500 to-orange-600" : "bg-linear-to-br from-emerald-500 to-teal-600"}`}>
+          <div
+            className={`rounded-2xl border p-5 shadow-sm text-white ${corpusExhausted ? "bg-linear-to-br from-red-500 to-orange-600" : "bg-linear-to-br from-emerald-500 to-teal-600"}`}
+          >
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-sm text-white/70 font-medium">
-                  {corpusExhausted ? `Corpus exhausted in Year ${exhaustedYear}` : `Sustains all ${years} years`}
+                  {corpusExhausted
+                    ? `Corpus exhausted in Year ${exhaustedYear}`
+                    : `Sustains all ${years} years`}
                 </p>
-                <p className="text-4xl font-bold tracking-tight mt-1">{fmtShort(finalBalance)}</p>
+                <p className="text-4xl font-bold tracking-tight mt-1">
+                  {fmtShort(finalBalance)}
+                </p>
                 <p className="text-sm text-white/70 mt-0.5">final balance</p>
               </div>
-              <div className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 ${corpusExhausted ? "bg-white/20" : "bg-white/20"}`}>
-                {corpusExhausted ? <TrendingDown className="h-4 w-4" /> : <TrendingUp className="h-4 w-4" />}
-                <span className="text-sm font-bold">{corpusExhausted ? "Depleted" : "Sustainable"}</span>
+              <div
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 ${corpusExhausted ? "bg-white/20" : "bg-white/20"}`}
+              >
+                {corpusExhausted ? (
+                  <TrendingDown className="h-4 w-4" />
+                ) : (
+                  <TrendingUp className="h-4 w-4" />
+                )}
+                <span className="text-sm font-bold">
+                  {corpusExhausted ? "Depleted" : "Sustainable"}
+                </span>
               </div>
             </div>
             {/* Sustain bar */}
             {!corpusExhausted && (
               <div className="space-y-1.5">
                 <div className="h-2 rounded-full bg-white/20 overflow-hidden">
-                  <div className="h-full bg-white/60 rounded-full transition-all duration-700" style={{ width: `${sustainPct}%` }} />
+                  <div
+                    className="h-full bg-white/60 rounded-full transition-all duration-700"
+                    style={{ width: `${sustainPct}%` }}
+                  />
                 </div>
-                <p className="text-xs text-white/70">{sustainPct.toFixed(0)}% of corpus preserved after {years} years</p>
+                <p className="text-xs text-white/70">
+                  {sustainPct.toFixed(0)}% of corpus preserved after {years}{" "}
+                  years
+                </p>
               </div>
             )}
           </div>
@@ -957,13 +1481,30 @@ function SWPCalculator() {
           {/* Stat row */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: "Initial Corpus", value: fmtShort(corpus), color: "#8b5cf6", bg: "bg-purple-50 dark:bg-purple-950/30 border-purple-100 dark:border-purple-900" },
-              { label: "Total Withdrawn", value: fmtShort(totalWithdrawn), color: "#22c55e", bg: "bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900" },
-              { label: "Monthly Draw", value: `${fmt(withdrawal)}/mo`, color: "#3b82f6", bg: "bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900" },
+              {
+                label: "Initial Corpus",
+                value: fmtShort(corpus),
+                color: "#8b5cf6",
+                bg: "bg-purple-50 dark:bg-purple-950/30 border-purple-100 dark:border-purple-900",
+              },
+              {
+                label: "Total Withdrawn",
+                value: fmtShort(totalWithdrawn),
+                color: "#22c55e",
+                bg: "bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900",
+              },
+              {
+                label: "Monthly Draw",
+                value: `${fmt(withdrawal)}/mo`,
+                color: "#3b82f6",
+                bg: "bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900",
+              },
             ].map((s) => (
               <div key={s.label} className={`rounded-2xl border p-4 ${s.bg}`}>
                 <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
-                <p className="text-lg font-bold" style={{ color: s.color }}>{s.value}</p>
+                <p className="text-lg font-bold" style={{ color: s.color }}>
+                  {s.value}
+                </p>
               </div>
             ))}
           </div>
@@ -973,17 +1514,42 @@ function SWPCalculator() {
             <div className="flex items-center gap-2 mb-3">
               <Gauge className="h-4 w-4 text-cyan-500" />
               <p className="text-sm font-semibold">How long the corpus lasts</p>
-              <span className="text-[11px] text-muted-foreground">±{adv.spread}% returns</span>
+              <span className="text-[11px] text-muted-foreground">
+                ±{adv.spread}% returns
+              </span>
             </div>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Pessimistic", rate: lowRate, yrs: lowSurvival, color: "#ef4444", bg: "bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/40" },
-                { label: "Expected", rate, yrs: baseSurvival, color: "#8b5cf6", bg: "bg-violet-50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/40" },
-                { label: "Optimistic", rate: highRate, yrs: highSurvival, color: "#22c55e", bg: "bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/40" },
+                {
+                  label: "Pessimistic",
+                  rate: lowRate,
+                  yrs: lowSurvival,
+                  color: "#ef4444",
+                  bg: "bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/40",
+                },
+                {
+                  label: "Expected",
+                  rate,
+                  yrs: baseSurvival,
+                  color: "#8b5cf6",
+                  bg: "bg-violet-50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/40",
+                },
+                {
+                  label: "Optimistic",
+                  rate: highRate,
+                  yrs: highSurvival,
+                  color: "#22c55e",
+                  bg: "bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/40",
+                },
               ].map((s) => (
-                <div key={s.label} className={`rounded-xl border p-3 text-center ${s.bg}`}>
+                <div
+                  key={s.label}
+                  className={`rounded-xl border p-3 text-center ${s.bg}`}
+                >
                   <p className="text-[10px] text-muted-foreground">{s.label}</p>
-                  <p className="text-[10px] text-muted-foreground mb-1">{s.rate}% p.a.</p>
+                  <p className="text-[10px] text-muted-foreground mb-1">
+                    {s.rate}% p.a.
+                  </p>
                   <p className="text-sm font-bold" style={{ color: s.color }}>
                     {s.yrs >= years ? `${years}+ yrs` : `${s.yrs} yrs`}
                   </p>
@@ -994,19 +1560,39 @@ function SWPCalculator() {
 
           {/* Inflation reality */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <StatTile label="Final balance (today's ₹)" value={fmtShort(realFinalBalance)} color="#0ea5e9"
-              bg="bg-sky-50 dark:bg-sky-950/30 border-sky-100 dark:border-sky-900" sub={`${adv.inflation}% inflation`} />
-            <StatTile label={`₹${(withdrawal).toLocaleString("en-IN")} buys (Y${years})`} value={fmtShort(realWithdrawalAtEnd)} color="#f59e0b"
-              bg="bg-amber-50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900" sub="in today's money" />
-            <StatTile label="Real return" value={`${realReturn.toFixed(1)}%`} color={realReturn >= 0 ? "#22c55e" : "#ef4444"}
-              bg="bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900" sub="return − inflation" />
+            <StatTile
+              label="Final balance (today's ₹)"
+              value={fmtShort(realFinalBalance)}
+              color="#0ea5e9"
+              bg="bg-sky-50 dark:bg-sky-950/30 border-sky-100 dark:border-sky-900"
+              sub={`${adv.inflation}% inflation`}
+            />
+            <StatTile
+              label={`₹${withdrawal.toLocaleString("en-IN")} buys (Y${years})`}
+              value={fmtShort(realWithdrawalAtEnd)}
+              color="#f59e0b"
+              bg="bg-amber-50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900"
+              sub="in today's money"
+            />
+            <StatTile
+              label="Real return"
+              value={`${realReturn.toFixed(1)}%`}
+              color={realReturn >= 0 ? "#22c55e" : "#ef4444"}
+              bg="bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900"
+              sub="return − inflation"
+            />
           </div>
 
           {/* Chart */}
           <div className="rounded-2xl border bg-card p-5">
-            <p className="text-sm font-semibold mb-4">Balance & Withdrawals Over Time</p>
+            <p className="text-sm font-semibold mb-4">
+              Balance & Withdrawals Over Time
+            </p>
             <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart
+                data={rows}
+                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+              >
                 <defs>
                   <linearGradient id="swpBalance" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
@@ -1017,19 +1603,62 @@ function SWPCalculator() {
                     <stop offset="95%" stopColor="#22c55e" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.6} />
-                <XAxis dataKey="year" tickFormatter={(v) => `Y${v}`} tick={{ fontSize: 10 }} stroke="#94a3b8" />
-                <YAxis tickFormatter={(v) => fmtShort(v).replace("₹", "").trim()} tick={{ fontSize: 10 }} stroke="#94a3b8" width={50} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(v: any, name: string | undefined) => [fmtShort(Number(v)), name ?? ""]} labelFormatter={(l) => `Year ${l}`} />
-                <Area type="monotone" dataKey="totalWithdrawn" name="Total Withdrawn" stroke="#22c55e" strokeWidth={2} fill="url(#swpWithdrawn)" />
-                <Area type="monotone" dataKey="balance" name="Remaining Balance" stroke="#8b5cf6" strokeWidth={2} fill="url(#swpBalance)" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#e2e8f0"
+                  opacity={0.6}
+                />
+                <XAxis
+                  dataKey="year"
+                  tickFormatter={(v) => `Y${v}`}
+                  tick={{ fontSize: 10 }}
+                  stroke="#94a3b8"
+                />
+                <YAxis
+                  tickFormatter={(v) => fmtShort(v).replace("₹", "").trim()}
+                  tick={{ fontSize: 10 }}
+                  stroke="#94a3b8"
+                  width={50}
+                />
+                <Tooltip
+                  contentStyle={TOOLTIP_STYLE} // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(v: any, name: string | undefined) => [
+                    fmtShort(Number(v)),
+                    name ?? "",
+                  ]}
+                  labelFormatter={(l) => `Year ${l}`}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="totalWithdrawn"
+                  name="Total Withdrawn"
+                  stroke="#22c55e"
+                  strokeWidth={2}
+                  fill="url(#swpWithdrawn)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="balance"
+                  name="Remaining Balance"
+                  stroke="#8b5cf6"
+                  strokeWidth={2}
+                  fill="url(#swpBalance)"
+                />
               </AreaChart>
             </ResponsiveContainer>
             <div className="flex justify-center gap-6 mt-3">
-              {[{ color: "#22c55e", label: "Total Withdrawn" }, { color: "#8b5cf6", label: "Remaining Balance" }].map((l) => (
-                <div key={l.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <div className="w-3 h-0.5 rounded-full" style={{ background: l.color }} />
+              {[
+                { color: "#22c55e", label: "Total Withdrawn" },
+                { color: "#8b5cf6", label: "Remaining Balance" },
+              ].map((l) => (
+                <div
+                  key={l.label}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                >
+                  <div
+                    className="w-3 h-0.5 rounded-full"
+                    style={{ background: l.color }}
+                  />
                   {l.label}
                 </div>
               ))}
@@ -1045,7 +1674,11 @@ function SWPCalculator() {
           onClick={() => setShowTable((s) => !s)}
         >
           <p className="text-sm font-semibold">Year-by-Year Breakdown</p>
-          {showTable ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          {showTable ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
         </button>
         {showTable && (
           <div className="overflow-x-auto">
@@ -1060,11 +1693,20 @@ function SWPCalculator() {
               </thead>
               <tbody className="divide-y divide-border">
                 {rows.map((r) => (
-                  <tr key={r.year} className="hover:bg-muted/30 transition-colors">
+                  <tr
+                    key={r.year}
+                    className="hover:bg-muted/30 transition-colors"
+                  >
                     <td className="px-5 py-3 font-semibold">Year {r.year}</td>
-                    <td className="px-5 py-3 text-right text-emerald-600 dark:text-emerald-400 font-medium">{fmtShort(r.withdrawn)}</td>
-                    <td className="px-5 py-3 text-right text-muted-foreground">{fmtShort(r.totalWithdrawn)}</td>
-                    <td className={`px-5 py-3 text-right font-bold ${r.balance === 0 ? "text-red-600 dark:text-red-400" : "text-purple-600 dark:text-purple-400"}`}>
+                    <td className="px-5 py-3 text-right text-emerald-600 dark:text-emerald-400 font-medium">
+                      {fmtShort(r.withdrawn)}
+                    </td>
+                    <td className="px-5 py-3 text-right text-muted-foreground">
+                      {fmtShort(r.totalWithdrawn)}
+                    </td>
+                    <td
+                      className={`px-5 py-3 text-right font-bold ${r.balance === 0 ? "text-red-600 dark:text-red-400" : "text-purple-600 dark:text-purple-400"}`}
+                    >
                       {r.balance === 0 ? "Exhausted" : fmtShort(r.balance)}
                     </td>
                   </tr>
@@ -1083,13 +1725,13 @@ function SWPCalculator() {
 interface GoalYearRow {
   year: number;
   monthlyThisYear: number;
-  yearlyInvested: number;        // SIP contributed during this year
-  cumulativeInvested: number;    // current savings + all SIP contributed so far
-  savingsValue: number;          // future value of current savings at year end
-  sipValue: number;              // future value of SIP contributions at year end
-  portfolioValue: number;        // savingsValue + sipValue
-  yearlyGrowth: number;          // returns earned this year (the compounding effect)
-  gains: number;                 // total gains so far
+  yearlyInvested: number; // SIP contributed during this year
+  cumulativeInvested: number; // current savings + all SIP contributed so far
+  savingsValue: number; // future value of current savings at year end
+  sipValue: number; // future value of SIP contributions at year end
+  portfolioValue: number; // savingsValue + sipValue
+  yearlyGrowth: number; // returns earned this year (the compounding effect)
+  gains: number; // total gains so far
   gainsPct: number;
   progressPct: number;
 }
@@ -1108,7 +1750,7 @@ function buildGoalYearBreakdown(
   const totalYears = Math.ceil(months / 12);
 
   let savingsValue = currentSavings; // FV of the starting lumpsum
-  let sipValue = 0;                  // FV of SIP contributions
+  let sipValue = 0; // FV of SIP contributions
   let runningInvested = currentSavings;
   let curMonthly = monthly;
   let prevPortfolio = currentSavings;
@@ -1117,7 +1759,7 @@ function buildGoalYearBreakdown(
     const moStart = (y - 1) * 12;
     let yearlyInvested = 0;
     for (let mo = 0; mo < 12 && moStart + mo < months; mo++) {
-      savingsValue *= 1 + r;                       // lumpsum compounds
+      savingsValue *= 1 + r; // lumpsum compounds
       sipValue = (sipValue + curMonthly) * (1 + r); // monthly SIP compounds
       runningInvested += curMonthly;
       yearlyInvested += curMonthly;
@@ -1125,7 +1767,8 @@ function buildGoalYearBreakdown(
     const portfolioValue = savingsValue + sipValue;
     const gains = portfolioValue - runningInvested;
     const gainsPct = runningInvested > 0 ? (gains / runningInvested) * 100 : 0;
-    const progressPct = target > 0 ? Math.min(100, (portfolioValue / target) * 100) : 0;
+    const progressPct =
+      target > 0 ? Math.min(100, (portfolioValue / target) * 100) : 0;
     const yearlyGrowth = portfolioValue - prevPortfolio - yearlyInvested;
     rows.push({
       year: y,
@@ -1168,20 +1811,37 @@ function GoalPlannerCalculator() {
       sipInvested: 0,
       sipFinalValue: 0,
     };
-    if (remaining <= 0) return { ...base, monthly: 0, totalInvested: Math.round(currentSavings), totalGains: Math.round(savingsGrown - currentSavings), finalValue: Math.round(savingsGrown) };
-    if (r === 0) return { ...base, monthly: months > 0 ? remaining / months : remaining, sipInvested: Math.round(remaining), sipFinalValue: Math.round(remaining), totalInvested: Math.round(remaining + currentSavings), totalGains: 0, finalValue: Math.round(targetAmount) };
+    if (remaining <= 0)
+      return {
+        ...base,
+        monthly: 0,
+        totalInvested: Math.round(currentSavings),
+        totalGains: Math.round(savingsGrown - currentSavings),
+        finalValue: Math.round(savingsGrown),
+      };
+    if (r === 0)
+      return {
+        ...base,
+        monthly: months > 0 ? remaining / months : remaining,
+        sipInvested: Math.round(remaining),
+        sipFinalValue: Math.round(remaining),
+        totalInvested: Math.round(remaining + currentSavings),
+        totalGains: 0,
+        finalValue: Math.round(targetAmount),
+      };
 
     let monthly: number;
     if (!stepUp || stepUpPct === 0) {
-      monthly = remaining * r / ((Math.pow(1 + r, months) - 1) * (1 + r));
+      monthly = (remaining * r) / ((Math.pow(1 + r, months) - 1) * (1 + r));
     } else {
-      let lo = 0, hi = remaining;
+      let lo = 0,
+        hi = remaining;
       for (let i = 0; i < 60; i++) {
         const mid = (lo + hi) / 2;
         let fv = savingsGrown;
         let m = mid;
         for (let y = 0; y < Math.ceil(months / 12); y++) {
-          for (let mo = 0; mo < 12 && (y * 12 + mo) < months; mo++) {
+          for (let mo = 0; mo < 12 && y * 12 + mo < months; mo++) {
             fv = (fv + m) * (1 + r);
           }
           m *= 1 + stepUpPct / 100;
@@ -1198,7 +1858,7 @@ function GoalPlannerCalculator() {
     let totalSIPInvested = 0;
     let m = monthly;
     for (let y = 0; y < Math.ceil(months / 12); y++) {
-      for (let mo = 0; mo < 12 && (y * 12 + mo) < months; mo++) {
+      for (let mo = 0; mo < 12 && y * 12 + mo < months; mo++) {
         savingsValue *= 1 + r;
         sipValue = (sipValue + m) * (1 + r);
         totalSIPInvested += m;
@@ -1222,14 +1882,31 @@ function GoalPlannerCalculator() {
 
   const yearBreakdown = useMemo(() => {
     if (result.monthly <= 0) return [];
-    return buildGoalYearBreakdown(result.monthly, currentSavings, rate, months, stepUp, stepUpPct, targetAmount);
-  }, [result.monthly, currentSavings, rate, months, stepUp, stepUpPct, targetAmount]);
+    return buildGoalYearBreakdown(
+      result.monthly,
+      currentSavings,
+      rate,
+      months,
+      stepUp,
+      stepUpPct,
+      targetAmount,
+    );
+  }, [
+    result.monthly,
+    currentSavings,
+    rate,
+    months,
+    stepUp,
+    stepUpPct,
+    targetAmount,
+  ]);
 
   const years = Math.floor(months / 12);
   const remainingMonths = months % 12;
-  const durationLabel = years > 0
-    ? `${years} yr${years > 1 ? "s" : ""}${remainingMonths > 0 ? ` ${remainingMonths} mo` : ""}`
-    : `${months} months`;
+  const durationLabel =
+    years > 0
+      ? `${years} yr${years > 1 ? "s" : ""}${remainingMonths > 0 ? ` ${remainingMonths} mo` : ""}`
+      : `${months} months`;
 
   const alreadyAchieved = result.monthly <= 0;
 
@@ -1237,51 +1914,138 @@ function GoalPlannerCalculator() {
   const baseSIP = result.monthly;
   const costOfDelay = [6, 12, 24].map((delay) => {
     const remMonths = Math.max(1, months - delay);
-    const sip = requiredMonthlySIP(targetAmount, currentSavings, rate, remMonths, stepUp, stepUpPct);
+    const sip = requiredMonthlySIP(
+      targetAmount,
+      currentSavings,
+      rate,
+      remMonths,
+      stepUp,
+      stepUpPct,
+    );
     return { delay, sip, extra: Math.max(0, sip - baseSIP) };
   });
 
   const yearsToGoal = months / 12;
   // Inflation: what the target is worth today, and the inflation-protected target.
   const targetRealToday = realValue(targetAmount, adv.inflation, yearsToGoal);
-  const inflationProtectedTarget = Math.round(targetAmount * Math.pow(1 + adv.inflation / 100, yearsToGoal));
-  const sipForRealGoal = requiredMonthlySIP(inflationProtectedTarget, currentSavings, rate, months, stepUp, stepUpPct);
+  const inflationProtectedTarget = Math.round(
+    targetAmount * Math.pow(1 + adv.inflation / 100, yearsToGoal),
+  );
+  const sipForRealGoal = requiredMonthlySIP(
+    inflationProtectedTarget,
+    currentSavings,
+    rate,
+    months,
+    stepUp,
+    stepUpPct,
+  );
 
   // Required SIP under pessimistic / optimistic returns.
   const lowRate = Math.max(0.5, rate - adv.spread);
   const highRate = rate + adv.spread;
-  const sipLow = requiredMonthlySIP(targetAmount, currentSavings, lowRate, months, stepUp, stepUpPct);
-  const sipHigh = requiredMonthlySIP(targetAmount, currentSavings, highRate, months, stepUp, stepUpPct);
+  const sipLow = requiredMonthlySIP(
+    targetAmount,
+    currentSavings,
+    lowRate,
+    months,
+    stepUp,
+    stepUpPct,
+  );
+  const sipHigh = requiredMonthlySIP(
+    targetAmount,
+    currentSavings,
+    highRate,
+    months,
+    stepUp,
+    stepUpPct,
+  );
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Inputs */}
       <div className="space-y-6">
         <div className="rounded-2xl border bg-card p-5 space-y-5">
-          <p className="text-sm font-semibold text-muted-foreground uppercase tracking-widest text-[11px]">Target</p>
-          <SliderInput label="Target Amount" value={targetAmount} onChange={setTargetAmount} min={10000} max={100000000} step={10000} prefix="₹" format={(v) => fmtShort(v)} accentColor="#8b5cf6" />
-          <SliderInput label="Current Savings" value={currentSavings} onChange={setCurrentSavings} min={0} max={targetAmount} step={10000} prefix="₹" format={(v) => fmtShort(v)} info="Amount already saved toward this goal" accentColor="#10b981" />
+          <p className="text-sm font-semibold text-muted-foreground uppercase tracking-widest text-[11px]">
+            Target
+          </p>
+          <SliderInput
+            label="Target Amount"
+            value={targetAmount}
+            onChange={setTargetAmount}
+            min={10000}
+            max={100000000}
+            step={10000}
+            prefix="₹"
+            format={(v) => fmtShort(v)}
+            accentColor="#8b5cf6"
+          />
+          <SliderInput
+            label="Current Savings"
+            value={currentSavings}
+            onChange={setCurrentSavings}
+            min={0}
+            max={targetAmount}
+            step={10000}
+            prefix="₹"
+            format={(v) => fmtShort(v)}
+            info="Amount already saved toward this goal"
+            accentColor="#10b981"
+          />
         </div>
         <div className="rounded-2xl border bg-card p-5 space-y-5">
-          <p className="text-sm font-semibold text-muted-foreground uppercase tracking-widest text-[11px]">Timeline & Returns</p>
-          <SliderInput label="Time to Goal" value={months} onChange={setMonths} min={6} max={360} step={6} suffix=" mo" format={(v) => `${Math.floor(v / 12)}yr ${v % 12}mo`} accentColor="#f97316" />
-          <SliderInput label="Expected Returns" value={rate} onChange={setRate} min={1} max={30} step={0.5} suffix="%" accentColor="#3b82f6" />
+          <p className="text-sm font-semibold text-muted-foreground uppercase tracking-widest text-[11px]">
+            Timeline & Returns
+          </p>
+          <SliderInput
+            label="Time to Goal"
+            value={months}
+            onChange={setMonths}
+            min={6}
+            max={360}
+            step={6}
+            suffix=" mo"
+            format={(v) => `${Math.floor(v / 12)}yr ${v % 12}mo`}
+            accentColor="#f97316"
+          />
+          <SliderInput
+            label="Expected Returns"
+            value={rate}
+            onChange={setRate}
+            min={1}
+            max={30}
+            step={0.5}
+            suffix="%"
+            accentColor="#3b82f6"
+          />
         </div>
         <div className="rounded-2xl border bg-card p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold">Annual Step-Up</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Increase SIP each year</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Increase SIP each year
+              </p>
             </div>
             <button
               onClick={() => setStepUp(!stepUp)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${stepUp ? "bg-violet-600" : "bg-muted"}`}
             >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${stepUp ? "translate-x-6" : "translate-x-1"}`} />
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${stepUp ? "translate-x-6" : "translate-x-1"}`}
+              />
             </button>
           </div>
           {stepUp && (
-            <SliderInput label="Step-Up Rate" value={stepUpPct} onChange={setStepUpPct} min={1} max={50} step={1} suffix="%" accentColor="#a855f7" />
+            <SliderInput
+              label="Step-Up Rate"
+              value={stepUpPct}
+              onChange={setStepUpPct}
+              min={1}
+              max={50}
+              step={1}
+              suffix="%"
+              accentColor="#a855f7"
+            />
           )}
           <AdvancedPanel value={adv} onChange={setAdv} showTax={false} />
         </div>
@@ -1292,210 +2056,366 @@ function GoalPlannerCalculator() {
         {alreadyAchieved ? (
           <div className="rounded-2xl border-2 border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/20 p-6 text-center space-y-3">
             <div className="text-5xl">🎉</div>
-            <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">Goal Already Achieved!</p>
-            <p className="text-sm text-muted-foreground">Your current savings of {fmtShort(currentSavings)} already exceed the target.</p>
+            <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+              Goal Already Achieved!
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Your current savings of {fmtShort(currentSavings)} already exceed
+              the target.
+            </p>
           </div>
         ) : (
           <>
-          <div className="rounded-2xl border-2 border-primary/30 bg-card overflow-hidden">
-            <div className="h-1.5 bg-linear-to-r from-violet-500 via-blue-500 to-purple-600" />
-            <div className="p-6 space-y-5">
-              <div className="text-center">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Required Monthly SIP</p>
-                <p className="text-4xl font-mono font-bold text-primary">{fmtShort(result.monthly)}</p>
-                <p className="text-xs text-muted-foreground mt-1">per month for {durationLabel}</p>
-              </div>
+            <div className="rounded-2xl border-2 border-primary/30 bg-card overflow-hidden">
+              <div className="h-1.5 bg-linear-to-r from-violet-500 via-blue-500 to-purple-600" />
+              <div className="p-6 space-y-5">
+                <div className="text-center">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
+                    Required Monthly SIP
+                  </p>
+                  <p className="text-4xl font-mono font-bold text-primary">
+                    {fmtShort(result.monthly)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    per month for {durationLabel}
+                  </p>
+                </div>
 
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    {
+                      label: "Target",
+                      value: fmtShort(targetAmount),
+                      color: "text-purple-600 dark:text-purple-400",
+                      bg: "bg-purple-50 dark:bg-purple-950/20 border-purple-100 dark:border-purple-900",
+                    },
+                    {
+                      label: "Total Invested",
+                      value: fmtShort(result.totalInvested),
+                      color: "text-blue-600 dark:text-blue-400",
+                      bg: "bg-blue-50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900",
+                    },
+                    {
+                      label: "Est. Gains",
+                      value: fmtShort(result.totalGains),
+                      color: "text-green-600 dark:text-green-400",
+                      bg: "bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900",
+                    },
+                  ].map((s) => (
+                    <div
+                      key={s.label}
+                      className={`rounded-xl border p-3 text-center ${s.bg}`}
+                    >
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
+                        {s.label}
+                      </p>
+                      <p className={`text-sm font-bold ${s.color}`}>
+                        {s.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Segmented composition bar — current savings · SIP · gains */}
+                {(() => {
+                  const fv = result.finalValue || 1;
+                  const savingsPct = (result.currentSavings / fv) * 100;
+                  const sipPct = (result.sipInvested / fv) * 100;
+                  const gainsPct = (result.totalGains / fv) * 100;
+                  const seg = [
+                    {
+                      key: "savings",
+                      label: "Current Savings",
+                      value: result.currentSavings,
+                      pct: savingsPct,
+                      bar: "bg-emerald-500",
+                      dot: "bg-emerald-500",
+                    },
+                    {
+                      key: "sip",
+                      label: "SIP Invested",
+                      value: result.sipInvested,
+                      pct: sipPct,
+                      bar: "bg-blue-500",
+                      dot: "bg-blue-500",
+                    },
+                    {
+                      key: "gains",
+                      label: "Gains",
+                      value: result.totalGains,
+                      pct: gainsPct,
+                      bar: "bg-violet-500",
+                      dot: "bg-violet-500",
+                    },
+                  ].filter((s) => s.value > 0);
+                  return (
+                    <div className="space-y-2.5">
+                      <div className="flex justify-between text-[10px] text-muted-foreground">
+                        <span>How your goal is funded</span>
+                        <span className="font-mono">
+                          {gainsPct.toFixed(1)}% from growth
+                        </span>
+                      </div>
+                      <div className="h-3.5 rounded-full overflow-hidden flex gap-0.5 bg-muted">
+                        {seg.map((s, i) => (
+                          <div
+                            key={s.key}
+                            className={`h-full ${s.bar} ${i === 0 ? "rounded-l-full" : ""} ${i === seg.length - 1 ? "rounded-r-full" : ""} transition-all duration-700`}
+                            style={{ width: `${s.pct}%` }}
+                            title={`${s.label}: ${fmtShort(s.value)}`}
+                          />
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {seg.map((s) => (
+                          <div key={s.key} className="flex flex-col gap-0.5">
+                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <span
+                                className={`w-2 h-2 rounded-full ${s.dot} inline-block`}
+                              />
+                              {s.label}
+                            </span>
+                            <span className="text-xs font-semibold pl-3">
+                              {fmtShort(s.value)}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground pl-3">
+                              {s.pct.toFixed(0)}% of corpus
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Cost of delay */}
+            <div className="rounded-2xl border bg-card p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-4 w-4 text-rose-500" />
+                <p className="text-sm font-semibold">The cost of waiting</p>
+              </div>
               <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: "Target", value: fmtShort(targetAmount), color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-950/20 border-purple-100 dark:border-purple-900" },
-                  { label: "Total Invested", value: fmtShort(result.totalInvested), color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900" },
-                  { label: "Est. Gains", value: fmtShort(result.totalGains), color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900" },
-                ].map((s) => (
-                  <div key={s.label} className={`rounded-xl border p-3 text-center ${s.bg}`}>
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">{s.label}</p>
-                    <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
+                {costOfDelay.map((c) => (
+                  <div
+                    key={c.delay}
+                    className="rounded-xl border p-3 text-center bg-rose-50/60 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/40"
+                  >
+                    <p className="text-[10px] text-muted-foreground">
+                      Start in {c.delay} mo
+                    </p>
+                    <p className="text-sm font-bold text-rose-600 dark:text-rose-400">
+                      {fmtShort(c.sip)}/mo
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      +{fmtShort(c.extra)}/mo more
+                    </p>
                   </div>
                 ))}
               </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Delaying shortens your compounding window — so you must invest
+                more each month to hit the same target.
+              </p>
+            </div>
 
-              {/* Segmented composition bar — current savings · SIP · gains */}
-              {(() => {
-                const fv = result.finalValue || 1;
-                const savingsPct = (result.currentSavings / fv) * 100;
-                const sipPct = (result.sipInvested / fv) * 100;
-                const gainsPct = (result.totalGains / fv) * 100;
-                const seg = [
-                  { key: "savings", label: "Current Savings", value: result.currentSavings, pct: savingsPct, bar: "bg-emerald-500", dot: "bg-emerald-500" },
-                  { key: "sip", label: "SIP Invested", value: result.sipInvested, pct: sipPct, bar: "bg-blue-500", dot: "bg-blue-500" },
-                  { key: "gains", label: "Gains", value: result.totalGains, pct: gainsPct, bar: "bg-violet-500", dot: "bg-violet-500" },
-                ].filter((s) => s.value > 0);
-                return (
-                  <div className="space-y-2.5">
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>How your goal is funded</span>
-                      <span className="font-mono">{gainsPct.toFixed(1)}% from growth</span>
-                    </div>
-                    <div className="h-3.5 rounded-full overflow-hidden flex gap-0.5 bg-muted">
-                      {seg.map((s, i) => (
-                        <div
-                          key={s.key}
-                          className={`h-full ${s.bar} ${i === 0 ? "rounded-l-full" : ""} ${i === seg.length - 1 ? "rounded-r-full" : ""} transition-all duration-700`}
-                          style={{ width: `${s.pct}%` }}
-                          title={`${s.label}: ${fmtShort(s.value)}`}
-                        />
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {seg.map((s) => (
-                        <div key={s.key} className="flex flex-col gap-0.5">
-                          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <span className={`w-2 h-2 rounded-full ${s.dot} inline-block`} />{s.label}
-                          </span>
-                          <span className="text-xs font-semibold pl-3">{fmtShort(s.value)}</span>
-                          <span className="text-[9px] text-muted-foreground pl-3">{s.pct.toFixed(0)}% of corpus</span>
-                        </div>
-                      ))}
-                    </div>
+            {/* Required SIP under different returns */}
+            <div className="rounded-2xl border bg-card p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Gauge className="h-4 w-4 text-cyan-500" />
+                <p className="text-sm font-semibold">Required SIP by return</p>
+                <span className="text-[11px] text-muted-foreground">
+                  ±{adv.spread}%
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  {
+                    label: "If returns are low",
+                    rate: lowRate,
+                    sip: sipLow,
+                    color: "#ef4444",
+                    bg: "bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/40",
+                  },
+                  {
+                    label: "Expected",
+                    rate,
+                    sip: baseSIP,
+                    color: "#8b5cf6",
+                    bg: "bg-violet-50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/40",
+                  },
+                  {
+                    label: "If returns are high",
+                    rate: highRate,
+                    sip: sipHigh,
+                    color: "#22c55e",
+                    bg: "bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/40",
+                  },
+                ].map((s) => (
+                  <div
+                    key={s.label}
+                    className={`rounded-xl border p-3 text-center ${s.bg}`}
+                  >
+                    <p className="text-[10px] text-muted-foreground">
+                      {s.label}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mb-1">
+                      {s.rate}% p.a.
+                    </p>
+                    <p className="text-sm font-bold" style={{ color: s.color }}>
+                      {fmtShort(s.sip)}/mo
+                    </p>
                   </div>
-                );
-              })()}
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Cost of delay */}
-          <div className="rounded-2xl border bg-card p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="h-4 w-4 text-rose-500" />
-              <p className="text-sm font-semibold">The cost of waiting</p>
+            {/* Inflation-protected target */}
+            <div className="rounded-2xl border border-sky-200 dark:border-sky-900/50 bg-sky-50/60 dark:bg-sky-950/20 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <ShieldCheck className="h-4 w-4 text-sky-500" />
+                <p className="text-sm font-semibold">Inflation check</p>
+                <span className="text-[11px] text-muted-foreground">
+                  {adv.inflation}% p.a.
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <StatTile
+                  label="Target in today's money"
+                  value={fmtShort(targetRealToday)}
+                  color="#0ea5e9"
+                  bg="bg-card border-sky-100 dark:border-sky-900"
+                  sub={`${fmtShort(targetAmount)} then`}
+                />
+                <StatTile
+                  label="To keep that buying power"
+                  value={fmtShort(inflationProtectedTarget)}
+                  color="#f59e0b"
+                  bg="bg-card border-sky-100 dark:border-sky-900"
+                  sub="inflated target"
+                />
+                <StatTile
+                  label="SIP for real goal"
+                  value={`${fmtShort(sipForRealGoal)}/mo`}
+                  color="#8b5cf6"
+                  bg="bg-card border-sky-100 dark:border-sky-900"
+                  sub="vs current plan"
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              {costOfDelay.map((c) => (
-                <div key={c.delay} className="rounded-xl border p-3 text-center bg-rose-50/60 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/40">
-                  <p className="text-[10px] text-muted-foreground">Start in {c.delay} mo</p>
-                  <p className="text-sm font-bold text-rose-600 dark:text-rose-400">{fmtShort(c.sip)}/mo</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">+{fmtShort(c.extra)}/mo more</p>
-                </div>
-              ))}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-2">
-              Delaying shortens your compounding window — so you must invest more each month to hit the same target.
-            </p>
-          </div>
 
-          {/* Required SIP under different returns */}
-          <div className="rounded-2xl border bg-card p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Gauge className="h-4 w-4 text-cyan-500" />
-              <p className="text-sm font-semibold">Required SIP by return</p>
-              <span className="text-[11px] text-muted-foreground">±{adv.spread}%</span>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: "If returns are low", rate: lowRate, sip: sipLow, color: "#ef4444", bg: "bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/40" },
-                { label: "Expected", rate, sip: baseSIP, color: "#8b5cf6", bg: "bg-violet-50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/40" },
-                { label: "If returns are high", rate: highRate, sip: sipHigh, color: "#22c55e", bg: "bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/40" },
-              ].map((s) => (
-                <div key={s.label} className={`rounded-xl border p-3 text-center ${s.bg}`}>
-                  <p className="text-[10px] text-muted-foreground">{s.label}</p>
-                  <p className="text-[10px] text-muted-foreground mb-1">{s.rate}% p.a.</p>
-                  <p className="text-sm font-bold" style={{ color: s.color }}>{fmtShort(s.sip)}/mo</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Inflation-protected target */}
-          <div className="rounded-2xl border border-sky-200 dark:border-sky-900/50 bg-sky-50/60 dark:bg-sky-950/20 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <ShieldCheck className="h-4 w-4 text-sky-500" />
-              <p className="text-sm font-semibold">Inflation check</p>
-              <span className="text-[11px] text-muted-foreground">{adv.inflation}% p.a.</span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <StatTile label="Target in today's money" value={fmtShort(targetRealToday)} color="#0ea5e9"
-                bg="bg-card border-sky-100 dark:border-sky-900" sub={`${fmtShort(targetAmount)} then`} />
-              <StatTile label="To keep that buying power" value={fmtShort(inflationProtectedTarget)} color="#f59e0b"
-                bg="bg-card border-sky-100 dark:border-sky-900" sub="inflated target" />
-              <StatTile label="SIP for real goal" value={`${fmtShort(sipForRealGoal)}/mo`} color="#8b5cf6"
-                bg="bg-card border-sky-100 dark:border-sky-900" sub="vs current plan" />
-            </div>
-          </div>
-
-          {/* Where the money comes from — savings vs SIP detail */}
-          <div className="rounded-2xl border bg-card p-4 space-y-3">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Money breakdown at goal</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Current savings */}
-              <div className="rounded-xl border border-emerald-100 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/20 p-3.5 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
-                    <PiggyBank className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            {/* Where the money comes from — savings vs SIP detail */}
+            <div className="rounded-2xl border bg-card p-4 space-y-3">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                Money breakdown at goal
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Current savings */}
+                <div className="rounded-xl border border-emerald-100 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/20 p-3.5 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                      <PiggyBank className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <p className="text-xs font-semibold">Current Savings</p>
                   </div>
-                  <p className="text-xs font-semibold">Current Savings</p>
+                  <div className="flex items-baseline justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      You start with
+                    </span>
+                    <span className="font-mono font-semibold">
+                      {fmtShort(result.currentSavings)}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between text-xs">
+                    <span className="text-muted-foreground">Compounds to</span>
+                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      {fmtShort(result.savingsGrown)}
+                    </span>
+                  </div>
+                  {result.savingsGain > 0 && (
+                    <div className="flex items-baseline justify-between text-[11px] pt-1 border-t border-emerald-100 dark:border-emerald-900/60">
+                      <span className="text-muted-foreground">
+                        Growth earned
+                      </span>
+                      <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                        +{fmtShort(result.savingsGain)}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">You start with</span>
-                  <span className="font-mono font-semibold">{fmtShort(result.currentSavings)}</span>
-                </div>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">Compounds to</span>
-                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{fmtShort(result.savingsGrown)}</span>
-                </div>
-                {result.savingsGain > 0 && (
-                  <div className="flex items-baseline justify-between text-[11px] pt-1 border-t border-emerald-100 dark:border-emerald-900/60">
+                {/* SIP */}
+                <div className="rounded-xl border border-blue-100 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/20 p-3.5 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                      <TrendingUp className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <p className="text-xs font-semibold">Monthly SIP</p>
+                  </div>
+                  <div className="flex items-baseline justify-between text-xs">
+                    <span className="text-muted-foreground">You invest</span>
+                    <span className="font-mono font-semibold">
+                      {fmtShort(result.sipInvested)}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between text-xs">
+                    <span className="text-muted-foreground">Compounds to</span>
+                    <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
+                      {fmtShort(result.sipFinalValue)}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between text-[11px] pt-1 border-t border-blue-100 dark:border-blue-900/60">
                     <span className="text-muted-foreground">Growth earned</span>
-                    <span className="font-mono text-emerald-600 dark:text-emerald-400">+{fmtShort(result.savingsGain)}</span>
+                    <span className="font-mono text-blue-600 dark:text-blue-400">
+                      +{fmtShort(result.sipFinalValue - result.sipInvested)}
+                    </span>
                   </div>
-                )}
-              </div>
-              {/* SIP */}
-              <div className="rounded-xl border border-blue-100 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/20 p-3.5 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
-                    <TrendingUp className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <p className="text-xs font-semibold">Monthly SIP</p>
-                </div>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">You invest</span>
-                  <span className="font-mono font-semibold">{fmtShort(result.sipInvested)}</span>
-                </div>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">Compounds to</span>
-                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{fmtShort(result.sipFinalValue)}</span>
-                </div>
-                <div className="flex items-baseline justify-between text-[11px] pt-1 border-t border-blue-100 dark:border-blue-900/60">
-                  <span className="text-muted-foreground">Growth earned</span>
-                  <span className="font-mono text-blue-600 dark:text-blue-400">+{fmtShort(result.sipFinalValue - result.sipInvested)}</span>
                 </div>
               </div>
+              <div className="flex items-center justify-between rounded-xl bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900 px-3.5 py-2.5">
+                <span className="flex items-center gap-2 text-xs font-semibold">
+                  <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                  Total compounding gains
+                </span>
+                <span className="font-mono text-sm font-bold text-violet-600 dark:text-violet-400">
+                  +{fmtShort(result.totalGains)}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center justify-between rounded-xl bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900 px-3.5 py-2.5">
-              <span className="flex items-center gap-2 text-xs font-semibold">
-                <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
-                Total compounding gains
-              </span>
-              <span className="font-mono text-sm font-bold text-violet-600 dark:text-violet-400">+{fmtShort(result.totalGains)}</span>
-            </div>
-          </div>
           </>
         )}
 
         {/* Quick scenarios */}
         {!alreadyAchieved && (
           <div className="rounded-2xl border bg-card p-4 space-y-3">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">How rate changes the required SIP</p>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+              How rate changes the required SIP
+            </p>
             <div className="space-y-2">
               {[8, 10, 12, 15, 18].map((r) => {
                 const rr = r / 12 / 100;
-                const rem = Math.max(0, targetAmount - currentSavings * Math.pow(1 + rr, months));
-                const m = rem * rr / ((Math.pow(1 + rr, months) - 1) * (1 + rr));
+                const rem = Math.max(
+                  0,
+                  targetAmount - currentSavings * Math.pow(1 + rr, months),
+                );
+                const m =
+                  (rem * rr) / ((Math.pow(1 + rr, months) - 1) * (1 + rr));
                 const highlight = Math.abs(r - rate) < 0.5;
                 return (
-                  <div key={r} className={`flex items-center justify-between py-2 px-3 rounded-lg ${highlight ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50"}`}>
-                    <span className={`text-sm ${highlight ? "font-bold text-primary" : "text-muted-foreground"}`}>{r}% p.a.{highlight ? " ← current" : ""}</span>
-                    <span className={`font-mono text-sm font-semibold ${highlight ? "text-primary" : ""}`}>{fmtShort(Math.ceil(m))}/mo</span>
+                  <div
+                    key={r}
+                    className={`flex items-center justify-between py-2 px-3 rounded-lg ${highlight ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50"}`}
+                  >
+                    <span
+                      className={`text-sm ${highlight ? "font-bold text-primary" : "text-muted-foreground"}`}
+                    >
+                      {r}% p.a.{highlight ? " ← current" : ""}
+                    </span>
+                    <span
+                      className={`font-mono text-sm font-semibold ${highlight ? "text-primary" : ""}`}
+                    >
+                      {fmtShort(Math.ceil(m))}/mo
+                    </span>
                   </div>
                 );
               })}
@@ -1513,14 +2433,20 @@ function GoalPlannerCalculator() {
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-violet-100 dark:bg-violet-950/40 flex items-center justify-center">
-                <ChevronDown className={`h-4 w-4 text-violet-600 transition-transform duration-200 ${showBreakdown ? "rotate-180" : ""}`} />
+                <ChevronDown
+                  className={`h-4 w-4 text-violet-600 transition-transform duration-200 ${showBreakdown ? "rotate-180" : ""}`}
+                />
               </div>
               <div className="text-left">
                 <p className="text-sm font-semibold">Year-by-Year Breakdown</p>
-                <p className="text-xs text-muted-foreground">{yearBreakdown.length} years · watch your wealth grow</p>
+                <p className="text-xs text-muted-foreground">
+                  {yearBreakdown.length} years · watch your wealth grow
+                </p>
               </div>
             </div>
-            <span className="text-xs text-muted-foreground">{showBreakdown ? "Hide" : "Show"} details</span>
+            <span className="text-xs text-muted-foreground">
+              {showBreakdown ? "Hide" : "Show"} details
+            </span>
           </button>
 
           {showBreakdown && (
@@ -1533,35 +2459,129 @@ function GoalPlannerCalculator() {
                     { color: "#3b82f6", label: "SIP (grown)" },
                     { color: "#94a3b8", label: "Total Invested", dashed: true },
                   ].map((l) => (
-                    <span key={l.label} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                      <span className="w-3 rounded-full" style={{ height: l.dashed ? 0 : 8, background: l.dashed ? "transparent" : l.color, borderTop: l.dashed ? `2px dashed ${l.color}` : undefined }} />
+                    <span
+                      key={l.label}
+                      className="flex items-center gap-1.5 text-[10px] text-muted-foreground"
+                    >
+                      <span
+                        className="w-3 rounded-full"
+                        style={{
+                          height: l.dashed ? 0 : 8,
+                          background: l.dashed ? "transparent" : l.color,
+                          borderTop: l.dashed
+                            ? `2px dashed ${l.color}`
+                            : undefined,
+                        }}
+                      />
                       {l.label}
                     </span>
                   ))}
                 </div>
                 <ResponsiveContainer width="100%" height={150}>
-                  <AreaChart data={yearBreakdown} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <AreaChart
+                    data={yearBreakdown}
+                    margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
+                  >
                     <defs>
-                      <linearGradient id="goalSavingsGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#10b981" stopOpacity={0.04} />
+                      <linearGradient
+                        id="goalSavingsGrad"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor="#10b981"
+                          stopOpacity={0.35}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#10b981"
+                          stopOpacity={0.04}
+                        />
                       </linearGradient>
-                      <linearGradient id="goalSipGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.04} />
+                      <linearGradient
+                        id="goalSipGrad"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor="#3b82f6"
+                          stopOpacity={0.35}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#3b82f6"
+                          stopOpacity={0.04}
+                        />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="year" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `Y${v}`} />
-                    <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtShort} width={48} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="var(--border)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="year"
+                      tick={{ fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => `Y${v}`}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={fmtShort}
+                      width={48}
+                    />
                     <Tooltip
-                      contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 11 }}
-                      formatter={(v: unknown, name: string | undefined) => [fmtShort(v as number), name ?? ""]}
+                      contentStyle={{
+                        backgroundColor: "var(--card)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 10,
+                        fontSize: 11,
+                      }}
+                      formatter={(v: unknown, name: string | undefined) => [
+                        fmtShort(v as number),
+                        name ?? "",
+                      ]}
                       labelFormatter={(l) => `Year ${l}`}
                     />
-                    <Area type="monotone" dataKey="savingsValue" name="Current Savings (grown)" stackId="v" stroke="#10b981" strokeWidth={1.5} fill="url(#goalSavingsGrad)" dot={false} />
-                    <Area type="monotone" dataKey="sipValue" name="SIP (grown)" stackId="v" stroke="#3b82f6" strokeWidth={1.5} fill="url(#goalSipGrad)" dot={false} />
-                    <Area type="monotone" dataKey="cumulativeInvested" name="Total Invested" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="5 3" fill="none" dot={false} />
+                    <Area
+                      type="monotone"
+                      dataKey="savingsValue"
+                      name="Current Savings (grown)"
+                      stackId="v"
+                      stroke="#10b981"
+                      strokeWidth={1.5}
+                      fill="url(#goalSavingsGrad)"
+                      dot={false}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="sipValue"
+                      name="SIP (grown)"
+                      stackId="v"
+                      stroke="#3b82f6"
+                      strokeWidth={1.5}
+                      fill="url(#goalSipGrad)"
+                      dot={false}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="cumulativeInvested"
+                      name="Total Invested"
+                      stroke="#94a3b8"
+                      strokeWidth={1.5}
+                      strokeDasharray="5 3"
+                      fill="none"
+                      dot={false}
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -1572,14 +2592,32 @@ function GoalPlannerCalculator() {
                   <thead>
                     <tr className="border-t border-b bg-muted/30 text-[10px] text-muted-foreground uppercase tracking-wider">
                       <th className="px-4 py-3 text-left font-medium">Year</th>
-                      {stepUp && <th className="px-3 py-3 text-right font-medium">Monthly SIP</th>}
-                      <th className="px-3 py-3 text-right font-medium">Invested (yr)</th>
-                      <th className="px-3 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">Savings Value</th>
-                      <th className="px-3 py-3 text-right font-medium text-blue-600 dark:text-blue-400">SIP Value</th>
-                      <th className="px-3 py-3 text-right font-medium text-amber-600 dark:text-amber-400">Growth (yr)</th>
-                      <th className="px-3 py-3 text-right font-medium">Portfolio Value</th>
-                      <th className="px-3 py-3 text-right font-medium">Total Gains</th>
-                      <th className="px-4 py-3 text-right font-medium">Progress</th>
+                      {stepUp && (
+                        <th className="px-3 py-3 text-right font-medium">
+                          Monthly SIP
+                        </th>
+                      )}
+                      <th className="px-3 py-3 text-right font-medium">
+                        Invested (yr)
+                      </th>
+                      <th className="px-3 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
+                        Savings Value
+                      </th>
+                      <th className="px-3 py-3 text-right font-medium text-blue-600 dark:text-blue-400">
+                        SIP Value
+                      </th>
+                      <th className="px-3 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
+                        Growth (yr)
+                      </th>
+                      <th className="px-3 py-3 text-right font-medium">
+                        Portfolio Value
+                      </th>
+                      <th className="px-3 py-3 text-right font-medium">
+                        Total Gains
+                      </th>
+                      <th className="px-4 py-3 text-right font-medium">
+                        Progress
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1592,9 +2630,13 @@ function GoalPlannerCalculator() {
                         >
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold">Year {row.year}</span>
+                              <span className="font-semibold">
+                                Year {row.year}
+                              </span>
                               {isGoalYear && (
-                                <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-400 font-semibold">🎯 Goal</span>
+                                <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-400 font-semibold">
+                                  🎯 Goal
+                                </span>
                               )}
                             </div>
                           </td>
@@ -1603,14 +2645,28 @@ function GoalPlannerCalculator() {
                               {fmtShort(row.monthlyThisYear)}/mo
                             </td>
                           )}
-                          <td className="px-3 py-3 text-right font-mono text-muted-foreground">{fmtShort(row.yearlyInvested)}</td>
-                          <td className="px-3 py-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{row.savingsValue > 0 ? fmtShort(row.savingsValue) : "—"}</td>
-                          <td className="px-3 py-3 text-right font-mono text-blue-600 dark:text-blue-400">{fmtShort(row.sipValue)}</td>
-                          <td className="px-3 py-3 text-right font-mono text-amber-600 dark:text-amber-400">+{fmtShort(row.yearlyGrowth)}</td>
-                          <td className="px-3 py-3 text-right font-mono font-semibold text-violet-600 dark:text-violet-400">{fmtShort(row.portfolioValue)}</td>
+                          <td className="px-3 py-3 text-right font-mono text-muted-foreground">
+                            {fmtShort(row.yearlyInvested)}
+                          </td>
+                          <td className="px-3 py-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                            {row.savingsValue > 0
+                              ? fmtShort(row.savingsValue)
+                              : "—"}
+                          </td>
+                          <td className="px-3 py-3 text-right font-mono text-blue-600 dark:text-blue-400">
+                            {fmtShort(row.sipValue)}
+                          </td>
+                          <td className="px-3 py-3 text-right font-mono text-amber-600 dark:text-amber-400">
+                            +{fmtShort(row.yearlyGrowth)}
+                          </td>
+                          <td className="px-3 py-3 text-right font-mono font-semibold text-violet-600 dark:text-violet-400">
+                            {fmtShort(row.portfolioValue)}
+                          </td>
                           <td className="px-3 py-3 text-right font-mono text-green-600 dark:text-green-400">
                             +{fmtShort(row.gains)}
-                            <span className="text-[10px] text-muted-foreground ml-1">({row.gainsPct.toFixed(0)}%)</span>
+                            <span className="text-[10px] text-muted-foreground ml-1">
+                              ({row.gainsPct.toFixed(0)}%)
+                            </span>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-end gap-2">
@@ -1620,7 +2676,9 @@ function GoalPlannerCalculator() {
                                   style={{ width: `${row.progressPct}%` }}
                                 />
                               </div>
-                              <span className="font-mono text-[10px] font-semibold w-8 text-right">{row.progressPct.toFixed(0)}%</span>
+                              <span className="font-mono text-[10px] font-semibold w-8 text-right">
+                                {row.progressPct.toFixed(0)}%
+                              </span>
                             </div>
                           </td>
                         </tr>
@@ -1631,13 +2689,27 @@ function GoalPlannerCalculator() {
                     <tr className="border-t-2 bg-muted/20 font-semibold">
                       <td className="px-4 py-3 text-sm">Final</td>
                       {stepUp && <td className="px-3 py-3" />}
-                      <td className="px-3 py-3 text-right font-mono text-sm text-muted-foreground">{fmtShort(result.totalInvested)}</td>
-                      <td className="px-3 py-3 text-right font-mono text-sm text-emerald-600 dark:text-emerald-400">{result.savingsGrown > 0 ? fmtShort(result.savingsGrown) : "—"}</td>
-                      <td className="px-3 py-3 text-right font-mono text-sm text-blue-600 dark:text-blue-400">{fmtShort(result.sipFinalValue)}</td>
+                      <td className="px-3 py-3 text-right font-mono text-sm text-muted-foreground">
+                        {fmtShort(result.totalInvested)}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-sm text-emerald-600 dark:text-emerald-400">
+                        {result.savingsGrown > 0
+                          ? fmtShort(result.savingsGrown)
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-sm text-blue-600 dark:text-blue-400">
+                        {fmtShort(result.sipFinalValue)}
+                      </td>
                       <td className="px-3 py-3" />
-                      <td className="px-3 py-3 text-right font-mono text-sm text-violet-600 dark:text-violet-400">{fmtShort(result.finalValue)}</td>
-                      <td className="px-3 py-3 text-right font-mono text-sm text-green-600 dark:text-green-400">+{fmtShort(result.totalGains)}</td>
-                      <td className="px-4 py-3 text-right text-sm text-violet-600 dark:text-violet-400 font-bold">100%</td>
+                      <td className="px-3 py-3 text-right font-mono text-sm text-violet-600 dark:text-violet-400">
+                        {fmtShort(result.finalValue)}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-sm text-green-600 dark:text-green-400">
+                        +{fmtShort(result.totalGains)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm text-violet-600 dark:text-violet-400 font-bold">
+                        100%
+                      </td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1656,7 +2728,7 @@ export function SipSwpPlanner() {
   const [tab, setTab] = useState<"sip" | "swp" | "goal">("sip");
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-10 space-y-6 max-w-7xl mx-auto">
       <p className="text-sm text-muted-foreground">
         Plan investments and withdrawals with step-up support.
       </p>

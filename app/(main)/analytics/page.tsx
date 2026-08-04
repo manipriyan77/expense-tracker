@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -16,6 +15,8 @@ import {
   BarChart,
   Bar,
   Cell,
+  Pie,
+  PieChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -37,8 +38,10 @@ import {
   DollarSign,
   Info,
   Clock,
+  Sparkles,
+  Gauge,
+  Layers,
 } from "lucide-react";
-import { Label } from "@/components/ui/label";
 import { useTransactionsStore } from "@/store/transactions-store";
 import { useBudgetsStore } from "@/store/budgets-store";
 import { useGoalsStore } from "@/store/goals-store";
@@ -74,6 +77,28 @@ const CATEGORY_COLORS: Record<string, string> = {
   Gift: "#a855f7",
 };
 
+// Whether a forecast trend is good news, given what's being forecast — rising income is
+// good, rising expenses is not, and vice versa. Returns null for "stable" (no verdict).
+function isTrendFavorable(
+  trend: "increasing" | "decreasing" | "stable",
+  type: "income" | "expense",
+): boolean | null {
+  if (trend === "stable") return null;
+  return type === "expense" ? trend === "decreasing" : trend === "increasing";
+}
+
+const FORECAST_METHODS: {
+  key: "ensemble" | "exponential" | "linear" | "moving-average";
+  label: string;
+}[] = [
+  { key: "ensemble", label: "Ensemble" },
+  { key: "exponential", label: "Exp. Smoothing" },
+  { key: "linear", label: "Linear Trend" },
+  { key: "moving-average", label: "Moving Avg" },
+];
+
+const PACE_RANK: Record<string, number> = { behind: 0, unknown: 1, on_track: 2, ahead: 3 };
+
 interface Transaction {
   id: string;
   type: "income" | "expense";
@@ -107,6 +132,10 @@ export default function AnalyticsPage() {
   const [forecastPeriods, setForecastPeriods] = useState<number>(6);
   const [forecastType, setForecastType] = useState<"expense" | "income">(
     "expense",
+  );
+
+  const [goalSortBy, setGoalSortBy] = useState<"deadline" | "progress" | "pace">(
+    "deadline",
   );
 
   useEffect(() => {
@@ -179,6 +208,23 @@ export default function AnalyticsPage() {
       })
       .slice(-12); // Last 12 months max
   }, [filteredTransactions]);
+
+  // Net cash flow with a trailing 3-month rolling average, to smooth out one-off spikes
+  const monthlyDataWithRollingAvg = useMemo(() => {
+    return monthlyData.map((m, i) => {
+      const window = monthlyData.slice(Math.max(0, i - 2), i + 1);
+      const rollingNet = window.reduce((s, w) => s + w.net, 0) / window.length;
+      return { ...m, rollingNet };
+    });
+  }, [monthlyData]);
+
+  // Best/worst single month by net cash flow, within the filtered window
+  const bestWorstMonth = useMemo(() => {
+    if (monthlyData.length === 0) return null;
+    const best = monthlyData.reduce((a, b) => (b.net > a.net ? b : a));
+    const worst = monthlyData.reduce((a, b) => (b.net < a.net ? b : a));
+    return { best, worst };
+  }, [monthlyData]);
 
   // Calculate category breakdown
   const categoryData = useMemo(() => {
@@ -324,13 +370,28 @@ export default function AnalyticsPage() {
     return { totalTarget, totalCurrent, avgPct, behind };
   }, [goalAnalysis]);
 
-  const goalsSortedByDeadline = useMemo(
-    () =>
-      [...goalAnalysis].sort((a, b) =>
-        a.targetDate.localeCompare(b.targetDate),
-      ),
-    [goalAnalysis],
-  );
+  const goalsSorted = useMemo(() => {
+    const list = [...goalAnalysis];
+    if (goalSortBy === "progress") {
+      return list.sort((a, b) => a.percentage - b.percentage);
+    }
+    if (goalSortBy === "pace") {
+      return list.sort((a, b) => PACE_RANK[a.paceStatus] - PACE_RANK[b.paceStatus]);
+    }
+    return list.sort((a, b) => a.targetDate.localeCompare(b.targetDate));
+  }, [goalAnalysis, goalSortBy]);
+
+  // Portfolio-level pace: at the combined current monthly contribution, how long to
+  // fund every remaining goal, and which goals have no funding plan at all.
+  const goalsPortfolioPace = useMemo(() => {
+    if (goalAnalysis.length === 0) return null;
+    const active = goalAnalysis.filter((g) => g.remaining > 0);
+    const totalRemaining = active.reduce((s, g) => s + g.remaining, 0);
+    const totalMonthly = active.reduce((s, g) => s + (g.monthlyContribution ?? 0), 0);
+    const monthsToFundAll = totalMonthly > 0 ? totalRemaining / totalMonthly : null;
+    const unfunded = active.filter((g) => !g.monthlyContribution || g.monthlyContribution <= 0);
+    return { totalRemaining, totalMonthly, monthsToFundAll, unfunded };
+  }, [goalAnalysis]);
 
   // Category comparison over months
   const categoryTrends = useMemo(() => {
@@ -380,10 +441,52 @@ export default function AnalyticsPage() {
   ];
 
   // Compute forecasts (use last 12 months from today so we include your real data)
+  const forecastMonthlyData = useMemo(
+    () => prepareMonthlyData(transactions, forecastType, 12),
+    [transactions, forecastType],
+  );
+
+  // Coefficient of variation on recent actuals — a quick, model-agnostic proxy for how
+  // "predictable" the series is, used to derive a confidence score alongside the model output.
+  const forecastVolatility = useMemo(() => {
+    const vals = forecastMonthlyData.map((d) => d.value).filter((v) => v > 0);
+    if (vals.length < 2) return null;
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    if (mean <= 0) return null;
+    const variance =
+      vals.reduce((acc, v) => acc + (v - mean) ** 2, 0) / vals.length;
+    const stdDev = Math.sqrt(variance);
+    return stdDev / mean; // coefficient of variation
+  }, [forecastMonthlyData]);
+
+  const forecastConfidence =
+    forecastVolatility === null
+      ? null
+      : Math.max(5, Math.min(97, Math.round(100 - forecastVolatility * 130)));
+
+  // Run every model once so the UI can show how much the methods agree/disagree —
+  // the spread between them is itself a signal, independent of any single model's stated bounds.
+  const forecastComparison = useMemo(() => {
+    if (forecastMonthlyData.length < 3) return null;
+    const methods: { key: typeof forecastMethod; label: string; run: () => ForecastResult }[] = [
+      { key: "linear", label: "Linear Trend", run: () => linearTrendForecast(forecastMonthlyData, 1) },
+      { key: "exponential", label: "Exp. Smoothing", run: () => exponentialSmoothingForecast(forecastMonthlyData, 1) },
+      { key: "moving-average", label: "Moving Avg", run: () => movingAverageForecast(forecastMonthlyData, 1) },
+      { key: "ensemble", label: "Ensemble", run: () => ensembleForecast(forecastMonthlyData, 1) },
+    ];
+    const rows = methods.map((m) => ({
+      key: m.key,
+      label: m.label,
+      predicted: m.run().forecasts[0]?.predicted ?? 0,
+    }));
+    const maxVal = Math.max(1, ...rows.map((r) => r.predicted));
+    return { rows, maxVal };
+  }, [forecastMonthlyData]);
+
   const forecastData = useMemo(() => {
     if (transactions.length < 3) return null;
 
-    const monthlyData = prepareMonthlyData(transactions, forecastType, 12);
+    const monthlyData = forecastMonthlyData;
     if (monthlyData.length < 3) return null;
 
     let forecast: ForecastResult;
@@ -435,7 +538,7 @@ export default function AnalyticsPage() {
       chartData: [...historicalChartData, ...forecastChartData],
       historicalData: monthlyData,
     };
-  }, [transactions, forecastMethod, forecastPeriods, forecastType]);
+  }, [transactions, forecastMonthlyData, forecastMethod, forecastPeriods]);
 
   // Top 5 largest expense transactions in filtered period
   const topExpenses = useMemo(() => {
@@ -470,6 +573,15 @@ export default function AnalyticsPage() {
       .sort((a, b) => b.current - a.current)
       .slice(0, 8);
   }, [transactions]);
+
+  // Category with the single largest MoM swing (by % change) — surfaced as a callout
+  const categoryMoMBiggestMover = useMemo(() => {
+    const withDelta = categoryMoM.filter((c) => c.delta !== null && c.prev >= 300);
+    if (withDelta.length === 0) return null;
+    return withDelta.reduce((max, c) =>
+      Math.abs(c.delta as number) > Math.abs(max.delta as number) ? c : max,
+    );
+  }, [categoryMoM]);
 
   // Monthly savings rate for trends chart
   const savingsRateData = useMemo(() => {
@@ -674,23 +786,54 @@ export default function AnalyticsPage() {
                   {categoryData.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-8">No expense data</p>
                   ) : (
-                    categoryData.slice(0, 8).map((cat) => (
-                      <div key={cat.name}>
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                            <span className="text-xs font-medium truncate">{cat.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[10px] text-muted-foreground font-mono">{cat.percentage.toFixed(1)}%</span>
-                            <span className="text-xs font-semibold font-mono">{format(cat.value)}</span>
-                          </div>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${cat.percentage}%`, backgroundColor: cat.color }} />
+                    <>
+                      <div className="relative mx-auto w-33 h-33">
+                        <ResponsiveContainer width={132} height={132}>
+                          <PieChart>
+                            <Pie
+                              data={categoryData.slice(0, 8)}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={44}
+                              outerRadius={64}
+                              paddingAngle={2}
+                              strokeWidth={0}
+                            >
+                              {categoryData.slice(0, 8).map((cat) => (
+                                <Cell key={cat.name} fill={cat.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              formatter={(v: unknown) => (typeof v === "number" ? format(v) : "—")}
+                              contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "11px" }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                          <p className="font-mono font-bold text-xs">{formatShortInsights(statistics.expenses)}</p>
+                          <p className="text-[9px] text-muted-foreground uppercase tracking-widest">total</p>
                         </div>
                       </div>
-                    ))
+                      {categoryData.slice(0, 8).map((cat) => (
+                        <div key={cat.name}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                              <span className="text-xs font-medium truncate">{cat.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-[10px] text-muted-foreground font-mono">{cat.percentage.toFixed(1)}%</span>
+                              <span className="text-xs font-semibold font-mono">{format(cat.value)}</span>
+                            </div>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${cat.percentage}%`, backgroundColor: cat.color }} />
+                          </div>
+                        </div>
+                      ))}
+                    </>
                   )}
                   {categoryData.length > 0 && (
                     <div className="pt-2 border-t border-border flex justify-between text-xs">
@@ -707,8 +850,21 @@ export default function AnalyticsPage() {
               {/* Category MoM */}
               <Card>
                 <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Category Month-over-Month</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">This month vs last · <span className="text-green-600">green = down</span> · <span className="text-red-500">red = up</span></p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Category Month-over-Month</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">This month vs last · <span className="text-green-600">green = down</span> · <span className="text-red-500">red = up</span></p>
+                    </div>
+                    {categoryMoMBiggestMover && (
+                      <div className="shrink-0 text-right">
+                        <p className="text-[9px] uppercase tracking-widest text-muted-foreground">Biggest mover</p>
+                        <p className={`text-[11px] font-semibold inline-flex items-center gap-0.5 ${(categoryMoMBiggestMover.delta as number) > 0 ? "text-red-500" : "text-green-600"}`}>
+                          {(categoryMoMBiggestMover.delta as number) > 0 ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownRight className="h-2.5 w-2.5" />}
+                          {categoryMoMBiggestMover.name} {Math.abs(categoryMoMBiggestMover.delta as number).toFixed(0)}%
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   {categoryMoM.length === 0 ? (
@@ -812,6 +968,44 @@ export default function AnalyticsPage() {
 
           {/* Trends Tab */}
           <TabsContent value="trends" className="space-y-4">
+            {/* Best/worst month callouts */}
+            {bestWorstMonth && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Card className="overflow-hidden">
+                  <CardContent className="p-3.5 flex items-center gap-3">
+                    <div className="p-1.5 rounded-full bg-green-100 dark:bg-green-950/40 shrink-0">
+                      <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Best Month · {bestWorstMonth.best.month}
+                      </p>
+                      <p className="font-mono font-bold text-sm text-green-600 dark:text-green-400">
+                        {bestWorstMonth.best.net >= 0 ? "+" : ""}
+                        {format(bestWorstMonth.best.net)}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="overflow-hidden">
+                  <CardContent className="p-3.5 flex items-center gap-3">
+                    <div className="p-1.5 rounded-full bg-red-100 dark:bg-red-950/40 shrink-0">
+                      <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Toughest Month · {bestWorstMonth.worst.month}
+                      </p>
+                      <p className={`font-mono font-bold text-sm ${bestWorstMonth.worst.net >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                        {bestWorstMonth.worst.net >= 0 ? "+" : ""}
+                        {format(bestWorstMonth.worst.net)}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
             {/* MoM Summary Table — primary element */}
             {momSummary.length > 0 && (
               <Card>
@@ -965,19 +1159,19 @@ export default function AnalyticsPage() {
               <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Net Cash Flow</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Income minus expenses per month · <span className="text-green-600 font-medium">green = surplus</span> · <span className="text-red-500 font-medium">red = deficit</span>
+                  Income minus expenses per month · <span className="text-green-600 font-medium">green = surplus</span> · <span className="text-red-500 font-medium">red = deficit</span> · <span className="text-indigo-500 font-medium">dashed line = 3-mo avg</span>
                 </p>
               </CardHeader>
               <CardContent className="pt-3">
                 <ResponsiveContainer width="100%" height={240}>
-                  <ComposedChart data={monthlyData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+                  <ComposedChart data={monthlyDataWithRollingAvg} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 || v <= -1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
                     <ReferenceLine y={0} stroke="var(--foreground)" strokeOpacity={0.25} strokeWidth={1} />
                     <Tooltip content={({ active, payload, label }) => {
                       if (!active || !payload?.length) return null;
-                      const row = payload[0]?.payload as { net: number; income: number; expenses: number };
+                      const row = payload[0]?.payload as { net: number; income: number; expenses: number; rollingNet: number };
                       if (!row) return null;
                       return (
                         <div className="rounded-lg border bg-card px-3 py-2 text-xs shadow-md">
@@ -987,14 +1181,24 @@ export default function AnalyticsPage() {
                           <p className={`mt-1 pt-1 border-t font-medium ${row.net >= 0 ? "text-green-600" : "text-red-600"}`}>
                             Net: {format(row.net)} <span className="text-muted-foreground font-normal">({row.net >= 0 ? "surplus" : "deficit"})</span>
                           </p>
+                          <p className="text-indigo-500 font-mono text-[11px] mt-0.5">3-mo avg: {format(row.rollingNet)}</p>
                         </div>
                       );
                     }} />
                     <Bar dataKey="net" radius={[4, 4, 4, 4]} maxBarSize={44}>
-                      {monthlyData.map((entry, index) => (
+                      {monthlyDataWithRollingAvg.map((entry, index) => (
                         <Cell key={`net-${index}`} fill={entry.net >= 0 ? "#22c55e" : "#ef4444"} />
                       ))}
                     </Bar>
+                    <Line
+                      type="monotone"
+                      dataKey="rollingNet"
+                      stroke="#6366f1"
+                      strokeWidth={2}
+                      strokeDasharray="4 3"
+                      dot={false}
+                      name="3-mo avg"
+                    />
                   </ComposedChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -1023,9 +1227,71 @@ export default function AnalyticsPage() {
                   ))}
                 </div>
 
+                {/* Portfolio pace */}
+                {goalsPortfolioPace && (
+                  <Card className="overflow-hidden">
+                    <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-950/40 shrink-0">
+                          <Gauge className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                            Portfolio Pace
+                          </p>
+                          {goalsPortfolioPace.monthsToFundAll !== null ? (
+                            <p className="text-sm">
+                              At{" "}
+                              <span className="font-mono font-semibold">
+                                {format(goalsPortfolioPace.totalMonthly)}/mo
+                              </span>{" "}
+                              combined, all goals are funded in{" "}
+                              <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">
+                                ~{Math.ceil(goalsPortfolioPace.monthsToFundAll)} months
+                              </span>
+                            </p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              No monthly contribution plan set on any goal yet
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {goalsPortfolioPace.unfunded.length > 0 && (
+                        <span className="shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-full bg-orange-500/15 text-orange-700 dark:text-orange-400">
+                          {goalsPortfolioPace.unfunded.length} goal
+                          {goalsPortfolioPace.unfunded.length === 1 ? "" : "s"} with no funding plan
+                        </span>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Goal cards grid */}
+                <div className="flex items-center justify-end gap-1.5">
+                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground mr-1">
+                    Sort
+                  </span>
+                  <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                    {(
+                      [
+                        { key: "deadline", label: "Deadline" },
+                        { key: "progress", label: "Progress" },
+                        { key: "pace", label: "Behind first" },
+                      ] as const
+                    ).map((opt) => (
+                      <button
+                        key={opt.key}
+                        onClick={() => setGoalSortBy(opt.key)}
+                        className={`text-[11px] px-2.5 py-1 rounded-md font-medium transition-colors ${goalSortBy === opt.key ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {goalsSortedByDeadline.map((goal) => {
+                  {goalsSorted.map((goal) => {
                     const projectedMonths = goal.monthlyContribution && goal.monthlyContribution > 0 && goal.remaining > 0
                       ? Math.ceil(goal.remaining / goal.monthlyContribution) : null;
                     const projectedDate = projectedMonths !== null
@@ -1117,7 +1383,7 @@ export default function AnalyticsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {goalsSortedByDeadline.map((g) => (
+                          {goalsSorted.map((g) => (
                             <tr key={g.id} className="border-b border-border hover:bg-muted/20 transition-colors">
                               <td className="py-2.5 px-4 font-medium max-w-32 truncate">{g.title}</td>
                               <td className="py-2.5 px-3 text-right font-mono text-green-600 dark:text-green-400">{format(g.current)}</td>
@@ -1158,540 +1424,564 @@ export default function AnalyticsPage() {
           </TabsContent>
 
           {/* Forecast Tab */}
-          <TabsContent value="forecast" className="space-y-4">
-            <Card>
-              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  <span>Financial Forecasting</span>
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  We project future monthly{" "}
-                  {forecastType === "expense" ? "spending" : "income"} from your
-                  history. The chart shows actual months (blue), then predicted
-                  values (orange) with a shaded band for uncertainty.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Forecast Controls */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-muted/50 rounded-lg">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Forecast Type</Label>
-                    <Select
-                      value={forecastType}
-                      onValueChange={(value: "income" | "expense") =>
-                        setForecastType(value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="expense">Expenses</SelectItem>
-                        <SelectItem value="income">Income</SelectItem>
-                      </SelectContent>
-                    </Select>
+          <TabsContent value="forecast" className="space-y-2.5">
+            {/* Hero */}
+            <div className="rounded-xl bg-slate-900 dark:bg-black text-white overflow-hidden">
+              <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="h-7 w-7 rounded-full bg-indigo-500/20 flex items-center justify-center shrink-0">
+                    <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
                   </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">
-                      Forecasting Method
-                    </Label>
-                    <Select
-                      value={forecastMethod}
-                      onValueChange={(value: any) => setForecastMethod(value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ensemble">
-                          Ensemble (Best)
-                        </SelectItem>
-                        <SelectItem value="exponential">
-                          Exponential Smoothing
-                        </SelectItem>
-                        <SelectItem value="linear">Linear Trend</SelectItem>
-                        <SelectItem value="moving-average">
-                          Moving Average
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">
-                      Forecast Months
-                    </Label>
-                    <Select
-                      value={forecastPeriods.toString()}
-                      onValueChange={(value) =>
-                        setForecastPeriods(parseInt(value))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="3">3 Months</SelectItem>
-                        <SelectItem value="6">6 Months</SelectItem>
-                        <SelectItem value="12">12 Months</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-400">
+                      Forecast Engine
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5 truncate">
+                      Projecting {forecastType === "expense" ? "spending" : "income"} from{" "}
+                      {forecastMonthlyData.length} months of history
+                    </p>
                   </div>
                 </div>
+                <div className="flex items-center gap-1 bg-slate-800/80 rounded-lg p-1 shrink-0">
+                  {(["expense", "income"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setForecastType(t)}
+                      className={`text-[11px] px-3 py-1 rounded-md font-medium transition-colors ${forecastType === t ? "bg-white text-slate-900" : "text-slate-400 hover:text-white"}`}
+                    >
+                      {t === "expense" ? "Expenses" : "Income"}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                {forecastData ? (
-                  <>
-                    {/* Forecast Insights */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <Card className="border-2">
-                        <CardContent className="pt-6">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-muted-foreground">
-                                Trend Direction
-                              </p>
-                              <p className="text-2xl font-bold capitalize flex items-center space-x-2">
-                                {forecastData.trend === "increasing" && (
-                                  <ArrowUpRight className="h-6 w-6 text-red-600" />
-                                )}
-                                {forecastData.trend === "decreasing" && (
-                                  <ArrowDownRight className="h-6 w-6 text-green-600" />
-                                )}
-                                <span
-                                  className={
-                                    forecastData.trend === "increasing"
-                                      ? "text-red-600"
-                                      : forecastData.trend === "decreasing"
-                                        ? "text-green-600"
-                                        : "text-muted-foreground"
-                                  }
-                                >
-                                  {forecastData.trend}
-                                </span>
-                              </p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="border-2">
-                        <CardContent className="pt-6">
-                          <div>
-                            <p className="text-sm text-muted-foreground">
-                              Forecasting Model
-                            </p>
-                            <p className="text-lg font-bold">
-                              {forecastData.method}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {forecastData.seasonality
-                                ? "Seasonality detected"
-                                : "No seasonality"}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="border-2">
-                        <CardContent className="pt-6">
-                          <div>
-                            <p className="text-sm text-muted-foreground">
-                              Next Month Prediction
-                            </p>
-                            <p className="text-2xl font-bold text-indigo-600">
-                              {format(
-                                forecastData.forecasts[0]?.predicted ?? 0,
-                              )}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Range:{" "}
-                              {format(forecastData.forecasts[0]?.lower ?? 0)} -{" "}
-                              {format(forecastData.forecasts[0]?.upper ?? 0)}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    {/* How to read the chart & table */}
-                    <Card className="border-2 border-border bg-muted/50">
-                      <CardHeader className="pb-2">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          How to read this
+              {forecastData ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-800">
+                  <div className="px-5 py-3.5">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                      Next Month
+                    </p>
+                    <p className="font-mono text-lg font-bold">
+                      {format(forecastData.forecasts[0]?.predicted ?? 0)}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      {format(forecastData.forecasts[0]?.lower ?? 0)} –{" "}
+                      {format(forecastData.forecasts[0]?.upper ?? 0)}
+                    </p>
+                  </div>
+                  <div className="px-5 py-3.5">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                      Trend
+                    </p>
+                    {(() => {
+                      const good = isTrendFavorable(forecastData.trend, forecastType);
+                      const color =
+                        good === null
+                          ? "text-slate-300"
+                          : good
+                            ? "text-green-400"
+                            : "text-red-400";
+                      return (
+                        <p className={`font-mono text-lg font-bold capitalize flex items-center gap-1 ${color}`}>
+                          {forecastData.trend === "increasing" && (
+                            <ArrowUpRight className="h-4 w-4" />
+                          )}
+                          {forecastData.trend === "decreasing" && (
+                            <ArrowDownRight className="h-4 w-4" />
+                          )}
+                          {forecastData.trend}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-0.5 space-y-2">
-                          <span className="block">
-                            <strong className="text-foreground">
-                              Historical
-                            </strong>{" "}
-                            — Your real past{" "}
-                            {forecastType === "expense" ? "expenses" : "income"}{" "}
-                            (what actually happened). Shown as the blue solid
-                            line on the chart.
-                          </span>
-                          <span className="block">
-                            <strong className="text-foreground">
-                              Forecast
-                            </strong>{" "}
-                            — What the model thinks will happen in future
-                            months. Shown as the orange dashed line.
-                          </span>
-                          <span className="block">
-                            <strong className="text-foreground">
-                              Predicted
-                            </strong>{" "}
-                            — The single best guess for that month (e.g. we
-                            expect about ₹1,50,000).
-                          </span>
-                          <span className="block">
-                            <strong className="text-foreground">
-                              Lower bound
-                            </strong>{" "}
-                            — The minimum we expect (worst case).{" "}
-                            <strong className="text-foreground">
-                              Upper bound
-                            </strong>{" "}
-                            — The maximum we expect (high case). The shaded
-                            orange band on the chart is this range.
-                          </span>
-                          <span className="block">
-                            <strong className="text-foreground">Range</strong> —
-                            How wide that band is (± value). Bigger range = more
-                            uncertainty.
-                          </span>
-                        </p>
-                      </CardHeader>
-                    </Card>
+                      );
+                    })()}
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      {forecastData.method}
+                    </p>
+                  </div>
+                  <div className="px-5 py-3.5">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                      Confidence
+                    </p>
+                    <p
+                      className={`font-mono text-lg font-bold ${
+                        forecastConfidence === null
+                          ? "text-slate-300"
+                          : forecastConfidence >= 70
+                            ? "text-green-400"
+                            : forecastConfidence >= 40
+                              ? "text-amber-400"
+                              : "text-red-400"
+                      }`}
+                    >
+                      {forecastConfidence === null ? "—" : `${forecastConfidence}%`}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      from recent volatility
+                    </p>
+                  </div>
+                  <div className="px-5 py-3.5">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
+                      Seasonality
+                    </p>
+                    <p
+                      className={`font-mono text-lg font-bold ${forecastData.seasonality ? "text-blue-400" : "text-slate-300"}`}
+                    >
+                      {forecastData.seasonality ? "Detected" : "None"}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      12-month autocorrelation
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-5 py-6 text-center text-xs text-slate-400">
+                  Need at least 3 months of transaction data to generate forecasts
+                </div>
+              )}
+            </div>
 
-                    {/* Forecast Chart */}
-                    <Card>
-                      <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          Historical Data & Forecast
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Blue line = your real past data. Orange dashed line =
-                          predicted future. Shaded band = lower to upper bound.
-                        </p>
-                      </CardHeader>
-                      <CardContent>
-                        <ResponsiveContainer width="100%" height={420}>
-                          <ComposedChart data={forecastData.chartData}>
-                            <defs>
-                              <linearGradient
-                                id="forecastBandGrad"
-                                x1="0"
-                                y1="0"
-                                x2="0"
-                                y2="1"
-                              >
-                                <stop
-                                  offset="0%"
-                                  stopColor="#fb923c"
-                                  stopOpacity={0.35}
-                                />
-                                <stop
-                                  offset="100%"
-                                  stopColor="#fb923c"
-                                  stopOpacity={0.08}
-                                />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid
-                              strokeDasharray="3 3"
-                              stroke="var(--border)"
-                              vertical={false}
-                            />
-                            <XAxis
-                              dataKey="date"
-                              tick={{ fontSize: 11 }}
-                              axisLine={false}
-                              tickLine={false}
-                            />
-                            <YAxis
-                              tick={{ fontSize: 11 }}
-                              axisLine={false}
-                              tickLine={false}
-                              tickFormatter={(v) =>
-                                v >= 1000
-                                  ? `${(v / 1000).toFixed(0)}k`
-                                  : String(v)
-                              }
-                            />
-                            <Tooltip
-                              formatter={(value: unknown) =>
-                                value != null && typeof value === "number"
-                                  ? format(value)
-                                  : "—"
-                              }
-                              contentStyle={{
-                                backgroundColor: "var(--card)",
-                                border: "1px solid var(--border)",
-                                borderRadius: "8px",
-                                fontSize: "12px",
-                              }}
-                              labelStyle={{ fontWeight: 600 }}
-                            />
-                            <Legend wrapperStyle={{ fontSize: 11 }} />
+            {/* Controls */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex items-center gap-1.5 flex-wrap flex-1">
+                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground mr-1 shrink-0">
+                    Model
+                  </span>
+                  <div className="flex items-center gap-1 bg-muted rounded-lg p-1 flex-wrap">
+                    {FORECAST_METHODS.map((m) => (
+                      <button
+                        key={m.key}
+                        onClick={() => setForecastMethod(m.key)}
+                        className={`text-[11px] px-2.5 py-1 rounded-md font-medium transition-colors ${forecastMethod === m.key ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground mr-1">
+                    Horizon
+                  </span>
+                  <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                    {[3, 6, 12].map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setForecastPeriods(p)}
+                        className={`text-[11px] px-2.5 py-1 rounded-md font-medium transition-colors ${forecastPeriods === p ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        {p}mo
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-                            <Area
-                              type="monotone"
-                              dataKey="lowerBase"
-                              stackId="fcBand"
-                              stroke="none"
-                              fill="transparent"
-                              isAnimationActive={false}
-                              legendType="none"
-                            />
-                            <Area
-                              type="monotone"
-                              dataKey="bandWidth"
-                              stackId="fcBand"
-                              stroke="none"
-                              fill="url(#forecastBandGrad)"
-                              isAnimationActive={false}
-                              name="Uncertainty band"
-                              legendType="rect"
-                            />
-
-                            {/* Historical data (blue) */}
-                            <Line
-                              type="monotone"
-                              dataKey="actual"
-                              stroke="#3b82f6"
-                              strokeWidth={2}
-                              dot={{ fill: "#3b82f6", r: 3 }}
-                              connectNulls={false}
-                              name="Historical"
-                            />
-
-                            {/* Forecast (orange) */}
-                            <Line
-                              type="monotone"
-                              dataKey="predicted"
-                              stroke="#f97316"
-                              strokeWidth={2}
-                              strokeDasharray="5 5"
-                              dot={{ fill: "#f97316", r: 3 }}
-                              connectNulls={false}
-                              name="Forecast"
-                            />
-
-                            {/* Avg expense reference line */}
-                            {statistics.avgMonthlyExpenses > 0 && (
-                              <ReferenceLine
-                                y={statistics.avgMonthlyExpenses}
-                                stroke="#6366f1"
-                                strokeDasharray="4 2"
-                                label={{ value: "Avg", position: "right", fontSize: 10, fill: "#6366f1" }}
+            {forecastData ? (
+              <>
+                {/* Model agreement */}
+                {forecastComparison && (
+                  <Card>
+                    <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                        <Layers className="h-3 w-3" /> Model Agreement — Next Month
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        How each method independently predicts next month. A wide
+                        spread means less certainty; tap a row to switch models.
+                      </p>
+                    </CardHeader>
+                    <CardContent className="px-4 py-3 space-y-2">
+                      {forecastComparison.rows.map((row) => {
+                        const pct = (row.predicted / forecastComparison.maxVal) * 100;
+                        const active = row.key === forecastMethod;
+                        return (
+                          <button
+                            key={row.key}
+                            onClick={() => setForecastMethod(row.key)}
+                            className="grid items-center gap-2 w-full text-left group"
+                            style={{ gridTemplateColumns: "104px minmax(0,1fr) 84px" }}
+                          >
+                            <span
+                              className={`text-[11px] truncate ${active ? "font-semibold text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}
+                            >
+                              {row.label}
+                            </span>
+                            <span className="h-2 rounded-full bg-muted overflow-hidden">
+                              <span
+                                className={`block h-full rounded-full transition-all ${active ? "bg-indigo-500" : "bg-muted-foreground/40"}`}
+                                style={{ width: `${Math.max(2, pct)}%` }}
                               />
-                            )}
+                            </span>
+                            <span className="font-mono text-[11px] text-right tabular-nums">
+                              {format(row.predicted)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+                )}
 
-                            {/* Vertical line at forecast start */}
-                            {forecastData.historicalData.length > 0 &&
-                              forecastData.chartData[
-                                forecastData.historicalData.length
-                              ] && (
-                                <ReferenceLine
-                                  x={
-                                    forecastData.chartData[
-                                      forecastData.historicalData.length
-                                    ].date
-                                  }
-                                  stroke="#94a3b8"
-                                  strokeDasharray="3 3"
-                                  label={{
-                                    value: "Forecast start",
-                                    position: "top",
-                                    fontSize: 11,
-                                  }}
-                                />
-                              )}
-                          </ComposedChart>
-                        </ResponsiveContainer>
-                      </CardContent>
-                    </Card>
+                {/* Forecast Chart */}
+                <Card>
+                  <CardHeader className="pb-2 border-b border-border px-4 pt-4 flex flex-row items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Historical Data & Forecast
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Solid blue = actual. Dashed orange = predicted. Shaded band
+                        = confidence interval.
+                      </p>
+                    </div>
+                    <span
+                      title="Predicted = single best guess. Lower/Upper bound = worst/best case. Range = how wide that band is — bigger range means more uncertainty."
+                      className="shrink-0 mt-0.5"
+                    >
+                      <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                    </span>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={380}>
+                      <ComposedChart data={forecastData.chartData}>
+                        <defs>
+                          <linearGradient id="forecastBandGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#fb923c" stopOpacity={0.35} />
+                            <stop offset="100%" stopColor="#fb923c" stopOpacity={0.08} />
+                          </linearGradient>
+                          <linearGradient id="forecastActualGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.18} />
+                            <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="var(--border)"
+                          vertical={false}
+                        />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={(v) =>
+                            v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
+                          }
+                        />
+                        <Tooltip
+                          formatter={(value: unknown) =>
+                            value != null && typeof value === "number"
+                              ? format(value)
+                              : "—"
+                          }
+                          contentStyle={{
+                            backgroundColor: "var(--card)",
+                            border: "1px solid var(--border)",
+                            borderRadius: "8px",
+                            fontSize: "12px",
+                          }}
+                          labelStyle={{ fontWeight: 600 }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
 
-                    {/* Forecast Table */}
-                    <Card>
-                      <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          Detailed Forecast
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Month-by-month numbers: predicted value, then the
-                          low–high band (lower and upper bound), then the range
-                          (±).
-                        </p>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead>
-                              <tr className="border-b">
-                                <th className="text-left py-3 px-4">Month</th>
-                                <th
-                                  className="text-right py-3 px-4"
-                                  title="Most likely forecast for that month"
-                                >
-                                  Predicted
-                                </th>
-                                <th
-                                  className="text-right py-3 px-4"
-                                  title="Minimum expected value in the confidence interval"
-                                >
-                                  Lower Bound
-                                </th>
-                                <th
-                                  className="text-right py-3 px-4"
-                                  title="Maximum expected value in the confidence interval"
-                                >
-                                  Upper Bound
-                                </th>
-                                <th
-                                  className="text-right py-3 px-4"
-                                  title="Half the width of the confidence interval (± around predicted)"
-                                >
-                                  Range
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {forecastData.forecasts.map((forecast, idx) => (
+                        <Area
+                          type="monotone"
+                          dataKey="lowerBase"
+                          stackId="fcBand"
+                          stroke="none"
+                          fill="transparent"
+                          isAnimationActive={false}
+                          legendType="none"
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="bandWidth"
+                          stackId="fcBand"
+                          stroke="none"
+                          fill="url(#forecastBandGrad)"
+                          isAnimationActive={false}
+                          name="Uncertainty band"
+                          legendType="rect"
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="actual"
+                          stroke="none"
+                          fill="url(#forecastActualGrad)"
+                          isAnimationActive={false}
+                          legendType="none"
+                        />
+
+                        {/* Historical data (blue) */}
+                        <Line
+                          type="monotone"
+                          dataKey="actual"
+                          stroke="#3b82f6"
+                          strokeWidth={2}
+                          dot={{ fill: "#3b82f6", r: 3 }}
+                          activeDot={{ r: 5 }}
+                          connectNulls={false}
+                          name="Historical"
+                        />
+
+                        {/* Forecast (orange) */}
+                        <Line
+                          type="monotone"
+                          dataKey="predicted"
+                          stroke="#f97316"
+                          strokeWidth={2}
+                          strokeDasharray="5 5"
+                          dot={{ fill: "#f97316", r: 3 }}
+                          activeDot={{ r: 5 }}
+                          connectNulls={false}
+                          name="Forecast"
+                        />
+
+                        {/* Avg expense reference line */}
+                        {statistics.avgMonthlyExpenses > 0 && (
+                          <ReferenceLine
+                            y={statistics.avgMonthlyExpenses}
+                            stroke="#6366f1"
+                            strokeDasharray="4 2"
+                            label={{ value: "Avg", position: "right", fontSize: 10, fill: "#6366f1" }}
+                          />
+                        )}
+
+                        {/* Vertical line at forecast start */}
+                        {forecastData.historicalData.length > 0 &&
+                          forecastData.chartData[
+                            forecastData.historicalData.length
+                          ] && (
+                            <ReferenceLine
+                              x={
+                                forecastData.chartData[
+                                  forecastData.historicalData.length
+                                ].date
+                              }
+                              stroke="#94a3b8"
+                              strokeDasharray="3 3"
+                              label={{
+                                value: "Forecast start",
+                                position: "top",
+                                fontSize: 11,
+                              }}
+                            />
+                          )}
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* Forecast Table */}
+                <Card>
+                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Detailed Forecast
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Predicted value per month, plus the confidence band and how
+                      wide it is (bar = relative range width).
+                    </p>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/40">
+                            <th className="text-left py-2 px-4 font-medium text-muted-foreground">
+                              Month
+                            </th>
+                            <th
+                              className="text-right py-2 px-4 font-medium text-muted-foreground"
+                              title="Most likely forecast for that month"
+                            >
+                              Predicted
+                            </th>
+                            <th
+                              className="text-right py-2 px-4 font-medium text-muted-foreground hidden sm:table-cell"
+                              title="Minimum expected value in the confidence interval"
+                            >
+                              Lower
+                            </th>
+                            <th
+                              className="text-right py-2 px-4 font-medium text-muted-foreground hidden sm:table-cell"
+                              title="Maximum expected value in the confidence interval"
+                            >
+                              Upper
+                            </th>
+                            <th
+                              className="text-left py-2 px-4 font-medium text-muted-foreground"
+                              title="Half the width of the confidence interval (± around predicted)"
+                            >
+                              Range
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            const maxRange = Math.max(
+                              1,
+                              ...forecastData.forecasts.map(
+                                (f) => f.upper - f.lower,
+                              ),
+                            );
+                            return forecastData.forecasts.map((forecast, idx) => {
+                              const range = forecast.upper - forecast.lower;
+                              const rangePct = (range / maxRange) * 100;
+                              return (
                                 <tr
                                   key={idx}
-                                  className="border-b hover:bg-muted/50"
+                                  className="border-b border-border/60 hover:bg-muted/30"
                                 >
-                                  <td className="py-3 px-4">
+                                  <td className="py-2 px-4">
                                     {new Date(forecast.date).toLocaleDateString(
                                       "en-US",
                                       { month: "long", year: "numeric" },
                                     )}
                                   </td>
-                                  <td className="text-right py-3 px-4 font-semibold text-indigo-600">
+                                  <td className="text-right py-2 px-4 font-mono font-semibold text-indigo-600 dark:text-indigo-400">
                                     {format(forecast.predicted)}
                                   </td>
-                                  <td className="text-right py-3 px-4 text-muted-foreground">
+                                  <td className="text-right py-2 px-4 font-mono text-muted-foreground hidden sm:table-cell">
                                     {format(forecast.lower)}
                                   </td>
-                                  <td className="text-right py-3 px-4 text-muted-foreground">
+                                  <td className="text-right py-2 px-4 font-mono text-muted-foreground hidden sm:table-cell">
                                     {format(forecast.upper)}
                                   </td>
-                                  <td className="text-right py-3 px-4 text-sm text-muted-foreground">
-                                    ±
-                                    {format(
-                                      (forecast.upper - forecast.lower) / 2,
-                                    )}
+                                  <td className="py-2 px-4">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden shrink-0">
+                                        <div
+                                          className="h-full rounded-full bg-orange-400"
+                                          style={{ width: `${Math.max(4, rangePct)}%` }}
+                                        />
+                                      </div>
+                                      <span className="font-mono text-[10px] text-muted-foreground whitespace-nowrap">
+                                        ±{format(range / 2)}
+                                      </span>
+                                    </div>
                                   </td>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </CardContent>
-                    </Card>
+                              );
+                            });
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                    {/* Insights & Recommendations */}
-                    <Card className="border-2 border-indigo-200 bg-indigo-50">
-                      <CardHeader className="pb-2 border-b border-border px-4 pt-4">
-                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                          <AlertCircle className="h-5 w-5 text-indigo-600" />
-                          <span>AI Insights</span>
+                {/* Insights */}
+                <Card>
+                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                      <Gauge className="h-3 w-3" /> Insights
+                    </p>
+                  </CardHeader>
+                  <CardContent className="px-4 py-3 space-y-2">
+                    {forecastData.trend === "increasing" && forecastType === "expense" && (
+                      <div className="flex items-start gap-2.5">
+                        <div className="p-1.5 bg-red-100 dark:bg-red-950/40 rounded-full shrink-0">
+                          <TrendingUp className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            Rising expenses.
+                          </span>{" "}
+                          Spending is trending upward — review your budget and
+                          look for areas to cut back.
                         </p>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {forecastData.trend === "increasing" &&
-                          forecastType === "expense" && (
-                            <div className="flex items-start space-x-3">
-                              <div className="p-2 bg-red-100 rounded-full">
-                                <TrendingUp className="h-4 w-4 text-red-600" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-foreground">
-                                  Rising Expenses Detected
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  Your expenses are trending upward. Consider
-                                  reviewing your budget and identifying areas to
-                                  cut back.
-                                </p>
-                              </div>
-                            </div>
-                          )}
+                      </div>
+                    )}
 
-                        {forecastData.trend === "decreasing" &&
-                          forecastType === "expense" && (
-                            <div className="flex items-start space-x-3">
-                              <div className="p-2 bg-green-100 rounded-full">
-                                <TrendingDown className="h-4 w-4 text-green-600" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-foreground">
-                                  Great Progress!
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  Your expenses are trending downward. Keep up
-                                  the good work with your spending habits!
-                                </p>
-                              </div>
-                            </div>
-                          )}
-
-                        {forecastData.seasonality && (
-                          <div className="flex items-start space-x-3">
-                            <div className="p-2 bg-blue-100 rounded-full">
-                              <Calendar className="h-4 w-4 text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-foreground">
-                                Seasonal Pattern Found
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Your {forecastType} shows seasonal variations.
-                                Plan ahead for months with higher predicted
-                                values.
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex items-start space-x-3">
-                          <div className="p-2 bg-indigo-100 rounded-full">
-                            <Target className="h-4 w-4 text-indigo-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground">
-                              Forecast Confidence
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              The {forecastData.method.toLowerCase()} model
-                              provides predictions with 95% confidence
-                              intervals. Wider ranges indicate higher
-                              uncertainty.
-                            </p>
-                          </div>
+                    {forecastData.trend === "decreasing" && forecastType === "expense" && (
+                      <div className="flex items-start gap-2.5">
+                        <div className="p-1.5 bg-green-100 dark:bg-green-950/40 rounded-full shrink-0">
+                          <TrendingDown className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                         </div>
-                      </CardContent>
-                    </Card>
-                  </>
-                ) : (
-                  <Card>
-                    <CardContent className="py-6 text-center">
-                      <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-lg font-semibold text-foreground mb-2">
-                        Insufficient Data
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            Great progress.
+                          </span>{" "}
+                          Spending is trending downward — keep up the good
+                          habits.
+                        </p>
+                      </div>
+                    )}
+
+                    {forecastData.seasonality && (
+                      <div className="flex items-start gap-2.5">
+                        <div className="p-1.5 bg-blue-100 dark:bg-blue-950/40 rounded-full shrink-0">
+                          <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            Seasonal pattern found.
+                          </span>{" "}
+                          Your {forecastType} shows seasonal variation — plan
+                          ahead for months with higher predicted values.
+                        </p>
+                      </div>
+                    )}
+
+                    {forecastComparison && (
+                      <div className="flex items-start gap-2.5">
+                        <div className="p-1.5 bg-indigo-100 dark:bg-indigo-950/40 rounded-full shrink-0">
+                          <Layers className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            Model spread.
+                          </span>{" "}
+                          {(() => {
+                            const vals = forecastComparison.rows.map((r) => r.predicted);
+                            const lo = Math.min(...vals);
+                            const hi = Math.max(...vals);
+                            const spreadPct = lo > 0 ? ((hi - lo) / lo) * 100 : 0;
+                            return spreadPct < 10
+                              ? `All four models agree closely (±${spreadPct.toFixed(0)}%) — this forecast is fairly stable.`
+                              : `Models disagree by about ${spreadPct.toFixed(0)}% between ${format(lo)} and ${format(hi)} — treat this forecast as directional.`;
+                          })()}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full shrink-0">
+                        <Target className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">
+                          {forecastData.method}
+                        </span>{" "}
+                        provides predictions with 95% confidence intervals — a
+                        wider band on the chart means more uncertainty for that
+                        month.
                       </p>
-                      <p className="text-muted-foreground">
-                        Need at least 3 months of transaction data to generate
-                        forecasts
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-              </CardContent>
-            </Card>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card>
+                <CardContent className="py-6 text-center">
+                  <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-lg font-semibold text-foreground mb-2">
+                    Insufficient Data
+                  </p>
+                  <p className="text-muted-foreground">
+                    Need at least 3 months of transaction data to generate
+                    forecasts
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Insights Tab */}
@@ -1741,6 +2031,17 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
   const expenseEntries = currentMonthTxns.filter((t) => t.type === "expense").length;
   const surplusRate = currentIncome > 0 ? ((surplus / currentIncome) * 100).toFixed(1) : null;
   const currentMonthLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  // Days elapsed this month with zero logged expenses — a small gamified discipline metric
+  const noSpendDays = useMemo(() => {
+    const daysElapsed = now.getDate();
+    const spentDays = new Set(
+      currentMonthTxns
+        .filter((t) => t.type === "expense")
+        .map((t) => new Date(t.date).getDate()),
+    );
+    return Math.max(0, daysElapsed - spentDays.size);
+  }, [currentMonthTxns, now]);
 
   const sixMonthData = useMemo(() => {
     const months: Record<string, { income: number; expenses: number }> = {};
@@ -1852,18 +2153,40 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
   return (
     <div className="space-y-4">
       {/* Month stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: "Income", value: format(currentIncome), sub: `${incomeEntries} entries`, color: "text-green-600 dark:text-green-400" },
-          { label: "Expenses", value: format(currentExpenses), sub: `${expenseEntries} entries`, color: "text-red-600 dark:text-red-400" },
-          { label: "Invested", value: currentInvested > 0 ? format(currentInvested) : "—", sub: currentInvested === 0 ? 'Use "Investment" category' : currentMonthLabel, color: "text-blue-600 dark:text-blue-400" },
-          { label: "Surplus", value: `${surplus < 0 ? "-" : ""}${format(Math.abs(surplus))}`, sub: surplusRate ? `${surplusRate}% saved` : "No income logged", color: surplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400" },
-        ].map(({ label, value, sub, color }) => (
+          {
+            label: "Income",
+            value: format(currentIncome),
+            sub: `${incomeEntries} entries`,
+            color: "text-green-600 dark:text-green-400",
+            delta: avgMonthlyIncome > 0 ? ((currentIncome - avgMonthlyIncome) / avgMonthlyIncome) * 100 : null,
+            deltaGood: true,
+          },
+          {
+            label: "Expenses",
+            value: format(currentExpenses),
+            sub: `${expenseEntries} entries`,
+            color: "text-red-600 dark:text-red-400",
+            delta: avgMonthlyExpense > 0 ? ((currentExpenses - avgMonthlyExpense) / avgMonthlyExpense) * 100 : null,
+            deltaGood: false,
+          },
+          { label: "Invested", value: currentInvested > 0 ? format(currentInvested) : "—", sub: currentInvested === 0 ? 'Use "Investment" category' : currentMonthLabel, color: "text-blue-600 dark:text-blue-400", delta: null, deltaGood: true },
+          { label: "Surplus", value: `${surplus < 0 ? "-" : ""}${format(Math.abs(surplus))}`, sub: surplusRate ? `${surplusRate}% saved` : "No income logged", color: surplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400", delta: null, deltaGood: true },
+          { label: "No-Spend Days", value: String(noSpendDays), sub: `of ${now.getDate()} days so far`, color: noSpendDays > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground", delta: null, deltaGood: true },
+        ].map(({ label, value, sub, color, delta, deltaGood }) => (
           <Card key={label}>
             <CardContent className="p-3">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">{label}</p>
               <p className={`font-mono font-semibold text-sm ${color}`}>{value}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>
+              {delta !== null ? (
+                <p className={`text-[10px] mt-0.5 inline-flex items-center gap-0.5 font-medium ${(delta > 0) === deltaGood ? "text-green-600 dark:text-green-400" : delta === 0 ? "text-muted-foreground" : "text-red-500"}`}>
+                  {delta > 0 ? <ArrowUpRight className="h-2.5 w-2.5" /> : delta < 0 ? <ArrowDownRight className="h-2.5 w-2.5" /> : null}
+                  {Math.abs(delta).toFixed(0)}% vs 6-mo avg
+                </p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>
+              )}
             </CardContent>
           </Card>
         ))}

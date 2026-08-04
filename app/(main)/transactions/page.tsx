@@ -842,7 +842,7 @@ function TransactionsPageInner() {
 
   // Chart: spending by category for the selected month
   const [chartView, setChartView] = useState<"category" | "daily">("category");
-  const [chartCollapsed, setChartCollapsed] = useState(false);
+  const [chartCollapsed, setChartCollapsed] = useState(true);
 
   const categorySpendData = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -1348,14 +1348,14 @@ function TransactionsPageInner() {
               </div>
 
               {!chartCollapsed && chartView === "category" && (
-                <div className="px-3 py-2.5">
+                <div className="px-3 py-2">
                   {categorySpendData.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-4">No expense data for this month</p>
+                    <p className="text-xs text-muted-foreground text-center py-3">No expense data for this month</p>
                   ) : (
-                    <div className="flex gap-4 items-center">
+                    <div className="flex gap-3 items-center">
                       {/* Donut */}
                       <div className="relative shrink-0">
-                        <ResponsiveContainer width={130} height={130}>
+                        <ResponsiveContainer width={92} height={92}>
                           <PieChart>
                             <Pie
                               data={categorySpendData}
@@ -1363,8 +1363,8 @@ function TransactionsPageInner() {
                               nameKey="name"
                               cx="50%"
                               cy="50%"
-                              outerRadius={58}
-                              innerRadius={36}
+                              outerRadius={42}
+                              innerRadius={27}
                               paddingAngle={2}
                             >
                               {categorySpendData.map((_, i) => (
@@ -1378,12 +1378,12 @@ function TransactionsPageInner() {
                           </PieChart>
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                          <p className="text-[8px] text-muted-foreground uppercase tracking-widest">Total</p>
-                          <p className="font-mono font-bold text-[10px]">{format(totalExpenses)}</p>
+                          <p className="text-[7px] text-muted-foreground uppercase tracking-widest">Total</p>
+                          <p className="font-mono font-bold text-[9px]">{format(totalExpenses)}</p>
                         </div>
                       </div>
                       {/* Bar list */}
-                      <div className="flex-1 min-w-0 space-y-2 max-h-52 overflow-y-auto pr-1">
+                      <div className="flex-1 min-w-0 space-y-1 max-h-24 overflow-y-auto pr-1">
                         {categorySpendData.map((item, i) => {
                           const pct = totalExpenses > 0 ? (item.value / totalExpenses) * 100 : 0;
                           const color = CHART_COLORS[i % CHART_COLORS.length];
@@ -1408,12 +1408,12 @@ function TransactionsPageInner() {
               )}
 
               {!chartCollapsed && chartView === "daily" && (
-                <div className="px-2 pt-2.5 pb-1">
+                <div className="px-2 pt-2 pb-1">
                   {dailySpendData.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-4">No transactions for this month</p>
+                    <p className="text-xs text-muted-foreground text-center py-3">No transactions for this month</p>
                   ) : (
                     <>
-                      <ResponsiveContainer width="100%" height={160}>
+                      <ResponsiveContainer width="100%" height={110}>
                         <BarChart data={dailySpendData} margin={{ top: 2, right: 8, left: 0, bottom: 2 }} barGap={2}>
                           <XAxis
                             dataKey="day"

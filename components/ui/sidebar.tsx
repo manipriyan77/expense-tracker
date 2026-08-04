@@ -25,7 +25,6 @@ import {
   Activity,
   CalendarDays,
   Sparkles,
-  SearchCheck,
   Rocket,
   FileText,
   ListChecks,
@@ -90,7 +89,6 @@ const FINANCE_NAV: NavItem[] = [
     icon: PieChart,
     subItems: [
       { title: "Reports", href: "/analytics", icon: BarChart3 },
-      { title: "Smart Review", href: "/transaction-review", icon: SearchCheck },
       { title: "Health Score", href: "/health-score", icon: Activity },
     ],
   },
