@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import {
   ChevronDown, ChevronUp,
   Activity, Zap, BarChart3,
+  Search, X, Layers,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
@@ -89,6 +90,7 @@ export function shortAmount(v: number): string {
 }
 
 type SortKey = "name" | "invested" | "current" | "pnl" | "pnlPct" | "xirr" | "weight";
+type StockSortKey = "name" | "invested" | "current" | "pnl" | "pnlPct" | "portfolioWeight";
 
 function SortIcon({ active, dir }: { active: boolean; dir: 1 | -1 }) {
   if (!active) return <span className="text-muted-foreground/30 text-[10px]">⇅</span>;
@@ -147,6 +149,10 @@ export default function PortfolioSnapshot() {
   const [expandedFund, setExpandedFund] = useState<string | null>(null);
   const [expandedSector, setExpandedSector] = useState<string | null>(null);
   const [mfGroupBy, setMfGroupBy] = useState<"none" | "amc" | "category">("none");
+  const [stockSort, setStockSort] = useState<{ key: StockSortKey; dir: 1 | -1 }>({ key: "current", dir: -1 });
+  const [stockTypeFilter, setStockTypeFilter] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedStock, setExpandedStock] = useState<string | null>(null);
 
   const { mutualFunds } = useMutualFundsStore();
   const { stocks } = useStocksStore();
@@ -294,9 +300,22 @@ export default function PortfolioSnapshot() {
 
   // ── MF table ─────────────────────────────────────────────────────────────────
   const categories = ["All", ...Array.from(new Set(MF_HOLDINGS.map((f) => f.category)))];
+  const searchLower = searchQuery.trim().toLowerCase();
   const filteredMF = [...MF_HOLDINGS]
     .filter((f) => mfFilter === "All" || f.category === mfFilter)
+    .filter((f) => !searchLower || f.name.toLowerCase().includes(searchLower) || f.amc.toLowerCase().includes(searchLower))
     .sort((a, b) => (a[mfSort.key] as number) > (b[mfSort.key] as number) ? mfSort.dir : -mfSort.dir);
+
+  // ── Stocks tab: filter / search / sort ────────────────────────────────────────
+  const stockTypes = ["All", ...Array.from(new Set(STOCK_HOLDINGS.map((s) => s.type)))];
+  const filteredStocks = [...STOCK_HOLDINGS]
+    .filter((s) => stockTypeFilter === "All" || s.type === stockTypeFilter)
+    .filter((s) => !searchLower || s.name.toLowerCase().includes(searchLower))
+    .sort((a, b) => (a[stockSort.key] as number) > (b[stockSort.key] as number) ? stockSort.dir : -stockSort.dir);
+
+  function toggleStockSort(key: StockSortKey) {
+    setStockSort((prev) => prev.key === key ? { key, dir: prev.dir === -1 ? 1 : -1 } : { key, dir: -1 });
+  }
 
   // Grouped MF
   const mfGrouped = mfGroupBy === "none" ? { "All Funds": filteredMF } :
@@ -702,15 +721,31 @@ export default function PortfolioSnapshot() {
             ))}
           </div>
 
-          {/* Controls: filter pills + group by */}
+          {/* Controls: search + filter pills + group by */}
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex gap-1.5 flex-wrap">
-              {categories.map((cat) => (
-                <button key={cat} onClick={() => setMfFilter(cat)}
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${mfFilter === cat ? "bg-primary text-primary-foreground border-primary" : "bg-muted border-border text-muted-foreground hover:text-foreground"}`}>
-                  {cat}
-                </button>
-              ))}
+            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+              <div className="relative w-full max-w-48 shrink-0">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search funds or AMC…"
+                  className="w-full h-6 pl-6 pr-6 rounded-full border border-border bg-muted/40 text-[10px] focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                {categories.map((cat) => (
+                  <button key={cat} onClick={() => setMfFilter(cat)}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${mfFilter === cat ? "bg-primary text-primary-foreground border-primary" : "bg-muted border-border text-muted-foreground hover:text-foreground"}`}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
               <BarChart3 className="h-3 w-3" />
@@ -898,155 +933,242 @@ export default function PortfolioSnapshot() {
             ))}
           </div>
 
-          {/* Portfolio weight bar */}
+          {/* Portfolio weight bar — top holdings individually, the long tail grouped as "Others"
+              so colors don't repeat and small positions don't collapse into unreadable slivers */}
           <Card>
             <CardHeader className="pb-2 border-b border-border px-4 pt-3">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Portfolio Weight Distribution</p>
             </CardHeader>
             <CardContent className="px-4 py-3">
-              <div className="flex h-6 w-full rounded-lg overflow-hidden gap-0.5">
-                {[...STOCK_HOLDINGS].sort((a, b) => b.portfolioWeight - a.portfolioWeight).map((s, i) => {
-                  const COLORS = ["#3b82f6","#6366f1","#22c55e","#f97316","#a855f7"];
-                  return (
-                    <div key={s.name} style={{ width: `${s.portfolioWeight}%`, backgroundColor: COLORS[i % COLORS.length] }}
-                      className="flex items-center justify-center" title={`${s.name}: ${s.portfolioWeight}%`}>
-                      {s.portfolioWeight > 10 && <span className="text-[9px] font-bold text-white truncate px-1">{s.name}</span>}
+              {(() => {
+                const TOP_N = 8;
+                const sorted = [...STOCK_HOLDINGS].sort((a, b) => b.portfolioWeight - a.portfolioWeight);
+                const top = sorted.slice(0, TOP_N);
+                const rest = sorted.slice(TOP_N);
+                const others = rest.length > 0
+                  ? {
+                      name: `Others (${rest.length})`,
+                      portfolioWeight: rest.reduce((s, x) => s + x.portfolioWeight, 0),
+                      current: rest.reduce((s, x) => s + x.current, 0),
+                      isGroup: true,
+                      members: rest.map((x) => x.name),
+                    }
+                  : null;
+                const slices = others ? [...top, others] : top;
+                return (
+                  <>
+                    <div className="flex h-6 w-full rounded-lg overflow-hidden gap-0.5">
+                      {slices.map((s, i) => (
+                        <div key={s.name} style={{ width: `${s.portfolioWeight}%`, backgroundColor: DIST_PALETTE[i % DIST_PALETTE.length] }}
+                          className="flex items-center justify-center" title={`${s.name}: ${s.portfolioWeight.toFixed(1)}%`}>
+                          {s.portfolioWeight > 8 && <span className="text-[9px] font-bold text-white truncate px-1">{s.name}</span>}
+                        </div>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-              <div className="flex gap-4 flex-wrap mt-2">
-                {[...STOCK_HOLDINGS].sort((a, b) => b.portfolioWeight - a.portfolioWeight).map((s, i) => {
-                  const COLORS = ["#3b82f6","#6366f1","#22c55e","#f97316","#a855f7"];
-                  return (
-                    <div key={s.name} className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                      <span className="text-[10px] text-muted-foreground">{s.name}</span>
-                      <span className="text-[10px] font-mono">{s.portfolioWeight.toFixed(1)}%</span>
+                    <div className="flex gap-x-4 gap-y-1.5 flex-wrap mt-2">
+                      {slices.map((s, i) => (
+                        <div key={s.name} className="flex items-center gap-1.5" title={"members" in s ? s.members.join(", ") : undefined}>
+                          <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: DIST_PALETTE[i % DIST_PALETTE.length] }} />
+                          <span className="text-[10px] text-muted-foreground">{s.name}</span>
+                          <span className="text-[10px] font-mono">{s.portfolioWeight.toFixed(1)}%</span>
+                        </div>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
 
-          {/* Individual stock cards */}
-          <div className="space-y-3">
-            {[...STOCK_HOLDINGS].sort((a, b) => b.current - a.current).map((s, si) => {
-              const priceDiff = s.ltp != null && s.avgCost != null ? s.ltp - s.avgCost : null;
-              const priceDiffPct = priceDiff != null && s.avgCost != null ? (priceDiff / s.avgCost) * 100 : null;
-              const CARD_COLORS = ["#3b82f6","#6366f1","#22c55e","#f97316","#a855f7"];
-              const cardColor = CARD_COLORS[si % CARD_COLORS.length];
-              const gainPct = Math.min(100, Math.abs(s.pnlPct) * 3);
-              return (
-                <Card key={s.name} className="overflow-hidden">
-                  <div className="h-0.5 w-full" style={{ backgroundColor: cardColor }} />
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      {/* Avatar */}
-                      <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ backgroundColor: cardColor }}>
-                        {s.name.slice(0, 2)}
-                      </div>
-                      {/* Main info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2 mb-3">
-                          <div>
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <p className="font-bold text-sm">{s.name}</p>
-                              <Badge variant="outline" className="text-[9px] px-1.5">{s.type}</Badge>
-                              {s.dailyChangePct != null && (
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${s.dailyChangePct >= 0 ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"}`}>
-                                  {s.dailyChangePct >= 0 ? "▲" : "▼"} {Math.abs(s.dailyChangePct).toFixed(2)}% today
+          {/* Controls: search + type filter + sort */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+              <div className="relative w-full max-w-48 shrink-0">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search stocks…"
+                  className="w-full h-6 pl-6 pr-6 rounded-full border border-border bg-muted/40 text-[10px] focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                {stockTypes.map((t) => (
+                  <button key={t} onClick={() => setStockTypeFilter(t)}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${stockTypeFilter === t ? "bg-primary text-primary-foreground border-primary" : "bg-muted border-border text-muted-foreground hover:text-foreground"}`}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <BarChart3 className="h-3 w-3" />
+              <span>Sort:</span>
+              {(
+                [
+                  { key: "current" as const, label: "Value" },
+                  { key: "pnl" as const, label: "P&L" },
+                  { key: "pnlPct" as const, label: "P&L %" },
+                  { key: "portfolioWeight" as const, label: "Weight" },
+                ]
+              ).map((opt) => (
+                <button key={opt.key} onClick={() => toggleStockSort(opt.key)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors inline-flex items-center gap-0.5 ${stockSort.key === opt.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+                  {opt.label}
+                  {stockSort.key === opt.key && <SortIcon active dir={stockSort.dir} />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Stock holdings — compact expandable table (matches the MF tab's density) */}
+          <Card>
+            <CardContent className="p-0">
+              {filteredStocks.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">No stocks match your search/filter.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/50">
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-6"></th>
+                        <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Stock</th>
+                        <th className="text-right px-3 py-2.5 font-medium text-muted-foreground hidden lg:table-cell whitespace-nowrap">Qty</th>
+                        <th className="text-right px-3 py-2.5 font-medium text-muted-foreground hidden lg:table-cell whitespace-nowrap">Avg Cost</th>
+                        <th className="text-right px-3 py-2.5 font-medium text-muted-foreground hidden lg:table-cell whitespace-nowrap">LTP</th>
+                        <th className="text-right px-3 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Invested</th>
+                        <th className="text-right px-3 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Current</th>
+                        <th className="text-right px-3 py-2.5 font-medium text-muted-foreground whitespace-nowrap">P&L</th>
+                        <th className="text-right px-3 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Weight</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredStocks.map((s, si) => {
+                        const isExpanded = expandedStock === s.name;
+                        const color = DIST_PALETTE[si % DIST_PALETTE.length];
+                        const priceDiff = s.ltp != null && s.avgCost != null ? s.ltp - s.avgCost : null;
+                        const rowBg = s.pnlPct > 10 ? "bg-green-50/30 dark:bg-green-950/10" : s.pnlPct < -10 ? "bg-red-50/30 dark:bg-red-950/10" : "";
+                        return (
+                          <React.Fragment key={s.name}>
+                            <tr
+                              className={`border-b border-border/60 hover:bg-muted/30 transition-colors cursor-pointer ${rowBg}`}
+                              onClick={() => setExpandedStock(isExpanded ? null : s.name)}
+                            >
+                              <td className="px-4 py-2.5 text-muted-foreground">
+                                {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                              </td>
+                              <td className="px-3 py-2.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <p className="font-medium truncate max-w-32">{s.name}</p>
+                                      <Badge variant="outline" className="text-[8px] px-1 py-0 shrink-0">{s.type}</Badge>
+                                    </div>
+                                    {s.dailyChangePct != null && (
+                                      <p className={`text-[9px] font-semibold ${s.dailyChangePct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                                        {s.dailyChangePct >= 0 ? "▲" : "▼"} {Math.abs(s.dailyChangePct).toFixed(2)}% today
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2.5 text-right font-mono text-muted-foreground hidden lg:table-cell whitespace-nowrap">{s.qty ?? "—"}</td>
+                              <td className="px-3 py-2.5 text-right font-mono text-muted-foreground hidden lg:table-cell whitespace-nowrap">{s.avgCost != null ? `₹${s.avgCost.toFixed(2)}` : "—"}</td>
+                              <td className="px-3 py-2.5 text-right font-mono text-muted-foreground hidden lg:table-cell whitespace-nowrap">{s.ltp != null ? `₹${s.ltp.toFixed(2)}` : "—"}</td>
+                              <td className="px-3 py-2.5 text-right font-mono">{format(s.invested)}</td>
+                              <td className="px-3 py-2.5 text-right font-mono font-semibold">{format(s.current)}</td>
+                              <td className={`px-3 py-2.5 text-right font-mono font-semibold whitespace-nowrap ${s.pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                                {s.pnl >= 0 ? "+" : ""}{format(s.pnl)}
+                                <span className="block text-[9px] font-normal text-muted-foreground">
+                                  {s.pnlPct >= 0 ? "+" : ""}{s.pnlPct.toFixed(2)}%
                                 </span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-muted-foreground">
-                              {s.qty != null ? `${s.qty} units` : ""}
-                              {s.avgCost != null ? ` · Avg cost ₹${s.avgCost.toFixed(2)}` : ""}
-                              {s.ltp != null ? ` · LTP ₹${s.ltp.toFixed(2)}` : ""}
-                            </p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="font-mono font-bold text-base">{format(s.current)}</p>
-                            <p className={`text-xs font-mono font-semibold ${s.pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
-                              {s.pnl >= 0 ? "+" : ""}{format(Math.abs(s.pnl))}
-                              <span className="text-[10px] ml-1">({s.pnlPct >= 0 ? "+" : ""}{s.pnlPct.toFixed(2)}%)</span>
-                            </p>
-                          </div>
-                        </div>
+                              </td>
+                              <td className="px-3 py-2.5 hidden sm:table-cell">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <div className="w-14 h-1.5 rounded-full bg-muted overflow-hidden">
+                                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, s.portfolioWeight * 4)}%`, backgroundColor: color }} />
+                                  </div>
+                                  <span className="font-mono text-[10px] text-muted-foreground w-10 text-right">{s.portfolioWeight.toFixed(1)}%</span>
+                                </div>
+                              </td>
+                            </tr>
+                            {isExpanded && (
+                              <tr className="border-b border-border bg-muted/20">
+                                <td colSpan={9} className="px-6 py-3">
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-3">
+                                    <div>
+                                      <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Quantity</p>
+                                      <p className="font-mono text-sm font-semibold">{s.qty ?? "—"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Avg Cost</p>
+                                      <p className="font-mono text-sm font-semibold">{s.avgCost != null ? `₹${s.avgCost.toFixed(2)}` : "—"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">LTP</p>
+                                      <p className="font-mono text-sm font-semibold">{s.ltp != null ? `₹${s.ltp.toFixed(2)}` : "—"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Price chg/unit</p>
+                                      <p className={`font-mono text-sm font-semibold ${priceDiff != null && priceDiff >= 0 ? "text-green-600 dark:text-green-400" : priceDiff != null ? "text-red-500" : ""}`}>
+                                        {priceDiff != null ? `${priceDiff >= 0 ? "+" : ""}₹${priceDiff.toFixed(2)}` : "—"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-3 text-[9px] text-muted-foreground mb-1">
+                                    <span>Cost basis {format(s.invested)}</span>
+                                    <span>→</span>
+                                    <span className={s.pnl >= 0 ? "text-green-500" : "text-red-500"}>Current {format(s.current)}</span>
+                                  </div>
+                                  <div className="relative h-3 rounded-full bg-muted overflow-hidden">
+                                    <div className="absolute inset-y-0 left-0 rounded-full bg-muted-foreground/20" style={{ width: "100%" }} />
+                                    <div className={`absolute inset-y-0 left-0 rounded-full ${s.pnl >= 0 ? "bg-green-500" : "bg-red-500"}`}
+                                      style={{ width: `${Math.min(100, (s.current / (s.invested * 1.5)) * 100)}%` }} />
+                                    <div className="absolute inset-y-0 rounded-full bg-foreground/40 w-0.5"
+                                      style={{ left: `${Math.min(99, (s.invested / (s.invested * 1.5)) * 100)}%` }} />
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-                        {/* Metric grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-                          <div className="bg-muted/40 rounded-lg px-2.5 py-2">
-                            <p className="text-[9px] text-muted-foreground mb-0.5">Invested</p>
-                            <p className="font-mono text-xs font-semibold">{format(s.invested)}</p>
-                          </div>
-                          <div className="bg-muted/40 rounded-lg px-2.5 py-2">
-                            <p className="text-[9px] text-muted-foreground mb-0.5">Portfolio Wt</p>
-                            <p className="font-mono text-xs font-semibold">{s.portfolioWeight.toFixed(2)}%</p>
-                          </div>
-                          {priceDiff != null && (
-                            <div className="bg-muted/40 rounded-lg px-2.5 py-2">
-                              <p className="text-[9px] text-muted-foreground mb-0.5">Price change/unit</p>
-                              <p className={`font-mono text-xs font-semibold ${priceDiff >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
-                                {priceDiff >= 0 ? "+" : ""}₹{priceDiff.toFixed(2)}
-                              </p>
-                            </div>
-                          )}
-                          {priceDiffPct != null && (
-                            <div className="bg-muted/40 rounded-lg px-2.5 py-2">
-                              <p className="text-[9px] text-muted-foreground mb-0.5">Price chg %</p>
-                              <p className={`font-mono text-xs font-semibold ${priceDiffPct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
-                                {priceDiffPct >= 0 ? "+" : ""}{priceDiffPct.toFixed(2)}%
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Cost vs current visual */}
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground mb-1">
-                            <span>Cost basis: {format(s.invested)}</span>
-                            <span className={s.pnl >= 0 ? "text-green-500" : "text-red-500"}>
-                              {s.pnl >= 0 ? "Gain" : "Loss"}: {format(Math.abs(s.pnl))}
-                            </span>
-                          </div>
-                          <div className="relative h-2.5 rounded-full bg-muted overflow-hidden">
-                            {/* cost bar */}
-                            <div className="absolute inset-y-0 left-0 rounded-full opacity-30" style={{ width: "100%", backgroundColor: cardColor }} />
-                            {/* gain/loss overlay */}
-                            <div className={`absolute inset-y-0 left-0 rounded-full ${s.pnl >= 0 ? "bg-green-500" : "bg-red-500"}`}
-                              style={{ width: `${gainPct}%`, opacity: 0.85 }} />
-                            {/* cost marker line */}
-                            <div className="absolute inset-y-0 w-0.5 bg-foreground/50" style={{ left: "33%" }} />
-                          </div>
-                          <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5 font-mono">
-                            <span>₹0</span>
-                            <span className="opacity-50">cost ←→ gain</span>
-                            <span>{format(s.current)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-
-          {/* Stocks total footer */}
-          <div className="flex items-center justify-between px-4 py-3 bg-muted/40 border border-border rounded-xl">
-            <div>
-              <p className="text-xs font-semibold">Total · {STOCK_HOLDINGS.length} holdings</p>
-              <p className="text-[10px] text-muted-foreground font-mono">Invested {format(stInvested)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-mono font-bold">{format(stCurrent)}</p>
-              <p className={`text-xs font-mono font-semibold ${stPnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
-                {stPnl >= 0 ? "+" : ""}{format(Math.abs(stPnl))}
-              </p>
-            </div>
-          </div>
+          {/* Stocks total footer — reflects the current filter/search */}
+          {(() => {
+            const fInvested = filteredStocks.reduce((s, x) => s + x.invested, 0);
+            const fCurrent = filteredStocks.reduce((s, x) => s + x.current, 0);
+            const fPnl = fCurrent - fInvested;
+            const isFiltered = stockTypeFilter !== "All" || searchLower.length > 0;
+            return (
+              <div className="flex items-center justify-between px-4 py-3 bg-muted/40 border border-border rounded-xl">
+                <div>
+                  <p className="text-xs font-semibold">
+                    {isFiltered ? "Shown" : "Total"} · {filteredStocks.length} holding{filteredStocks.length === 1 ? "" : "s"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground font-mono">Invested {format(fInvested)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-mono font-bold">{format(fCurrent)}</p>
+                  <p className={`text-xs font-mono font-semibold ${fPnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                    {fPnl >= 0 ? "+" : ""}{format(Math.abs(fPnl))}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1130,6 +1252,37 @@ export default function PortfolioSnapshot() {
               </CardContent>
             </Card>
           </div>
+
+          {/* ─ Diversification breakdown — why the score is what it is ─ */}
+          <Card>
+            <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+              <div className="flex items-center gap-2">
+                <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Diversification Breakdown</p>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {diversityPct}/100 composite score · each dimension scored on how evenly spread it is, then weighted
+              </p>
+            </CardHeader>
+            <CardContent className="px-4 py-3 space-y-3">
+              {divComponents.map((c) => {
+                const color = c.score >= 70 ? "#22c55e" : c.score >= 40 ? "#f59e0b" : "#ef4444";
+                return (
+                  <div key={c.label} className="grid items-center gap-3" style={{ gridTemplateColumns: "110px minmax(0,1fr) 48px 90px" }}>
+                    <span className="text-[11px] font-medium truncate">{c.label}</span>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${c.score}%`, backgroundColor: color }} />
+                    </div>
+                    <span className="text-[10px] font-mono font-semibold text-right" style={{ color }}>{Math.round(c.score)}</span>
+                    <span className="text-[9px] text-muted-foreground text-right truncate" title={c.hint}>{c.hint}</span>
+                  </div>
+                );
+              })}
+              <p className="text-[9px] text-muted-foreground pt-1 border-t border-border/60">
+                Weighted: asset class 35% · sector 25% · fund house 20% · holdings 20%
+              </p>
+            </CardContent>
+          </Card>
 
           {/* ─ Contribution to total P&L ─ */}
           <Card>

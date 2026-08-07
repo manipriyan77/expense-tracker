@@ -38,7 +38,6 @@ import {
   AreaChart,
   Area,
   LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -1041,14 +1040,14 @@ export default function InvestmentsPage() {
     // Mutual-fund rows are collected and sent as one monthly snapshot import so
     // funds are matched by name and history accumulates across uploads.
     const fundSnapshotRows: SnapshotImportFund[] = [];
+    // Stocks: match existing holdings by name and update them in place (same as
+    // mutual funds' CSV sync below) instead of delete+recreate — that way a stock's
+    // id is stable across re-uploads, so goal-tracker links to it survive.
+    const stockByName = new Map(
+      stocks.map((s) => [s.name.trim().toLowerCase(), s]),
+    );
+    const matchedStockNames = new Set<string>();
     try {
-      // Stocks have no history to preserve, so "replace" is a simple wipe + reinsert.
-      // Mutual funds handle "replace" server-side in importSnapshot as a sync-to-CSV
-      // (only funds absent from this upload are removed; funds still held are matched
-      // by name and updated in place so their monthly snapshot history is preserved).
-      if (replaceOnImport && importType === "stocks") {
-        for (const s of stocks) await deleteStock(s.id);
-      }
       for (const row of importRows) {
         try {
           if (importType === "stocks") {
@@ -1090,7 +1089,7 @@ export default function InvestmentsPage() {
               continue;
             }
 
-            await addStock({
+            const stockPayload = {
               name: nameVal,
               symbol: symbolVal.toUpperCase(),
               stockType: (findCol(row, "type", "stock_type", "cap") ||
@@ -1105,7 +1104,16 @@ export default function InvestmentsPage() {
               ),
               sector: findCol(row, "sector") || null,
               subSector: null,
-            });
+            };
+
+            const nameKey = nameVal.trim().toLowerCase();
+            matchedStockNames.add(nameKey);
+            const existingStock = stockByName.get(nameKey);
+            if (existingStock) {
+              await updateStock(existingStock.id, stockPayload);
+            } else {
+              await addStock(stockPayload);
+            }
           } else {
             const nameVal = findCol(row, "fund name", "name", "scheme name");
             const units = parseFloat(findCol(row, "units")) || 0;
@@ -1204,6 +1212,16 @@ export default function InvestmentsPage() {
         success = result.imported;
         failed += result.failed;
         removed = result.removed;
+      }
+
+      // "Sync to CSV" for stocks: only remove holdings that are genuinely absent
+      // from this upload — matched holdings were already updated in place above.
+      if (importType === "stocks" && replaceOnImport) {
+        const toRemove = stocks.filter(
+          (s) => !matchedStockNames.has(s.name.trim().toLowerCase()),
+        );
+        for (const s of toRemove) await deleteStock(s.id);
+        removed = toRemove.length;
       }
 
       setImportStep("done");
@@ -2915,6 +2933,19 @@ export default function InvestmentsPage() {
                 } as const;
                 const active = metricMeta[trackerMetric];
 
+                // Month-over-month deltas for the active metric — surfaced in the table
+                // and used to color the growth badge in the stat strip.
+                const withDelta = rows.map((r, i) => {
+                  const prev = i > 0 ? rows[i - 1][trackerMetric] : null;
+                  const delta = prev !== null && prev !== 0 ? ((r[trackerMetric] - prev) / Math.abs(prev)) * 100 : null;
+                  return { ...r, delta };
+                });
+                const firstVal = rows[0]?.[trackerMetric] ?? 0;
+                const lastVal = rows[rows.length - 1]?.[trackerMetric] ?? 0;
+                const totalGrowthPct = firstVal !== 0 ? ((lastVal - firstVal) / Math.abs(firstVal)) * 100 : null;
+                const fmtMetric = (v: number) =>
+                  active.isMoney ? format(v) : v.toLocaleString(undefined, { maximumFractionDigits: 3 });
+
                 return (
                   <Card className="overflow-hidden p-0">
                     <CardHeader className="pb-2 border-b border-border px-4 pt-4">
@@ -2949,7 +2980,7 @@ export default function InvestmentsPage() {
                               ))}
                           </SelectContent>
                         </Select>
-                        <div className="flex gap-1 rounded-lg border p-0.5">
+                        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
                           {(
                             [
                               "investedAmount",
@@ -2957,17 +2988,17 @@ export default function InvestmentsPage() {
                               "currentValue",
                             ] as const
                           ).map((m) => (
-                            <Button
+                            <button
                               key={m}
-                              size="sm"
-                              variant={
-                                trackerMetric === m ? "default" : "ghost"
-                              }
-                              className="h-7 text-xs"
                               onClick={() => setTrackerMetric(m)}
+                              className={`text-xs px-3 py-1 rounded-md font-medium transition-colors ${
+                                trackerMetric === m
+                                  ? "bg-background shadow-sm text-foreground"
+                                  : "text-muted-foreground hover:text-foreground"
+                              }`}
                             >
                               {metricMeta[m].label}
-                            </Button>
+                            </button>
                           ))}
                         </div>
                       </div>
@@ -3031,11 +3062,42 @@ export default function InvestmentsPage() {
                         </div>
                       ) : (
                         <>
+                          {/* Stat strip: first → latest, with overall growth */}
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="rounded-lg bg-muted/40 border border-border/50 px-3 py-2.5">
+                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                                First · {rows[0].label}
+                              </p>
+                              <p className="font-mono text-sm font-semibold tabular-nums truncate">{fmtMetric(firstVal)}</p>
+                            </div>
+                            <div className="rounded-lg bg-muted/40 border border-border/50 px-3 py-2.5">
+                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                                Latest · {rows[rows.length - 1].label}
+                              </p>
+                              <p className="font-mono text-sm font-semibold tabular-nums truncate">{fmtMetric(lastVal)}</p>
+                            </div>
+                            <div className={`rounded-lg border px-3 py-2.5 ${totalGrowthPct === null ? "bg-muted/40 border-border/50" : totalGrowthPct >= 0 ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20"}`}>
+                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">
+                                Growth
+                              </p>
+                              <p className={`font-mono text-sm font-semibold tabular-nums truncate ${totalGrowthPct === null ? "" : totalGrowthPct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                                {totalGrowthPct === null ? "—" : `${totalGrowthPct >= 0 ? "+" : ""}${totalGrowthPct.toFixed(1)}%`}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Gradient area chart */}
                           <ResponsiveContainer width="100%" height={220}>
-                            <LineChart
+                            <AreaChart
                               data={rows}
                               margin={{ top: 8, right: 12, left: 4, bottom: 0 }}
                             >
+                              <defs>
+                                <linearGradient id="trackerGrad" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.35} />
+                                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.03} />
+                                </linearGradient>
+                              </defs>
                               <CartesianGrid
                                 strokeDasharray="3 3"
                                 stroke="hsl(var(--border))"
@@ -3070,46 +3132,57 @@ export default function InvestmentsPage() {
                                   fontSize: 12,
                                 }}
                               />
-                              <Line
+                              <Area
                                 type="monotone"
                                 dataKey={trackerMetric}
                                 stroke="#8b5cf6"
                                 strokeWidth={2}
-                                dot={{ r: 3 }}
+                                fill="url(#trackerGrad)"
+                                dot={{ r: 3, fill: "#8b5cf6" }}
                                 activeDot={{ r: 5 }}
                               />
-                            </LineChart>
+                            </AreaChart>
                           </ResponsiveContainer>
 
                           {/* Monthly table */}
-                          <div className="overflow-x-auto">
-                            <div className="min-w-[480px]">
-                              <div className="grid grid-cols-4 gap-2 px-2 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
-                                <div>Month</div>
-                                <div className="text-right">Invested</div>
-                                <div className="text-right">Units</div>
-                                <div className="text-right">Value</div>
-                              </div>
-                              {[...rows].reverse().map((r) => (
-                                <div
-                                  key={r.month}
-                                  className="grid grid-cols-4 gap-2 px-2 py-2 text-sm items-center border-b border-border/50"
-                                >
-                                  <div className="font-medium">{r.label}</div>
-                                  <div className="text-right font-mono">
-                                    {format(r.investedAmount)}
-                                  </div>
-                                  <div className="text-right font-mono">
-                                    {r.units.toLocaleString(undefined, {
-                                      maximumFractionDigits: 3,
-                                    })}
-                                  </div>
-                                  <div className="text-right font-mono">
-                                    {format(r.currentValue)}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                          <div className="overflow-x-auto rounded-lg border border-border">
+                            <table className="w-full text-xs min-w-120">
+                              <thead>
+                                <tr className="border-b border-border bg-muted/50">
+                                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Month</th>
+                                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Invested</th>
+                                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Units</th>
+                                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Value</th>
+                                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">
+                                    {metricMeta[trackerMetric].label} Δ
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {[...withDelta].reverse().map((r) => (
+                                  <tr
+                                    key={r.month}
+                                    className="border-b border-border/60 last:border-0 hover:bg-muted/30 transition-colors"
+                                  >
+                                    <td className="px-3 py-2 font-medium">{r.label}</td>
+                                    <td className="px-3 py-2 text-right font-mono">{format(r.investedAmount)}</td>
+                                    <td className="px-3 py-2 text-right font-mono">
+                                      {r.units.toLocaleString(undefined, { maximumFractionDigits: 3 })}
+                                    </td>
+                                    <td className="px-3 py-2 text-right font-mono">{format(r.currentValue)}</td>
+                                    <td className="px-3 py-2 text-right font-mono">
+                                      {r.delta === null ? (
+                                        <span className="text-muted-foreground">—</span>
+                                      ) : (
+                                        <span className={r.delta >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}>
+                                          {r.delta >= 0 ? "+" : ""}{r.delta.toFixed(1)}%
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
                         </>
                       )}
