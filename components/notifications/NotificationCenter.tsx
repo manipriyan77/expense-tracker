@@ -137,8 +137,8 @@ export function NotificationCenter() {
 
           <ScrollArea className="h-[400px] pr-4">
             {notifications.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Bell className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <div className="text-center py-8 text-muted-foreground">
+                <Bell className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
                 <p>No notifications yet</p>
               </div>
             ) : (
@@ -148,8 +148,8 @@ export function NotificationCenter() {
                     key={notification.id}
                     className={`p-4 rounded-lg border transition-colors ${
                       notification.isRead
-                        ? "bg-white"
-                        : "bg-blue-50 border-blue-200"
+                        ? "bg-muted/40 border-border"
+                        : "bg-primary/10 border-primary/30"
                     }`}
                   >
                     <div className="flex gap-3">
@@ -170,11 +170,11 @@ export function NotificationCenter() {
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-sm text-muted-foreground mt-1">
                           {notification.message}
                         </p>
                         <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-muted-foreground">
                             {getTimeAgo(notification.createdAt)}
                           </span>
                           {!notification.isRead && (

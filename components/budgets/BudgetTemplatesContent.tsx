@@ -703,7 +703,7 @@ export function BudgetTemplatesContent() {
                 <Label className="text-base font-semibold">
                   Budget Categories
                 </Label>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Add categories manually or import from existing budgets
                 </p>
                 <div className="flex gap-2">
@@ -749,7 +749,7 @@ export function BudgetTemplatesContent() {
                   </div>
                   {templateForm.categories.length === 0 ? (
                     <div className="p-6 border-2 border-dashed rounded-lg text-center">
-                      <p className="text-sm text-gray-500 mb-3">
+                      <p className="text-sm text-muted-foreground mb-3">
                         No categories added yet
                       </p>
                       <Button type="button" size="sm" onClick={addCategoryRow}>
@@ -758,11 +758,11 @@ export function BudgetTemplatesContent() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2\">
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
                       {templateForm.categories.map((cat, index) => (
                         <div
                           key={index}
-                          className="p-3 border rounded-lg bg-gray-50 space-y-2\"
+                          className="p-3 border rounded-lg bg-muted/40 space-y-2"
                         >
                           <div className="flex items-start gap-3">
                             <div className="flex-1 grid grid-cols-2 gap-3">
@@ -847,7 +847,7 @@ export function BudgetTemplatesContent() {
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-500/10"
                               onClick={() => removeCategoryRow(index)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -858,13 +858,13 @@ export function BudgetTemplatesContent() {
                     </div>
                   )}
                   {templateForm.categories.length > 0 && (
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="p-4 bg-blue-500/100/10 border border-blue-500/30 rounded-lg">
                       <div className="flex justify-between items-center">
                         <div>
-                          <p className="text-sm font-medium text-blue-900">
+                          <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
                             Total Budget
                           </p>
-                          <p className="text-xs text-blue-700">
+                          <p className="text-xs text-blue-600 dark:text-blue-400">
                             {templateForm.categories.length} categories
                           </p>
                         </div>
@@ -880,8 +880,8 @@ export function BudgetTemplatesContent() {
               )}
               {createMode === "from-budgets" &&
                 templateForm.categories.length > 0 && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-sm text-green-700 font-medium">
+                  <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                    <p className="text-sm text-green-700 dark:text-green-400 font-medium">
                       ✓ Loaded {templateForm.categories.length} categories with
                       total{" "}
                       {format(calculateTotalBudget(templateForm.categories))}
@@ -943,24 +943,24 @@ export function BudgetTemplatesContent() {
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="p-2 space-y-2\">
-                  <div className="p-3 bg-blue-50 rounded-lg">
-                    <p className="text-xs text-gray-600 mb-1">Total Budget</p>
+                <CardContent className="p-2 space-y-2">
+                  <div className="p-3 bg-blue-500/10 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Total Budget</p>
                     <p className="text-xl font-bold text-blue-600">
                       {format(calculateTotalBudget(template.categories))}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {template.categories.length} categories
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-sm font-semibold text-gray-700">
+                    <p className="text-sm font-semibold text-foreground">
                       Top Categories:
                     </p>
                     {template.categories.slice(0, 3).map((cat, idx) => (
                       <div
                         key={idx}
-                        className="flex justify-between text-sm text-gray-600"
+                        className="flex justify-between text-sm text-muted-foreground"
                       >
                         <span className="truncate">{cat.category}</span>
                         <span className="font-medium">
@@ -969,7 +969,7 @@ export function BudgetTemplatesContent() {
                       </div>
                     ))}
                     {template.categories.length > 3 && (
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-muted-foreground">
                         +{template.categories.length - 3} more categories
                       </p>
                     )}
@@ -1059,23 +1059,23 @@ export function BudgetTemplatesContent() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-gray-600 mb-1">Total Budget</p>
+                    <div className="p-4 bg-blue-500/10 rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-1">Total Budget</p>
                       <p className="text-2xl font-bold text-blue-600">
                         {format(calculateTotalBudget(template.categories))}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {template.categories.length} categories
                       </p>
                     </div>
                     <div className="space-y-2">
-                      <p className="text-sm font-semibold text-gray-700">
+                      <p className="text-sm font-semibold text-foreground">
                         Top Categories:
                       </p>
                       {template.categories.slice(0, 3).map((cat, idx) => (
                         <div
                           key={idx}
-                          className="flex justify-between text-sm text-gray-600"
+                          className="flex justify-between text-sm text-muted-foreground"
                         >
                           <span className="truncate">{cat.category}</span>
                           <span className="font-medium">
@@ -1084,7 +1084,7 @@ export function BudgetTemplatesContent() {
                         </div>
                       ))}
                       {template.categories.length > 3 && (
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-muted-foreground">
                           +{template.categories.length - 3} more categories
                         </p>
                       )}
@@ -1133,10 +1133,10 @@ export function BudgetTemplatesContent() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="p-4 bg-muted/40 rounded-lg">
                 <div className="flex justify-between items-center">
                   <div>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-muted-foreground">
                       Total Monthly Budget
                     </p>
                     <p className="text-2xl font-bold">
@@ -1166,7 +1166,7 @@ export function BudgetTemplatesContent() {
                         </span>
                         <span className="font-semibold">
                           {format(cat.amount)}{" "}
-                          <span className="text-gray-500">
+                          <span className="text-muted-foreground">
                             ({pct.toFixed(0)}%)
                           </span>
                         </span>
@@ -1209,10 +1209,10 @@ export function BudgetTemplatesContent() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="p-4 bg-muted/40 rounded-lg">
                 <div className="flex justify-between items-center">
                   <div>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-muted-foreground">
                       Total Monthly Budget
                     </p>
                     <p className="text-2xl font-bold">
@@ -1240,7 +1240,7 @@ export function BudgetTemplatesContent() {
                         </span>
                         <span className="font-semibold">
                           {format(cat.amount)}{" "}
-                          <span className="text-gray-500">
+                          <span className="text-muted-foreground">
                             ({pct.toFixed(0)}%)
                           </span>
                         </span>
@@ -1316,7 +1316,7 @@ export function BudgetTemplatesContent() {
               </div>
               {templateForm.categories.length === 0 ? (
                 <div className="p-6 border-2 border-dashed rounded-lg text-center">
-                  <p className="text-sm text-gray-500 mb-3">No categories added yet</p>
+                  <p className="text-sm text-muted-foreground mb-3">No categories added yet</p>
                   <Button type="button" size="sm" onClick={addCategoryRow}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Your First Category
@@ -1325,7 +1325,7 @@ export function BudgetTemplatesContent() {
               ) : (
                 <div className="space-y-2 max-h-100 overflow-y-auto pr-2">
                   {templateForm.categories.map((cat, index) => (
-                    <div key={index} className="p-3 border rounded-lg bg-gray-50 space-y-2">
+                    <div key={index} className="p-3 border rounded-lg bg-muted/40 space-y-2">
                       <div className="flex items-start gap-3">
                         <div className="flex-1 grid grid-cols-2 gap-3">
                           <div className="space-y-1">
@@ -1385,7 +1385,7 @@ export function BudgetTemplatesContent() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-500/10"
                           onClick={() => removeCategoryRow(index)}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1396,11 +1396,11 @@ export function BudgetTemplatesContent() {
                 </div>
               )}
               {templateForm.categories.length > 0 && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="p-4 bg-blue-500/100/10 border border-blue-500/30 rounded-lg">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-sm font-medium text-blue-900">Total Budget</p>
-                      <p className="text-xs text-blue-700">{templateForm.categories.length} categories</p>
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Total Budget</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">{templateForm.categories.length} categories</p>
                     </div>
                     <p className="text-2xl font-bold text-blue-600">
                       {format(calculateTotalBudget(templateForm.categories))}

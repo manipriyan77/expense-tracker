@@ -1024,7 +1024,7 @@ function TransactionsPageInner() {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`shrink-0 ${showFilters ? "bg-gray-100" : ""}`}
+                  className={`shrink-0 ${showFilters ? "bg-accent" : ""}`}
                 >
                   <Filter className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">Filters</span>
