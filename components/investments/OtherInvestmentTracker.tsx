@@ -51,6 +51,7 @@ export function OtherInvestmentTracker({ investment, open, onOpenChange }: Props
 
   const [month, setMonth] = useState(currentMonthValue());
   const [value, setValue] = useState("");
+  const [contribution, setContribution] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadedOnce, setLoadedOnce] = useState(false);
 
@@ -58,8 +59,11 @@ export function OtherInvestmentTracker({ investment, open, onOpenChange }: Props
     if (!open) return;
     setMonth(currentMonthValue());
     setValue("");
+    setContribution(
+      investment?.premiumAmount ? String(investment.premiumAmount) : "",
+    );
     fetchSnapshots().finally(() => setLoadedOnce(true));
-  }, [open, fetchSnapshots]);
+  }, [open, investment, fetchSnapshots]);
 
   const rows = useMemo(() => {
     if (!investment) return [];
@@ -68,6 +72,18 @@ export function OtherInvestmentTracker({ investment, open, onOpenChange }: Props
       .sort((a, b) => a.month.localeCompare(b.month))
       .map((s) => ({ ...s, label: monthLabel(s.month) }));
   }, [snapshots, investment]);
+
+  // If the selected month already has a recorded entry, load it into the
+  // form so editing an existing month (value or contribution) is natural.
+  // Re-runs once snapshots finish loading, not just when the month changes.
+  useEffect(() => {
+    if (!open) return;
+    const existing = rows.find((r) => r.month === `${month}-01`);
+    if (existing) {
+      setValue(String(existing.currentValue));
+      setContribution(String(existing.contributionAmount));
+    }
+  }, [month, open, rows]);
 
   const stats = useMemo(() => {
     if (rows.length === 0 || !investment) return null;
@@ -86,9 +102,14 @@ export function OtherInvestmentTracker({ investment, open, onOpenChange }: Props
       toast.error("Enter a valid value.");
       return;
     }
+    const contributionNum = contribution === "" ? 0 : parseFloat(contribution);
+    if (!Number.isFinite(contributionNum) || contributionNum < 0) {
+      toast.error("Enter a valid contribution.");
+      return;
+    }
     setSaving(true);
     try {
-      await recordValue(investment.id, month, num);
+      await recordValue(investment.id, month, num, contributionNum);
       toast.success(`Recorded ${monthLabel(`${month}-01`)} value.`);
       setValue("");
     } catch (e) {
@@ -115,13 +136,13 @@ export function OtherInvestmentTracker({ investment, open, onOpenChange }: Props
             {investment?.name ?? "Value tracker"}
           </DialogTitle>
           <DialogDescription>
-            Record this investment&apos;s value each month to build a history and
-            see how it grows.
+            Record this investment&apos;s value and contribution each month to
+            build a history and see how it grows. Click a row below to edit it.
           </DialogDescription>
         </DialogHeader>
 
-        {/* Record a new month's value */}
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end rounded-lg border p-3 bg-muted/20">
+        {/* Record a new month's value + contribution */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end rounded-lg border p-3 bg-muted/20">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Month</Label>
             <Input
@@ -145,7 +166,21 @@ export function OtherInvestmentTracker({ investment, open, onOpenChange }: Props
               }}
             />
           </div>
-          <Button onClick={handleRecord} disabled={saving} className="h-9 gap-1.5">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Contribution this month</Label>
+            <Input
+              type="number"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={contribution}
+              onChange={(e) => setContribution(e.target.value)}
+              className="h-9"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleRecord();
+              }}
+            />
+          </div>
+          <Button onClick={handleRecord} disabled={saving} className="h-9 gap-1.5 sm:justify-self-start">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
             Record
           </Button>
@@ -224,8 +259,9 @@ export function OtherInvestmentTracker({ investment, open, onOpenChange }: Props
         {/* History table */}
         {rows.length > 0 && (
           <div className="border rounded-lg overflow-hidden">
-            <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-2 text-[10px] uppercase tracking-wider text-muted-foreground border-b bg-muted/30">
+            <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 px-3 py-2 text-[10px] uppercase tracking-wider text-muted-foreground border-b bg-muted/30">
               <div>Month</div>
+              <div className="text-right">Contribution</div>
               <div className="text-right">Value</div>
               <div className="w-8" />
             </div>
@@ -234,11 +270,17 @@ export function OtherInvestmentTracker({ investment, open, onOpenChange }: Props
                 const prev = arr[i + 1];
                 const delta = prev ? r.currentValue - prev.currentValue : 0;
                 return (
-                  <div
+                  <button
                     key={r.id}
-                    className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-2 text-sm items-center border-b border-border/50 last:border-0"
+                    type="button"
+                    onClick={() => setMonth(r.month.slice(0, 7))}
+                    className="w-full grid grid-cols-[1fr_1fr_1fr_auto] gap-2 px-3 py-2 text-sm items-center border-b border-border/50 last:border-0 text-left hover:bg-muted/30"
+                    title="Click to edit this month's entry"
                   >
                     <div className="font-medium">{r.label}</div>
+                    <div className="text-right font-mono tabular-nums text-muted-foreground">
+                      {r.contributionAmount > 0 ? format(r.contributionAmount) : "—"}
+                    </div>
                     <div className="text-right font-mono tabular-nums">
                       {format(r.currentValue)}
                       {prev && (
@@ -247,14 +289,25 @@ export function OtherInvestmentTracker({ investment, open, onOpenChange }: Props
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleDelete(r.id)}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(r.id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.stopPropagation();
+                          handleDelete(r.id);
+                        }
+                      }}
                       className="text-muted-foreground hover:text-red-500 justify-self-end"
                       aria-label="Delete entry"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                    </span>
+                  </button>
                 );
               })}
             </div>

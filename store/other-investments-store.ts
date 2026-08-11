@@ -32,6 +32,7 @@ export interface OtherInvestmentSnapshot {
   investmentId: string;
   month: string; // "YYYY-MM-01"
   currentValue: number;
+  contributionAmount: number;
 }
 
 interface OtherInvestmentsState {
@@ -51,6 +52,7 @@ interface OtherInvestmentsState {
     investmentId: string,
     month: string,
     value: number,
+    contribution?: number,
   ) => Promise<void>;
   deleteSnapshot: (id: string) => Promise<void>;
 }
@@ -61,6 +63,7 @@ function rowToSnapshot(row: Record<string, unknown>): OtherInvestmentSnapshot {
     investmentId: row.investment_id as string,
     month: (row.snapshot_month as string)?.toString().split("T")[0] ?? "",
     currentValue: Number(row.current_value ?? 0),
+    contributionAmount: Number(row.contribution_amount ?? 0),
   };
 }
 
@@ -181,13 +184,13 @@ export const useOtherInvestmentsStore = create<OtherInvestmentsState>(
       }
     },
 
-    recordValue: async (investmentId, month, value) => {
+    recordValue: async (investmentId, month, value, contribution) => {
       set({ error: null });
       try {
         const res = await fetch("/api/other-investments/snapshots", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ investmentId, month, value }),
+          body: JSON.stringify({ investmentId, month, value, contribution }),
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));

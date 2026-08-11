@@ -30,9 +30,10 @@ export async function GET() {
 }
 
 // POST /api/other-investments/snapshots
-// Body: { investmentId, month: "YYYY-MM" | "YYYY-MM-DD", value: number }
-// Upserts the month's value and syncs the parent's current_value to the latest
-// recorded month so cards/totals stay in step with the history.
+// Body: { investmentId, month: "YYYY-MM" | "YYYY-MM-DD", value: number, contribution?: number }
+// Upserts the month's value (and contribution) and syncs the parent's
+// current_value to the latest recorded month so cards/totals stay in step
+// with the history.
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -48,12 +49,19 @@ export async function POST(request: NextRequest) {
     const investmentId: string | undefined = body.investmentId;
     const rawMonth: string | undefined = body.month;
     const value = Number(body.value);
+    const contribution =
+      body.contribution === undefined || body.contribution === null || body.contribution === ""
+        ? 0
+        : Number(body.contribution);
 
     if (!investmentId || !rawMonth || !Number.isFinite(value)) {
       return NextResponse.json(
         { error: "investmentId, month and value are required" },
         { status: 400 },
       );
+    }
+    if (!Number.isFinite(contribution)) {
+      return NextResponse.json({ error: "Invalid contribution" }, { status: 400 });
     }
 
     // Normalize to the first of the month.
@@ -82,6 +90,7 @@ export async function POST(request: NextRequest) {
           investment_id: investmentId,
           snapshot_month: snapshotMonth,
           current_value: value,
+          contribution_amount: contribution,
         },
         { onConflict: "investment_id,snapshot_month" },
       )
