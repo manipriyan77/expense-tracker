@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +56,7 @@ export default function SettingsPage() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [wipeDialogOpen, setWipeDialogOpen] = useState(false);
   const [wipeConfirmText, setWipeConfirmText] = useState("");
+  const [wipeKeepDebts, setWipeKeepDebts] = useState(false);
   const [wiping, setWiping] = useState(false);
   const { rules, loading: rulesLoading, fetchRules } = useCategorizationRulesStore();
   const { categories, tags, loading: lookupsLoading, fetchLookups } = useLookupsStore();
@@ -66,7 +68,10 @@ export default function SettingsPage() {
       const res = await fetch("/api/account/wipe", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm: "DELETE ALL TRACKWISE DATA" }),
+        body: JSON.stringify({
+          confirm: "DELETE ALL TRACKWISE DATA",
+          keepDebts: wipeKeepDebts,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -459,7 +464,10 @@ export default function SettingsPage() {
         open={wipeDialogOpen}
         onOpenChange={(open) => {
           setWipeDialogOpen(open);
-          if (!open) setWipeConfirmText("");
+          if (!open) {
+            setWipeConfirmText("");
+            setWipeKeepDebts(false);
+          }
         }}
       >
         <DialogContent className="max-w-md">
@@ -473,6 +481,17 @@ export default function SettingsPage() {
               <span className="block font-medium text-foreground">This cannot be undone.</span>
             </DialogDescription>
           </DialogHeader>
+          <div className="flex items-start gap-2.5 rounded-lg border bg-muted/30 px-3 py-2.5">
+            <Checkbox
+              id="wipe-keep-debts"
+              checked={wipeKeepDebts}
+              onCheckedChange={(c) => setWipeKeepDebts(c === true)}
+              className="mt-0.5"
+            />
+            <Label htmlFor="wipe-keep-debts" className="font-normal leading-snug cursor-pointer">
+              Keep my debts — don&apos;t delete liabilities or debt payment history
+            </Label>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="wipe-confirm">
               Type <span className="font-mono font-semibold">DELETE</span> to confirm
@@ -496,7 +515,7 @@ export default function SettingsPage() {
               className="gap-1.5"
             >
               {wiping && <Loader2 className="h-4 w-4 animate-spin" />}
-              {wiping ? "Erasing…" : "Erase all data"}
+              {wiping ? "Erasing…" : wipeKeepDebts ? "Erase data (keep debts)" : "Erase all data"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -2,13 +2,14 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Rocket, Calculator, Shield, Sparkles } from "lucide-react";
+import { Rocket, Calculator, Shield, Sparkles, Flame } from "lucide-react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { FinancialFreedomPlanner } from "@/components/planners/FinancialFreedomPlanner";
 import { SipSwpPlanner } from "@/components/planners/SipSwpPlanner";
 import { EmergencyFundPlanner } from "@/components/planners/EmergencyFundPlanner";
+import { FireCalculator } from "@/components/planners/FireCalculator";
 
-type PlannerTab = "fi" | "sip" | "emergency";
+type PlannerTab = "fi" | "sip" | "emergency" | "fire";
 
 const TABS: {
   id: PlannerTab;
@@ -41,6 +42,14 @@ const TABS: {
     icon: Shield,
     blurb: "Check how many months your reserve would cover.",
     accent: "text-amber-400",
+  },
+  {
+    id: "fire",
+    label: "FIRE Range",
+    short: "FIRE",
+    icon: Flame,
+    blurb: "Your Lean / Regular / Fat FIRE numbers from your budget.",
+    accent: "text-orange-400",
   },
 ];
 
@@ -139,6 +148,9 @@ function PlannersInner() {
         </TabsContent>
         <TabsContent value="emergency" className="mt-0">
           <EmergencyFundPlanner />
+        </TabsContent>
+        <TabsContent value="fire" className="mt-0">
+          <FireCalculator />
         </TabsContent>
       </Tabs>
     </div>

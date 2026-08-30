@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -152,6 +152,7 @@ interface SWPYearRow {
   withdrawn: number;
   balance: number;
   totalWithdrawn: number;
+  rate?: number; // withdrawal rate used this year, % mode only
 }
 
 function calcSWP(
@@ -184,6 +185,48 @@ function calcSWP(
     });
     if (balance <= 0) break;
     currentWithdrawal *= 1 + stepUpPct / 100;
+  }
+  return rows;
+}
+
+/**
+ * Withdraws a % of the balance each year instead of a fixed ₹ amount.
+ * The rate itself can climb by `stepUpPct` percentage-points per year
+ * (e.g. 4% → 4.5% → 5% …), which is how most retirement drawdown
+ * glide paths are actually expressed.
+ */
+function calcSWPPercent(
+  corpus: number,
+  initialPct: number,
+  annualRate: number,
+  years: number,
+  stepUpPct: number,
+): SWPYearRow[] {
+  const rows: SWPYearRow[] = [];
+  let balance = corpus,
+    totalWithdrawn = 0,
+    currentPct = initialPct;
+  const r = annualRate / 12 / 100;
+  for (let y = 1; y <= years; y++) {
+    const monthlyWithdrawal = (balance * (currentPct / 100)) / 12;
+    let yearlyWithdrawn = 0;
+    for (let m = 0; m < 12; m++) {
+      balance = balance * (1 + r);
+      const w = Math.min(monthlyWithdrawal, balance);
+      balance -= w;
+      yearlyWithdrawn += w;
+      totalWithdrawn += w;
+      if (balance <= 0) break;
+    }
+    rows.push({
+      year: y,
+      withdrawn: Math.round(yearlyWithdrawn),
+      balance: Math.round(Math.max(0, balance)),
+      totalWithdrawn: Math.round(totalWithdrawn),
+      rate: Math.round(currentPct * 100) / 100,
+    });
+    if (balance <= 0) break;
+    currentPct += stepUpPct;
   }
   return rows;
 }
@@ -357,7 +400,7 @@ function AdvancedPanel({
   );
 }
 
-function StatTile({
+export function StatTile({
   label,
   value,
   color,
@@ -383,7 +426,7 @@ function StatTile({
 
 // ─── SliderInput ──────────────────────────────────────────────────────────────
 
-function SliderInput({
+export function SliderInput({
   label,
   value,
   onChange,
@@ -504,7 +547,7 @@ function SIPCalculator() {
   const [years, setYears] = useState(10);
   const [stepUp, setStepUp] = useState(false);
   const [stepUpPct, setStepUpPct] = useState(10);
-  const [showTable, setShowTable] = useState(false);
+  const [showTable, setShowTable] = useState(true);
   const [adv, setAdv] = useState<AdvancedSettings>(DEFAULT_ADV);
 
   // Optimistic / pessimistic scenario projections.
@@ -1247,7 +1290,7 @@ function SIPCalculator() {
                       SIP Value
                     </th>
                   )}
-                  <th className="px-4 py-3 text-right">Gains</th>
+                  <th className="px-4 py-3 text-right">Profit</th>
                   <th className="px-4 py-3 text-right">Total Value</th>
                   <th className="px-4 py-3 text-right">Return %</th>
                 </tr>
@@ -1299,19 +1342,44 @@ function SIPCalculator() {
 // ─── SWP Calculator ───────────────────────────────────────────────────────────
 
 function SWPCalculator() {
+  const [mode, setMode] = useState<"fixed" | "percent">("fixed");
   const [corpus, setCorpus] = useState(1000000);
   const [withdrawal, setWithdrawal] = useState(10000);
+  const [withdrawalPct, setWithdrawalPct] = useState(4);
   const [rate, setRate] = useState(10);
   const [years, setYears] = useState(20);
   const [stepUp, setStepUp] = useState(false);
   const [stepUpPct, setStepUpPct] = useState(5);
+  const [pctStepUp, setPctStepUp] = useState(false);
+  const [pctStepUpPts, setPctStepUpPts] = useState(0.25);
   const [showTable, setShowTable] = useState(false);
   const [adv, setAdv] = useState<AdvancedSettings>(DEFAULT_ADV);
 
-  const rows = useMemo(
-    () => calcSWP(corpus, withdrawal, rate, years, stepUp ? stepUpPct : 0),
-    [corpus, withdrawal, rate, years, stepUp, stepUpPct],
+  const computeRows = useCallback(
+    (rt: number) =>
+      mode === "percent"
+        ? calcSWPPercent(
+            corpus,
+            withdrawalPct,
+            rt,
+            years,
+            pctStepUp ? pctStepUpPts : 0,
+          )
+        : calcSWP(corpus, withdrawal, rt, years, stepUp ? stepUpPct : 0),
+    [
+      mode,
+      corpus,
+      withdrawal,
+      withdrawalPct,
+      years,
+      stepUp,
+      stepUpPct,
+      pctStepUp,
+      pctStepUpPts,
+    ],
   );
+
+  const rows = useMemo(() => computeRows(rate), [computeRows, rate]);
 
   const lastRow = rows[rows.length - 1];
   const totalWithdrawn = lastRow?.totalWithdrawn ?? 0;
@@ -1327,7 +1395,7 @@ function SWPCalculator() {
   const lowRate = Math.max(0, rate - adv.spread);
   const highRate = rate + adv.spread;
   const survivalYears = (rt: number) => {
-    const rws = calcSWP(corpus, withdrawal, rt, years, stepUp ? stepUpPct : 0);
+    const rws = computeRows(rt);
     const dead = rws.find((r) => r.balance === 0);
     return dead ? dead.year : years;
   };
@@ -1335,11 +1403,22 @@ function SWPCalculator() {
   const highSurvival = survivalYears(highRate);
   const baseSurvival = corpusExhausted ? (exhaustedYear ?? years) : years;
 
+  // First-year monthly draw, used for inflation comparisons in both modes.
+  const firstYearMonthlyWithdrawal =
+    mode === "percent"
+      ? (corpus * (withdrawalPct / 100)) / 12
+      : withdrawal;
+
   // Inflation: the first-year monthly withdrawal in today's money at the end.
   const realFinalBalance = realValue(finalBalance, adv.inflation, years);
-  const realWithdrawalAtEnd = realValue(withdrawal, adv.inflation, years);
+  const realWithdrawalAtEnd = realValue(
+    firstYearMonthlyWithdrawal,
+    adv.inflation,
+    years,
+  );
   // Inflation-safe withdrawal: a real return rule of thumb.
   const realReturn = rate - adv.inflation;
+  const finalWithdrawalRate = lastRow?.rate;
 
   const TOOLTIP_STYLE = {
     backgroundColor: "var(--background, #fff)",
@@ -1361,6 +1440,28 @@ function SWPCalculator() {
             </p>
           </div>
           <div className="p-5 space-y-6">
+            {/* Mode toggle: fixed ₹ amount vs % of corpus */}
+            <div className="inline-flex rounded-xl bg-muted p-1 gap-1 w-full">
+              {(
+                [
+                  { key: "fixed", label: "Fixed Amount" },
+                  { key: "percent", label: "% of Corpus" },
+                ] as const
+              ).map((m) => (
+                <button
+                  key={m.key}
+                  onClick={() => setMode(m.key)}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                    mode === m.key
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+
             <SliderInput
               label="Initial Corpus"
               value={corpus}
@@ -1372,17 +1473,31 @@ function SWPCalculator() {
               format={(v) => fmtShort(v).replace("₹", "")}
               accentColor="#8b5cf6"
             />
-            <SliderInput
-              label="Monthly Withdrawal"
-              value={withdrawal}
-              onChange={setWithdrawal}
-              min={1000}
-              max={500000}
-              step={1000}
-              prefix="₹"
-              format={(v) => fmtShort(v).replace("₹", "")}
-              accentColor="#3b82f6"
-            />
+            {mode === "fixed" ? (
+              <SliderInput
+                label="Monthly Withdrawal"
+                value={withdrawal}
+                onChange={setWithdrawal}
+                min={1000}
+                max={500000}
+                step={1000}
+                prefix="₹"
+                format={(v) => fmtShort(v).replace("₹", "")}
+                accentColor="#3b82f6"
+              />
+            ) : (
+              <SliderInput
+                label="Initial Withdrawal Rate"
+                value={withdrawalPct}
+                onChange={setWithdrawalPct}
+                min={1}
+                max={15}
+                step={0.25}
+                suffix="% /yr"
+                accentColor="#3b82f6"
+                info="Annual % of the current balance withdrawn, split evenly across 12 months"
+              />
+            )}
             <SliderInput
               label="Expected Return"
               value={rate}
@@ -1402,29 +1517,58 @@ function SWPCalculator() {
               suffix=" yr"
               accentColor="#f59e0b"
             />
-            <div className="pt-4 border-t space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Annual Step-Up</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Increase withdrawal each year
-                  </p>
+            {mode === "fixed" ? (
+              <div className="pt-4 border-t space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Annual Step-Up</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Increase withdrawal amount each year
+                    </p>
+                  </div>
+                  <Switch checked={stepUp} onCheckedChange={setStepUp} />
                 </div>
-                <Switch checked={stepUp} onCheckedChange={setStepUp} />
+                {stepUp && (
+                  <SliderInput
+                    label="Step-Up Rate"
+                    value={stepUpPct}
+                    onChange={setStepUpPct}
+                    min={1}
+                    max={30}
+                    suffix="% /yr"
+                    accentColor="#f59e0b"
+                    info="Withdrawal amount increases by this % every year"
+                  />
+                )}
               </div>
-              {stepUp && (
-                <SliderInput
-                  label="Step-Up Rate"
-                  value={stepUpPct}
-                  onChange={setStepUpPct}
-                  min={1}
-                  max={30}
-                  suffix="% /yr"
-                  accentColor="#f59e0b"
-                  info="Withdrawal amount increases by this % every year"
-                />
-              )}
-            </div>
+            ) : (
+              <div className="pt-4 border-t space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">
+                      Increase Withdrawal Rate
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Raise the % withdrawn every year
+                    </p>
+                  </div>
+                  <Switch checked={pctStepUp} onCheckedChange={setPctStepUp} />
+                </div>
+                {pctStepUp && (
+                  <SliderInput
+                    label="Annual Increase"
+                    value={pctStepUpPts}
+                    onChange={setPctStepUpPts}
+                    min={0.1}
+                    max={2}
+                    step={0.1}
+                    suffix=" pp /yr"
+                    accentColor="#f59e0b"
+                    info={`Withdrawal rate climbs by this many percentage points each year — e.g. ${withdrawalPct}% → ${(withdrawalPct + pctStepUpPts).toFixed(2)}% → ${(withdrawalPct + pctStepUpPts * 2).toFixed(2)}% …`}
+                  />
+                )}
+              </div>
+            )}
 
             <AdvancedPanel value={adv} onChange={setAdv} showTax={false} />
           </div>
@@ -1493,12 +1637,21 @@ function SWPCalculator() {
                 color: "#22c55e",
                 bg: "bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900",
               },
-              {
-                label: "Monthly Draw",
-                value: `${fmt(withdrawal)}/mo`,
-                color: "#3b82f6",
-                bg: "bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900",
-              },
+              mode === "percent"
+                ? {
+                    label: "Withdrawal Rate",
+                    value: pctStepUp
+                      ? `${withdrawalPct}% → ${finalWithdrawalRate ?? withdrawalPct}%`
+                      : `${withdrawalPct}% /yr`,
+                    color: "#3b82f6",
+                    bg: "bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900",
+                  }
+                : {
+                    label: "Monthly Draw",
+                    value: `${fmt(withdrawal)}/mo`,
+                    color: "#3b82f6",
+                    bg: "bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900",
+                  },
             ].map((s) => (
               <div key={s.label} className={`rounded-2xl border p-4 ${s.bg}`}>
                 <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
@@ -1568,7 +1721,7 @@ function SWPCalculator() {
               sub={`${adv.inflation}% inflation`}
             />
             <StatTile
-              label={`₹${withdrawal.toLocaleString("en-IN")} buys (Y${years})`}
+              label={`₹${Math.round(firstYearMonthlyWithdrawal).toLocaleString("en-IN")} buys (Y${years})`}
               value={fmtShort(realWithdrawalAtEnd)}
               color="#f59e0b"
               bg="bg-amber-50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900"
@@ -1686,6 +1839,11 @@ function SWPCalculator() {
               <thead>
                 <tr className="border-b bg-muted/40 text-[11px] text-muted-foreground uppercase tracking-wider">
                   <th className="px-5 py-3 text-left">Year</th>
+                  {mode === "percent" && (
+                    <th className="px-5 py-3 text-right text-amber-600">
+                      Rate
+                    </th>
+                  )}
                   <th className="px-5 py-3 text-right">Withdrawn (yr)</th>
                   <th className="px-5 py-3 text-right">Total Withdrawn</th>
                   <th className="px-5 py-3 text-right">Balance</th>
@@ -1698,6 +1856,11 @@ function SWPCalculator() {
                     className="hover:bg-muted/30 transition-colors"
                   >
                     <td className="px-5 py-3 font-semibold">Year {r.year}</td>
+                    {mode === "percent" && (
+                      <td className="px-5 py-3 text-right text-amber-600 dark:text-amber-400 font-medium">
+                        {r.rate}%
+                      </td>
+                    )}
                     <td className="px-5 py-3 text-right text-emerald-600 dark:text-emerald-400 font-medium">
                       {fmtShort(r.withdrawn)}
                     </td>

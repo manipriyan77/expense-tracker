@@ -31,6 +31,9 @@ const TABLES_IN_ORDER = [
   "user_preferences",
 ];
 
+// Tables that hold debt records — skipped when the caller asks to keep debts.
+const DEBT_TABLES = new Set(["debt_payments", "liabilities"]);
+
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -46,9 +49,11 @@ export async function DELETE(request: NextRequest) {
     if (body.confirm !== CONFIRMATION) {
       return NextResponse.json({ error: "Confirmation phrase did not match" }, { status: 400 });
     }
+    const keepDebts = body.keepDebts === true;
 
     const errors: string[] = [];
     for (const table of TABLES_IN_ORDER) {
+      if (keepDebts && DEBT_TABLES.has(table)) continue;
       const { error } = await supabase.from(table).delete().eq("user_id", user.id);
       if (error) errors.push(`${table}: ${error.message}`);
     }

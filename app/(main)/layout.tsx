@@ -53,6 +53,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/planners?tab=fi": "Financial Freedom",
   "/planners?tab=sip": "SIP / SWP Calculator",
   "/planners?tab=emergency": "Emergency Fund",
+  "/planners?tab=fire": "FIRE Range",
   "/emergency-fund": "Emergency Fund",
   "/financial-freedom": "Financial Freedom",
   "/investments": "Investments",
