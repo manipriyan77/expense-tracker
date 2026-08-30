@@ -12,6 +12,15 @@ export interface Budget {
   user_id: string;
   created_at: string;
   updated_at: string;
+  rollover_enabled?: boolean;
+  /** Derived fields the API computes on read — not stored directly. */
+  rollover_amount?: number;
+  effective_limit?: number;
+  prev_period_spent?: number | null;
+  trend_pct?: number | null;
+  projected_spend?: number | null;
+  days_elapsed?: number | null;
+  days_total?: number;
 }
 
 interface BudgetsState {

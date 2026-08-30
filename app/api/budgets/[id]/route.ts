@@ -15,7 +15,7 @@ export async function PUT(
 
     const params = await context.params;
     const body = await request.json();
-    const { category, subtype, limit_amount, period } = body;
+    const { category, subtype, limit_amount, period, rollover_enabled } = body;
 
     const { data, error } = await supabase
       .from("budgets")
@@ -24,6 +24,7 @@ export async function PUT(
         subtype: subtype || null,
         limit_amount,
         period,
+        ...(rollover_enabled !== undefined ? { rollover_enabled: !!rollover_enabled } : {}),
       })
       .eq("id", params.id)
       .eq("user_id", user.id)

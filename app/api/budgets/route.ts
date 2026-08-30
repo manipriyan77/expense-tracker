@@ -1,6 +1,85 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+interface BudgetRow {
+  id: string;
+  category: string;
+  subtype: string | null;
+  limit_amount: number;
+  spent_amount: number;
+  period: string;
+  rollover_enabled?: boolean;
+}
+
+const keyOf = (category: string, subtype: string | null) =>
+  `${category}|${subtype ?? ""}`;
+
+/**
+ * Adds derived, non-persisted fields to each budget: how much rolled over
+ * from last month (only one month back, not compounded further), the
+ * resulting effective limit, last month's spend for a trend comparison, and
+ * — only when `month`/`year` is the real current month — a pace-based
+ * end-of-month forecast.
+ */
+async function enrichWithRolloverAndTrends(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  month: number,
+  year: number,
+  budgets: BudgetRow[],
+) {
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear = month === 1 ? year - 1 : year;
+
+  const { data: prevBudgets } = await supabase
+    .from("budgets")
+    .select("category, subtype, limit_amount, spent_amount")
+    .eq("user_id", userId)
+    .eq("month", prevMonth)
+    .eq("year", prevYear);
+
+  const prevMap = new Map<string, { limit_amount: number; spent_amount: number }>();
+  for (const b of prevBudgets ?? []) {
+    prevMap.set(keyOf(b.category, b.subtype), {
+      limit_amount: Number(b.limit_amount),
+      spent_amount: Number(b.spent_amount ?? 0),
+    });
+  }
+
+  const now = new Date();
+  const isCurrentPeriod = now.getMonth() + 1 === month && now.getFullYear() === year;
+  const daysTotal = new Date(year, month, 0).getDate();
+  const daysElapsed = isCurrentPeriod ? now.getDate() : null;
+
+  return budgets.map((b) => {
+    const prev = prevMap.get(keyOf(b.category, b.subtype));
+    const rolloverAmount =
+      b.rollover_enabled && b.period === "monthly" && prev
+        ? prev.limit_amount - prev.spent_amount
+        : 0;
+    const effectiveLimit = Number(b.limit_amount) + rolloverAmount;
+    const trendPct =
+      prev && prev.spent_amount > 0
+        ? ((Number(b.spent_amount) - prev.spent_amount) / prev.spent_amount) * 100
+        : null;
+    const projectedSpend =
+      isCurrentPeriod && daysElapsed && daysElapsed > 0 && b.period === "monthly"
+        ? (Number(b.spent_amount) / daysElapsed) * daysTotal
+        : null;
+
+    return {
+      ...b,
+      rollover_amount: rolloverAmount,
+      effective_limit: effectiveLimit,
+      prev_period_spent: prev?.spent_amount ?? null,
+      trend_pct: trendPct,
+      projected_spend: projectedSpend,
+      days_elapsed: daysElapsed,
+      days_total: daysTotal,
+    };
+  });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -86,7 +165,7 @@ export async function GET(request: NextRequest) {
 
       // Patch DB if any value drifted, and return corrected values
       const corrected = await Promise.all(
-        budgets.map(async (b: { id: string; spent_amount: number }) => {
+        budgets.map(async (b: BudgetRow) => {
           const realSpent = spentMap.get(b.id) ?? 0;
           if (Math.abs(realSpent - (b.spent_amount ?? 0)) > 0.001) {
             await supabase
@@ -99,7 +178,15 @@ export async function GET(request: NextRequest) {
         })
       );
 
-      return NextResponse.json(corrected);
+      const enriched = await enrichWithRolloverAndTrends(
+        supabase,
+        user.id,
+        month,
+        year,
+        corrected,
+      );
+
+      return NextResponse.json(enriched);
     }
 
     return NextResponse.json(budgets);
@@ -193,7 +280,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { category, subtype, limit_amount, period, month, year } = body;
+    const { category, subtype, limit_amount, period, month, year, rollover_enabled } = body;
 
     if (!category || !limit_amount) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -215,6 +302,7 @@ export async function POST(request: NextRequest) {
         year: budgetYear,
         spent_amount: 0,
         user_id: user.id,
+        rollover_enabled: !!rollover_enabled,
       })
       .select()
       .single();

@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     const { data: existing } = await supabase
       .from("lookups")
-      .select("id")
+      .select("*")
       .eq("user_id", user.id)
       .eq("kind", kind)
       .ilike("name", trimmedName)

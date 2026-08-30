@@ -30,10 +30,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 
 import {
   Plus,
   TrendingDown,
+  TrendingUp,
   AlertTriangle,
   CheckCircle2,
   Edit,
@@ -42,6 +44,7 @@ import {
   Sparkles,
   Flame,
   Lightbulb,
+  RotateCcw,
 } from "lucide-react";
 import { useBudgetsStore, Budget } from "@/store/budgets-store";
 import { useTransactionsStore } from "@/store/transactions-store";
@@ -76,6 +79,7 @@ const budgetFormSchema = z.object({
       "Must be a positive number",
     ),
   period: z.enum(["weekly", "monthly", "yearly"]),
+  rollover_enabled: z.boolean().optional(),
 });
 
 type BudgetFormData = z.infer<typeof budgetFormSchema>;
@@ -128,6 +132,7 @@ export default function BudgetsPage() {
       subtype: "",
       limit_amount: "",
       period: "monthly",
+      rollover_enabled: false,
     },
   });
 
@@ -171,6 +176,7 @@ export default function BudgetsPage() {
       subtype: data.subtype || null,
       limit_amount: parseFloat(data.limit_amount),
       period: data.period,
+      rollover_enabled: data.period === "monthly" ? !!data.rollover_enabled : false,
     });
     resetAdd();
     setIsAddDialogOpen(false);
@@ -184,6 +190,7 @@ export default function BudgetsPage() {
       subtype: data.subtype || null,
       limit_amount: parseFloat(data.limit_amount),
       period: data.period,
+      rollover_enabled: data.period === "monthly" ? !!data.rollover_enabled : false,
     });
     resetEdit();
     setIsEditDialogOpen(false);
@@ -261,6 +268,7 @@ export default function BudgetsPage() {
       subtype: budget.subtype || "",
       limit_amount: budget.limit_amount.toString(),
       period: budget.period,
+      rollover_enabled: budget.rollover_enabled ?? false,
     });
     setIsEditDialogOpen(true);
   };
@@ -307,7 +315,7 @@ export default function BudgetsPage() {
     return <CheckCircle2 className="h-5 w-5 text-green-600" />;
   };
 
-  const totalBudget = budgets.reduce((sum, b) => sum + b.limit_amount, 0);
+  const totalBudget = budgets.reduce((sum, b) => sum + (b.effective_limit ?? b.limit_amount), 0);
   const totalSpent = budgets.reduce((sum, b) => sum + (b.spent_amount || 0), 0);
 
   const CATEGORY_COLORS = [
@@ -703,6 +711,38 @@ export default function BudgetsPage() {
                       )}
                     </div>
 
+                    <Controller
+                      name="period"
+                      control={addControl}
+                      render={({ field: periodField }) =>
+                        periodField.value === "monthly" ? (
+                          <Controller
+                            name="rollover_enabled"
+                            control={addControl}
+                            render={({ field }) => (
+                              <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+                                <div className="flex items-center gap-2">
+                                  <RotateCcw className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+                                  <div>
+                                    <p className="text-sm font-medium">Roll over unused budget</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Leftover (or overspent) amount carries into next month
+                                    </p>
+                                  </div>
+                                </div>
+                                <Switch
+                                  checked={!!field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </div>
+                            )}
+                          />
+                        ) : (
+                          <></>
+                        )
+                      }
+                    />
+
                     <Button
                       type="submit"
                       className="w-full"
@@ -887,6 +927,38 @@ export default function BudgetsPage() {
                     )}
                   </div>
 
+                  <Controller
+                    name="period"
+                    control={editControl}
+                    render={({ field: periodField }) =>
+                      periodField.value === "monthly" ? (
+                        <Controller
+                          name="rollover_enabled"
+                          control={editControl}
+                          render={({ field }) => (
+                            <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+                              <div className="flex items-center gap-2">
+                                <RotateCcw className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+                                <div>
+                                  <p className="text-sm font-medium">Roll over unused budget</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Leftover (or overspent) amount carries into next month
+                                  </p>
+                                </div>
+                              </div>
+                              <Switch
+                                checked={!!field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </div>
+                          )}
+                        />
+                      ) : (
+                        <></>
+                      )
+                    }
+                  />
+
                   <Button
                     type="submit"
                     className="w-full"
@@ -1020,8 +1092,14 @@ export default function BudgetsPage() {
                             borderRadius: 8,
                             border: "1px solid var(--border)",
                             background: "var(--background)",
+                            color: "var(--foreground)",
                           }}
-                          labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+                          itemStyle={{ color: "var(--foreground)" }}
+                          labelStyle={{
+                            fontWeight: 600,
+                            marginBottom: 4,
+                            color: "var(--foreground)",
+                          }}
                         />
                         <Legend
                           iconType="circle"
@@ -1176,8 +1254,12 @@ export default function BudgetsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
               {budgets.map((budget) => {
                 const spent = budget.spent_amount || 0;
-                const percentage = (spent / budget.limit_amount) * 100;
-                const remaining = budget.limit_amount - spent;
+                const effectiveLimit = budget.effective_limit ?? budget.limit_amount;
+                const percentage = effectiveLimit > 0 ? (spent / effectiveLimit) * 100 : 0;
+                const remaining = effectiveLimit - spent;
+                const rolloverAmount = budget.rollover_amount ?? 0;
+                const hasRollover = budget.rollover_enabled && Math.abs(rolloverAmount) > 0.5;
+                const trendPct = budget.trend_pct;
 
                 // Burn rate: for monthly budgets compare spend pace to days elapsed
                 const now = new Date();
@@ -1251,8 +1333,13 @@ export default function BudgetsPage() {
                             Limit
                           </p>
                           <p className="font-mono font-semibold text-xs">
-                            {format(budget.limit_amount)}
+                            {format(effectiveLimit)}
                           </p>
+                          {hasRollover && (
+                            <p className="text-[9px] text-muted-foreground font-mono">
+                              {format(budget.limit_amount)} base
+                            </p>
+                          )}
                         </div>
                         <div>
                           <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0">
@@ -1286,6 +1373,47 @@ export default function BudgetsPage() {
                           />
                         </div>
                       </div>
+
+                      {/* Rollover + trend row */}
+                      {(hasRollover || trendPct !== null) && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {hasRollover && (
+                            <span
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                                rolloverAmount >= 0
+                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                  : "bg-red-500/10 text-red-600 dark:text-red-400"
+                              }`}
+                              title={
+                                rolloverAmount >= 0
+                                  ? "Unused budget rolled over from last month"
+                                  : "Overspend carried over from last month, reducing this month's limit"
+                              }
+                            >
+                              <RotateCcw className="h-2.5 w-2.5" />
+                              {rolloverAmount >= 0 ? "+" : "−"}
+                              {format(Math.abs(rolloverAmount))}
+                            </span>
+                          )}
+                          {trendPct !== null && trendPct !== undefined && (
+                            <span
+                              className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                                trendPct > 0
+                                  ? "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                              title="Spend vs the same budget last month"
+                            >
+                              {trendPct >= 0 ? (
+                                <TrendingUp className="h-2.5 w-2.5" />
+                              ) : (
+                                <TrendingDown className="h-2.5 w-2.5" />
+                              )}
+                              {Math.abs(trendPct).toFixed(0)}% vs last mo
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Burn rate / pacing row */}
                       {burnStatus && (

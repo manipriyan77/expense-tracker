@@ -464,7 +464,7 @@ export default function AddTransactionForm({
         const txRes = await fetch("/api/transactions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...payload, recurringPatternId: pattern.id }),
         });
         if (!txRes.ok) {
           const err = await txRes.json();
@@ -706,10 +706,8 @@ export default function AddTransactionForm({
   const showLinkToSection = transactionType === "expense";
   const isGoalRequired = selectedCategory === "Savings";
 
-  const availableCategories = [
-    ...(transactionType === "income" ? incomeCategories : expenseCategories),
-    ...customCategories,
-  ];
+  const availableCategories =
+    transactionType === "income" ? incomeCategories : expenseCategories;
 
   const availableSubtypes = selectedCategory
     ? getSubtypes(selectedCategory, transactionType)

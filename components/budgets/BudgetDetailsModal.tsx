@@ -17,8 +17,20 @@ import {
   Loader2,
   Calendar,
   TrendingDown,
+  TrendingUp,
   Clock,
+  RotateCcw,
+  Gauge,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 
 interface Transaction {
@@ -30,6 +42,14 @@ interface Transaction {
   date: string;
   type: string;
   created_at: string;
+}
+
+interface HistoryPeriod {
+  month: number;
+  year: number;
+  label: string;
+  limit_amount: number | null;
+  spent_amount: number | null;
 }
 
 interface BudgetDetailsModalProps {
@@ -47,12 +67,14 @@ export default function BudgetDetailsModal({
 }: BudgetDetailsModalProps) {
   const { format } = useFormatCurrency();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [history, setHistory] = useState<HistoryPeriod[]>([]);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     if (budget && isOpen) {
       fetchTransactions();
+      fetchHistory();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [budget?.id, budget?.month, budget?.year, isOpen]);
@@ -70,6 +92,18 @@ export default function BudgetDetailsModal({
       console.error("Error fetching transactions:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchHistory = async () => {
+    if (!budget) return;
+    try {
+      const response = await fetch(`/api/budgets/${budget.id}/history`);
+      if (response.ok) {
+        setHistory(await response.json());
+      }
+    } catch (error) {
+      console.error("Error fetching budget history:", error);
     }
   };
 
@@ -95,11 +129,18 @@ export default function BudgetDetailsModal({
   if (!budget) return null;
 
   const spent = budget.spent_amount || 0;
-  const percentage = budget.limit_amount > 0 ? (spent / budget.limit_amount) * 100 : 0;
-  const remaining = budget.limit_amount - spent;
+  const effectiveLimit = budget.effective_limit ?? budget.limit_amount;
+  const percentage = effectiveLimit > 0 ? (spent / effectiveLimit) * 100 : 0;
+  const remaining = effectiveLimit - spent;
   const isOver = remaining < 0;
   const isNear = !isOver && percentage >= 80;
   const isOnTrack = !isOver && !isNear;
+
+  const rolloverAmount = budget.rollover_amount ?? 0;
+  const hasRollover = budget.rollover_enabled && Math.abs(rolloverAmount) > 0.5;
+  const trendPct = budget.trend_pct;
+  const projectedSpend = budget.projected_spend;
+  const isForecastOver = projectedSpend != null && projectedSpend > effectiveLimit;
 
   const barColor = isOver
     ? "bg-red-500"
@@ -210,8 +251,10 @@ export default function BudgetDetailsModal({
                   </span>
                 </div>
                 <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40">
-                  <span className="text-xs text-muted-foreground">Limit</span>
-                  <span className="font-mono text-sm font-bold">{format(budget.limit_amount)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Limit{hasRollover ? " (incl. rollover)" : ""}
+                  </span>
+                  <span className="font-mono text-sm font-bold">{format(effectiveLimit)}</span>
                 </div>
                 <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40">
                   <span className="text-xs text-muted-foreground">{isOver ? "Over by" : "Remaining"}</span>
@@ -226,7 +269,7 @@ export default function BudgetDetailsModal({
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Spending progress</span>
-                <span className="font-mono">{format(spent)} / {format(budget.limit_amount)}</span>
+                <span className="font-mono">{format(spent)} / {format(effectiveLimit)}</span>
               </div>
               <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                 <div
@@ -235,6 +278,104 @@ export default function BudgetDetailsModal({
                 />
               </div>
             </div>
+
+            {/* Rollover / trend / forecast */}
+            {(hasRollover || trendPct != null || projectedSpend != null) && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {hasRollover && (
+                  <div
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${
+                      rolloverAmount >= 0
+                        ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400"
+                        : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      {rolloverAmount >= 0 ? "Rolled over " : "Carried over "}
+                      <span className="font-mono font-bold">{format(Math.abs(rolloverAmount))}</span>
+                      {rolloverAmount >= 0 ? " unused" : " overspend"} from last month
+                    </span>
+                  </div>
+                )}
+                {trendPct != null && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/30 text-xs">
+                    {trendPct >= 0 ? (
+                      <TrendingUp className="h-3.5 w-3.5 shrink-0 text-orange-500" />
+                    ) : (
+                      <TrendingDown className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    )}
+                    <span>
+                      <span className="font-mono font-bold">{Math.abs(trendPct).toFixed(0)}%</span>
+                      {trendPct >= 0 ? " more" : " less"} than last month
+                    </span>
+                  </div>
+                )}
+                {projectedSpend != null && (
+                  <div
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${
+                      isForecastOver
+                        ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-400"
+                        : "bg-muted/30"
+                    }`}
+                  >
+                    <Gauge className="h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      On pace for{" "}
+                      <span className="font-mono font-bold">{format(projectedSpend)}</span> by
+                      month end
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Trend chart — last 6 months */}
+            {history.some((h) => h.spent_amount != null) && (
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">Last 6 months</p>
+                <ResponsiveContainer width="100%" height={100}>
+                  <BarChart data={history} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis hide />
+                    <Tooltip
+                      contentStyle={{
+                        fontSize: 11,
+                        borderRadius: 8,
+                        border: "1px solid var(--border)",
+                        background: "var(--background)",
+                        color: "var(--foreground)",
+                      }}
+                      itemStyle={{ color: "var(--foreground)" }}
+                      labelStyle={{ color: "var(--foreground)" }}
+                      formatter={(v: number | undefined, name: string | undefined) => [
+                        format(v ?? 0),
+                        name === "spent_amount" ? "Spent" : "Limit",
+                      ]}
+                    />
+                    <Bar dataKey="spent_amount" radius={[3, 3, 0, 0]}>
+                      {history.map((h, i) => (
+                        <Cell
+                          key={i}
+                          fill={
+                            h.limit_amount != null &&
+                            h.spent_amount != null &&
+                            h.spent_amount > h.limit_amount
+                              ? "#ef4444"
+                              : "#8b5cf6"
+                          }
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
 
             {/* Alert banner */}
             {(isOver || isNear) && (
