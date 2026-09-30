@@ -583,8 +583,8 @@ export function BudgetTemplatesContent() {
 
   return (
     <div className="space-y-4">
-      <Card className="overflow-hidden">
-        <CardHeader className="pb-2 border-b border-border">
+      <Card className="glass-card overflow-hidden animate-fade-up">
+        <CardHeader className="pb-2 border-b border-white/10 dark:border-white/5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <CardTitle className="text-sm flex items-center gap-2">
@@ -610,7 +610,7 @@ export function BudgetTemplatesContent() {
                   key={plan.name}
                   type="button"
                   onClick={() => startFromAutoPlan(plan)}
-                  className="rounded-lg border border-border p-3 text-left hover:bg-muted/40 transition-colors"
+                  className="rounded-lg border border-border p-3 text-left hover:bg-muted/40 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
                 >
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <Icon
@@ -925,7 +925,7 @@ export function BudgetTemplatesContent() {
             {SYSTEM_TEMPLATES.map((template) => (
               <Card
                 key={template.id}
-                className="hover:shadow-lg transition-shadow"
+                className="glass-card glass-card-hover animate-fade-up"
               >
                 <CardHeader className="p-2 pb-1">
                   <div className="flex items-start justify-between mb-1">
@@ -1016,7 +1016,7 @@ export function BudgetTemplatesContent() {
               {userTemplates.map((template) => (
                 <Card
                   key={template.id}
-                  className="hover:shadow-lg transition-shadow"
+                  className="glass-card glass-card-hover animate-fade-up"
                 >
                   <CardHeader>
                     <div className="flex items-start justify-between mb-2">

@@ -1813,6 +1813,14 @@ export default function CashflowPlanningPage() {
                                 stopOpacity={0}
                               />
                             </linearGradient>
+                            <linearGradient id="incomeBarGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#22c55e" stopOpacity={1} />
+                              <stop offset="100%" stopColor="#22c55e" stopOpacity={0.55} />
+                            </linearGradient>
+                            <linearGradient id="expenseBarGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#ef4444" stopOpacity={1} />
+                              <stop offset="100%" stopColor="#ef4444" stopOpacity={0.55} />
+                            </linearGradient>
                           </defs>
                           <CartesianGrid
                             strokeDasharray="3 3"
@@ -1834,10 +1842,12 @@ export default function CashflowPlanningPage() {
                           />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "8px",
+                              backgroundColor: "color-mix(in oklch, var(--card) 85%, transparent)",
+                              border: "1px solid var(--border)",
+                              borderRadius: "10px",
                               fontSize: "12px",
+                              backdropFilter: "blur(12px)",
+                              boxShadow: "0 8px 24px -12px rgba(0,0,0,0.35)",
                             }}
                             formatter={(v: unknown, name: unknown) =>
                               [format(v as number), name as string] as [
@@ -1853,12 +1863,12 @@ export default function CashflowPlanningPage() {
                           <ReferenceLine y={0} stroke="hsl(var(--border))" />
                           <Bar
                             dataKey="Income"
-                            fill="#22c55e"
+                            fill="url(#incomeBarGrad)"
                             radius={[4, 4, 0, 0]}
                           />
                           <Bar
                             dataKey="Expenses"
-                            fill="#ef4444"
+                            fill="url(#expenseBarGrad)"
                             radius={[4, 4, 0, 0]}
                           />
                           <Line
@@ -1873,8 +1883,16 @@ export default function CashflowPlanningPage() {
                         </ComposedChart>
                       </ResponsiveContainer>
                     ) : (
-                      <div className="h-[210px] flex items-center justify-center text-muted-foreground text-sm">
-                        Add transactions to see cashflow trends
+                      <div className="h-[210px] flex flex-col items-center justify-center text-center gap-2">
+                        <div
+                          className="glow-accent flex items-center justify-center h-11 w-11 rounded-full bg-muted/60"
+                          style={{ ["--glow-color" as string]: "oklch(0.62 0.19 260 / 40%)" }}
+                        >
+                          <Activity className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Add transactions to see cashflow trends
+                        </p>
                       </div>
                     )}
                   </CardContent>
@@ -1901,7 +1919,7 @@ export default function CashflowPlanningPage() {
                         {recentTxns.map((t) => (
                           <div
                             key={t.id}
-                            className="flex items-center gap-2.5 px-3 py-2.5"
+                            className="flex items-center gap-2.5 px-3 py-2.5 transition-colors duration-150 hover:bg-muted/40"
                           >
                             <div
                               className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${t.type === "income" ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300" : "bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400"}`}
@@ -2037,10 +2055,11 @@ export default function CashflowPlanningPage() {
                             </div>
                             <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                               <div
-                                className="h-full rounded-full transition-all"
+                                className="h-full rounded-full transition-all duration-500 ease-out"
                                 style={{
                                   width: `${c.pct}%`,
                                   backgroundColor: color,
+                                  boxShadow: `0 0 8px -1px ${color}`,
                                 }}
                               />
                             </div>
@@ -2153,7 +2172,7 @@ export default function CashflowPlanningPage() {
                       return (
                         <div
                           key={b.id}
-                          className={`rounded-lg border p-3 ${statusClasses}`}
+                          className={`rounded-lg border p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${statusClasses}`}
                         >
                           <div className="flex items-start justify-between gap-3 mb-2">
                             <div className="min-w-0">
@@ -2205,9 +2224,14 @@ export default function CashflowPlanningPage() {
                     })}
                   </div>
                 ) : (
-                  <div className="h-28 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                    <CreditCard className="h-6 w-6 opacity-40" />
-                    <p className="text-xs">
+                  <div className="h-28 flex flex-col items-center justify-center gap-2">
+                    <div
+                      className="glow-accent flex items-center justify-center h-10 w-10 rounded-full bg-muted/60"
+                      style={{ ["--glow-color" as string]: "oklch(0.7 0.17 155 / 40%)" }}
+                    >
+                      <CreditCard className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
                       Set budgets to see daily safe-spend pacing
                     </p>
                     <Link href="/budgets">
@@ -2301,7 +2325,7 @@ export default function CashflowPlanningPage() {
                           return (
                             <div
                               key={g.id}
-                              className="flex items-center gap-3 px-4 py-3"
+                              className="flex items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-muted/40"
                             >
                               <div className="relative shrink-0">
                                 <RingProgress
@@ -2348,9 +2372,14 @@ export default function CashflowPlanningPage() {
                         })}
                       </div>
                     ) : (
-                      <div className="h-[140px] flex flex-col items-center justify-center text-muted-foreground gap-2">
-                        <Trophy className="h-6 w-6 opacity-40" />
-                        <p className="text-xs">No active goals</p>
+                      <div className="h-[140px] flex flex-col items-center justify-center gap-2">
+                        <div
+                          className="glow-accent flex items-center justify-center h-9 w-9 rounded-full bg-muted/60"
+                          style={{ ["--glow-color" as string]: "oklch(0.75 0.15 90 / 40%)" }}
+                        >
+                          <Trophy className="h-4.5 w-4.5 text-muted-foreground" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">No active goals</p>
                         <Link href="/goals">
                           <Button size="sm" variant="outline">
                             Create Goal
@@ -2401,7 +2430,7 @@ export default function CashflowPlanningPage() {
                               ? "#f59e0b"
                               : "#22c55e";
                           return (
-                            <div key={b.id} className="px-4 py-3">
+                            <div key={b.id} className="px-4 py-3 transition-colors duration-150 hover:bg-muted/40">
                               <div className="flex items-center justify-between mb-1.5">
                                 <div className="flex items-center gap-1.5 min-w-0">
                                   {over ? (
@@ -2423,10 +2452,11 @@ export default function CashflowPlanningPage() {
                               </div>
                               <div className="h-2 rounded-full bg-muted overflow-hidden">
                                 <div
-                                  className="h-full rounded-full transition-all"
+                                  className="h-full rounded-full transition-all duration-500 ease-out"
                                   style={{
                                     width: `${pct}%`,
                                     backgroundColor: barColor,
+                                    boxShadow: `0 0 8px -1px ${barColor}`,
                                   }}
                                 />
                               </div>
@@ -2449,9 +2479,14 @@ export default function CashflowPlanningPage() {
                         })}
                       </div>
                     ) : (
-                      <div className="h-[140px] flex flex-col items-center justify-center text-muted-foreground gap-2">
-                        <CreditCard className="h-6 w-6 opacity-40" />
-                        <p className="text-xs">No budgets set</p>
+                      <div className="h-[140px] flex flex-col items-center justify-center gap-2">
+                        <div
+                          className="glow-accent flex items-center justify-center h-9 w-9 rounded-full bg-muted/60"
+                          style={{ ["--glow-color" as string]: "oklch(0.7 0.17 155 / 40%)" }}
+                        >
+                          <CreditCard className="h-4.5 w-4.5 text-muted-foreground" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">No budgets set</p>
                         <Link href="/budgets">
                           <Button size="sm" variant="outline">
                             Set Budget
@@ -2525,7 +2560,7 @@ export default function CashflowPlanningPage() {
                             return (
                               <div
                                 key={d.id}
-                                className="flex items-center gap-3 px-4 py-3"
+                                className="flex items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-muted/40"
                               >
                                 <div className="relative shrink-0">
                                   <RingProgress
@@ -2563,9 +2598,14 @@ export default function CashflowPlanningPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="h-[140px] flex flex-col items-center justify-center text-muted-foreground gap-2">
-                        <Landmark className="h-6 w-6 opacity-40" />
-                        <p className="text-xs">No debts tracked</p>
+                      <div className="h-[140px] flex flex-col items-center justify-center gap-2">
+                        <div
+                          className="glow-accent flex items-center justify-center h-9 w-9 rounded-full bg-muted/60"
+                          style={{ ["--glow-color" as string]: "oklch(0.65 0.2 25 / 40%)" }}
+                        >
+                          <Landmark className="h-4.5 w-4.5 text-muted-foreground" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">No debts tracked</p>
                         <Link href="/debt-tracker">
                           <Button size="sm" variant="outline">
                             Add Debt
@@ -2604,10 +2644,10 @@ export default function CashflowPlanningPage() {
                           setScenarioIncomeBoost(preset.incomeBoost);
                           setScenarioExtraExpense(preset.extraExpense);
                         }}
-                        className={`rounded-lg border px-3 py-2 text-left transition-all ${
+                        className={`rounded-lg border px-3 py-2 text-left transition-all duration-200 ${
                           active
-                            ? "border-blue-500 bg-blue-100 dark:bg-blue-950/40"
-                            : "border-border bg-background/70 hover:bg-background"
+                            ? "ring-glow-primary border-blue-500 bg-blue-100 dark:bg-blue-950/40 scale-[1.02]"
+                            : "border-border bg-background/70 hover:bg-background hover:-translate-y-0.5"
                         }`}
                       >
                         <p className="text-xs font-semibold truncate">
@@ -2955,7 +2995,7 @@ export default function CashflowPlanningPage() {
                             <div className="flex items-center gap-3">
                               <Progress
                                 value={paidPct}
-                                className="h-1.5 flex-1 [&>div]:bg-blue-500"
+                                className="h-1.5 flex-1 [&>div]:bg-gradient-to-r [&>div]:from-blue-500 [&>div]:to-sky-400 [&>div]:transition-all [&>div]:duration-500"
                               />
                               <span className="text-[10px] font-mono text-muted-foreground shrink-0">
                                 {paidPct.toFixed(0)}% paid
@@ -4113,7 +4153,7 @@ function SmartCalculatorResults({
                 return (
                   <Card
                     key={g.id}
-                    className={`border ${g.atRisk ? "border-amber-300 dark:border-amber-700" : priorityStyle.border}`}
+                    className={`glass-card glass-card-hover animate-fade-up border ${g.atRisk ? "border-amber-300 dark:border-amber-700" : priorityStyle.border}`}
                   >
                     <CardContent className="px-4 pt-4 pb-4 space-y-3">
                       {/* Header */}
@@ -4166,7 +4206,7 @@ function SmartCalculatorResults({
                         </div>
                         <div className="relative h-3 rounded-full bg-muted overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all ${g.atRisk ? "bg-amber-400" : priorityStyle.bar}`}
+                            className={`h-full rounded-full transition-all duration-700 ease-out shadow-[0_0_10px_-2px_currentColor] ${g.atRisk ? "bg-amber-400 text-amber-400" : `${priorityStyle.bar} ${g.priority === "high" ? "text-red-500" : g.priority === "low" ? "text-blue-500" : "text-amber-500"}`}`}
                             style={{ width: `${pct}%` }}
                           />
                           {/* 50% marker */}
@@ -4300,12 +4340,23 @@ function SmartCalculatorResults({
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
-              <Target className="h-8 w-8 opacity-30" />
-              <p className="text-sm">No active goals yet.</p>
-              <p className="text-xs">
-                Add goals in the Goals page or use the custom goal form above.
+            <div className="glass-card flex flex-col items-center justify-center py-12 gap-3 animate-fade-up">
+              <div
+                className="glow-accent flex items-center justify-center h-14 w-14 rounded-full bg-muted/60"
+                style={{ ["--glow-color" as string]: "oklch(0.62 0.19 260 / 40%)" }}
+              >
+                <Target className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium">No active goals yet.</p>
+              <p className="text-xs text-muted-foreground max-w-xs text-center">
+                Add goals in the Goals page or use the custom goal form above
+                to see a personalized savings plan here.
               </p>
+              <Link href="/goals">
+                <Button size="sm" variant="outline" className="mt-1">
+                  <Target className="h-3.5 w-3.5 mr-1.5" /> Go to Goals
+                </Button>
+              </Link>
             </div>
           )}
         </TabsContent>
@@ -4352,7 +4403,7 @@ function SmartCalculatorResults({
                     {debtBreakdown.map((d, idx) => (
                       <div
                         key={d.id}
-                        className="rounded-lg border border-border bg-muted/20 px-3 py-2.5"
+                        className="rounded-lg border border-border bg-muted/20 px-3 py-2.5 transition-colors duration-200 hover:bg-muted/40"
                       >
                         <div className="flex items-start justify-between gap-2 mb-1">
                           <div className="flex items-center gap-1.5 min-w-0">
@@ -4528,7 +4579,14 @@ function SmartCalculatorResults({
                               format(Number(v ?? 0)),
                               name ?? "",
                             ]}
-                            contentStyle={{ fontSize: 11 }}
+                            contentStyle={{
+                              fontSize: 11,
+                              backgroundColor: "color-mix(in oklch, var(--card) 85%, transparent)",
+                              border: "1px solid var(--border)",
+                              borderRadius: "10px",
+                              backdropFilter: "blur(12px)",
+                              boxShadow: "0 8px 24px -12px rgba(0,0,0,0.35)",
+                            }}
                           />
                           <Legend
                             wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
@@ -4657,12 +4715,23 @@ function SmartCalculatorResults({
               </CardContent>
             </Card>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
-              <Landmark className="h-8 w-8 opacity-30" />
-              <p className="text-sm">No debts tracked.</p>
-              <p className="text-xs">
-                Add debts in the Debt Tracker page to see payoff plans.
+            <div className="glass-card flex flex-col items-center justify-center py-12 gap-3 animate-fade-up">
+              <div
+                className="glow-accent flex items-center justify-center h-14 w-14 rounded-full bg-muted/60"
+                style={{ ["--glow-color" as string]: "oklch(0.65 0.2 25 / 40%)" }}
+              >
+                <Landmark className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium">No debts tracked.</p>
+              <p className="text-xs text-muted-foreground max-w-xs text-center">
+                Add debts in the Debt Tracker page to see payoff plans and
+                interest projections here.
               </p>
+              <Link href="/debt-tracker">
+                <Button size="sm" variant="outline" className="mt-1">
+                  <Landmark className="h-3.5 w-3.5 mr-1.5" /> Go to Debt Tracker
+                </Button>
+              </Link>
             </div>
           )}
         </TabsContent>
@@ -4789,7 +4858,14 @@ function SmartCalculatorResults({
                           format(Number(v ?? 0)),
                           name ?? "",
                         ]}
-                        contentStyle={{ fontSize: 11 }}
+                        contentStyle={{
+                          fontSize: 11,
+                          backgroundColor: "color-mix(in oklch, var(--card) 85%, transparent)",
+                          border: "1px solid var(--border)",
+                          borderRadius: "10px",
+                          backdropFilter: "blur(12px)",
+                          boxShadow: "0 8px 24px -12px rgba(0,0,0,0.35)",
+                        }}
                       />
                       <Legend
                         iconType="square"
@@ -4880,7 +4956,7 @@ function SmartCalculatorResults({
                           {ms.target >= 10_000_000
                             ? `₹${ms.target / 10_000_000}Cr`
                             : ms.target >= 100_000
-                              ? `₹${ms.target / 100_000}L`
+                               ? `₹${ms.target / 100_000}L`
                               : `₹${ms.target / 1000}K`}
                         </span>
                         <span className="text-[10px] text-muted-foreground">

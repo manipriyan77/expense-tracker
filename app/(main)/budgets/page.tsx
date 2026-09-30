@@ -47,6 +47,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useBudgetsStore, Budget } from "@/store/budgets-store";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import { useTransactionsStore } from "@/store/transactions-store";
 import { useGoalsStore } from "@/store/goals-store";
 import { BudgetPlanningTab } from "@/components/budgets/BudgetPlanningTab";
@@ -300,13 +301,6 @@ export default function BudgetsPage() {
     toast.success("Transaction added successfully!");
   };
 
-  const getProgressColor = (percentage: number) => {
-    if (percentage >= 100) return "bg-red-600";
-    if (percentage >= 80) return "bg-orange-500";
-    if (percentage >= 60) return "bg-yellow-500";
-    return "bg-green-600";
-  };
-
   const getStatusIcon = (percentage: number) => {
     if (percentage >= 100)
       return <AlertTriangle className="h-5 w-5 text-red-600" />;
@@ -447,7 +441,7 @@ export default function BudgetsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Toaster position="top-right" />
-      <div className="bg-slate-900 dark:bg-black text-white">
+      <div className="mesh-hero bg-slate-900 dark:bg-black text-white">
         <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
           <div className="mb-4">
             <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
@@ -457,14 +451,16 @@ export default function BudgetsPage() {
               Manage budgets and reusable templates
             </p>
           </div>
-          <div className="grid grid-cols-3 divide-x divide-slate-700/60 border-t border-slate-700/60">
+          <div className="glass-panel-dark rounded-xl grid grid-cols-3 divide-x divide-white/10 border-t border-white/10 overflow-hidden">
             <div className="px-4 py-3">
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
                 Total Budget
               </p>
-              <p className="font-mono text-base font-semibold text-slate-200">
-                {format(totalBudget)}
-              </p>
+              <AnimatedNumber
+                value={totalBudget}
+                format={(n) => format(n)}
+                className="font-mono text-base font-semibold text-slate-200"
+              />
               <p className="text-[10px] text-slate-500 mt-0.5">
                 {budgets.length} budget(s)
               </p>
@@ -473,9 +469,11 @@ export default function BudgetsPage() {
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
                 Spent
               </p>
-              <p className="font-mono text-base font-semibold text-red-400">
-                {format(totalSpent)}
-              </p>
+              <AnimatedNumber
+                value={totalSpent}
+                format={(n) => format(n)}
+                className="font-mono text-base font-semibold text-red-400"
+              />
               <p className="text-[10px] text-slate-500 mt-0.5">
                 {overallPercentage.toFixed(1)}% used
               </p>
@@ -484,16 +482,52 @@ export default function BudgetsPage() {
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
                 Remaining
               </p>
-              <p
+              <AnimatedNumber
+                value={Math.abs(totalBudget - totalSpent)}
+                format={(n) => format(n)}
                 className={`font-mono text-base font-semibold ${totalBudget - totalSpent >= 0 ? "text-green-400" : "text-red-400"}`}
-              >
-                {format(Math.abs(totalBudget - totalSpent))}
-              </p>
+              />
               <p className="text-[10px] text-slate-500 mt-0.5">
                 {totalBudget - totalSpent >= 0 ? "left" : "over budget"}
               </p>
             </div>
           </div>
+          {totalBudget > 0 && (
+            <div className="pt-3 pb-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] uppercase tracking-widest text-slate-400">
+                  Overall usage
+                </span>
+                <span className="text-[10px] font-mono text-slate-300">
+                  {overallPercentage.toFixed(1)}%
+                </span>
+              </div>
+              <div
+                className="relative w-full h-2 rounded-full bg-white/10 overflow-hidden glow-accent"
+                style={{
+                  ["--glow-color" as string]:
+                    overallPercentage >= 100
+                      ? "oklch(0.65 0.2 25)"
+                      : overallPercentage >= 80
+                        ? "oklch(0.75 0.17 60)"
+                        : "oklch(0.72 0.17 145)",
+                }}
+              >
+                <div
+                  className="h-full rounded-full transition-all duration-700 ease-out"
+                  style={{
+                    width: `${Math.min(overallPercentage, 100)}%`,
+                    background:
+                      overallPercentage >= 100
+                        ? "linear-gradient(90deg, oklch(0.62 0.21 25), oklch(0.7 0.19 35))"
+                        : overallPercentage >= 80
+                          ? "linear-gradient(90deg, oklch(0.7 0.18 55), oklch(0.78 0.16 75))"
+                          : "linear-gradient(90deg, oklch(0.62 0.16 155), oklch(0.75 0.17 140))",
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -541,7 +575,7 @@ export default function BudgetsPage() {
             <div className="mb-4">
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button className="w-full md:w-auto">
+                  <Button className="w-full md:w-auto ring-glow-primary">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Budget
                   </Button>
@@ -979,8 +1013,8 @@ export default function BudgetsPage() {
 
             {/* Smart Insights */}
             {budgets.length > 0 && budgetInsights.hasAny && (
-              <Card className="mb-4 border-border/60">
-                <div className="px-4 py-2.5 flex items-center gap-2 border-b border-border/50">
+              <Card className="glass-card mb-4 animate-fade-up">
+                <div className="px-4 py-2.5 flex items-center gap-2 border-b border-white/10 dark:border-white/5">
                   <Sparkles className="h-4 w-4 text-primary" />
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
                     Smart Insights
@@ -1030,8 +1064,8 @@ export default function BudgetsPage() {
             {/* Budget Analysis Charts */}
             {budgets.length > 0 && (
               <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start lg:[&>*]:min-h-0">
-                <Card className="min-w-0">
-                  <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+                <Card className="glass-card min-w-0 animate-fade-up">
+                  <CardHeader className="pb-2 border-b border-white/10 dark:border-white/5 px-4 pt-4">
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                       Budget vs Spent by Category
                     </p>
@@ -1087,11 +1121,14 @@ export default function BudgetsPage() {
                             format(Number(value ?? 0)),
                             name ?? "",
                           ]}
+                          cursor={{ fill: "var(--muted)", opacity: 0.35 }}
                           contentStyle={{
                             fontSize: 12,
-                            borderRadius: 8,
+                            borderRadius: 12,
                             border: "1px solid var(--border)",
-                            background: "var(--background)",
+                            background: "color-mix(in oklch, var(--background) 85%, transparent)",
+                            backdropFilter: "blur(10px)",
+                            boxShadow: "0 8px 24px -12px rgba(0,0,0,0.35)",
                             color: "var(--foreground)",
                           }}
                           itemStyle={{ color: "var(--foreground)" }}
@@ -1141,8 +1178,8 @@ export default function BudgetsPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="min-h-0 min-w-0 max-h-[min(70vh,720px)] overflow-hidden">
-                  <CardHeader className="shrink-0 pb-2 border-b border-border px-4 pt-4">
+                <Card className="glass-card min-h-0 min-w-0 max-h-[min(70vh,720px)] overflow-hidden animate-fade-up" style={{ animationDelay: "80ms" }}>
+                  <CardHeader className="shrink-0 pb-2 border-b border-white/10 dark:border-white/5 px-4 pt-4">
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                       Budget Breakdown by Category
                     </p>
@@ -1193,15 +1230,15 @@ export default function BudgetsPage() {
                           {/* Budget track */}
                           <div className="h-2 w-full rounded-full bg-muted mb-2 overflow-hidden">
                             <div
-                              className="h-2 rounded-full transition-all"
+                              className="h-2 rounded-full transition-all duration-700 ease-out"
                               style={{
                                 width: `${spentPct}%`,
-                                backgroundColor:
+                                backgroundImage:
                                   spentPct >= 100
-                                    ? "#ef4444"
+                                    ? "linear-gradient(90deg, #ef4444, #f87171)"
                                     : spentPct >= 80
-                                      ? "#f97316"
-                                      : color,
+                                      ? "linear-gradient(90deg, #f97316, #fb923c)"
+                                      : `linear-gradient(90deg, ${color}, ${color}cc)`,
                               }}
                             />
                           </div>
@@ -1251,8 +1288,8 @@ export default function BudgetsPage() {
             )}
 
             {/* Budget Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {budgets.map((budget) => {
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {budgets.map((budget, budgetIdx) => {
                 const spent = budget.spent_amount || 0;
                 const effectiveLimit = budget.effective_limit ?? budget.limit_amount;
                 const percentage = effectiveLimit > 0 ? (spent / effectiveLimit) * 100 : 0;
@@ -1274,10 +1311,23 @@ export default function BudgetsPage() {
                 const daysLeft = budget.period === "monthly" ? daysInMonth - dayOfMonth : null;
                 const dailyBudget = daysLeft !== null && daysLeft > 0 ? remaining / daysLeft : null;
 
+                const statusGlowColor =
+                  percentage >= 100
+                    ? "oklch(0.65 0.2 25)"
+                    : percentage >= 80
+                      ? "oklch(0.75 0.17 60)"
+                      : percentage >= 60
+                        ? "oklch(0.8 0.16 90)"
+                        : "oklch(0.72 0.17 145)";
+
                 return (
                   <Card
                     key={budget.id}
-                    className="relative hover:shadow-md transition-shadow cursor-pointer"
+                    className="glass-card glass-card-hover glow-accent relative cursor-pointer animate-fade-up"
+                    style={{
+                      ["--glow-color" as string]: statusGlowColor,
+                      animationDelay: `${Math.min(budgetIdx, 12) * 40}ms`,
+                    }}
                     onClick={() => openDetailsModal(budget)}
                   >
                     <CardHeader className="p-2 pb-1">
@@ -1368,8 +1418,18 @@ export default function BudgetsPage() {
                         </div>
                         <div className="relative w-full bg-muted rounded-full h-1.5 overflow-hidden">
                           <div
-                            className={`absolute top-0 left-0 h-1.5 ${getProgressColor(percentage)} rounded-full transition-all`}
-                            style={{ width: `${Math.min(percentage, 100)}%` }}
+                            className="absolute top-0 left-0 h-1.5 rounded-full transition-all duration-700 ease-out"
+                            style={{
+                              width: `${Math.min(percentage, 100)}%`,
+                              backgroundImage:
+                                percentage >= 100
+                                  ? "linear-gradient(90deg, #dc2626, #f87171)"
+                                  : percentage >= 80
+                                    ? "linear-gradient(90deg, #f97316, #fb923c)"
+                                    : percentage >= 60
+                                      ? "linear-gradient(90deg, #eab308, #facc15)"
+                                      : "linear-gradient(90deg, #16a34a, #4ade80)",
+                            }}
                           />
                         </div>
                       </div>
@@ -1434,14 +1494,14 @@ export default function BudgetsPage() {
                       {/* Alert banner */}
                       {percentage >= 80 && (
                         <div
-                          className={`flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] ${
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] ${
                             percentage >= 100
-                              ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                              : "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                              ? "bg-red-500/10 border-red-500/25 text-red-600 dark:text-red-400"
+                              : "bg-orange-500/10 border-orange-500/25 text-orange-600 dark:text-orange-400"
                           }`}
                         >
                           <AlertTriangle className="h-3 w-3 shrink-0" />
-                          <span className="text-[10px] uppercase tracking-widest font-medium">
+                          <span className="text-[10px] uppercase tracking-widest font-semibold">
                             {percentage >= 100
                               ? "Budget exceeded"
                               : "Approaching limit"}
@@ -1492,15 +1552,28 @@ export default function BudgetsPage() {
             </div>
 
             {budgets.length === 0 && (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-6">
-                  <TrendingDown className="h-10 w-10 text-muted-foreground mb-3" />
+              <Card className="glass-card animate-fade-up">
+                <CardContent className="flex flex-col items-center justify-center py-10 px-6">
+                  <div
+                    className="glow-accent flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4"
+                    style={{ ["--glow-color" as string]: "var(--primary)" }}
+                  >
+                    <TrendingDown className="h-7 w-7 text-primary" />
+                  </div>
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
                     No budgets created yet
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    Start by creating your first budget to track spending
+                  <p className="text-sm text-muted-foreground mb-4 text-center max-w-xs">
+                    Start by creating your first budget to track spending for
+                    this month
                   </p>
+                  <Button
+                    className="ring-glow-primary"
+                    onClick={() => setIsAddDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Budget
+                  </Button>
                 </CardContent>
               </Card>
             )}

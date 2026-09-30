@@ -58,6 +58,7 @@ import {
   type MergedListItem,
   type TransactionRowModel,
 } from "@/components/transactions/TransactionListItemRow";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import { getPendingOccurrencesForMonth } from "@/lib/utils/recurring-occurrences";
 import { useRecurringPatternsStore } from "@/store/recurring-patterns-store";
 import { useGoalsStore } from "@/store/goals-store";
@@ -883,7 +884,7 @@ function TransactionsPageInner() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="bg-slate-900 dark:bg-black">
+        <div className="mesh-hero bg-slate-900 dark:bg-black">
           <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-3">
             <Skeleton className="h-3 w-24 bg-slate-700 mb-2" />
             <div className="grid grid-cols-3 gap-4 mt-4">
@@ -910,30 +911,42 @@ function TransactionsPageInner() {
     <>
       <Toaster position="top-right" richColors />
       <div className="min-h-screen bg-background">
-        <div className="bg-slate-900 dark:bg-black text-white">
-          <div className="px-3 sm:px-6 lg:px-8 pt-2.5 pb-0">
+        <div className="mesh-hero bg-slate-900 dark:bg-black text-white shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)] relative">
+          <div className="px-3 sm:px-6 lg:px-8 pt-2.5 pb-0 relative">
             <div className="mb-2.5">
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Transactions</p>
               <p className="text-xs text-slate-500">{selectedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
             </div>
-            <div className="grid grid-cols-3 divide-x divide-slate-700/60 border-t border-slate-700/60">
+            <div className="glass-panel-dark rounded-lg grid grid-cols-3 divide-x divide-white/10">
               <div className="px-4 py-2">
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Income</p>
-                <p className="font-mono text-base font-semibold text-green-400">{format(totalIncome)}</p>
+                <AnimatedNumber
+                  value={totalIncome}
+                  format={(n) => format(n)}
+                  className="font-mono text-base font-semibold text-green-400 block"
+                />
                 {renderDelta(momDeltas.income, false) ?? (
                   <p className="text-[10px] text-slate-500 mt-0.5">{filteredTransactions.filter(t => t.type === "income").length} entries</p>
                 )}
               </div>
               <div className="px-4 py-2">
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Expenses</p>
-                <p className="font-mono text-base font-semibold text-red-400">{format(totalExpenses)}</p>
+                <AnimatedNumber
+                  value={totalExpenses}
+                  format={(n) => format(n)}
+                  className="font-mono text-base font-semibold text-red-400 block"
+                />
                 {renderDelta(momDeltas.expense, true) ?? (
                   <p className="text-[10px] text-slate-500 mt-0.5">{filteredTransactions.filter(t => t.type === "expense").length} entries</p>
                 )}
               </div>
               <div className="px-4 py-2">
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Balance</p>
-                <p className={`font-mono text-base font-semibold ${balance >= 0 ? "text-green-400" : "text-red-400"}`}>{balance < 0 ? "-" : ""}{format(Math.abs(balance))}</p>
+                <AnimatedNumber
+                  value={Math.abs(balance)}
+                  format={(n) => `${balance < 0 ? "-" : ""}${format(n)}`}
+                  className={`font-mono text-base font-semibold block ${balance >= 0 ? "text-green-400" : "text-red-400"}`}
+                />
                 <p className="text-[10px] text-slate-500 mt-0.5">Income − Expenses</p>
               </div>
             </div>
@@ -1077,7 +1090,7 @@ function TransactionsPageInner() {
                   onOpenChange={setIsAddDialogOpen}
                 >
                   <DialogTrigger asChild>
-                    <Button size="sm" className="shrink-0">
+                    <Button size="sm" className="shrink-0 ring-glow-primary">
                       <Plus className="h-4 w-4 sm:mr-2" />
                       <span className="hidden sm:inline">Add Transaction</span>
                     </Button>
@@ -1193,7 +1206,7 @@ function TransactionsPageInner() {
 
             {/* Advanced Filters */}
             {showFilters && (
-              <Card className="p-3 border-border/50">
+              <Card className="p-3 glass-card animate-fade-up">
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                   <div>
                     <label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5 block">
@@ -1314,7 +1327,7 @@ function TransactionsPageInner() {
 
           {/* Spending Overview Chart */}
           {filteredTransactions.length > 0 && (
-            <Card className="mb-2.5 overflow-hidden">
+            <Card className="glass-card mb-2.5 overflow-hidden animate-fade-up">
               <div className="w-full px-3 py-2 border-b flex items-center justify-between gap-2">
                 <button
                   type="button"
@@ -1373,7 +1386,14 @@ function TransactionsPageInner() {
                             </Pie>
                             <Tooltip
                               formatter={(v) => format(v as number)}
-                              contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                              contentStyle={{
+                                fontSize: 11,
+                                borderRadius: 10,
+                                background: "color-mix(in oklch, var(--card) 85%, transparent)",
+                                backdropFilter: "blur(8px)",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                boxShadow: "0 8px 24px -12px rgba(0,0,0,0.35)",
+                              }}
                             />
                           </PieChart>
                         </ResponsiveContainer>
@@ -1393,7 +1413,10 @@ function TransactionsPageInner() {
                               <div className="min-w-0">
                                 <p className="text-xs font-medium truncate">{item.name}</p>
                                 <div className="h-1 w-full bg-muted rounded-full overflow-hidden mt-0.5">
-                                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                                  <div
+                                    className="h-full rounded-full transition-all duration-500 ease-out"
+                                    style={{ width: `${pct}%`, backgroundColor: color, boxShadow: `0 0 6px 0 ${color}99` }}
+                                  />
                                 </div>
                               </div>
                               <span className="font-mono text-xs tabular-nums text-right">{format(item.value)}</span>
@@ -1440,7 +1463,13 @@ function TransactionsPageInner() {
                               const exp = (payload.find((p) => p.dataKey === "expense")?.value as number) ?? 0;
                               const inc = (payload.find((p) => p.dataKey === "income")?.value as number) ?? 0;
                               return (
-                                <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-xs">
+                                <div
+                                  className="rounded-lg border border-white/10 px-3 py-2 shadow-md text-xs"
+                                  style={{
+                                    background: "color-mix(in oklch, var(--card) 85%, transparent)",
+                                    backdropFilter: "blur(8px)",
+                                  }}
+                                >
                                   <p className="font-semibold mb-1">Day {label}</p>
                                   {exp > 0 && <p className="text-red-500">Expense: <span className="font-mono">{format(exp)}</span></p>}
                                   {inc > 0 && <p className="text-emerald-600">Income: <span className="font-mono">{format(inc)}</span></p>}
@@ -1448,8 +1477,8 @@ function TransactionsPageInner() {
                               );
                             }}
                           />
-                          <Bar dataKey="expense" fill="#ef4444" radius={[2, 2, 0, 0]} maxBarSize={20} />
-                          <Bar dataKey="income" fill="#10b981" radius={[2, 2, 0, 0]} maxBarSize={20} />
+                          <Bar dataKey="expense" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={20} style={{ filter: "drop-shadow(0 2px 4px rgba(239,68,68,0.35))" }} />
+                          <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={20} style={{ filter: "drop-shadow(0 2px 4px rgba(16,185,129,0.35))" }} />
                         </BarChart>
                       </ResponsiveContainer>
                       <div className="flex items-center gap-4 justify-center mt-1">
@@ -1469,7 +1498,7 @@ function TransactionsPageInner() {
 
           {/* Select-all bar (bulk mode) */}
           {selectionMode && selectableIds.length > 0 && (
-            <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg border border-border bg-muted/40">
+            <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg glass-card animate-fade-up">
               <button
                 type="button"
                 onClick={toggleSelectAllVisible}
@@ -1487,17 +1516,29 @@ function TransactionsPageInner() {
           {/* Transactions Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-2.5 min-w-0">
             <div className="overflow-x-auto -mx-1 px-1">
-              <TabsList className="w-max min-w-0">
-                <TabsTrigger value="all">
+              <TabsList className="w-max min-w-0 gap-1 bg-muted/60 backdrop-blur-sm">
+                <TabsTrigger
+                  value="all"
+                  className="rounded-full transition-all duration-300 data-[state=active]:shadow-md"
+                >
                 All ({allTransactions.length})
               </TabsTrigger>
-              <TabsTrigger value="income">
+              <TabsTrigger
+                value="income"
+                className="rounded-full transition-all duration-300 data-[state=active]:shadow-md"
+              >
                 Income ({incomeTransactions.length})
               </TabsTrigger>
-              <TabsTrigger value="expense">
+              <TabsTrigger
+                value="expense"
+                className="rounded-full transition-all duration-300 data-[state=active]:shadow-md"
+              >
                 Expenses ({expenseTransactions.length})
               </TabsTrigger>
-              <TabsTrigger value="recurring">
+              <TabsTrigger
+                value="recurring"
+                className="rounded-full transition-all duration-300 data-[state=active]:shadow-md"
+              >
                 Recurring ({recurringTransactions.length})
               </TabsTrigger>
               </TabsList>
@@ -1506,15 +1547,25 @@ function TransactionsPageInner() {
             {/* All Transactions */}
             <TabsContent value="all" className="mt-0">
               {sortedMergedItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <IndianRupee className="h-8 w-8 text-muted-foreground/40 mb-3" />
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">No transactions yet</p>
-                  <p className="text-xs text-muted-foreground">Add transactions or set up recurring items on the Recurring page</p>
+                <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-up">
+                  <div
+                    className="relative flex items-center justify-center w-16 h-16 rounded-full mb-4 glow-accent"
+                    style={{ ["--glow-color" as string]: "oklch(0.6 0.15 250 / 40%)" }}
+                  >
+                    <div className="absolute inset-0 rounded-full bg-blue-500/10" />
+                    <IndianRupee className="h-7 w-7 text-blue-500/50 dark:text-blue-400/50" />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">No transactions yet</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-64">Add transactions or set up recurring items on the Recurring page</p>
+                  <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="mt-4 h-7 px-3 gap-1 text-xs ring-glow-primary">
+                    <Plus className="h-3 w-3" />
+                    Add Transaction
+                  </Button>
                 </div>
               ) : (
                 <>
-                  <Card className="overflow-hidden p-0">
-                    <div className="divide-y divide-border">
+                  <Card className="glass-card overflow-hidden p-0 animate-fade-up">
+                    <div className="divide-y divide-border/50">
                       {paginatedMergedItems.map((item) => (
                         <TransactionListItemRow
                           key={
@@ -1550,14 +1601,21 @@ function TransactionsPageInner() {
             {/* Income Only */}
             <TabsContent value="income" className="mt-0">
               {incomeTransactions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <TrendingUp className="h-8 w-8 text-muted-foreground/40 mb-3" />
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">No income transactions found</p>
+                <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-up">
+                  <div
+                    className="relative flex items-center justify-center w-16 h-16 rounded-full mb-4 glow-accent"
+                    style={{ ["--glow-color" as string]: "oklch(0.72 0.17 155 / 40%)" }}
+                  >
+                    <div className="absolute inset-0 rounded-full bg-emerald-500/10" />
+                    <TrendingUp className="h-7 w-7 text-emerald-500/50 dark:text-emerald-400/50" />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">No income transactions found</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-64">Try adjusting filters or add a new income entry.</p>
                 </div>
               ) : (
                 <>
-                  <Card className="overflow-hidden p-0">
-                    <div className="divide-y divide-border">
+                  <Card className="glass-card overflow-hidden p-0 animate-fade-up">
+                    <div className="divide-y divide-border/50">
                       {getPaginatedData(incomeTransactions).map((item) => (
                         <TransactionListItemRow
                           key={
@@ -1593,14 +1651,21 @@ function TransactionsPageInner() {
             {/* Expenses Only */}
             <TabsContent value="expense" className="mt-0">
               {expenseTransactions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <TrendingDown className="h-8 w-8 text-muted-foreground/40 mb-3" />
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">No expense transactions found</p>
+                <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-up">
+                  <div
+                    className="relative flex items-center justify-center w-16 h-16 rounded-full mb-4 glow-accent"
+                    style={{ ["--glow-color" as string]: "oklch(0.65 0.2 25 / 40%)" }}
+                  >
+                    <div className="absolute inset-0 rounded-full bg-red-500/10" />
+                    <TrendingDown className="h-7 w-7 text-red-500/50 dark:text-red-400/50" />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">No expense transactions found</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-64">Try adjusting filters or add a new expense entry.</p>
                 </div>
               ) : (
                 <>
-                  <Card className="overflow-hidden p-0">
-                    <div className="divide-y divide-border">
+                  <Card className="glass-card overflow-hidden p-0 animate-fade-up">
+                    <div className="divide-y divide-border/50">
                       {getPaginatedData(expenseTransactions).map((item) => (
                         <TransactionListItemRow
                           key={
@@ -1636,15 +1701,21 @@ function TransactionsPageInner() {
             {/* Recurring Only */}
             <TabsContent value="recurring" className="mt-0">
               {recurringTransactions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <Repeat className="h-8 w-8 text-muted-foreground/40 mb-3" />
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">No recurring items for this month</p>
-                  <p className="text-xs text-muted-foreground mt-1">Due recurring or completed payments from patterns appear here</p>
+                <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-up">
+                  <div
+                    className="relative flex items-center justify-center w-16 h-16 rounded-full mb-4 glow-accent"
+                    style={{ ["--glow-color" as string]: "oklch(0.6 0.15 280 / 40%)" }}
+                  >
+                    <div className="absolute inset-0 rounded-full bg-violet-500/10" />
+                    <Repeat className="h-7 w-7 text-violet-500/50 dark:text-violet-400/50" />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">No recurring items for this month</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-64">Due recurring or completed payments from patterns appear here</p>
                 </div>
               ) : (
                 <>
-                  <Card className="overflow-hidden p-0">
-                    <div className="divide-y divide-border">
+                  <Card className="glass-card overflow-hidden p-0 animate-fade-up">
+                    <div className="divide-y divide-border/50">
                       {getPaginatedData(recurringTransactions).map((item) => (
                         <TransactionListItemRow
                           key={
@@ -1682,7 +1753,7 @@ function TransactionsPageInner() {
         {/* Floating bulk-action bar */}
         {selectionMode && selectedIds.size > 0 && (
           <div className="fixed inset-x-0 bottom-16 md:bottom-6 z-40 flex justify-center px-4 pointer-events-none">
-            <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-card/95 backdrop-blur px-3 py-2 shadow-lg">
+            <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/10 bg-card/90 backdrop-blur-xl px-3 py-2 shadow-[0_16px_36px_-14px_rgba(0,0,0,0.4)] animate-fade-up">
               <span className="text-xs font-medium px-1.5">
                 {selectedIds.size} selected
                 <span className="hidden sm:inline text-muted-foreground font-normal">

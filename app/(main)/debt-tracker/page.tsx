@@ -59,6 +59,7 @@ import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useDebtTrackerStore, type Debt } from "@/store/debt-tracker-store";
 import { Skeleton, StatsSkeleton } from "@/components/ui/skeleton";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 
 export default function DebtTrackerPage() {
   const { format } = useFormatCurrency();
@@ -387,6 +388,11 @@ export default function DebtTrackerPage() {
     return Math.ceil(debt.balance / debt.minimum_payment);
   };
 
+  const debtFreeMonths = React.useMemo(() => {
+    if (debts.length === 0) return 0;
+    return Math.max(...debts.map((d) => calculateMonthsToPayoff(d)));
+  }, [debts]);
+
   const sortedActiveDebts = React.useMemo(() => {
     return [...debts].sort((a, b) => {
       switch (debtSortBy) {
@@ -467,7 +473,7 @@ export default function DebtTrackerPage() {
   if (loading && debts.length === 0) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="bg-slate-900 dark:bg-black px-3 sm:px-6 lg:px-8 pt-4 pb-4">
+        <div className="mesh-hero bg-slate-900 dark:bg-black px-3 sm:px-6 lg:px-8 pt-4 pb-4">
           <Skeleton className="h-4 w-24 bg-slate-700 mb-2" />
           <Skeleton className="h-3 w-40 bg-slate-800" />
         </div>
@@ -475,7 +481,7 @@ export default function DebtTrackerPage() {
           <StatsSkeleton />
           <div className="space-y-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="rounded-lg border bg-card p-5 space-y-3">
+              <div key={i} className="glass-card shimmer p-5 space-y-3">
                 <div className="flex justify-between">
                   <Skeleton className="h-5 w-32" />
                   <Skeleton className="h-5 w-20" />
@@ -495,7 +501,7 @@ export default function DebtTrackerPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-slate-900 dark:bg-black text-white">
+      <div className="mesh-hero bg-slate-900 dark:bg-black text-white">
         <div className="px-3 sm:px-6 lg:px-8 pt-3 pb-0">
           <div className="flex justify-between items-start mb-4">
             <div>
@@ -508,7 +514,7 @@ export default function DebtTrackerPage() {
             </div>
             <Dialog open={isAddDebtOpen} onOpenChange={setIsAddDebtOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="ring-glow-primary">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Debt
                 </Button>
@@ -702,9 +708,11 @@ export default function DebtTrackerPage() {
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
                 Total Debt
               </p>
-              <p className="font-mono text-base font-semibold text-red-400">
-                {format(totalDebt)}
-              </p>
+              <AnimatedNumber
+                value={totalDebt}
+                format={(n) => format(n)}
+                className="font-mono text-base font-semibold text-red-400"
+              />
               <p className="text-[10px] text-slate-500 mt-0.5">
                 Across {debts.length} accounts
               </p>
@@ -713,27 +721,33 @@ export default function DebtTrackerPage() {
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
                 Min Payment
               </p>
-              <p className="font-mono text-base font-semibold text-slate-200">
-                {format(totalMinPayment)}
-              </p>
+              <AnimatedNumber
+                value={totalMinPayment}
+                format={(n) => format(n)}
+                className="font-mono text-base font-semibold text-slate-200"
+              />
               <p className="text-[10px] text-slate-500 mt-0.5">Per month</p>
             </div>
             <div className="px-4 py-3">
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
                 Avg Interest
               </p>
-              <p className="font-mono text-base font-semibold text-amber-400">
-                {avgInterestRate.toFixed(1)}%
-              </p>
+              <AnimatedNumber
+                value={avgInterestRate}
+                format={(n) => `${n.toFixed(1)}%`}
+                className="font-mono text-base font-semibold text-amber-400"
+              />
               <p className="text-[10px] text-slate-500 mt-0.5">Annual rate</p>
             </div>
             <div className="px-4 py-3">
               <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
                 Debt-Free In
               </p>
-              <p className="font-mono text-base font-semibold text-blue-400">
-                48 months
-              </p>
+              <AnimatedNumber
+                value={debtFreeMonths}
+                format={(n) => `${Math.round(n)} months`}
+                className="font-mono text-base font-semibold text-blue-400"
+              />
               <p className="text-[10px] text-slate-500 mt-0.5">
                 With current payments
               </p>
@@ -745,8 +759,8 @@ export default function DebtTrackerPage() {
       <main className="px-4 sm:px-6 lg:px-8 py-3">
         {/* Payoff Progress Charts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <Card>
-            <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+          <Card className="glass-card glass-card-hover animate-fade-up">
+            <CardHeader className="pb-2 border-b border-border/60 px-4 pt-4">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                 Balance Trend
               </p>
@@ -759,25 +773,28 @@ export default function DebtTrackerPage() {
                 <AreaChart data={balanceForecast} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="balanceGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.35} />
                       <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                     </linearGradient>
+                    <filter id="balanceLineShadow" x="-20%" y="-40%" width="140%" height="200%">
+                      <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#ef4444" floodOpacity="0.35" />
+                    </filter>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
                   <YAxis tickFormatter={(v) => format(v)} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={70} />
                   <Tooltip
                     formatter={(v: number | undefined) => [v !== undefined ? format(v) : "—", "Balance"]}
-                    contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--border)", background: "var(--background)" }}
+                    contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid var(--border)", background: "color-mix(in oklch, var(--popover) 85%, transparent)", backdropFilter: "blur(8px)" }}
                   />
-                  <Area type="monotone" dataKey="balance" stroke="#ef4444" strokeWidth={2} fill="url(#balanceGrad)" dot={false} name="Remaining Balance" />
+                  <Area type="monotone" dataKey="balance" stroke="#ef4444" strokeWidth={2.5} fill="url(#balanceGrad)" dot={false} name="Remaining Balance" style={{ filter: "url(#balanceLineShadow)" }} />
                 </AreaChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+          <Card className="glass-card glass-card-hover animate-fade-up" style={{ animationDelay: "60ms" }}>
+            <CardHeader className="pb-2 border-b border-border/60 px-4 pt-4">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                 Monthly Payments
               </p>
@@ -788,14 +805,21 @@ export default function DebtTrackerPage() {
             <CardContent className="pt-4 px-2 pb-2">
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={paymentHistory} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="paidGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={1} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.6} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
                   <YAxis tickFormatter={(v) => format(v)} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={70} />
                   <Tooltip
                     formatter={(v: number | undefined) => [v !== undefined ? format(v) : "—", "Paid"]}
-                    contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--border)", background: "var(--background)" }}
+                    contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid var(--border)", background: "color-mix(in oklch, var(--popover) 85%, transparent)", backdropFilter: "blur(8px)" }}
+                    cursor={{ fill: "color-mix(in oklch, var(--foreground) 6%, transparent)" }}
                   />
-                  <Bar dataKey="paid" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} name="Amount Paid" />
+                  <Bar dataKey="paid" fill="url(#paidGrad)" radius={[4, 4, 0, 0]} maxBarSize={40} name="Amount Paid" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -812,13 +836,21 @@ export default function DebtTrackerPage() {
 
           <TabsContent value="active" className="space-y-4">
             {debts.length === 0 ? (
-              <EmptyState
-                icon={CreditCard}
-                title="No debts tracked"
-                description="Add your first debt to start tracking payoff progress"
-                actionLabel="Add Debt"
-                onAction={() => setIsAddDebtOpen(true)}
-              />
+              <div className="glass-card animate-fade-up">
+                <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                  <div className="relative rounded-full bg-muted/80 p-6 mb-5 glow-accent" style={{ ["--glow-color" as string]: "oklch(0.7 0.15 25)" }}>
+                    <CreditCard className="h-14 w-14 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No debts tracked</h3>
+                  <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+                    Add your first debt to start tracking payoff progress
+                  </p>
+                  <Button onClick={() => setIsAddDebtOpen(true)} className="ring-glow-primary">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Debt
+                  </Button>
+                </div>
+              </div>
             ) : (
               <>
                 {/* Controls bar */}
@@ -829,10 +861,10 @@ export default function DebtTrackerPage() {
                       <button
                         key={mode}
                         onClick={() => setDebtSortBy(mode)}
-                        className={`text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border transition-colors ${
+                        className={`text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border transition-all duration-200 ${
                           debtSortBy === mode
-                            ? "bg-foreground text-background border-foreground"
-                            : "border-border text-muted-foreground hover:border-foreground/40"
+                            ? "bg-foreground text-background border-foreground shadow-sm"
+                            : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
                         }`}
                       >
                         {mode === "apr" ? "APR" : mode === "due" ? "Due Date" : mode === "progress" ? "Progress" : "Balance"}
@@ -869,7 +901,12 @@ export default function DebtTrackerPage() {
                       payoffDate.setMonth(payoffDate.getMonth() + monthsToPayoff);
 
                       return (
-                        <Card key={debt.id} className={`overflow-hidden transition-shadow hover:shadow-md cursor-pointer ${daysUntilDue < 0 ? "border-red-300 dark:border-red-800" : daysUntilDue <= 7 ? "border-amber-300 dark:border-amber-800" : ""}`} onClick={() => setDetailDebt(debt)}>
+                        <Card
+                          key={debt.id}
+                          className={`glass-card glass-card-hover animate-fade-up overflow-hidden cursor-pointer ${daysUntilDue < 0 ? "border-red-300/60 dark:border-red-800/60" : daysUntilDue <= 7 ? "border-amber-300/60 dark:border-amber-800/60" : ""}`}
+                          style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}
+                          onClick={() => setDetailDebt(debt)}
+                        >
                           <div className={`h-0.5 w-full ${index === 0 ? "bg-red-500" : index === 1 ? "bg-orange-400" : index === 2 ? "bg-amber-400" : "bg-slate-200 dark:bg-slate-700"}`} />
 
                           {/* Header */}
@@ -921,7 +958,11 @@ export default function DebtTrackerPage() {
                             <div className="flex items-end justify-between">
                               <div>
                                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Current Balance</p>
-                                <p className="font-mono font-bold text-xl text-red-500 leading-tight">{format(debt.balance)}</p>
+                                <AnimatedNumber
+                                  value={debt.balance}
+                                  format={(n) => format(n)}
+                                  className="font-mono font-bold text-xl text-red-500 leading-tight block"
+                                />
                                 <p className="text-[10px] text-muted-foreground">of {format(debt.original_amount)} original</p>
                               </div>
                               <p className="font-mono font-bold text-base text-emerald-600">{progress.toFixed(0)}%</p>
@@ -930,13 +971,25 @@ export default function DebtTrackerPage() {
                             {/* Progress bar */}
                             <div>
                               <div className="relative h-1.5 bg-muted rounded-full overflow-hidden">
-                                <div className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400" style={{ width: `${progress}%` }} />
+                                <div
+                                  className={`absolute left-0 top-0 h-full rounded-full bg-gradient-to-r transition-[width] duration-500 ${
+                                    debt.interest_rate >= 20
+                                      ? "from-red-500 to-orange-400"
+                                      : debt.interest_rate >= 10
+                                        ? "from-amber-500 to-amber-400"
+                                        : "from-emerald-500 to-emerald-400"
+                                  }`}
+                                  style={{
+                                    width: `${progress}%`,
+                                    boxShadow: `0 0 8px -1px ${debt.interest_rate >= 20 ? "rgba(239,68,68,0.6)" : debt.interest_rate >= 10 ? "rgba(245,158,11,0.6)" : "rgba(16,185,129,0.6)"}`,
+                                  }}
+                                />
                               </div>
                               <p className="text-[10px] text-muted-foreground mt-0.5">{format(debt.original_amount - debt.balance)} paid · {format(debt.balance)} remaining</p>
                             </div>
 
                             {/* Metrics grid */}
-                            <div className="grid grid-cols-4 border rounded-md overflow-hidden divide-x text-center">
+                            <div className="grid grid-cols-4 border border-border/60 bg-muted/20 rounded-md overflow-hidden divide-x divide-border/60 text-center">
                               <div className="py-1.5">
                                 <p className="text-[9px] uppercase tracking-widest text-muted-foreground">APR</p>
                                 <p className="font-mono font-bold text-xs text-amber-600">{debt.interest_rate}%</p>
@@ -999,7 +1052,7 @@ export default function DebtTrackerPage() {
                             })()}
 
                             <Button
-                              className="w-full"
+                              className="w-full ring-glow-primary"
                               size="sm"
                               onClick={() => {
                                 setSelectedDebt(debt);
@@ -1021,9 +1074,9 @@ export default function DebtTrackerPage() {
                   </div>
                 ) : (
                   /* List view */
-                  <div className="border rounded-lg overflow-hidden divide-y">
+                  <div className="glass-card animate-fade-up overflow-hidden divide-y divide-border/60">
                     {/* Header */}
-                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-4 py-2 bg-muted/50">
+                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-4 py-2 bg-muted/30">
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Debt</p>
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground w-24 text-right">Balance</p>
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground w-14 text-right">APR</p>
@@ -1038,7 +1091,7 @@ export default function DebtTrackerPage() {
                       const progress = Math.min(100, ((debt.original_amount - debt.balance) / debt.original_amount) * 100);
 
                       return (
-                        <div key={debt.id} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-4 py-3 items-center hover:bg-muted/30 transition-colors">
+                        <div key={debt.id} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-4 py-3 items-center hover:bg-muted/30 transition-colors duration-300">
                           <div className="flex items-center gap-3 min-w-0">
                             <span className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold ${index === 0 ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground"}`}>{index + 1}</span>
                             <div className="min-w-0">
@@ -1052,7 +1105,16 @@ export default function DebtTrackerPage() {
                                 ) : null}
                               </div>
                               <div className="mt-1.5 relative h-1 bg-muted rounded-full w-32 overflow-hidden">
-                                <div className="absolute left-0 top-0 h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
+                                <div
+                                  className={`absolute left-0 top-0 h-full rounded-full bg-gradient-to-r transition-[width] duration-500 ${
+                                    debt.interest_rate >= 20
+                                      ? "from-red-500 to-orange-400"
+                                      : debt.interest_rate >= 10
+                                        ? "from-amber-500 to-amber-400"
+                                        : "from-emerald-500 to-emerald-400"
+                                  }`}
+                                  style={{ width: `${progress}%` }}
+                                />
                               </div>
                             </div>
                           </div>
@@ -1103,8 +1165,8 @@ export default function DebtTrackerPage() {
           </TabsContent>
 
           <TabsContent value="amortization">
-            <Card>
-              <CardHeader className="pb-2 border-b border-border px-4 pt-4">
+            <Card className="glass-card animate-fade-up">
+              <CardHeader className="pb-2 border-b border-border/60 px-4 pt-4">
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                   Amortization Schedule
                 </p>
@@ -1144,38 +1206,40 @@ export default function DebtTrackerPage() {
                     </div>
                     {amortizationSchedule.length > 0 && (
                       <>
-                        <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-lg text-sm">
+                        <div className="grid grid-cols-3 gap-4 p-4 glass-card rounded-lg text-sm">
                           <div>
                             <p className="text-muted-foreground">
                               Monthly Payment
                             </p>
-                            <p className="font-bold">
-                              {format(amortizationSchedule[0].payment)}
-                            </p>
+                            <AnimatedNumber
+                              value={amortizationSchedule[0].payment}
+                              format={(n) => format(n)}
+                              className="font-bold block"
+                            />
                           </div>
                           <div>
                             <p className="text-muted-foreground">
                               Total Interest
                             </p>
-                            <p className="font-bold text-red-600">
-                              {format(
-                                amortizationSchedule.reduce(
-                                  (s, r) => s + r.interest,
-                                  0,
-                                ),
+                            <AnimatedNumber
+                              value={amortizationSchedule.reduce(
+                                (s, r) => s + r.interest,
+                                0,
                               )}
-                            </p>
+                              format={(n) => format(n)}
+                              className="font-bold text-red-600 block"
+                            />
                           </div>
                           <div>
                             <p className="text-muted-foreground">Total Cost</p>
-                            <p className="font-bold">
-                              {format(
-                                amortizationSchedule.reduce(
-                                  (s, r) => s + r.payment,
-                                  0,
-                                ),
+                            <AnimatedNumber
+                              value={amortizationSchedule.reduce(
+                                (s, r) => s + r.payment,
+                                0,
                               )}
-                            </p>
+                              format={(n) => format(n)}
+                              className="font-bold block"
+                            />
                           </div>
                         </div>
                         <div className="overflow-x-auto max-h-100 overflow-y-auto">
@@ -1199,7 +1263,7 @@ export default function DebtTrackerPage() {
                               {amortizationSchedule.map((row) => (
                                 <tr
                                   key={row.month}
-                                  className="border-b hover:bg-muted/50"
+                                  className="border-b hover:bg-muted/50 transition-colors duration-200"
                                 >
                                   <td className="py-2 pr-4">{row.month}</td>
                                   <td className="py-2 pr-4">
@@ -1311,7 +1375,10 @@ export default function DebtTrackerPage() {
                     <span>{progress.toFixed(0)}% complete</span>
                   </div>
                   <div className="relative h-2 bg-muted rounded-full overflow-hidden">
-                    <div className="absolute left-0 top-0 h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
+                    <div
+                      className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-[width] duration-500"
+                      style={{ width: `${progress}%`, boxShadow: "0 0 8px -1px rgba(16,185,129,0.6)" }}
+                    />
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">{format(detailDebt.balance)} remaining of {format(detailDebt.original_amount)}</p>
                 </div>
@@ -1350,7 +1417,7 @@ export default function DebtTrackerPage() {
 
                 {/* Record payment shortcut */}
                 <Button
-                  className="w-full"
+                  className="w-full ring-glow-primary"
                   onClick={() => {
                     setDetailDebt(null);
                     setSelectedDebt(detailDebt);

@@ -52,6 +52,7 @@ import { useTransactionsStore, type Transaction } from "@/store/transactions-sto
 import { useGoalsStore } from "@/store/goals-store";
 import AddTransactionForm from "@/components/transactions/AddTransactionForm";
 import { ListPageSkeleton } from "@/components/ui/skeleton";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 
 // ─── Category config ──────────────────────────────────────────────────────────
 
@@ -201,15 +202,19 @@ function TransactionList({
       </div>
 
       {/* Compact summary strip */}
-      <div className={`rounded-lg border flex items-center justify-between px-4 py-2.5 ${
-        isExpense ? "bg-red-50/60 dark:bg-red-950/10 border-red-100 dark:border-red-900/30"
-                  : "bg-emerald-50/60 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/30"
-      }`}>
+      <div
+        className={`glass-card glow-accent flex items-center justify-between px-4 py-2.5 ${
+          isExpense ? "border-red-200/40 dark:border-red-900/30" : "border-emerald-200/40 dark:border-emerald-900/30"
+        }`}
+        style={{ ["--glow-color" as string]: isExpense ? "oklch(0.65 0.2 25 / 35%)" : "oklch(0.72 0.17 155 / 35%)" }}
+      >
         <div>
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Total {isExpense ? "Spent" : "Earned"}</p>
-          <p className={`text-lg font-bold font-mono leading-tight ${isExpense ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
-            {prefix}{format(monthTotal)}
-          </p>
+          <AnimatedNumber
+            value={monthTotal}
+            format={(n) => `${prefix}${format(n)}`}
+            className={`text-lg font-bold font-mono leading-tight block ${isExpense ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}
+          />
           <p className="text-[10px] text-muted-foreground">{monthItems.length} transactions</p>
         </div>
         {momChange !== null && (
@@ -229,8 +234,8 @@ function TransactionList({
         <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
           <button
             onClick={() => setFilterCategory("all")}
-            className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
-              filterCategory === "all" ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:border-foreground/50"
+            className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all duration-200 ${
+              filterCategory === "all" ? "bg-foreground text-background border-foreground shadow-sm" : "border-border text-muted-foreground hover:border-foreground/50 hover:bg-muted/50"
             }`}
           >All</button>
           {topCats.map((cat) => {
@@ -240,11 +245,14 @@ function TransactionList({
               <button
                 key={cat}
                 onClick={() => setFilterCategory(active ? "all" : cat)}
-                className={`shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
-                  active ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:border-foreground/50"
+                className={`shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all duration-200 ${
+                  active ? "bg-foreground text-background border-foreground shadow-sm" : "border-border text-muted-foreground hover:border-foreground/50 hover:bg-muted/50"
                 }`}
               >
-                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: hex }} />
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ backgroundColor: hex, boxShadow: active ? `0 0 6px 1px ${hex}99` : undefined }}
+                />
                 {cat}
               </button>
             );
@@ -284,7 +292,7 @@ function TransactionList({
       </div>
 
       {showFilters && (
-        <div className="flex flex-wrap gap-2 px-3 py-2 rounded-lg bg-muted/40 border">
+        <div className="flex flex-wrap gap-2 px-3 py-2 rounded-lg bg-muted/40 border animate-fade-up">
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Category</span>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
@@ -306,16 +314,33 @@ function TransactionList({
 
       {/* Transaction list grouped by date */}
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          {isExpense ? <TrendingDown className="h-8 w-8 text-muted-foreground/30 mb-3" /> : <TrendingUp className="h-8 w-8 text-muted-foreground/30 mb-3" />}
-          <p className="text-sm font-medium text-muted-foreground">
-            {hasActiveFilters ? "No results" : `No ${isExpense ? "expenses" : "income"} this month`}
+        <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-up">
+          <div
+            className="relative flex items-center justify-center w-16 h-16 rounded-full mb-4 glow-accent"
+            style={{ ["--glow-color" as string]: isExpense ? "oklch(0.65 0.2 25 / 40%)" : "oklch(0.72 0.17 155 / 40%)" }}
+          >
+            <div className={`absolute inset-0 rounded-full ${isExpense ? "bg-red-500/10" : "bg-emerald-500/10"}`} />
+            {isExpense ? <TrendingDown className="h-7 w-7 text-red-500/50 dark:text-red-400/50" /> : <TrendingUp className="h-7 w-7 text-emerald-500/50 dark:text-emerald-400/50" />}
+          </div>
+          <p className="text-sm font-semibold text-foreground">
+            {hasActiveFilters ? "No matching transactions" : `No ${isExpense ? "expenses" : "income"} this month`}
           </p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-52">
+            {hasActiveFilters
+              ? "Try adjusting your search or filters."
+              : `Start tracking by adding your first ${isExpense ? "expense" : "income"} entry.`}
+          </p>
+          {!hasActiveFilters && (
+            <Button onClick={onAdd} size="sm" className="mt-4 h-7 px-3 gap-1 text-xs ring-glow-primary">
+              <Plus className="h-3 w-3" />
+              Add {isExpense ? "Expense" : "Income"}
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
-          {[...grouped.entries()].map(([dateLabel, items]) => (
-            <div key={dateLabel}>
+          {[...grouped.entries()].map(([dateLabel, items], groupIdx) => (
+            <div key={dateLabel} className="animate-fade-up" style={{ animationDelay: `${groupIdx * 40}ms` }}>
               {/* Date group header */}
               <div className="flex items-center justify-between mb-1 px-1">
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{dateLabel}</span>
@@ -324,13 +349,22 @@ function TransactionList({
                 </span>
               </div>
               {/* Transactions — compact rows */}
-              <div className="rounded-lg border bg-card overflow-hidden divide-y divide-border/50">
+              <div className="glass-card overflow-hidden divide-y divide-border/50">
                 {items.map((item) => {
                   const hex = getCatHex(item.category, type);
                   return (
-                    <div key={item.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-muted/30 transition-colors">
+                    <div
+                      key={item.id}
+                      className="group flex items-center gap-2.5 px-3 py-2 hover:bg-muted/40 transition-colors duration-200"
+                    >
                       {/* Category dot */}
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex }} />
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0 transition-shadow duration-200 group-hover:ring-4"
+                        style={{
+                          backgroundColor: hex,
+                          ["--tw-ring-color" as string]: `${hex}33`,
+                        }}
+                      />
                       {/* Description + sub */}
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium truncate leading-tight">{item.description || item.category}</p>
@@ -398,25 +432,29 @@ function SummaryTab({ transactions, selectedMonth }: { transactions: Transaction
       {/* KPI strip — compact 4 columns */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
-          { label: "Income", value: fmtShort(current.income), sub: prev.income > 0 ? `${((current.income - prev.income) / prev.income * 100).toFixed(1)}% vs last` : "—", color: "text-emerald-600 dark:text-emerald-400", dot: "#10b981" },
-          { label: "Expenses", value: fmtShort(current.expenses), sub: prev.expenses > 0 ? `${((current.expenses - prev.expenses) / prev.expenses * 100).toFixed(1)}% vs last` : "—", color: "text-red-600 dark:text-red-400", dot: "#ef4444" },
-          { label: "Saved", value: `${current.savings >= 0 ? "+" : "−"}${fmtShort(Math.abs(current.savings))}`, sub: current.savings >= 0 ? "surplus" : "deficit", color: current.savings >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-500", dot: "#3b82f6" },
-          { label: "Save Rate", value: current.income > 0 ? `${current.rate.toFixed(1)}%` : "—", sub: savingsRateDelta !== null ? `${savingsRateDelta >= 0 ? "+" : ""}${savingsRateDelta.toFixed(1)}pp` : "—", color: current.rate >= 20 ? "text-emerald-600 dark:text-emerald-400" : current.rate >= 10 ? "text-amber-500" : "text-red-500", dot: "#8b5cf6" },
-        ].map(({ label, value, sub, color, dot }) => (
-          <div key={label} className="rounded-lg border bg-card px-3 py-2.5">
+          { label: "Income", value: current.income, fmt: fmtShort, sub: prev.income > 0 ? `${((current.income - prev.income) / prev.income * 100).toFixed(1)}% vs last` : "—", color: "text-emerald-600 dark:text-emerald-400", dot: "#10b981" },
+          { label: "Expenses", value: current.expenses, fmt: fmtShort, sub: prev.expenses > 0 ? `${((current.expenses - prev.expenses) / prev.expenses * 100).toFixed(1)}% vs last` : "—", color: "text-red-600 dark:text-red-400", dot: "#ef4444" },
+          { label: "Saved", value: Math.abs(current.savings), fmt: (n: number) => `${current.savings >= 0 ? "+" : "−"}${fmtShort(n)}`, sub: current.savings >= 0 ? "surplus" : "deficit", color: current.savings >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-500", dot: "#3b82f6" },
+          { label: "Save Rate", value: current.rate, fmt: (n: number) => current.income > 0 ? `${n.toFixed(1)}%` : "—", sub: savingsRateDelta !== null ? `${savingsRateDelta >= 0 ? "+" : ""}${savingsRateDelta.toFixed(1)}pp` : "—", color: current.rate >= 20 ? "text-emerald-600 dark:text-emerald-400" : current.rate >= 10 ? "text-amber-500" : "text-red-500", dot: "#8b5cf6" },
+        ].map(({ label, value, fmt, sub, color, dot }, i) => (
+          <div
+            key={label}
+            className="glass-card glass-card-hover glow-accent px-3 py-2.5 animate-fade-up"
+            style={{ ["--glow-color" as string]: `${dot}55`, animationDelay: `${i * 40}ms` }}
+          >
             <div className="flex items-center gap-1.5 mb-1">
-              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: dot }} />
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: dot, boxShadow: `0 0 5px 1px ${dot}80` }} />
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
             </div>
-            <p className={`text-base font-bold font-mono leading-tight ${color}`}>{value}</p>
+            <AnimatedNumber value={value} format={fmt} className={`text-base font-bold font-mono leading-tight block ${color}`} />
             <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>
           </div>
         ))}
       </div>
 
       {/* 6-month cashflow area chart */}
-      <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="px-4 pt-2.5 pb-2 border-b flex items-center justify-between">
+      <div className="glass-card glass-card-hover overflow-hidden">
+        <div className="px-4 pt-2.5 pb-2 border-b border-border/60 flex items-center justify-between">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">6-Month Cashflow</p>
           <div className="flex items-center gap-3">
             {[{ color: "#10b981", label: "Income" }, { color: "#ef4444", label: "Expenses" }].map(({ color, label }) => (
@@ -431,21 +469,32 @@ function SummaryTab({ transactions, selectedMonth }: { transactions: Transaction
             <AreaChart data={sixMonths} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="incG" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.2} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.32} />
+                  <stop offset="45%" stopColor="#10b981" stopOpacity={0.1} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0.01} />
                 </linearGradient>
                 <linearGradient id="expG" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#ef4444" stopOpacity={0.15} />
-                  <stop offset="100%" stopColor="#ef4444" stopOpacity={0.02} />
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity={0.26} />
+                  <stop offset="45%" stopColor="#ef4444" stopOpacity={0.08} />
+                  <stop offset="100%" stopColor="#ef4444" stopOpacity={0.01} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtShort} width={44} />
-              <Tooltip contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 11 }}
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "color-mix(in oklch, var(--card) 75%, transparent)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 10,
+                  fontSize: 11,
+                  boxShadow: "0 8px 24px -12px rgba(0,0,0,0.35)",
+                }}
                 formatter={(v: unknown) => [format(v as number)]} />
-              <Area type="monotone" dataKey="income" name="Income" stroke="#10b981" strokeWidth={1.5} fill="url(#incG)" dot={false} activeDot={{ r: 3 }} />
-              <Area type="monotone" dataKey="expenses" name="Expenses" stroke="#ef4444" strokeWidth={1.5} fill="url(#expG)" dot={false} activeDot={{ r: 3 }} />
+              <Area type="monotone" dataKey="income" name="Income" stroke="#10b981" strokeWidth={2} fill="url(#incG)" dot={false} activeDot={{ r: 4 }} style={{ filter: "drop-shadow(0 1px 3px rgba(16,185,129,0.35))" }} />
+              <Area type="monotone" dataKey="expenses" name="Expenses" stroke="#ef4444" strokeWidth={2} fill="url(#expG)" dot={false} activeDot={{ r: 4 }} style={{ filter: "drop-shadow(0 1px 3px rgba(239,68,68,0.3))" }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -454,8 +503,8 @@ function SummaryTab({ transactions, selectedMonth }: { transactions: Transaction
       {/* Savings rate + category breakdown — side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
         {/* Savings rate bars */}
-        <div className="rounded-lg border bg-card overflow-hidden">
-          <div className="px-4 pt-2.5 pb-2 border-b">
+        <div className="glass-card glass-card-hover overflow-hidden">
+          <div className="px-4 pt-2.5 pb-2 border-b border-border/60">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Savings Rate · 6 months</p>
           </div>
           <div className="px-3 py-2">
@@ -464,7 +513,16 @@ function SummaryTab({ transactions, selectedMonth }: { transactions: Transaction
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
-                <Tooltip contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 11 }}
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "color-mix(in oklch, var(--card) 75%, transparent)",
+                    backdropFilter: "blur(12px)",
+                    WebkitBackdropFilter: "blur(12px)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 10,
+                    fontSize: 11,
+                    boxShadow: "0 8px 24px -12px rgba(0,0,0,0.35)",
+                  }}
                   formatter={(v: unknown) => [`${(v as number).toFixed(1)}%`, "Rate"]} />
                 <Bar dataKey="rate" radius={[3, 3, 0, 0]} maxBarSize={28}>
                   {sixMonths.map((m) => (
@@ -478,8 +536,8 @@ function SummaryTab({ transactions, selectedMonth }: { transactions: Transaction
         </div>
 
         {/* Expense category donut */}
-        <div className="rounded-lg border bg-card overflow-hidden">
-          <div className="px-4 pt-2.5 pb-2 border-b">
+        <div className="glass-card glass-card-hover overflow-hidden">
+          <div className="px-4 pt-2.5 pb-2 border-b border-border/60">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
               Spend by Category · {selectedMonth.toLocaleDateString("en-US", { month: "short" })}
             </p>
@@ -492,10 +550,19 @@ function SummaryTab({ transactions, selectedMonth }: { transactions: Transaction
                 <div className="w-28 h-28 shrink-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={expenseCategoryData} dataKey="value" cx="50%" cy="50%" innerRadius={30} outerRadius={52} paddingAngle={2} strokeWidth={0}>
+                      <Pie data={expenseCategoryData} dataKey="value" cx="50%" cy="50%" innerRadius={30} outerRadius={52} paddingAngle={2} strokeWidth={0} style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.18))" }}>
                         {expenseCategoryData.map((e, i) => <Cell key={i} fill={e.fill} />)}
                       </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 10 }}
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "color-mix(in oklch, var(--card) 75%, transparent)",
+                          backdropFilter: "blur(12px)",
+                          WebkitBackdropFilter: "blur(12px)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 10,
+                          fontSize: 10,
+                          boxShadow: "0 8px 24px -12px rgba(0,0,0,0.35)",
+                        }}
                         formatter={(v: unknown) => [fmtShort(v as number)]} />
                     </PieChart>
                   </ResponsiveContainer>
@@ -529,8 +596,8 @@ function SummaryTab({ transactions, selectedMonth }: { transactions: Transaction
       </div>
 
       {/* Month-over-month table — compact */}
-      <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="px-4 pt-2.5 pb-2 border-b flex items-center justify-between">
+      <div className="glass-card overflow-hidden">
+        <div className="px-4 pt-2.5 pb-2 border-b border-border/60 flex items-center justify-between">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Month-over-Month</p>
           <p className="text-[10px] text-muted-foreground">Last 6 months</p>
         </div>
@@ -547,7 +614,7 @@ function SummaryTab({ transactions, selectedMonth }: { transactions: Transaction
             </thead>
             <tbody className="divide-y divide-border/40">
               {[...sixMonths].reverse().map((m, i) => (
-                <tr key={m.label} className={`transition-colors hover:bg-muted/20 ${i === 0 ? "bg-muted/10" : ""}`}>
+                <tr key={m.label} className={`transition-colors duration-200 hover:bg-muted/30 ${i === 0 ? "bg-muted/10" : ""}`}>
                   <td className="px-4 py-1.5 font-medium">
                     {m.label}
                     {i === 0 && <span className="ml-1.5 px-1 py-px text-[8px] rounded bg-primary/10 text-primary font-semibold">Now</span>}
@@ -621,8 +688,8 @@ export default function MoneyFlowPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Compact dark hero */}
-      <div className="bg-slate-900 dark:bg-black text-white">
-        <div className="px-4 sm:px-6 lg:px-8 pt-3 pb-0">
+      <div className="mesh-hero bg-slate-900 dark:bg-black text-white shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)] relative">
+        <div className="px-4 sm:px-6 lg:px-8 pt-3 pb-0 relative">
           {/* Top row */}
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -631,12 +698,12 @@ export default function MoneyFlowPage() {
             </div>
             <div className="flex gap-1.5">
               <Button size="sm" variant="outline"
-                className="border-slate-700 text-slate-300 bg-transparent hover:bg-slate-800 hover:text-white gap-1 h-7 px-2.5 text-xs"
+                className="border-slate-700 text-slate-300 bg-transparent hover:bg-slate-800 hover:text-white gap-1 h-7 px-2.5 text-xs transition-colors"
                 onClick={() => openAdd("income")}>
                 <ArrowUpRight className="h-3 w-3 text-emerald-400" />Income
               </Button>
               <Button size="sm" variant="outline"
-                className="border-slate-700 text-slate-300 bg-transparent hover:bg-slate-800 hover:text-white gap-1 h-7 px-2.5 text-xs"
+                className="border-slate-700 text-slate-300 bg-transparent hover:bg-slate-800 hover:text-white gap-1 h-7 px-2.5 text-xs transition-colors ring-glow-primary"
                 onClick={() => openAdd("expense")}>
                 <ArrowDownRight className="h-3 w-3 text-red-400" />Expense
               </Button>
@@ -644,16 +711,16 @@ export default function MoneyFlowPage() {
           </div>
 
           {/* Stats strip — 4 columns */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-700/60 border-t border-slate-700/60">
+          <div className="glass-panel-dark rounded-lg mt-1 grid grid-cols-2 sm:grid-cols-4 divide-x divide-white/10">
             {[
-              { label: "Income", value: format(headerStats.income), color: "text-emerald-400" },
-              { label: "Expenses", value: format(headerStats.expenses), color: "text-red-400" },
-              { label: "Saved", value: `${headerStats.savings >= 0 ? "+" : "−"}${format(Math.abs(headerStats.savings))}`, color: headerStats.savings >= 0 ? "text-blue-400" : "text-red-400" },
-              { label: "Save Rate", value: headerStats.income > 0 ? `${headerStats.rate.toFixed(1)}%` : "—", color: headerStats.rate >= 20 ? "text-emerald-400" : headerStats.rate >= 10 ? "text-amber-400" : "text-red-400" },
-            ].map(({ label, value, color }) => (
+              { label: "Income", value: headerStats.income, fmt: (n: number) => format(n), color: "text-emerald-400" },
+              { label: "Expenses", value: headerStats.expenses, fmt: (n: number) => format(n), color: "text-red-400" },
+              { label: "Saved", value: Math.abs(headerStats.savings), fmt: (n: number) => `${headerStats.savings >= 0 ? "+" : "−"}${format(n)}`, color: headerStats.savings >= 0 ? "text-blue-400" : "text-red-400" },
+              { label: "Save Rate", value: headerStats.rate, fmt: (n: number) => headerStats.income > 0 ? `${n.toFixed(1)}%` : "—", color: headerStats.rate >= 20 ? "text-emerald-400" : headerStats.rate >= 10 ? "text-amber-400" : "text-red-400" },
+            ].map(({ label, value, fmt, color }) => (
               <div key={label} className="px-4 py-2.5">
                 <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-0.5">{label}</p>
-                <p className={`font-mono text-sm font-bold ${color}`}>{value}</p>
+                <AnimatedNumber value={value} format={fmt} className={`font-mono text-sm font-bold block ${color}`} />
               </div>
             ))}
           </div>
@@ -661,9 +728,15 @@ export default function MoneyFlowPage() {
           {/* Spend/save progress bar */}
           {headerStats.income > 0 && (
             <div className="px-4 py-2 border-t border-slate-700/60">
-              <div className="h-1 w-full rounded-full bg-slate-700 overflow-hidden flex">
-                <div className="h-full bg-red-500 transition-all" style={{ width: `${headerStats.spentPct}%` }} />
-                <div className="h-full bg-blue-500 transition-all" style={{ width: `${headerStats.savedPct}%` }} />
+              <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden flex">
+                <div
+                  className="h-full bg-red-500 rounded-l-full transition-all duration-500 ease-out"
+                  style={{ width: `${headerStats.spentPct}%`, boxShadow: "0 0 8px 0 rgba(239,68,68,0.6)" }}
+                />
+                <div
+                  className="h-full bg-blue-500 rounded-r-full transition-all duration-500 ease-out"
+                  style={{ width: `${headerStats.savedPct}%`, boxShadow: "0 0 8px 0 rgba(59,130,246,0.6)" }}
+                />
               </div>
               <div className="flex gap-3 mt-1">
                 <span className="flex items-center gap-1 text-[9px] text-slate-500"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />Spent {headerStats.spentPct.toFixed(0)}%</span>
@@ -673,17 +746,20 @@ export default function MoneyFlowPage() {
           )}
 
           {/* Tab bar */}
-          <div className="flex border-t border-slate-700/60">
+          <div className="flex border-t border-slate-700/60 relative">
             {tabs.map(({ id, label, icon: Icon, color }) => (
               <button
                 key={id}
                 onClick={() => setActiveTab(id)}
-                className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-colors border-b-2 ${
-                  activeTab === id ? "border-white text-white" : "border-transparent text-slate-400 hover:text-slate-200"
+                className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-colors duration-200 ${
+                  activeTab === id ? "text-white" : "text-slate-400 hover:text-slate-200"
                 }`}
               >
-                <Icon className={`h-3 w-3 ${activeTab === id ? color : "text-slate-500"}`} />
+                <Icon className={`h-3 w-3 transition-colors duration-200 ${activeTab === id ? color : "text-slate-500"}`} />
                 {label}
+                {activeTab === id && (
+                  <span className="absolute left-0 right-0 -bottom-px h-0.5 rounded-full bg-white shadow-[0_0_8px_1px_rgba(255,255,255,0.5)] transition-all duration-300" />
+                )}
               </button>
             ))}
           </div>

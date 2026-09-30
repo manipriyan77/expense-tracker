@@ -57,6 +57,7 @@ import { useFormatCurrency } from "@/lib/hooks/useFormatCurrency";
 import { MonthlyReportDownloadButton } from "@/components/monthly-report-template";
 import { useAuthStore } from "@/store/auth-store";
 import { ListPageSkeleton } from "@/components/ui/skeleton";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 
 // Color palette for categories
 const CATEGORY_COLORS: Record<string, string> = {
@@ -909,21 +910,27 @@ export default function AnalyticsPage() {
               </Card>
 
               {/* Top expenses */}
-              <Card>
+              <Card className="glass-card glass-card-hover animate-fade-up" style={{ animationDelay: "60ms" }}>
                 <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Biggest Expenses</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Top 5 largest single transactions in this period</p>
                 </CardHeader>
                 <CardContent className="pt-3">
                   {topExpenses.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">No expenses in this period</p>
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <div className="glow-accent w-12 h-12 rounded-full bg-muted/60 flex items-center justify-center mb-3" style={{ "--glow-color": "oklch(0.65 0.2 25 / 0.4)" } as React.CSSProperties}>
+                        <DollarSign className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground">No expenses in this period</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Your biggest transactions will show up here</p>
+                    </div>
                   ) : (
                     <div className="space-y-2">
                       {topExpenses.map((t, i) => {
                         const maxAmt = topExpenses[0].amount;
                         const barPct = maxAmt > 0 ? (t.amount / maxAmt) * 100 : 0;
                         return (
-                          <div key={t.id} className="rounded-lg bg-muted/30 border border-border px-3 py-2.5">
+                          <div key={t.id} className="rounded-lg bg-muted/30 border border-border px-3 py-2.5 transition-all duration-200 hover:bg-muted/50 hover:border-border/80 hover:-translate-y-px">
                             <div className="flex items-center gap-2 mb-1.5">
                               <span className="text-[10px] font-mono font-bold text-muted-foreground w-5 shrink-0">#{i + 1}</span>
                               <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: CATEGORY_COLORS[t.category] || "#6366f1" }} />
@@ -954,8 +961,8 @@ export default function AnalyticsPage() {
                 { label: "Avg Monthly Expense", value: format(statistics.avgMonthlyExpenses), color: "text-red-600 dark:text-red-400", bg: "bg-red-500/10", icon: <TrendingDown className="h-3.5 w-3.5 text-red-600" /> },
                 { label: "Avg Transaction", value: format(statistics.avgTransactionAmount), color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10", icon: <DollarSign className="h-3.5 w-3.5 text-blue-600" /> },
                 { label: "Total Transactions", value: String(statistics.transactionCount), color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-500/10", icon: <Info className="h-3.5 w-3.5 text-violet-600" /> },
-              ].map((s) => (
-                <Card key={s.label}>
+              ].map((s, i) => (
+                <Card key={s.label} className="glass-card glass-card-hover animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
                   <CardContent className="p-3">
                     <div className={`w-6 h-6 rounded-md ${s.bg} flex items-center justify-center mb-2`}>{s.icon}</div>
                     <p className={`font-mono font-bold text-sm ${s.color}`}>{s.value}</p>
@@ -971,7 +978,7 @@ export default function AnalyticsPage() {
             {/* Best/worst month callouts */}
             {bestWorstMonth && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Card className="overflow-hidden">
+                <Card className="glass-card glass-card-hover animate-fade-up glow-accent overflow-hidden" style={{ "--glow-color": "oklch(0.7 0.17 145 / 0.4)" } as React.CSSProperties}>
                   <CardContent className="p-3.5 flex items-center gap-3">
                     <div className="p-1.5 rounded-full bg-green-100 dark:bg-green-950/40 shrink-0">
                       <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
@@ -987,7 +994,7 @@ export default function AnalyticsPage() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="overflow-hidden">
+                <Card className="glass-card glass-card-hover animate-fade-up glow-accent overflow-hidden" style={{ "--glow-color": "oklch(0.65 0.2 25 / 0.4)", animationDelay: "60ms" } as React.CSSProperties}>
                   <CardContent className="p-3.5 flex items-center gap-3">
                     <div className="p-1.5 rounded-full bg-red-100 dark:bg-red-950/40 shrink-0">
                       <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
@@ -1008,7 +1015,7 @@ export default function AnalyticsPage() {
 
             {/* MoM Summary Table — primary element */}
             {momSummary.length > 0 && (
-              <Card>
+              <Card className="glass-card glass-card-hover animate-fade-up">
                 <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1037,7 +1044,7 @@ export default function AnalyticsPage() {
                       </thead>
                       <tbody>
                         {momSummary.map((row, i) => (
-                          <tr key={i} className="border-b border-border hover:bg-muted/20 transition-colors">
+                          <tr key={i} className={`border-b border-border hover:bg-muted/40 transition-colors ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
                             <td className="py-3 px-4 font-semibold">{row.month}</td>
                             <td className="py-3 px-4 text-right">
                               <div className="flex items-center justify-end gap-1">
@@ -1087,17 +1094,31 @@ export default function AnalyticsPage() {
 
             {/* 2-col: category trend chart + savings rate chart */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card>
+              <Card className="glass-card glass-card-hover animate-fade-up">
                 <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Category Spend Over Time</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Top 5 categories stacked per month</p>
                 </CardHeader>
                 <CardContent className="pt-3">
                   {categoryTrends.length === 0 ? (
-                    <div className="flex items-center justify-center h-56 text-sm text-muted-foreground">No expense data</div>
+                    <div className="flex flex-col items-center justify-center h-56 text-center">
+                      <div className="glow-accent w-12 h-12 rounded-full bg-muted/60 flex items-center justify-center mb-3" style={{ "--glow-color": "oklch(0.62 0.19 260 / 0.4)" } as React.CSSProperties}>
+                        <Layers className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground">No expense data</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Categories will appear once you log expenses</p>
+                    </div>
                   ) : (
                     <ResponsiveContainer width="100%" height={230}>
                       <BarChart data={categoryTrends} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="30%">
+                        <defs>
+                          {categoryData.slice(0, 5).map((cat) => (
+                            <linearGradient key={cat.name} id={`catGrad-${cat.name.replace(/\s+/g, "")}`} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor={cat.color} stopOpacity={1} />
+                              <stop offset="100%" stopColor={cat.color} stopOpacity={0.55} />
+                            </linearGradient>
+                          ))}
+                        </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                         <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={42} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
@@ -1107,7 +1128,7 @@ export default function AnalyticsPage() {
                           if (!items.length) return null;
                           const total = items.reduce((s, p) => s + p.value, 0);
                           return (
-                            <div className="rounded-lg border bg-card p-3 text-xs shadow-md min-w-[150px]">
+                            <div className="rounded-lg border bg-card/90 backdrop-blur-md p-3 text-xs shadow-lg min-w-[150px]">
                               <p className="mb-2 font-semibold">{label}</p>
                               {items.map((e) => <div key={e.name} className="flex items-center gap-2 mb-1"><span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ background: e.fill }} /><span className="text-muted-foreground flex-1">{e.name}</span><span className="font-mono font-medium">{format(e.value)}</span></div>)}
                               {items.length > 1 && <div className="mt-1 flex justify-between border-t border-border pt-1"><span className="text-muted-foreground">Total</span><span className="font-mono font-semibold">{format(total)}</span></div>}
@@ -1116,7 +1137,7 @@ export default function AnalyticsPage() {
                         }} />
                         <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} iconType="circle" iconSize={7} />
                         {categoryData.slice(0, 5).map((cat, i, arr) => (
-                          <Bar key={cat.name} dataKey={cat.name} stackId="a" fill={cat.color} radius={i === arr.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
+                          <Bar key={cat.name} dataKey={cat.name} stackId="a" fill={`url(#catGrad-${cat.name.replace(/\s+/g, "")})`} radius={i === arr.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
                         ))}
                       </BarChart>
                     </ResponsiveContainer>
@@ -1124,7 +1145,7 @@ export default function AnalyticsPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="glass-card glass-card-hover animate-fade-up" style={{ animationDelay: "60ms" }}>
                 <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1136,17 +1157,33 @@ export default function AnalyticsPage() {
                 </CardHeader>
                 <CardContent className="pt-3">
                   {savingsRateData.length === 0 ? (
-                    <div className="flex items-center justify-center h-56 text-sm text-muted-foreground">No data</div>
+                    <div className="flex flex-col items-center justify-center h-56 text-center">
+                      <div className="glow-accent w-12 h-12 rounded-full bg-muted/60 flex items-center justify-center mb-3" style={{ "--glow-color": "oklch(0.62 0.19 260 / 0.4)" } as React.CSSProperties}>
+                        <Gauge className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground">No data</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Your savings rate trend will appear here</p>
+                    </div>
                   ) : (
                     <ResponsiveContainer width="100%" height={230}>
                       <ComposedChart data={savingsRateData} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="savingsRateGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#818cf8" stopOpacity={0.45} />
+                            <stop offset="60%" stopColor="#6366f1" stopOpacity={0.12} />
+                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                          </linearGradient>
+                          <filter id="savingsLineShadow" x="-30%" y="-30%" width="160%" height="160%">
+                            <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#6366f1" floodOpacity="0.35" />
+                          </filter>
+                        </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                         <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
                         <ReferenceLine y={20} stroke="#22c55e" strokeDasharray="4 4" label={{ value: "20%", position: "right", fontSize: 10, fill: "#22c55e" }} />
                         <ReferenceLine y={0} stroke="var(--foreground)" strokeOpacity={0.2} />
-                        <Tooltip formatter={(v: number | undefined) => [v !== undefined ? `${v}%` : "—", "Savings rate"]} contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }} />
-                        <Area type="monotone" dataKey="rate" stroke="#6366f1" fill="#6366f1" fillOpacity={0.15} strokeWidth={2} dot={{ fill: "#6366f1", r: 3 }} name="Savings rate" />
+                        <Tooltip formatter={(v: number | undefined) => [v !== undefined ? `${v}%` : "—", "Savings rate"]} contentStyle={{ backgroundColor: "color-mix(in oklch, var(--card) 85%, transparent)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px", backdropFilter: "blur(8px)" }} />
+                        <Area type="monotone" dataKey="rate" stroke="#6366f1" strokeWidth={2.5} fill="url(#savingsRateGrad)" dot={{ fill: "#6366f1", r: 3 }} activeDot={{ r: 5 }} name="Savings rate" filter="url(#savingsLineShadow)" />
                       </ComposedChart>
                     </ResponsiveContainer>
                   )}
@@ -1155,7 +1192,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Net cashflow chart */}
-            <Card>
+            <Card className="glass-card glass-card-hover animate-fade-up">
               <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Net Cash Flow</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -1165,6 +1202,22 @@ export default function AnalyticsPage() {
               <CardContent className="pt-3">
                 <ResponsiveContainer width="100%" height={240}>
                   <ComposedChart data={monthlyDataWithRollingAvg} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="netPosGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#4ade80" stopOpacity={1} />
+                        <stop offset="100%" stopColor="#22c55e" stopOpacity={0.6} />
+                      </linearGradient>
+                      <linearGradient id="netNegGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.6} />
+                        <stop offset="100%" stopColor="#f87171" stopOpacity={1} />
+                      </linearGradient>
+                      <filter id="netBarShadow" x="-30%" y="-30%" width="160%" height="160%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000" floodOpacity="0.18" />
+                      </filter>
+                      <filter id="netLineShadow" x="-30%" y="-30%" width="160%" height="160%">
+                        <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#6366f1" floodOpacity="0.4" />
+                      </filter>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 || v <= -1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
@@ -1174,7 +1227,7 @@ export default function AnalyticsPage() {
                       const row = payload[0]?.payload as { net: number; income: number; expenses: number; rollingNet: number };
                       if (!row) return null;
                       return (
-                        <div className="rounded-lg border bg-card px-3 py-2 text-xs shadow-md">
+                        <div className="rounded-lg border bg-card/90 backdrop-blur-md px-3 py-2 text-xs shadow-lg">
                           <p className="font-semibold mb-1">{label}</p>
                           <p className="text-muted-foreground">Income: <span className="text-green-600 font-mono">{format(row.income)}</span></p>
                           <p className="text-muted-foreground">Expenses: <span className="text-red-600 font-mono">{format(row.expenses)}</span></p>
@@ -1185,9 +1238,9 @@ export default function AnalyticsPage() {
                         </div>
                       );
                     }} />
-                    <Bar dataKey="net" radius={[4, 4, 4, 4]} maxBarSize={44}>
+                    <Bar dataKey="net" radius={[4, 4, 4, 4]} maxBarSize={44} filter="url(#netBarShadow)">
                       {monthlyDataWithRollingAvg.map((entry, index) => (
-                        <Cell key={`net-${index}`} fill={entry.net >= 0 ? "#22c55e" : "#ef4444"} />
+                        <Cell key={`net-${index}`} fill={entry.net >= 0 ? "url(#netPosGrad)" : "url(#netNegGrad)"} />
                       ))}
                     </Bar>
                     <Line
@@ -1198,6 +1251,7 @@ export default function AnalyticsPage() {
                       strokeDasharray="4 3"
                       dot={false}
                       name="3-mo avg"
+                      filter="url(#netLineShadow)"
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -1216,8 +1270,8 @@ export default function AnalyticsPage() {
                     { label: "Total Saved", value: format(goalsTabStats.totalCurrent), color: "text-green-600 dark:text-green-400", bg: "bg-green-500/10", sub: `${((goalsTabStats.totalCurrent / Math.max(goalsTabStats.totalTarget, 1)) * 100).toFixed(1)}% of all targets` },
                     { label: "Avg Completion", value: `${goalsTabStats.avgPct.toFixed(1)}%`, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-500/10", sub: "across all goals" },
                     { label: "Pace Status", value: goalsTabStats.behind > 0 ? `${goalsTabStats.behind} behind` : "All on track", color: goalsTabStats.behind > 0 ? "text-orange-600" : "text-green-600 dark:text-green-400", bg: goalsTabStats.behind > 0 ? "bg-orange-500/10" : "bg-green-500/10", sub: goalsTabStats.behind > 0 ? "need to increase savings" : "keep it up" },
-                  ].map((s) => (
-                    <Card key={s.label} className="overflow-hidden">
+                  ].map((s, i) => (
+                    <Card key={s.label} className="glass-card glass-card-hover animate-fade-up overflow-hidden" style={{ animationDelay: `${i * 60}ms` }}>
                       <CardContent className={`p-4 ${s.bg}`}>
                         <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">{s.label}</p>
                         <p className={`font-mono text-base font-bold ${s.color}`}>{s.value}</p>
@@ -1229,7 +1283,7 @@ export default function AnalyticsPage() {
 
                 {/* Portfolio pace */}
                 {goalsPortfolioPace && (
-                  <Card className="overflow-hidden">
+                  <Card className="glass-card glass-card-hover animate-fade-up overflow-hidden">
                     <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-950/40 shrink-0">
@@ -1272,7 +1326,7 @@ export default function AnalyticsPage() {
                   <span className="text-[10px] uppercase tracking-widest text-muted-foreground mr-1">
                     Sort
                   </span>
-                  <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                  <div className="flex items-center gap-1 bg-muted rounded-full p-1">
                     {(
                       [
                         { key: "deadline", label: "Deadline" },
@@ -1283,7 +1337,7 @@ export default function AnalyticsPage() {
                       <button
                         key={opt.key}
                         onClick={() => setGoalSortBy(opt.key)}
-                        className={`text-[11px] px-2.5 py-1 rounded-md font-medium transition-colors ${goalSortBy === opt.key ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-all duration-200 ${goalSortBy === opt.key ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                       >
                         {opt.label}
                       </button>
@@ -1291,7 +1345,7 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {goalsSorted.map((goal) => {
+                  {goalsSorted.map((goal, gi) => {
                     const projectedMonths = goal.monthlyContribution && goal.monthlyContribution > 0 && goal.remaining > 0
                       ? Math.ceil(goal.remaining / goal.monthlyContribution) : null;
                     const projectedDate = projectedMonths !== null
@@ -1305,7 +1359,7 @@ export default function AnalyticsPage() {
                     }[goal.paceStatus];
                     const pct = Math.min(goal.percentage, 100);
                     return (
-                      <Card key={goal.id} className="overflow-hidden">
+                      <Card key={goal.id} className="glass-card glass-card-hover animate-fade-up overflow-hidden" style={{ animationDelay: `${Math.min(gi, 6) * 50}ms` }}>
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between gap-2 mb-3">
                             <div className="min-w-0">
@@ -1364,7 +1418,7 @@ export default function AnalyticsPage() {
                 </div>
 
                 {/* Portfolio summary table */}
-                <Card>
+                <Card className="glass-card glass-card-hover animate-fade-up">
                   <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Goals Portfolio Summary</p>
                     <p className="text-xs text-muted-foreground mt-0.5">All goals sorted by deadline with funding status</p>
@@ -1383,8 +1437,8 @@ export default function AnalyticsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {goalsSorted.map((g) => (
-                            <tr key={g.id} className="border-b border-border hover:bg-muted/20 transition-colors">
+                          {goalsSorted.map((g, i) => (
+                            <tr key={g.id} className={`border-b border-border hover:bg-muted/40 transition-colors ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
                               <td className="py-2.5 px-4 font-medium max-w-32 truncate">{g.title}</td>
                               <td className="py-2.5 px-3 text-right font-mono text-green-600 dark:text-green-400">{format(g.current)}</td>
                               <td className="py-2.5 px-3 text-right font-mono">{format(g.target)}</td>
@@ -1413,9 +1467,11 @@ export default function AnalyticsPage() {
                 </Card>
               </>
             ) : (
-              <Card>
+              <Card className="glass-card animate-fade-up">
                 <CardContent className="py-12 text-center">
-                  <Target className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                  <div className="glow-accent w-16 h-16 rounded-full bg-muted/60 flex items-center justify-center mx-auto mb-3" style={{ "--glow-color": "oklch(0.62 0.19 260 / 0.4)" } as React.CSSProperties}>
+                    <Target className="h-7 w-7 text-muted-foreground" />
+                  </div>
                   <p className="text-base font-semibold text-foreground mb-1">No Active Goals</p>
                   <p className="text-muted-foreground text-sm">Set financial goals to track your progress here</p>
                 </CardContent>
@@ -1426,10 +1482,10 @@ export default function AnalyticsPage() {
           {/* Forecast Tab */}
           <TabsContent value="forecast" className="space-y-2.5">
             {/* Hero */}
-            <div className="rounded-xl bg-slate-900 dark:bg-black text-white overflow-hidden">
-              <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-slate-800">
+            <div className="relative rounded-xl bg-slate-900 dark:bg-black text-white mesh-hero overflow-hidden">
+              <div className="relative flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-white/10">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="h-7 w-7 rounded-full bg-indigo-500/20 flex items-center justify-center shrink-0">
+                  <div className="h-7 w-7 rounded-full bg-indigo-500/20 flex items-center justify-center shrink-0 ring-1 ring-indigo-400/30">
                     <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
                   </div>
                   <div className="min-w-0">
@@ -1442,12 +1498,12 @@ export default function AnalyticsPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 bg-slate-800/80 rounded-lg p-1 shrink-0">
+                <div className="flex items-center gap-1 bg-white/[0.06] backdrop-blur-md rounded-lg p-1 shrink-0">
                   {(["expense", "income"] as const).map((t) => (
                     <button
                       key={t}
                       onClick={() => setForecastType(t)}
-                      className={`text-[11px] px-3 py-1 rounded-md font-medium transition-colors ${forecastType === t ? "bg-white text-slate-900" : "text-slate-400 hover:text-white"}`}
+                      className={`text-[11px] px-3 py-1 rounded-md font-medium transition-all duration-200 ${forecastType === t ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-white"}`}
                     >
                       {t === "expense" ? "Expenses" : "Income"}
                     </button>
@@ -1456,14 +1512,16 @@ export default function AnalyticsPage() {
               </div>
 
               {forecastData ? (
-                <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-800">
+                <div className="relative grid grid-cols-2 sm:grid-cols-4 divide-x divide-white/10">
                   <div className="px-5 py-3.5">
                     <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">
                       Next Month
                     </p>
-                    <p className="font-mono text-lg font-bold">
-                      {format(forecastData.forecasts[0]?.predicted ?? 0)}
-                    </p>
+                    <AnimatedNumber
+                      value={forecastData.forecasts[0]?.predicted ?? 0}
+                      format={(n) => format(n)}
+                      className="font-mono text-lg font-bold"
+                    />
                     <p className="text-[10px] text-slate-500 mt-0.5">
                       {format(forecastData.forecasts[0]?.lower ?? 0)} –{" "}
                       {format(forecastData.forecasts[0]?.upper ?? 0)}
@@ -1533,25 +1591,25 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="px-5 py-6 text-center text-xs text-slate-400">
+                <div className="relative px-5 py-6 text-center text-xs text-slate-400">
                   Need at least 3 months of transaction data to generate forecasts
                 </div>
               )}
             </div>
 
             {/* Controls */}
-            <Card className="overflow-hidden">
+            <Card className="glass-card glass-card-hover animate-fade-up overflow-hidden">
               <CardContent className="p-3 flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex items-center gap-1.5 flex-wrap flex-1">
                   <span className="text-[10px] uppercase tracking-widest text-muted-foreground mr-1 shrink-0">
                     Model
                   </span>
-                  <div className="flex items-center gap-1 bg-muted rounded-lg p-1 flex-wrap">
+                  <div className="flex items-center gap-1 bg-muted rounded-full p-1 flex-wrap">
                     {FORECAST_METHODS.map((m) => (
                       <button
                         key={m.key}
                         onClick={() => setForecastMethod(m.key)}
-                        className={`text-[11px] px-2.5 py-1 rounded-md font-medium transition-colors ${forecastMethod === m.key ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-all duration-200 ${forecastMethod === m.key ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                       >
                         {m.label}
                       </button>
@@ -1562,12 +1620,12 @@ export default function AnalyticsPage() {
                   <span className="text-[10px] uppercase tracking-widest text-muted-foreground mr-1">
                     Horizon
                   </span>
-                  <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                  <div className="flex items-center gap-1 bg-muted rounded-full p-1">
                     {[3, 6, 12].map((p) => (
                       <button
                         key={p}
                         onClick={() => setForecastPeriods(p)}
-                        className={`text-[11px] px-2.5 py-1 rounded-md font-medium transition-colors ${forecastPeriods === p ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-all duration-200 ${forecastPeriods === p ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                       >
                         {p}mo
                       </button>
@@ -1581,7 +1639,7 @@ export default function AnalyticsPage() {
               <>
                 {/* Model agreement */}
                 {forecastComparison && (
-                  <Card>
+                  <Card className="glass-card glass-card-hover animate-fade-up">
                     <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                         <Layers className="h-3 w-3" /> Model Agreement — Next Month
@@ -1624,7 +1682,7 @@ export default function AnalyticsPage() {
                 )}
 
                 {/* Forecast Chart */}
-                <Card>
+                <Card className="glass-card glass-card-hover animate-fade-up">
                   <CardHeader className="pb-2 border-b border-border px-4 pt-4 flex flex-row items-start justify-between gap-2">
                     <div>
                       <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -1654,6 +1712,12 @@ export default function AnalyticsPage() {
                             <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.18} />
                             <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
                           </linearGradient>
+                          <filter id="forecastLineShadow" x="-30%" y="-30%" width="160%" height="160%">
+                            <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#3b82f6" floodOpacity="0.35" />
+                          </filter>
+                          <filter id="forecastPredShadow" x="-30%" y="-30%" width="160%" height="160%">
+                            <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#f97316" floodOpacity="0.35" />
+                          </filter>
                         </defs>
                         <CartesianGrid
                           strokeDasharray="3 3"
@@ -1681,10 +1745,12 @@ export default function AnalyticsPage() {
                               : "—"
                           }
                           contentStyle={{
-                            backgroundColor: "var(--card)",
+                            backgroundColor: "color-mix(in oklch, var(--card) 85%, transparent)",
                             border: "1px solid var(--border)",
                             borderRadius: "8px",
                             fontSize: "12px",
+                            backdropFilter: "blur(8px)",
+                            boxShadow: "0 8px 24px -8px rgba(0,0,0,0.25)",
                           }}
                           labelStyle={{ fontWeight: 600 }}
                         />
@@ -1728,6 +1794,7 @@ export default function AnalyticsPage() {
                           activeDot={{ r: 5 }}
                           connectNulls={false}
                           name="Historical"
+                          filter="url(#forecastLineShadow)"
                         />
 
                         {/* Forecast (orange) */}
@@ -1741,6 +1808,7 @@ export default function AnalyticsPage() {
                           activeDot={{ r: 5 }}
                           connectNulls={false}
                           name="Forecast"
+                          filter="url(#forecastPredShadow)"
                         />
 
                         {/* Avg expense reference line */}
@@ -1779,7 +1847,7 @@ export default function AnalyticsPage() {
                 </Card>
 
                 {/* Forecast Table */}
-                <Card>
+                <Card className="glass-card glass-card-hover animate-fade-up">
                   <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                       Detailed Forecast
@@ -1837,7 +1905,7 @@ export default function AnalyticsPage() {
                               return (
                                 <tr
                                   key={idx}
-                                  className="border-b border-border/60 hover:bg-muted/30"
+                                  className={`border-b border-border/60 hover:bg-muted/40 transition-colors ${idx % 2 === 1 ? "bg-muted/10" : ""}`}
                                 >
                                   <td className="py-2 px-4">
                                     {new Date(forecast.date).toLocaleDateString(
@@ -1878,7 +1946,7 @@ export default function AnalyticsPage() {
                 </Card>
 
                 {/* Insights */}
-                <Card>
+                <Card className="glass-card glass-card-hover animate-fade-up">
                   <CardHeader className="pb-2 border-b border-border px-4 pt-4">
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                       <Gauge className="h-3 w-3" /> Insights
@@ -1969,9 +2037,11 @@ export default function AnalyticsPage() {
                 </Card>
               </>
             ) : (
-              <Card>
-                <CardContent className="py-6 text-center">
-                  <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+              <Card className="glass-card animate-fade-up">
+                <CardContent className="py-8 text-center">
+                  <div className="glow-accent w-16 h-16 rounded-full bg-muted/60 flex items-center justify-center mx-auto mb-3" style={{ "--glow-color": "oklch(0.65 0.2 25 / 0.4)" } as React.CSSProperties}>
+                    <AlertCircle className="h-7 w-7 text-muted-foreground" />
+                  </div>
                   <p className="text-lg font-semibold text-foreground mb-2">
                     Insufficient Data
                   </p>
@@ -2174,8 +2244,8 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
           { label: "Invested", value: currentInvested > 0 ? format(currentInvested) : "—", sub: currentInvested === 0 ? 'Use "Investment" category' : currentMonthLabel, color: "text-blue-600 dark:text-blue-400", delta: null, deltaGood: true },
           { label: "Surplus", value: `${surplus < 0 ? "-" : ""}${format(Math.abs(surplus))}`, sub: surplusRate ? `${surplusRate}% saved` : "No income logged", color: surplus >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400", delta: null, deltaGood: true },
           { label: "No-Spend Days", value: String(noSpendDays), sub: `of ${now.getDate()} days so far`, color: noSpendDays > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground", delta: null, deltaGood: true },
-        ].map(({ label, value, sub, color, delta, deltaGood }) => (
-          <Card key={label}>
+        ].map(({ label, value, sub, color, delta, deltaGood }, i) => (
+          <Card key={label} className="glass-card glass-card-hover animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
             <CardContent className="p-3">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">{label}</p>
               <p className={`font-mono font-semibold text-sm ${color}`}>{value}</p>
@@ -2193,7 +2263,7 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
       </div>
 
       {/* 6-month averages */}
-      <Card className="overflow-hidden p-0">
+      <Card className="glass-card glass-card-hover animate-fade-up overflow-hidden p-0">
         <div className="grid grid-cols-2 divide-x divide-border">
           <div className="flex items-center gap-3 px-4 py-3">
             <div className="p-1.5 rounded-full bg-green-100 dark:bg-green-950/40 shrink-0">
@@ -2219,7 +2289,7 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
       </Card>
 
       {/* Cashflow chart */}
-      <Card>
+      <Card className="glass-card glass-card-hover animate-fade-up">
         <CardHeader className="pb-2 border-b border-border px-4 pt-4">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
             {cashflowData.length}-Month Cashflow · Income vs Expenses
@@ -2227,20 +2297,37 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
         </CardHeader>
         <CardContent>
           {cashflowData.length === 0 ? (
-            <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">No transaction data yet</div>
+            <div className="h-48 flex flex-col items-center justify-center text-center">
+              <div className="glow-accent w-12 h-12 rounded-full bg-muted/60 flex items-center justify-center mb-3" style={{ "--glow-color": "oklch(0.62 0.19 260 / 0.4)" } as React.CSSProperties}>
+                <Layers className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium text-foreground">No transaction data yet</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Your cashflow trend will show up here</p>
+            </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={cashflowData} barCategoryGap="30%" barGap={4}>
+                <defs>
+                  <linearGradient id="insCashIncomeGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#4ade80" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0.55} />
+                  </linearGradient>
+                  <linearGradient id="insCashExpenseGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f87171" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#ef4444" stopOpacity={0.55} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128,128,128,0.15)" />
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatShortInsights(v)} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }}
+                  cursor={{ fill: "var(--muted)", opacity: 0.3 }}
+                  contentStyle={{ backgroundColor: "color-mix(in oklch, var(--card) 85%, transparent)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: 12, backdropFilter: "blur(8px)" }}
                   formatter={(value: number | undefined) => [value !== undefined ? format(value) : "₹0"]}
                 />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="income" name="Income" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="income" name="Income" fill="url(#insCashIncomeGrad)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expenses" name="Expenses" fill="url(#insCashExpenseGrad)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -2248,7 +2335,7 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
       </Card>
 
       {/* Day-of-week pattern */}
-      <Card>
+      <Card className="glass-card glass-card-hover animate-fade-up">
         <CardHeader className="pb-2 border-b border-border px-4 pt-4">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Spending by Day of Week</p>
           <p className="text-xs text-muted-foreground mt-0.5">Average spend per day — last 3 months</p>
@@ -2259,7 +2346,7 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128,128,128,0.15)" />
               <XAxis dataKey="day" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatShortInsights(v)} />
-              <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }} formatter={(v: number | undefined) => [v !== undefined ? format(v) : "₹0", "Avg spend"]} />
+              <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.3 }} contentStyle={{ backgroundColor: "color-mix(in oklch, var(--card) 85%, transparent)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: 12, backdropFilter: "blur(8px)" }} formatter={(v: number | undefined) => [v !== undefined ? format(v) : "₹0", "Avg spend"]} />
               <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
                 {dowPattern.map((entry, i) => (
                   <Cell key={i} fill={entry.amount === Math.max(...dowPattern.map((d) => d.amount)) ? "#ef4444" : "#6366f1"} />
@@ -2272,7 +2359,7 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
 
       {/* Spending anomalies */}
       {anomalies.length > 0 && (
-        <Card className="border-orange-400/40">
+        <Card className="glass-card glass-card-hover animate-fade-up border-orange-400/40">
           <CardHeader className="pb-2 border-b border-border px-4 pt-4">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-orange-500" />
@@ -2282,7 +2369,7 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
           </CardHeader>
           <CardContent className="pt-3 space-y-2">
             {anomalies.map((t) => (
-              <div key={t.id} className="flex items-center gap-3 rounded-lg border border-orange-200 dark:border-orange-900/40 bg-orange-50 dark:bg-orange-950/20 px-3 py-2">
+              <div key={t.id} className="flex items-center gap-3 rounded-lg border border-orange-200 dark:border-orange-900/40 bg-orange-50 dark:bg-orange-950/20 px-3 py-2 transition-all duration-200 hover:bg-orange-100/70 dark:hover:bg-orange-950/35 hover:-translate-y-px">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: INSIGHTS_CATEGORY_COLORS[t.category] ?? "#6366f1" }} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{t.description || t.category}</p>
@@ -2299,18 +2386,23 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
       )}
 
       {/* Category breakdown */}
-      <Card>
+      <Card className="glass-card glass-card-hover animate-fade-up">
         <button className="w-full flex items-center justify-between p-4 text-left" onClick={() => setCategoryOpen((v) => !v)}>
           <div className="flex items-center gap-2">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Category Breakdown</p>
             <span className="text-[10px] text-muted-foreground">· {currentMonthLabel}</span>
           </div>
-          <Info className="h-4 w-4 text-muted-foreground" />
+          <Info className={`h-4 w-4 text-muted-foreground transition-transform duration-300 ${categoryOpen ? "rotate-180" : ""}`} />
         </button>
         {categoryOpen && (
-          <CardContent className="pt-0 pb-4 px-4">
+          <CardContent className="pt-0 pb-4 px-4 animate-fade-up">
             {categoryBreakdown.length === 0 ? (
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center py-6">No expenses this month</p>
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <div className="glow-accent w-10 h-10 rounded-full bg-muted/60 flex items-center justify-center mb-2" style={{ "--glow-color": "oklch(0.62 0.19 260 / 0.4)" } as React.CSSProperties}>
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">No expenses this month</p>
+              </div>
             ) : (
               <div className="space-y-3">
                 {categoryBreakdown.map(({ name, amount }) => {
@@ -2342,7 +2434,7 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
 
       {/* Savings rate trend */}
       {savingsRateTrend.length > 1 && (
-        <Card>
+        <Card className="glass-card glass-card-hover animate-fade-up">
           <CardHeader className="pb-2 border-b border-border px-4 pt-4">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Savings Rate Trend</p>
             <p className="text-xs text-muted-foreground mt-0.5">% of income saved each month · last 6 months</p>
@@ -2354,7 +2446,7 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
                 <ReferenceLine y={15} stroke="#22c55e" strokeDasharray="4 2" label={{ value: "15% target", fontSize: 10, fill: "#22c55e", position: "right" }} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }} formatter={(v: number | undefined) => [`${v ?? 0}%`, "Savings rate"]} />
+                <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.3 }} contentStyle={{ backgroundColor: "color-mix(in oklch, var(--card) 85%, transparent)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: 12, backdropFilter: "blur(8px)" }} formatter={(v: number | undefined) => [`${v ?? 0}%`, "Savings rate"]} />
                 <Bar dataKey="rate" radius={[4, 4, 0, 0]}>
                   {savingsRateTrend.map((entry, i) => (
                     <Cell key={i} fill={entry.rate >= 15 ? "#22c55e" : entry.rate >= 0 ? "#f59e0b" : "#ef4444"} />
@@ -2368,7 +2460,7 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
 
       {/* Top merchants */}
       {topMerchants.length > 0 && (
-        <Card>
+        <Card className="glass-card glass-card-hover animate-fade-up">
           <CardHeader className="pb-2 border-b border-border px-4 pt-4">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Top Merchants</p>
             <p className="text-xs text-muted-foreground mt-0.5">Where your money goes · last 3 months</p>
@@ -2379,7 +2471,7 @@ function InsightsTabContent({ transactions }: { transactions: Transaction[] }) {
               const pct = max > 0 ? (amount / max) * 100 : 0;
               const color = INSIGHTS_CATEGORY_COLORS[category] ?? "#6366f1";
               return (
-                <div key={i} className="flex items-center gap-3">
+                <div key={i} className="flex items-center gap-3 rounded-md transition-colors duration-150 hover:bg-muted/40 -mx-1.5 px-1.5 py-0.5">
                   <span className="text-[10px] font-mono text-muted-foreground w-4 shrink-0">{i + 1}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
